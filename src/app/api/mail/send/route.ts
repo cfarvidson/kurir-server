@@ -1,0 +1,72 @@
+import { NextResponse } from "next/server";
+import { auth, getUserCredentials } from "@/lib/auth";
+import nodemailer from "nodemailer";
+import { z } from "zod";
+
+const sendSchema = z.object({
+  to: z.string().email(),
+  subject: z.string().optional().default(""),
+  text: z.string().optional().default(""),
+  html: z.string().optional(),
+});
+
+export async function POST(request: Request) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const credentials = await getUserCredentials(session.user.id);
+
+  if (!credentials) {
+    return NextResponse.json(
+      { error: "Email credentials not found" },
+      { status: 400 }
+    );
+  }
+
+  const body = await request.json();
+  const parsed = sendSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const { to, subject, text, html } = parsed.data;
+
+  // Create transporter
+  const transporter = nodemailer.createTransport({
+    host: credentials.smtp.host,
+    port: credentials.smtp.port,
+    secure: credentials.smtp.port === 465,
+    auth: {
+      user: credentials.email,
+      pass: credentials.password,
+    },
+  });
+
+  try {
+    const result = await transporter.sendMail({
+      from: credentials.email,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    return NextResponse.json({
+      success: true,
+      messageId: result.messageId,
+    });
+  } catch (error) {
+    console.error("Failed to send email:", error);
+    return NextResponse.json(
+      { error: "Failed to send email" },
+      { status: 500 }
+    );
+  }
+}

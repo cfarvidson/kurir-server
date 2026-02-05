@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Email account credentials
+  email       String @unique
+  displayName String?
+
+  // IMAP configuration
+  imapHost String
+  imapPort Int    @default(993)
+
+  // SMTP configuration
+  smtpHost String
+  smtpPort Int    @default(587)
+
+  // Password stored encrypted with AES-256-GCM
+  encryptedPassword String
+
+  // App preferences
+  timezone String @default("UTC")
+
+  // Relations
+  messages Message[]
+  senders  Sender[]
+  folders  Folder[]
+  sessions Session[]
+
+  @@index([email])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================
+// SENDER MANAGEMENT (Core Hey.com Feature)
+// ============================================
+
+enum SenderStatus {
+  PENDING  // In screener, awaiting decision
+  APPROVED // Approved - emails go to Imbox
+  REJECTED // Rejected - emails silently ignored
+}
+
+enum SenderCategory {
+  IMBOX       // Normal approved sender
+  FEED        // Newsletter/subscription
+  PAPER_TRAIL // Transactional (receipts, shipping)
+}
+
+model Sender {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Sender identification
+  email       String  // Normalized email address
+  displayName String? // Display name from email headers
+  domain      String  // Extracted domain for domain-level rules
+
+  // Status and categorization
+  status   SenderStatus   @default(PENDING)
+  category SenderCategory @default(IMBOX)
+
+  // Decision metadata
+  decidedAt DateTime? // When approved/rejected
+
+  // Message count for stats
+  messageCount Int @default(0)
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Messages from this sender
+  messages Message[]
+
+  @@unique([userId, email])
+  @@index([userId, status])
+  @@index([userId, category])
+  @@index([domain])
+}
+
+// ============================================
+// FOLDER/MAILBOX
+// ============================================
+
+model Folder {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // IMAP folder info
+  name      String // e.g., "INBOX", "Sent"
+  path      String // Full IMAP path
+  delimiter String @default("/")
+
+  // Sync state
+  uidValidity   Int?
+  highestModSeq BigInt?
+  lastSyncedAt  DateTime?
+
+  // Flags
+  isSelectable Boolean @default(true)
+  hasChildren  Boolean @default(false)
+
+  // Special folder type (RFC 6154)
+  specialUse String? // "inbox", "sent", "drafts", "trash", "junk", "archive"
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Messages in this folder
+  messages Message[]
+
+  @@unique([userId, path])
+  @@index([userId, specialUse])
+}
+
+// ============================================
+// MESSAGE CACHE
+// ============================================
+
+model Message {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // IMAP identifiers
+  uid       Int     // Message UID within folder
+  messageId String? // RFC 2822 Message-ID header
+
+  // Thread grouping
+  threadId   String?  // Computed thread ID
+  inReplyTo  String?  // In-Reply-To header
+  references String[] // References header
+
+  // Headers
+  subject      String?
+  fromAddress  String   // Raw From address
+  fromName     String?  // Parsed display name
+  toAddresses  String[] // To recipients
+  ccAddresses  String[] // CC recipients
+  bccAddresses String[] // BCC recipients
+  replyTo      String?  // Reply-To header
+
+  // Dates
+  sentAt     DateTime? // Date header
+  receivedAt DateTime  // IMAP INTERNALDATE
+
+  // Content (cached)
+  textBody String? // Plain text body
+  htmlBody String? // HTML body
+  snippet  String? // Preview snippet (first ~150 chars)
+
+  // Flags
+  isRead     Boolean @default(false)
+  isFlagged  Boolean @default(false)
+  isDraft    Boolean @default(false)
+  isDeleted  Boolean @default(false)
+  isAnswered Boolean @default(false)
+
+  // Size and structure
+  size           Int?
+  hasAttachments Boolean @default(false)
+
+  // Hey.com categorization
+  isInImbox      Boolean @default(false) // Visible in Imbox
+  isInScreener   Boolean @default(true)  // Awaiting screening
+  isInFeed       Boolean @default(false) // Newsletter feed
+  isInPaperTrail Boolean @default(false) // Transactional
+
+  // Relations
+  folderId String
+  folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderId String? // Linked after sender detection
+  sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  attachments Attachment[]
+
+  @@unique([folderId, uid])
+  @@index([userId, isInScreener])
+  @@index([userId, isInImbox, isRead])
+  @@index([userId, isInFeed])
+  @@index([userId, isInPaperTrail])
+  @@index([userId, receivedAt(sort: Desc)])
+  @@index([threadId])
+  @@index([messageId])
+  @@index([senderId])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Attachment metadata
+  filename    String
+  contentType String // MIME type
+  size        Int    // Size in bytes
+  contentId   String? // For inline attachments (CID)
+
+  // IMAP part reference (for lazy loading)
+  partId   String  // e.g., "1.2", "2"
+  encoding String? // e.g., "base64", "quoted-printable"
+
+  // Message relation
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([contentId])
+}
+
+// ============================================
+// SYNC STATE
+// ============================================
+
+model SyncState {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Last successful full sync
+  lastFullSync DateTime?
+
+  // Sync status
+  isSyncing Boolean @default(false)
+  syncError String?
+
+  @@index([userId])
+}
