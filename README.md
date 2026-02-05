@@ -146,6 +146,43 @@ pnpm db:generate  # Generate Prisma client
 pnpm db:migrate   # Run database migrations
 pnpm db:push      # Push schema changes (dev only)
 pnpm db:studio    # Open Prisma Studio
+pnpm add-user     # Add a user via CLI
+pnpm list-users   # List all users
+pnpm sync-user    # Sync emails for a user
+```
+
+## User Management
+
+Kurir supports multiple users, each with their own email account and screened senders.
+
+### Adding Users via CLI
+
+```bash
+# Interactive mode
+pnpm add-user
+
+# With arguments (for scripting)
+pnpm add-user --email user@gmail.com --password "app-password" --provider gmail
+
+# Custom IMAP/SMTP servers
+pnpm add-user --email user@example.com --password "pass" \
+  --imap-host imap.example.com --smtp-host smtp.example.com
+```
+
+### Listing Users
+
+```bash
+pnpm list-users
+```
+
+### Syncing Emails
+
+```bash
+# Sync a specific user
+pnpm sync-user user@gmail.com
+
+# Sync all users
+pnpm sync-user --all
 ```
 
 ## How It Works
