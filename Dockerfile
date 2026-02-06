@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-RUN corepack enable pnpm
+RUN corepack enable pnpm && corepack prepare pnpm@9.15.0 --activate
 
 # Install dependencies
 FROM base AS deps
