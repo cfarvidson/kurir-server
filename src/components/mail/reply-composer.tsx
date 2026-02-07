@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
@@ -12,26 +11,22 @@ interface ReplyComposerProps {
   messageId: string;
   replyToAddress: string;
   replyToName: string;
+  onSent?: (body: string) => void;
 }
 
 export function ReplyComposer({
   messageId,
   replyToAddress,
   replyToName,
+  onSent,
 }: ReplyComposerProps) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [sent, setSent] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (isOpen && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isOpen]);
+  const sendingRef = useRef(false);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -42,20 +37,24 @@ export function ReplyComposer({
   };
 
   const handleSend = () => {
-    if (!body.trim() || isPending) return;
+    if (!body.trim() || isPending || sendingRef.current) return;
+    sendingRef.current = true;
 
+    const sentBody = body.trim();
     setError(null);
     startTransition(async () => {
       try {
-        await replyToMessage(messageId, body);
+        await replyToMessage(messageId, sentBody);
+        onSent?.(sentBody);
         setSent(true);
         setBody("");
         setTimeout(() => {
           setSent(false);
           setIsOpen(false);
-          router.refresh();
-        }, 1800);
+          sendingRef.current = false;
+        }, 1500);
       } catch (err) {
+        sendingRef.current = false;
         setError(
           err instanceof Error ? err.message : "Failed to send reply"
         );
@@ -177,6 +176,7 @@ export function ReplyComposer({
             <div className="relative">
               <textarea
                 ref={textareaRef}
+                autoFocus
                 value={body}
                 onChange={(e) => {
                   setBody(e.target.value);
@@ -199,8 +199,11 @@ export function ReplyComposer({
             {/* Footer */}
             <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
               <span className="text-[11px] text-muted-foreground/50">
-                {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to
-                send
+                {typeof navigator !== "undefined" &&
+                navigator.platform.includes("Mac")
+                  ? "Cmd"
+                  : "Ctrl"}
+                +Enter to send
               </span>
               <Button
                 size="sm"

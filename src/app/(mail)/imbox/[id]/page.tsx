@@ -3,8 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { ThreadView } from "@/components/mail/thread-view";
-import { ReplyComposer } from "@/components/mail/reply-composer";
+import { ThreadPageContent } from "@/components/mail/thread-page-content";
 
 async function getThreadMessages(userId: string, messageId: string) {
   // First get the target message
@@ -134,18 +133,12 @@ export default async function MessagePage({
           {/* Subject */}
           <h1 className="text-2xl font-semibold tracking-tight">{subject}</h1>
 
-          {/* Messages */}
+          {/* Messages + Reply */}
           <div className="mt-8">
-            <ThreadView
-              messages={messages}
+            <ThreadPageContent
+              initialMessages={messages}
               currentUserEmail={currentUserEmail}
-            />
-          </div>
-
-          {/* Reply */}
-          <div className="mt-6 pb-8">
-            <ReplyComposer
-              messageId={lastMessage.id}
+              replyToMessageId={lastMessage.id}
               replyToAddress={replyToAddress}
               replyToName={replyToName}
             />

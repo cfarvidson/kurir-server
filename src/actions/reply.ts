@@ -2,7 +2,6 @@
 
 import { auth, getUserCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import nodemailer from "nodemailer";
 
 export async function replyToMessage(messageId: string, body: string) {
@@ -68,8 +67,4 @@ export async function replyToMessage(messageId: string, body: string) {
     where: { id: messageId },
     data: { isAnswered: true },
   });
-
-  revalidatePath(`/imbox/${messageId}`);
-  revalidatePath("/imbox");
-  revalidatePath("/sent");
 }
