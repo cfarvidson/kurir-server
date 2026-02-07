@@ -2,9 +2,10 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { MessageList } from "@/components/mail/message-list";
+import { getThreadCounts } from "@/lib/mail/threads";
 
 async function getImboxMessages(userId: string) {
-  return db.message.findMany({
+  const messages = await db.message.findMany({
     where: {
       userId,
       isInImbox: true,
@@ -20,6 +21,13 @@ async function getImboxMessages(userId: string) {
       },
     },
   });
+
+  const threadCounts = await getThreadCounts(userId, messages);
+
+  return messages.map((m) => ({
+    ...m,
+    threadCount: threadCounts.get(m.id) ?? 1,
+  }));
 }
 
 export default async function ImboxPage() {
