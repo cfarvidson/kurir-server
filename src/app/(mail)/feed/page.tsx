@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { MessageList } from "@/components/mail/message-list";
-import { getThreadCounts } from "@/lib/mail/threads";
+import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
 
 async function getFeedMessages(userId: string) {
   const messages = await db.message.findMany({
@@ -24,10 +24,12 @@ async function getFeedMessages(userId: string) {
 
   const threadCounts = await getThreadCounts(userId, messages);
 
-  return messages.map((m) => ({
+  const withCounts = messages.map((m) => ({
     ...m,
     threadCount: threadCounts.get(m.id) ?? 1,
   }));
+
+  return collapseToThreads(withCounts);
 }
 
 export default async function FeedPage() {

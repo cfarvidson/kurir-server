@@ -45,3 +45,37 @@ export async function getThreadCounts(
 
   return result;
 }
+
+/**
+ * Collapse a list of messages into one row per thread.
+ * Keeps the latest message (assumes input is sorted by receivedAt desc).
+ * Marks the thread row as unread if ANY message in the thread is unread.
+ */
+export function collapseToThreads<
+  T extends { id: string; threadId: string | null; isRead: boolean },
+>(messages: T[]): T[] {
+  const threadMap = new Map<string, T>();
+  const hasUnread = new Set<string>();
+
+  for (const msg of messages) {
+    const key = msg.threadId || msg.id;
+
+    if (!msg.isRead) {
+      hasUnread.add(key);
+    }
+
+    // First occurrence = latest (input is sorted desc)
+    if (!threadMap.has(key)) {
+      threadMap.set(key, msg);
+    }
+  }
+
+  // Propagate unread status to the representative message
+  return Array.from(threadMap.values()).map((msg) => {
+    const key = msg.threadId || msg.id;
+    if (hasUnread.has(key) && msg.isRead) {
+      return { ...msg, isRead: false };
+    }
+    return msg;
+  });
+}
