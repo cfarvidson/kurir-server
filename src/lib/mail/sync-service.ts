@@ -252,13 +252,69 @@ async function processMessage(
   const hasAttachments =
     parsed.attachments && parsed.attachments.length > 0;
 
+  // Compute threadId by looking up existing messages in the same conversation
+  const references = parsed.references
+    ? (Array.isArray(parsed.references) ? parsed.references : [parsed.references])
+    : [];
+  const inReplyTo = envelope.inReplyTo || null;
+
+  let threadId: string | null = null;
+
+  // Look up existing messages by inReplyTo or references to find an existing threadId
+  const relatedIds = [...references];
+  if (inReplyTo && !relatedIds.includes(inReplyTo)) {
+    relatedIds.push(inReplyTo);
+  }
+
+  if (relatedIds.length > 0) {
+    const existingThreadMsg = await db.message.findFirst({
+      where: {
+        userId,
+        OR: [
+          { messageId: { in: relatedIds } },
+          { threadId: { in: relatedIds } },
+        ],
+        threadId: { not: null },
+      },
+      select: { threadId: true },
+    });
+
+    if (existingThreadMsg?.threadId) {
+      threadId = existingThreadMsg.threadId;
+    } else {
+      // Use the first reference (thread root) as the threadId
+      threadId = references[0] || inReplyTo;
+    }
+  }
+
+  // Fall back to own messageId if not part of any thread
+  if (!threadId) {
+    threadId = envelope.messageId || null;
+  }
+
+  // Unify threadId across all related messages in the conversation
+  if (threadId && relatedIds.length > 0) {
+    await db.message.updateMany({
+      where: {
+        userId,
+        OR: [
+          { messageId: { in: relatedIds } },
+          { inReplyTo: { in: relatedIds } },
+        ],
+        NOT: { threadId },
+      },
+      data: { threadId },
+    });
+  }
+
   // Create message record
   const message = await db.message.create({
     data: {
       uid: msg.uid,
       messageId: envelope.messageId || null,
-      threadId: envelope.messageId || null, // Simplified thread ID
-      inReplyTo: envelope.inReplyTo || null,
+      threadId,
+      inReplyTo,
+      references,
       subject: envelope.subject || null,
       fromAddress,
       fromName,
@@ -306,6 +362,61 @@ async function processMessage(
   }
 
   return message;
+}
+
+/**
+ * Walk inReplyTo chains to unify threadIds across entire conversations.
+ * Messages synced before threading was fixed may each have their own
+ * messageId as threadId — this repairs them.
+ */
+async function repairThreadIds(userId: string) {
+  const messages = await db.message.findMany({
+    where: { userId },
+    select: { id: true, messageId: true, threadId: true, inReplyTo: true },
+  });
+
+  // Index by messageId for chain walking
+  const byMessageId = new Map<string, (typeof messages)[number]>();
+  for (const m of messages) {
+    if (m.messageId) byMessageId.set(m.messageId, m);
+  }
+
+  // Walk up the inReplyTo chain to find the conversation root
+  function findRootMessageId(msg: (typeof messages)[number]): string | null {
+    const visited = new Set<string>();
+    let current = msg;
+    while (current.inReplyTo && byMessageId.has(current.inReplyTo)) {
+      if (visited.has(current.inReplyTo)) break;
+      visited.add(current.inReplyTo);
+      current = byMessageId.get(current.inReplyTo)!;
+    }
+    return current.messageId;
+  }
+
+  // Group messages by their root's messageId (the canonical threadId)
+  const fixes: { id: string; threadId: string }[] = [];
+  for (const msg of messages) {
+    const rootMessageId = findRootMessageId(msg);
+    if (rootMessageId && msg.threadId !== rootMessageId) {
+      fixes.push({ id: msg.id, threadId: rootMessageId });
+    }
+  }
+
+  if (fixes.length > 0) {
+    // Batch by threadId to minimize queries
+    const byThreadId = new Map<string, string[]>();
+    for (const { id, threadId } of fixes) {
+      if (!byThreadId.has(threadId)) byThreadId.set(threadId, []);
+      byThreadId.get(threadId)!.push(id);
+    }
+    for (const [threadId, ids] of byThreadId) {
+      await db.message.updateMany({
+        where: { id: { in: ids } },
+        data: { threadId },
+      });
+    }
+    console.log(`[sync] Repaired threadIds for ${fixes.length} messages`);
+  }
 }
 
 /**
@@ -372,6 +483,9 @@ export async function syncUserEmail(userId: string): Promise<{
         });
       }
     }
+
+    // Repair threadIds for messages synced before threading fix
+    await repairThreadIds(userId);
 
     return { success: true, results };
   } catch (err) {
