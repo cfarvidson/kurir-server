@@ -16,8 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-type SenderStatus = "APPROVED" | "REJECTED";
-type SenderCategory = "IMBOX" | "FEED" | "PAPER_TRAIL";
+import type { SenderStatus, SenderCategory } from "@prisma/client";
 
 interface ScreenedSender {
   id: string;

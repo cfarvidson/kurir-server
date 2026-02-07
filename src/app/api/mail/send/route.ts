@@ -8,6 +8,8 @@ const sendSchema = z.object({
   subject: z.string().optional().default(""),
   text: z.string().optional().default(""),
   html: z.string().optional(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -36,9 +38,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { to, subject, text, html } = parsed.data;
+  const { to, subject, text, html, inReplyTo, references } = parsed.data;
 
-  // Create transporter
   const transporter = nodemailer.createTransport({
     host: credentials.smtp.host,
     port: credentials.smtp.port,
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
       subject,
       text,
       html,
+      ...(inReplyTo && { inReplyTo }),
+      ...(references && references.length > 0 && {
+        references: references.join(" "),
+      }),
     });
 
     return NextResponse.json({

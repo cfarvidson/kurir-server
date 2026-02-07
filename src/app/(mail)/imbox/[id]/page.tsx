@@ -1,27 +1,80 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
-import { formatDate } from "@/lib/date";
 import Link from "next/link";
-import { ArrowLeft, Paperclip } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { ThreadView } from "@/components/mail/thread-view";
+import { ReplyComposer } from "@/components/mail/reply-composer";
 
-async function getMessage(userId: string, messageId: string) {
+async function getThreadMessages(userId: string, messageId: string) {
+  // First get the target message
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    include: {
-      sender: { select: { displayName: true, email: true } },
-      attachments: true,
+    select: {
+      id: true,
+      threadId: true,
+      messageId: true,
+      inReplyTo: true,
+      references: true,
+      subject: true,
     },
   });
 
-  if (message && !message.isRead) {
-    await db.message.update({
-      where: { id: message.id },
+  if (!message) return null;
+
+  // Collect all related message IDs for thread lookup
+  const relatedIds = new Set<string>();
+  if (message.threadId) relatedIds.add(message.threadId);
+  if (message.messageId) relatedIds.add(message.messageId);
+  if (message.inReplyTo) relatedIds.add(message.inReplyTo);
+  for (const ref of message.references) {
+    relatedIds.add(ref);
+  }
+
+  // Find thread messages: same threadId, or linked via references/inReplyTo
+  const threadMessages = await db.message.findMany({
+    where: {
+      userId,
+      OR: [
+        ...(message.threadId ? [{ threadId: message.threadId }] : []),
+        ...(relatedIds.size > 0
+          ? [
+              { messageId: { in: Array.from(relatedIds) } },
+              { inReplyTo: { in: Array.from(relatedIds) } },
+            ]
+          : []),
+        { id: messageId },
+      ],
+    },
+    include: {
+      sender: { select: { displayName: true, email: true } },
+      attachments: {
+        select: { id: true, filename: true, size: true },
+      },
+    },
+    orderBy: { receivedAt: "asc" },
+  });
+
+  // Mark unread messages in thread as read
+  const unreadIds = threadMessages
+    .filter((m) => !m.isRead)
+    .map((m) => m.id);
+  if (unreadIds.length > 0) {
+    await db.message.updateMany({
+      where: { id: { in: unreadIds } },
       data: { isRead: true },
     });
   }
 
-  return message;
+  return threadMessages;
+}
+
+async function getUserEmail(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  return user?.email || "";
 }
 
 export default async function MessagePage({
@@ -36,14 +89,26 @@ export default async function MessagePage({
   }
 
   const { id } = await params;
-  const message = await getMessage(session.user.id, id);
+  const [messages, currentUserEmail] = await Promise.all([
+    getThreadMessages(session.user.id, id),
+    getUserEmail(session.user.id),
+  ]);
 
-  if (!message) {
+  if (!messages || messages.length === 0) {
     notFound();
   }
 
-  const senderName =
-    message.sender?.displayName || message.fromName || message.fromAddress;
+  // The message that was clicked
+  const targetMessage = messages.find((m) => m.id === id) || messages[0];
+  const subject = targetMessage.subject || "(no subject)";
+
+  // For reply: use the last message in the thread
+  const lastMessage = messages[messages.length - 1];
+  const replyToAddress = lastMessage.replyTo || lastMessage.fromAddress;
+  const replyToName =
+    lastMessage.sender?.displayName ||
+    lastMessage.fromName ||
+    lastMessage.fromAddress;
 
   return (
     <div className="flex h-full flex-col">
@@ -51,79 +116,39 @@ export default async function MessagePage({
       <div className="flex h-16 items-center gap-4 border-b px-6">
         <Link
           href="/imbox"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
         </Link>
+        {messages.length > 1 && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {messages.length} messages
+          </span>
+        )}
       </div>
 
-      {/* Message */}
+      {/* Thread */}
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-6 py-8">
           {/* Subject */}
-          <h1 className="text-2xl font-semibold">
-            {message.subject || "(no subject)"}
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{subject}</h1>
 
-          {/* Metadata */}
-          <div className="mt-4 flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                {senderName.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="font-medium">{senderName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {message.fromAddress}
-                </div>
-                {message.toAddresses.length > 0 && (
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    To: {message.toAddresses.join(", ")}
-                  </div>
-                )}
-                {message.ccAddresses.length > 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    Cc: {message.ccAddresses.join(", ")}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="shrink-0 text-sm text-muted-foreground">
-              {formatDate(new Date(message.receivedAt))}
-            </div>
+          {/* Messages */}
+          <div className="mt-8">
+            <ThreadView
+              messages={messages}
+              currentUserEmail={currentUserEmail}
+            />
           </div>
 
-          {/* Attachments */}
-          {message.attachments.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {message.attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="flex items-center gap-1.5 rounded-md border bg-muted/50 px-3 py-1.5 text-sm"
-                >
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  {att.filename}
-                  <span className="text-muted-foreground">
-                    ({Math.round(att.size / 1024)}KB)
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Body */}
-          <div className="mt-6 border-t pt-6">
-            {message.htmlBody ? (
-              <div
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: message.htmlBody }}
-              />
-            ) : (
-              <pre className="whitespace-pre-wrap font-sans text-sm">
-                {message.textBody || "No content"}
-              </pre>
-            )}
+          {/* Reply */}
+          <div className="mt-6 pb-8">
+            <ReplyComposer
+              messageId={lastMessage.id}
+              replyToAddress={replyToAddress}
+              replyToName={replyToName}
+            />
           </div>
         </div>
       </div>

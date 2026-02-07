@@ -57,7 +57,7 @@ export function MessageList({ messages }: MessageListProps) {
               {message.hasAttachments && (
                 <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
               )}
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
                 {formatDistanceToNow(new Date(message.receivedAt))}
               </span>
             </div>
