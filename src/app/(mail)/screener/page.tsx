@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerView } from "@/components/screener/screener-view";
+import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
 
 async function getPendingSenders(userId: string) {
   return db.sender.findMany({
@@ -28,6 +29,26 @@ async function getPendingSenders(userId: string) {
   });
 }
 
+async function getScreenedSenders(userId: string) {
+  return db.sender.findMany({
+    where: {
+      userId,
+      status: { in: ["APPROVED", "REJECTED"] },
+    },
+    orderBy: { decidedAt: "desc" },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      domain: true,
+      status: true,
+      category: true,
+      decidedAt: true,
+      _count: { select: { messages: true } },
+    },
+  });
+}
+
 export default async function ScreenerPage() {
   const session = await auth();
 
@@ -35,21 +56,26 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
-  const senders = await getPendingSenders(session.user.id);
+  const [pendingSenders, screenedSenders] = await Promise.all([
+    getPendingSenders(session.user.id),
+    getScreenedSenders(session.user.id),
+  ]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-6">
         <h1 className="text-2xl font-semibold">Screener</h1>
-        <div className="text-sm text-muted-foreground">
-          {senders.length} awaiting
-        </div>
+        {pendingSenders.length > 0 && (
+          <div className="text-sm text-muted-foreground">
+            {pendingSenders.length} awaiting
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {senders.length === 0 ? (
+        {pendingSenders.length === 0 && screenedSenders.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="rounded-full bg-green-100 p-4">
               <svg
@@ -66,13 +92,20 @@ export default async function ScreenerPage() {
                 />
               </svg>
             </div>
-            <h2 className="mt-4 text-lg font-medium">All caught up!</h2>
+            <h2 className="mt-4 text-lg font-medium">No senders yet</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              No new senders are waiting for your decision.
+              Sync your email to start screening senders.
             </p>
           </div>
         ) : (
-          <ScreenerView senders={senders} />
+          <>
+            {pendingSenders.length > 0 && (
+              <ScreenerView senders={pendingSenders} />
+            )}
+            {screenedSenders.length > 0 && (
+              <ScreenedSenderList senders={screenedSenders} />
+            )}
+          </>
         )}
       </div>
     </div>

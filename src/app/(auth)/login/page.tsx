@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,43 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Mail, Lock, Server, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-
-const PROVIDERS = [
-  { id: "gmail", name: "Gmail", domain: "gmail.com" },
-  { id: "outlook", name: "Outlook / Hotmail", domain: "outlook.com" },
-  { id: "icloud", name: "iCloud", domain: "icloud.com" },
-  { id: "yahoo", name: "Yahoo", domain: "yahoo.com" },
-  { id: "custom", name: "Other / Custom", domain: null },
-];
+import { Mail, Lock, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [provider, setProvider] = useState("gmail");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [imapHost, setImapHost] = useState("");
-  const [imapPort, setImapPort] = useState("993");
-  const [smtpHost, setSmtpHost] = useState("");
-  const [smtpPort, setSmtpPort] = useState("587");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Auto-detect provider from email
-  const detectProvider = (email: string) => {
-    const domain = email.split("@")[1]?.toLowerCase();
-    if (!domain) return;
-
-    for (const p of PROVIDERS) {
-      if (p.domain && domain.includes(p.domain.split(".")[0])) {
-        setProvider(p.id);
-        return;
-      }
-    }
-    setProvider("custom");
-    setShowAdvanced(true);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,21 +32,18 @@ export default function LoginPage() {
       const result = await signIn("credentials", {
         email,
         password,
-        provider: provider !== "custom" ? provider : undefined,
-        imapHost: showAdvanced ? imapHost : undefined,
-        imapPort: showAdvanced ? imapPort : undefined,
-        smtpHost: showAdvanced ? smtpHost : undefined,
-        smtpPort: showAdvanced ? smtpPort : undefined,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Invalid credentials. Please check your email and password.");
+        setError(
+          "Invalid credentials or account not found. If this is your first time, connect your account first."
+        );
       } else {
         router.push("/imbox");
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -88,10 +57,8 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Mail className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to Kurir</CardTitle>
-          <CardDescription>
-            Connect your email account to get started
-          </CardDescription>
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardDescription>Sign in to your Kurir account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,10 +77,7 @@ export default function LoginPage() {
                   type="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    detectProvider(e.target.value);
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
                 />
@@ -134,138 +98,26 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                For Gmail/Outlook, you may need to use an{" "}
-                <a
-                  href="https://support.google.com/accounts/answer/185833"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  app password
-                </a>
-              </p>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="provider">Email Provider</Label>
-              <select
-                id="provider"
-                value={provider}
-                onChange={(e) => {
-                  setProvider(e.target.value);
-                  if (e.target.value === "custom") {
-                    setShowAdvanced(true);
-                  }
-                }}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {PROVIDERS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {provider === "custom" || showAdvanced ? (
-              <div className="space-y-4 rounded-md border bg-muted/50 p-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex w-full items-center justify-between text-sm font-medium"
-                >
-                  <span className="flex items-center gap-2">
-                    <Server className="h-4 w-4" />
-                    Server Settings
-                  </span>
-                  {showAdvanced ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </button>
-
-                {showAdvanced && (
-                  <div className="space-y-3 pt-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2">
-                        <Label htmlFor="imapHost" className="text-xs">
-                          IMAP Host
-                        </Label>
-                        <Input
-                          id="imapHost"
-                          placeholder="imap.example.com"
-                          value={imapHost}
-                          onChange={(e) => setImapHost(e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="imapPort" className="text-xs">
-                          Port
-                        </Label>
-                        <Input
-                          id="imapPort"
-                          placeholder="993"
-                          value={imapPort}
-                          onChange={(e) => setImapPort(e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2">
-                        <Label htmlFor="smtpHost" className="text-xs">
-                          SMTP Host
-                        </Label>
-                        <Input
-                          id="smtpHost"
-                          placeholder="smtp.example.com"
-                          value={smtpHost}
-                          onChange={(e) => setSmtpHost(e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="smtpPort" className="text-xs">
-                          Port
-                        </Label>
-                        <Input
-                          id="smtpPort"
-                          placeholder="587"
-                          value={smtpPort}
-                          onChange={(e) => setSmtpPort(e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(true)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Server className="h-3 w-3" />
-                Show advanced settings
-              </button>
-            )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Connecting...
+                  Signing in...
                 </>
               ) : (
-                "Connect Account"
+                "Sign In"
               )}
             </Button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            First time?{" "}
+            <Link href="/setup" className="text-primary hover:underline">
+              Connect your email account
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

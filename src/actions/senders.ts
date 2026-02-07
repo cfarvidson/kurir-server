@@ -87,6 +87,9 @@ export async function rejectSender(senderId: string) {
   ]);
 
   revalidatePath("/screener");
+  revalidatePath("/imbox");
+  revalidatePath("/feed");
+  revalidatePath("/paper-trail");
 }
 
 export async function changeSenderCategory(

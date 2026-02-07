@@ -78,6 +78,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const { email, password, provider } = parsed.data;
+        const isSetupFlow = !!provider || !!parsed.data.imapHost;
 
         // Get server config from preset or custom values
         let imapHost = parsed.data.imapHost;
@@ -91,6 +92,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           imapPort = imapPort || preset.imapPort;
           smtpHost = smtpHost || preset.smtpHost;
           smtpPort = smtpPort || preset.smtpPort;
+        }
+
+        // Login flow: look up existing user's IMAP config
+        if (!isSetupFlow) {
+          const existingUser = await db.user.findUnique({
+            where: { email },
+          });
+          if (!existingUser) {
+            return null;
+          }
+          imapHost = existingUser.imapHost;
+          imapPort = existingUser.imapPort;
+          smtpHost = existingUser.smtpHost;
+          smtpPort = existingUser.smtpPort;
         }
 
         if (!imapHost || !smtpHost) {
@@ -125,10 +140,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
           update: {
             encryptedPassword,
-            imapHost,
-            imapPort,
-            smtpHost,
-            smtpPort,
+            ...(isSetupFlow && {
+              imapHost,
+              imapPort,
+              smtpHost,
+              smtpPort,
+            }),
           },
         });
 

@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
+import { AutoSync } from "@/components/mail/auto-sync";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -29,6 +30,7 @@ export default async function MailLayout({
     <div className="flex h-screen">
       <Sidebar screenerCount={screenerCount} />
       <main className="flex-1 overflow-auto">{children}</main>
+      <AutoSync />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { ImapFlow, FetchMessageObject } from "imapflow";
-import { simpleParser, ParsedMail } from "mailparser";
+import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
 import { getUserCredentials } from "@/lib/auth";
 
@@ -7,21 +7,6 @@ interface SyncResult {
   folderId: string;
   newMessages: number;
   errors: string[];
-}
-
-/**
- * Extract sender email and name from the From header
- */
-function extractSender(from: string): { email: string; name: string | null } {
-  // Handle format: "Name <email@domain.com>" or just "email@domain.com"
-  const match = from.match(/^(?:"?([^"<]*)"?\s*)?<?([^>]+)>?$/);
-  if (match) {
-    return {
-      name: match[1]?.trim() || null,
-      email: match[2]?.toLowerCase().trim() || from.toLowerCase().trim(),
-    };
-  }
-  return { email: from.toLowerCase().trim(), name: null };
 }
 
 /**
@@ -78,12 +63,32 @@ async function getOrCreateSender(
 }
 
 /**
+ * Map IMAP special use flags to DB values
+ */
+function mapSpecialUse(
+  mailboxPath: string,
+  imapSpecialUse?: string
+): string | null {
+  if (mailboxPath.toLowerCase() === "inbox") return "inbox";
+  if (!imapSpecialUse) return null;
+  const mapping: Record<string, string> = {
+    "\\Sent": "sent",
+    "\\Drafts": "drafts",
+    "\\Trash": "trash",
+    "\\Junk": "junk",
+    "\\Archive": "archive",
+  };
+  return mapping[imapSpecialUse] || null;
+}
+
+/**
  * Sync a single mailbox/folder
  */
 async function syncMailbox(
   client: ImapFlow,
   userId: string,
-  mailboxPath: string
+  mailboxPath: string,
+  imapSpecialUse?: string
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -106,6 +111,8 @@ async function syncMailbox(
     // Convert bigint to number for database storage
     const uidValidity = status.uidValidity ? Number(status.uidValidity) : null;
 
+    const specialUse = mapSpecialUse(mailboxPath, imapSpecialUse);
+
     // Create folder if it doesn't exist
     if (!folder) {
       folder = await db.folder.create({
@@ -114,8 +121,14 @@ async function syncMailbox(
           name: mailboxPath.split("/").pop() || mailboxPath,
           path: mailboxPath,
           uidValidity,
-          specialUse: mailboxPath.toLowerCase() === "inbox" ? "inbox" : null,
+          specialUse,
         },
+      });
+    } else if (specialUse && !folder.specialUse) {
+      // Update existing folder if specialUse was missing
+      folder = await db.folder.update({
+        where: { id: folder.id },
+        data: { specialUse },
       });
     }
 
@@ -143,37 +156,44 @@ async function syncMailbox(
     const searchResult = await client.search({ all: true }, { uid: true });
 
     // Handle case where search returns false (no messages)
-    const allUids: number[] = searchResult === false ? [] : searchResult;
+    const allUids: number[] = searchResult === false ? [] : (searchResult as any[]).map(Number);
 
     // Find new UIDs
-    const newUids = allUids.filter((uid: number) => !existingUids.has(uid));
+    const newUids = allUids.filter((uid) => !existingUids.has(uid));
+
+    console.log(`[sync] ${mailboxPath}: ${allUids.length} on server, ${existingUids.size} cached, ${newUids.length} new`);
 
     if (newUids.length === 0) {
       return { folderId: folder.id, newMessages: 0, errors };
     }
 
-    // Fetch new messages (most recent first, in batches)
-    const batchSize = 50;
-    const sortedNewUids = newUids.sort((a: number, b: number) => b - a);
+    // Build a fetch range: use min:max UID range to limit what we download
+    const newUidSet = new Set(newUids);
+    const minUid = Math.min(...newUids);
+    const fetchRange = `${minUid}:*`;
 
-    for (let i = 0; i < sortedNewUids.length; i += batchSize) {
-      const batchUids = sortedNewUids.slice(i, i + batchSize);
-      const uidRange = batchUids.join(",");
-
-      for await (const msg of client.fetch(uidRange, {
+    try {
+      for await (const msg of client.fetch(fetchRange, {
         uid: true,
         envelope: true,
         flags: true,
         bodyStructure: true,
         source: true,
       })) {
+        const msgUid = Number(msg.uid);
+        if (!newUidSet.has(msgUid)) {
+          continue;
+        }
         try {
-          await processMessage(msg, userId, folder.id);
+          await processMessage(msg, userId, folder.id, specialUse === "inbox");
           newMessages++;
         } catch (err) {
-          errors.push(`Failed to process message ${msg.uid}: ${err}`);
+          errors.push(`Failed to process message ${msgUid}: ${err}`);
         }
       }
+    } catch (fetchErr) {
+      console.error(`[sync] ${mailboxPath}: fetch error:`, fetchErr);
+      errors.push(`Fetch error: ${fetchErr}`);
     }
 
     // Update folder sync time
@@ -194,7 +214,8 @@ async function syncMailbox(
 async function processMessage(
   msg: FetchMessageObject,
   userId: string,
-  folderId: string
+  folderId: string,
+  isInbox: boolean
 ) {
   const envelope = msg.envelope;
   const flags = msg.flags;
@@ -220,12 +241,12 @@ async function processMessage(
   // Get or create sender
   const sender = await getOrCreateSender(userId, fromAddress, fromName);
 
-  // Determine message category based on sender status
-  const isInScreener = sender.status === "PENDING";
-  const isInImbox = sender.status === "APPROVED" && sender.category === "IMBOX";
-  const isInFeed = sender.status === "APPROVED" && sender.category === "FEED";
+  // Only categorize inbox messages; sent/other folders skip categorization
+  const isInScreener = isInbox && sender.status === "PENDING";
+  const isInImbox = isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
+  const isInFeed = isInbox && sender.status === "APPROVED" && sender.category === "FEED";
   const isInPaperTrail =
-    sender.status === "APPROVED" && sender.category === "PAPER_TRAIL";
+    isInbox && sender.status === "APPROVED" && sender.category === "PAPER_TRAIL";
 
   // Check for attachments
   const hasAttachments =
@@ -321,7 +342,9 @@ export async function syncUserEmail(userId: string): Promise<{
     const mailboxes = await client.list();
 
     // Find important mailboxes to sync
-    const importantPaths = ["INBOX"];
+    const toSync: { path: string; specialUse?: string }[] = [
+      { path: "INBOX" },
+    ];
 
     // Also sync Sent if found
     for (const mb of mailboxes) {
@@ -329,17 +352,19 @@ export async function syncUserEmail(userId: string): Promise<{
         mb.specialUse === "\\Sent" ||
         mb.path.toLowerCase().includes("sent")
       ) {
-        importantPaths.push(mb.path);
+        toSync.push({ path: mb.path, specialUse: mb.specialUse });
         break;
       }
     }
 
     // Sync each mailbox
-    for (const path of importantPaths) {
+    for (const { path, specialUse } of toSync) {
       try {
-        const result = await syncMailbox(client, userId, path);
+        const result = await syncMailbox(client, userId, path, specialUse);
+        console.log(`[sync] ${path}: ${result.newMessages} new, ${result.errors.length} errors`);
         results.push(result);
       } catch (err) {
+        console.error(`[sync] ${path}: error:`, err);
         results.push({
           folderId: "",
           newMessages: 0,
