@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { db } from "./db";
 import { encrypt, decrypt } from "./crypto";
 import { z } from "zod";
+import { authConfig } from "./auth.config";
 
 // Provider presets for common email services
 const PROVIDER_PRESETS: Record<
@@ -57,6 +58,7 @@ async function verifyImapCredentials(
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       name: "Email Account",
@@ -138,26 +140,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
-  },
 });
 
 // Helper to get current user with DB data
