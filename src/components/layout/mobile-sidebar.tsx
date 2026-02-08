@@ -38,6 +38,11 @@ export function MobileSidebar({ screenerCount = 0 }: MobileSidebarProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  // Hide hamburger on detail/sub-pages that have their own back button
+  // e.g. /imbox/abc123 or /contacts/abc123
+  const segments = pathname.split("/").filter(Boolean);
+  const isSubPage = segments.length > 1;
+
   // Close on route change
   useEffect(() => {
     setOpen(false);
@@ -57,14 +62,16 @@ export function MobileSidebar({ screenerCount = 0 }: MobileSidebarProps) {
 
   return (
     <div className="md:hidden">
-      {/* Hamburger button — sits inside the page header area */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed left-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-muted"
-        aria-label="Open navigation"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Hamburger button — hidden on sub-pages that have their own back button */}
+      {!isSubPage && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed left-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-muted"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
 
       {/* Drawer overlay */}
       <AnimatePresence>
