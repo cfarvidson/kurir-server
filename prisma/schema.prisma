@@ -191,6 +191,7 @@ model Message {
   isInScreener   Boolean @default(true)  // Awaiting screening
   isInFeed       Boolean @default(false) // Newsletter feed
   isInPaperTrail Boolean @default(false) // Transactional
+  isArchived     Boolean @default(false) // Moved to archive
 
   // Relations
   folderId String
@@ -209,6 +210,7 @@ model Message {
   @@index([userId, isInImbox, isRead])
   @@index([userId, isInFeed])
   @@index([userId, isInPaperTrail])
+  @@index([userId, isArchived])
   @@index([userId, receivedAt(sort: Desc)])
   @@index([threadId])
   @@index([messageId])

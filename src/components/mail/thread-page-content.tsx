@@ -17,6 +17,7 @@ interface ThreadMessage {
   htmlBody: string | null;
   isRead: boolean;
   isAnswered: boolean;
+  isArchived?: boolean;
   snippet: string | null;
   sender?: {
     displayName: string | null;

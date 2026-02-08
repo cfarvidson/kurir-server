@@ -1,0 +1,37 @@
+"use client";
+
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Archive, Loader2 } from "lucide-react";
+import { archiveConversation } from "@/actions/archive";
+
+interface ArchiveButtonProps {
+  messageId: string;
+}
+
+export function ArchiveButton({ messageId }: ArchiveButtonProps) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const handleArchive = () => {
+    startTransition(async () => {
+      await archiveConversation(messageId);
+      router.push("/imbox");
+    });
+  };
+
+  return (
+    <button
+      onClick={handleArchive}
+      disabled={isPending}
+      className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+    >
+      {isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Archive className="h-3.5 w-3.5" />
+      )}
+      Archive
+    </button>
+  );
+}

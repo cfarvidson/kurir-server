@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Paperclip } from "lucide-react";
+import { Archive, ChevronDown, Paperclip } from "lucide-react";
 
 interface ThreadMessage {
   id: string;
@@ -19,6 +19,7 @@ interface ThreadMessage {
   htmlBody: string | null;
   isRead: boolean;
   isAnswered: boolean;
+  isArchived?: boolean;
   snippet: string | null;
   sender?: {
     displayName: string | null;
@@ -102,6 +103,12 @@ function MessageBubble({
               <span className="text-sm font-semibold">
                 {isFromCurrentUser ? "You" : senderName}
               </span>
+              {message.isArchived && (
+                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <Archive className="h-2.5 w-2.5" />
+                  archived
+                </span>
+              )}
               {collapsed && message.snippet && (
                 <span className="ml-2 truncate text-sm text-muted-foreground">
                   — {message.snippet}

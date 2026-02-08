@@ -23,9 +23,10 @@ interface Message {
 
 interface MessageListProps {
   messages: Message[];
+  basePath?: string;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, basePath = "/imbox" }: MessageListProps) {
   return (
     <div>
       {messages.map((message) => {
@@ -33,7 +34,7 @@ export function MessageList({ messages }: MessageListProps) {
         return (
           <Link
             key={message.id}
-            href={`/imbox/${message.id}`}
+            href={`${basePath}/${message.id}`}
             className={cn(
               "flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
               !message.isRead && "bg-primary/5"
