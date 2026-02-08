@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SenderCategory } from "@prisma/client";
@@ -43,6 +43,7 @@ export async function approveSender(senderId: string, category: SenderCategory) 
     }),
   ]);
 
+  revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/screener");
   revalidatePath("/feed");
@@ -86,6 +87,7 @@ export async function rejectSender(senderId: string) {
     }),
   ]);
 
+  revalidateTag("sidebar-counts");
   revalidatePath("/screener");
   revalidatePath("/imbox");
   revalidatePath("/feed");
@@ -130,6 +132,7 @@ export async function changeSenderCategory(
     }),
   ]);
 
+  revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");

@@ -5,69 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { ArchiveButton } from "@/components/mail/archive-button";
-
-async function getThreadMessages(userId: string, messageId: string) {
-  // First get the target message
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: {
-      id: true,
-      threadId: true,
-      messageId: true,
-      inReplyTo: true,
-      references: true,
-      subject: true,
-    },
-  });
-
-  if (!message) return null;
-
-  // Collect all related message IDs for thread lookup
-  const relatedIds = new Set<string>();
-  if (message.threadId) relatedIds.add(message.threadId);
-  if (message.messageId) relatedIds.add(message.messageId);
-  if (message.inReplyTo) relatedIds.add(message.inReplyTo);
-  for (const ref of message.references) {
-    relatedIds.add(ref);
-  }
-
-  // Find thread messages: same threadId, or linked via references/inReplyTo
-  const threadMessages = await db.message.findMany({
-    where: {
-      userId,
-      OR: [
-        ...(message.threadId ? [{ threadId: message.threadId }] : []),
-        ...(relatedIds.size > 0
-          ? [
-              { messageId: { in: Array.from(relatedIds) } },
-              { inReplyTo: { in: Array.from(relatedIds) } },
-            ]
-          : []),
-        { id: messageId },
-      ],
-    },
-    include: {
-      sender: { select: { displayName: true, email: true } },
-      attachments: {
-        select: { id: true, filename: true, size: true },
-      },
-    },
-    orderBy: { receivedAt: "asc" },
-  });
-
-  // Mark unread messages in thread as read
-  const unreadIds = threadMessages
-    .filter((m) => !m.isRead)
-    .map((m) => m.id);
-  if (unreadIds.length > 0) {
-    await db.message.updateMany({
-      where: { id: { in: unreadIds } },
-      data: { isRead: true },
-    });
-  }
-
-  return threadMessages;
-}
+import { getThreadMessages } from "@/lib/mail/threads";
 
 async function getUserEmail(userId: string) {
   const user = await db.user.findUnique({

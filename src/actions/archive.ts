@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ImapFlow } from "imapflow";
 import { auth, getUserCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -112,6 +112,7 @@ export async function archiveConversation(messageId: string) {
     },
   });
 
+  revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");

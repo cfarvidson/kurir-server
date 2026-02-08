@@ -6,37 +6,19 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import {
-  Archive,
-  Menu,
-  X,
-  Inbox,
-  Filter,
-  Send,
-  Settings,
-  PenSquare,
-  Newspaper,
-  Receipt,
-  BookUser,
-  LogOut,
-  Mail,
-} from "lucide-react";
-
-const navigation = [
-  { name: "Imbox", href: "/imbox", icon: Inbox },
-  { name: "Screener", href: "/screener", icon: Filter, badge: true },
-  { name: "The Feed", href: "/feed", icon: Newspaper },
-  { name: "Paper Trail", href: "/paper-trail", icon: Receipt },
-  { name: "Sent", href: "/sent", icon: Send },
-  { name: "Archive", href: "/archive", icon: Archive },
-  { name: "Contacts", href: "/contacts", icon: BookUser },
-];
+import { Menu, X, Settings, PenSquare, LogOut, Mail } from "lucide-react";
+import { navigation } from "./navigation";
 
 interface MobileSidebarProps {
   screenerCount?: number;
+  imboxUnreadCount?: number;
 }
 
-export function MobileSidebar({ screenerCount = 0 }: MobileSidebarProps) {
+export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: MobileSidebarProps) {
+  const badgeCounts: Record<string, number> = {
+    imbox: imboxUnreadCount,
+    screener: screenerCount,
+  };
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -145,9 +127,9 @@ export function MobileSidebar({ screenerCount = 0 }: MobileSidebarProps) {
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="flex-1">{item.name}</span>
-                      {item.badge && screenerCount > 0 && (
+                      {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
                         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-                          {screenerCount > 99 ? "99+" : screenerCount}
+                          {badgeCounts[item.badgeKey] > 99 ? "99+" : badgeCounts[item.badgeKey]}
                         </span>
                       )}
                     </Link>

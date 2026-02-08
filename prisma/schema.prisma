@@ -212,6 +212,8 @@ model Message {
   @@index([userId, isInPaperTrail])
   @@index([userId, isArchived])
   @@index([userId, receivedAt(sort: Desc)])
+  @@index([userId, uid])
+  @@index([userId, inReplyTo])
   @@index([threadId])
   @@index([messageId])
   @@index([senderId])

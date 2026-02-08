@@ -2,7 +2,8 @@
 
 import { auth, getUserCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { createLocalSentMessage } from "@/lib/mail/persist-sent";
+import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
 export async function replyToMessage(messageId: string, body: string) {
@@ -65,52 +66,17 @@ export async function replyToMessage(messageId: string, body: string) {
   });
 
   // Save the sent reply to DB so it appears everywhere immediately
-  const sentMessageId = info.messageId || null;
-  const threadId = message.threadId || message.messageId || null;
-
-  // Find the Sent folder, fall back to any folder
-  const folder =
-    (await db.folder.findFirst({
-      where: { userId: session.user.id, specialUse: "sent" },
-    })) ||
-    (await db.folder.findFirst({
-      where: { userId: session.user.id },
-    }));
-
-  if (folder) {
-    // Negative UID = locally-created, will be replaced by real IMAP UID on next sync
-    const tempUid = -Math.abs(Math.floor(Date.now() / 1000));
-
-    const snippet =
-      body.length > 150 ? body.substring(0, 150) + "..." : body;
-
-    await db.message.create({
-      data: {
-        uid: tempUid,
-        messageId: sentMessageId,
-        threadId,
-        inReplyTo: message.messageId || null,
-        references,
-        subject,
-        fromAddress: credentials.email,
-        fromName: null,
-        toAddresses: [replyTo],
-        ccAddresses: [],
-        sentAt: new Date(),
-        receivedAt: new Date(),
-        textBody: body,
-        htmlBody: null,
-        snippet,
-        isRead: true,
-        isInScreener: false,
-        isInImbox: false,
-        isInFeed: false,
-        isInPaperTrail: false,
-        folderId: folder.id,
-        userId: session.user.id,
-      },
-    });
-  }
+  await createLocalSentMessage({
+    userId: session.user.id,
+    messageId: info.messageId || null,
+    threadId: message.threadId || message.messageId || null,
+    inReplyTo: message.messageId || null,
+    references,
+    subject,
+    fromAddress: credentials.email,
+    toAddresses: [replyTo],
+    text: body,
+  });
 
   // Mark the original as answered
   await db.message.update({
@@ -119,5 +85,6 @@ export async function replyToMessage(messageId: string, body: string) {
   });
 
   // Refresh all server-rendered pages
+  revalidateTag("sidebar-counts");
   revalidatePath("/", "layout");
 }

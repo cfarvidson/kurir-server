@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, getUserCredentials } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -61,6 +63,41 @@ export async function POST(request: Request) {
       ...(references && references.length > 0 && {
         references: references.join(" "),
       }),
+    });
+
+    // Compute threadId from references/inReplyTo if part of a thread
+    let threadId: string | null = null;
+    if (inReplyTo || (references && references.length > 0)) {
+      const relatedIds = [...(references || [])];
+      if (inReplyTo && !relatedIds.includes(inReplyTo)) {
+        relatedIds.push(inReplyTo);
+      }
+      const existingThread = await db.message.findFirst({
+        where: {
+          userId: session.user.id,
+          OR: [
+            { messageId: { in: relatedIds } },
+            { threadId: { in: relatedIds } },
+          ],
+          threadId: { not: null },
+        },
+        select: { threadId: true },
+      });
+      threadId = existingThread?.threadId || relatedIds[0] || null;
+    }
+
+    // Persist sent message to DB so it appears immediately
+    await createLocalSentMessage({
+      userId: session.user.id,
+      messageId: result.messageId || null,
+      threadId,
+      inReplyTo: inReplyTo || null,
+      references: references || [],
+      subject,
+      fromAddress: credentials.email,
+      toAddresses: [to],
+      text,
+      html,
     });
 
     return NextResponse.json({

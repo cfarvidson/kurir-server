@@ -326,6 +326,42 @@ async function processMessage(
     }
   }
 
+  // Fallback dedup: some mail servers rewrite Message-ID headers.
+  // Match by fromAddress + sentAt (±60s) + subject + snippet for negative-UID records.
+  if (envelope.date) {
+    const snippet = createSnippet(parsed.text);
+    const localByContent = await db.message.findFirst({
+      where: {
+        userId,
+        uid: { lt: 0 },
+        fromAddress,
+        subject: envelope.subject || null,
+        ...(snippet ? { snippet } : {}),
+        sentAt: {
+          gte: new Date(envelope.date.getTime() - 60000),
+          lte: new Date(envelope.date.getTime() + 60000),
+        },
+      },
+      orderBy: { sentAt: "desc" },
+    });
+    if (localByContent) {
+      const oldMessageId = localByContent.messageId;
+      const newMessageId = envelope.messageId || undefined;
+      const updated = await db.message.update({
+        where: { id: localByContent.id },
+        data: { uid: msg.uid, folderId, messageId: newMessageId },
+      });
+      // Update inReplyTo references that pointed to the old messageId
+      if (oldMessageId && newMessageId && oldMessageId !== newMessageId) {
+        await db.message.updateMany({
+          where: { userId, inReplyTo: oldMessageId },
+          data: { inReplyTo: newMessageId },
+        });
+      }
+      return updated;
+    }
+  }
+
   // Create message record
   const message = await db.message.create({
     data: {

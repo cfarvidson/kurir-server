@@ -4,36 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import {
-  Archive,
-  Inbox,
-  Filter,
-  Send,
-  Settings,
-  PenSquare,
-  Newspaper,
-  Receipt,
-  BookUser,
-  LogOut,
-  Mail,
-} from "lucide-react";
+import { Settings, PenSquare, LogOut, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const navigation = [
-  { name: "Imbox", href: "/imbox", icon: Inbox },
-  { name: "Screener", href: "/screener", icon: Filter, badge: true },
-  { name: "The Feed", href: "/feed", icon: Newspaper },
-  { name: "Paper Trail", href: "/paper-trail", icon: Receipt },
-  { name: "Sent", href: "/sent", icon: Send },
-  { name: "Archive", href: "/archive", icon: Archive },
-  { name: "Contacts", href: "/contacts", icon: BookUser },
-];
+import { navigation } from "./navigation";
 
 interface SidebarProps {
   screenerCount?: number;
+  imboxUnreadCount?: number;
 }
 
-export function Sidebar({ screenerCount = 0 }: SidebarProps) {
+export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProps) {
+  const badgeCounts: Record<string, number> = {
+    imbox: imboxUnreadCount,
+    screener: screenerCount,
+  };
   const pathname = usePathname();
 
   return (
@@ -73,9 +57,9 @@ export function Sidebar({ screenerCount = 0 }: SidebarProps) {
             >
               <item.icon className="h-5 w-5" />
               <span className="flex-1">{item.name}</span>
-              {item.badge && screenerCount > 0 && (
+              {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
                 <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-                  {screenerCount > 99 ? "99+" : screenerCount}
+                  {badgeCounts[item.badgeKey] > 99 ? "99+" : badgeCounts[item.badgeKey]}
                 </span>
               )}
             </Link>
