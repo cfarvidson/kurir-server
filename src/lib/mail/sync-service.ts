@@ -307,6 +307,25 @@ async function processMessage(
     });
   }
 
+  // Check for locally-created duplicate (negative UID from sent replies)
+  if (envelope.messageId) {
+    const localDuplicate = await db.message.findFirst({
+      where: {
+        userId,
+        messageId: envelope.messageId,
+        uid: { lt: 0 },
+      },
+    });
+    if (localDuplicate) {
+      // Replace the local placeholder with real IMAP data
+      const updated = await db.message.update({
+        where: { id: localDuplicate.id },
+        data: { uid: msg.uid, folderId },
+      });
+      return updated;
+    }
+  }
+
   // Create message record
   const message = await db.message.create({
     data: {
