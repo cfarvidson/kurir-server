@@ -37,12 +37,12 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b px-6">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+      <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+        <h1 className="text-xl font-semibold md:text-2xl">Settings</h1>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-2xl space-y-8">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="mx-auto max-w-2xl space-y-6 md:space-y-8">
           {/* Account Info */}
           <section>
             <h2 className="text-lg font-medium">Account</h2>
@@ -73,7 +73,7 @@ export default async function SettingsPage() {
           {/* Stats */}
           <section>
             <h2 className="text-lg font-medium">Statistics</h2>
-            <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-3 gap-2 md:gap-4">
               <div className="rounded-lg border bg-card p-4 text-center">
                 <div className="text-2xl font-bold">{stats.messageCount}</div>
                 <div className="text-sm text-muted-foreground">Messages</div>

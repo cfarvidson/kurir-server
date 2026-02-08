@@ -12,6 +12,7 @@ import {
   PenSquare,
   Newspaper,
   Receipt,
+  BookUser,
   LogOut,
   Mail,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "The Feed", href: "/feed", icon: Newspaper },
   { name: "Paper Trail", href: "/paper-trail", icon: Receipt },
   { name: "Sent", href: "/sent", icon: Send },
+  { name: "Contacts", href: "/contacts", icon: BookUser },
 ];
 
 interface SidebarProps {
@@ -33,7 +35,7 @@ export function Sidebar({ screenerCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-card">
+    <div className="hidden h-full w-64 flex-col border-r bg-card md:flex">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">

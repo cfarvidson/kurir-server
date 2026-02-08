@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   description: "A calm, focused email experience inspired by Hey.com",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

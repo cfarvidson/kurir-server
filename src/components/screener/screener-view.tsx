@@ -70,7 +70,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const isProcessing = processingId === currentSender.id;
 
   return (
-    <div className="flex h-full items-center justify-center p-6">
+    <div className="flex h-full items-center justify-center p-3 md:p-6">
       <div className="w-full max-w-lg">
         <AnimatePresence mode="wait">
           <motion.div

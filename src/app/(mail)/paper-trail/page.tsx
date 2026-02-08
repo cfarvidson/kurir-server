@@ -43,8 +43,8 @@ export default async function PaperTrailPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b px-6">
-        <h1 className="text-2xl font-semibold">Paper Trail</h1>
+      <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+        <h1 className="text-xl font-semibold md:text-2xl">Paper Trail</h1>
         <div className="text-sm text-muted-foreground">
           {messages.length} receipts
         </div>

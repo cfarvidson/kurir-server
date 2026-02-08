@@ -112,7 +112,7 @@ export default async function MessagePage({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-16 items-center gap-4 border-b px-6">
+      <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
         <Link
           href="/imbox"
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -129,12 +129,12 @@ export default async function MessagePage({
 
       {/* Thread */}
       <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-3xl px-6 py-8">
+        <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
           {/* Subject */}
-          <h1 className="text-2xl font-semibold tracking-tight">{subject}</h1>
+          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{subject}</h1>
 
           {/* Messages + Reply */}
-          <div className="mt-8">
+          <div className="mt-6 md:mt-8">
             <ThreadPageContent
               initialMessages={messages}
               currentUserEmail={currentUserEmail}

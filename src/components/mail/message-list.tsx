@@ -35,12 +35,12 @@ export function MessageList({ messages }: MessageListProps) {
             key={message.id}
             href={`/imbox/${message.id}`}
             className={cn(
-              "flex items-start gap-4 border-b px-6 py-4 transition-colors hover:bg-muted/50",
+              "flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
               !message.isRead && "bg-primary/5"
             )}
           >
             {/* Avatar */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary md:h-10 md:w-10">
               {(message.sender?.displayName || message.fromName || message.fromAddress)
                 .charAt(0)
                 .toUpperCase()}
@@ -48,7 +48,7 @@ export function MessageList({ messages }: MessageListProps) {
 
             {/* Content */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 md:gap-2">
                 <span
                   className={cn(
                     "truncate text-sm",

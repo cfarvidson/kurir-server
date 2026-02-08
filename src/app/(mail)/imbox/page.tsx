@@ -48,8 +48,8 @@ export default async function ImboxPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-6">
-        <h1 className="text-2xl font-semibold">Imbox</h1>
+      <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+        <h1 className="text-xl font-semibold md:text-2xl">Imbox</h1>
         <div className="text-sm text-muted-foreground">
           {newMessages.length} new
         </div>
@@ -85,7 +85,7 @@ export default async function ImboxPage() {
             {newMessages.length > 0 && (
               <section>
                 <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                  <h2 className="px-6 py-3 text-sm font-medium text-muted-foreground">
+                  <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
                     New For You
                   </h2>
                 </div>
@@ -97,7 +97,7 @@ export default async function ImboxPage() {
             {seenMessages.length > 0 && (
               <section>
                 <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                  <h2 className="px-6 py-3 text-sm font-medium text-muted-foreground">
+                  <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
                     Previously Seen
                   </h2>
                 </div>

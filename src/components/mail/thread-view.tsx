@@ -77,14 +77,14 @@ function MessageBubble({
     >
       {/* Connector line */}
       {!isLast && (
-        <div className="absolute left-5 top-12 bottom-0 w-px bg-border" />
+        <div className="absolute left-4 top-10 bottom-0 w-px bg-border md:left-5 md:top-12" />
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-2.5 md:gap-3">
         {/* Avatar */}
         <div
           className={cn(
-            "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+            "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold md:h-10 md:w-10 md:text-sm",
             avatarColor
           )}
         >
@@ -92,7 +92,7 @@ function MessageBubble({
         </div>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 pb-6">
+        <div className="min-w-0 flex-1 pb-4 md:pb-6">
           {/* Header — always visible */}
           <button
             onClick={() => setCollapsed(!collapsed)}
