@@ -14,6 +14,8 @@ export function ImportButton() {
     startTransition(async () => {
       await fetch("/api/mail/sync?batchSize=200", { method: "POST" });
       setTriggered(true);
+      // Tell AutoSync to enter import mode with progress bar
+      window.dispatchEvent(new CustomEvent("start-import"));
       // Invalidate the mail-sync query so AutoSync picks up the remaining count
       queryClient.invalidateQueries({ queryKey: ["mail-sync"] });
     });

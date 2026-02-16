@@ -22,6 +22,13 @@ export function AutoSync() {
   const prevDataRef = useRef<SyncResponse | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // Listen for explicit import trigger from ImportButton
+  useEffect(() => {
+    const handler = () => setImporting(true);
+    window.addEventListener("start-import", handler);
+    return () => window.removeEventListener("start-import", handler);
+  }, []);
+
   const { data } = useQuery<SyncResponse>({
     queryKey: ["mail-sync", importing],
     queryFn: async () => {
@@ -43,21 +50,20 @@ export function AutoSync() {
     // Skip router refresh when another sync is already in progress
     if (data.importing) return;
 
-    // Enter import mode when there are remaining messages
-    const hasRemaining = data.results?.some((r) => r.remaining > 0);
-    if (hasRemaining && !importing) {
-      setImporting(true);
-    } else if (!hasRemaining && importing) {
-      setImporting(false);
-      router.refresh();
+    // Exit import mode when all messages have been imported
+    if (importing) {
+      const hasRemaining = data.results?.some((r) => r.remaining > 0);
+      if (!hasRemaining) {
+        setImporting(false);
+        router.refresh();
+      }
+      return;
     }
 
     // Refresh when new messages arrive during normal sync
-    if (!importing) {
-      const hasNew = data.results?.some((r) => r.newMessages > 0);
-      if (hasNew) {
-        router.refresh();
-      }
+    const hasNew = data.results?.some((r) => r.newMessages > 0);
+    if (hasNew) {
+      router.refresh();
     }
   }, [data, router, importing]);
 
