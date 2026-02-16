@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { MessageList } from "@/components/mail/message-list";
+import { SearchInput } from "@/components/mail/search-input";
 import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
+import { searchMessages } from "@/lib/mail/search";
 
 async function getImboxMessages(userId: string) {
   const messages = await db.message.findMany({
@@ -32,27 +35,38 @@ async function getImboxMessages(userId: string) {
   return collapseToThreads(withCounts);
 }
 
-export default async function ImboxPage() {
+export default async function ImboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const messages = await getImboxMessages(session.user.id);
+  const { q } = await searchParams;
+  const isSearching = !!(q && q.length >= 2);
 
-  // Split into New For You (unread) and Previously Seen (read)
-  const newMessages = messages.filter((m) => !m.isRead);
-  const seenMessages = messages.filter((m) => m.isRead);
+  const messages = isSearching
+    ? await searchMessages(
+        session.user.id,
+        q,
+        Prisma.sql`AND "isInImbox" = true`
+      )
+    : await getImboxMessages(session.user.id);
+
+  // Split into New For You (unread) and Previously Seen (read) — only when not searching
+  const newMessages = isSearching ? [] : messages.filter((m) => !m.isRead);
+  const seenMessages = isSearching ? [] : messages.filter((m) => m.isRead);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">Imbox</h1>
-        <div className="text-sm text-muted-foreground">
-          {newMessages.length} new
-        </div>
+        <SearchInput />
       </div>
 
       {/* Content */}
@@ -74,11 +88,17 @@ export default async function ImboxPage() {
                 />
               </svg>
             </div>
-            <h2 className="mt-4 text-lg font-medium">Your Imbox is empty</h2>
+            <h2 className="mt-4 text-lg font-medium">
+              {isSearching ? "No results found" : "Your Imbox is empty"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Approve senders in the Screener to see their emails here.
+              {isSearching
+                ? `No messages match "${q}"`
+                : "Approve senders in the Screener to see their emails here."}
             </p>
           </div>
+        ) : isSearching ? (
+          <MessageList messages={messages} />
         ) : (
           <div className="divide-y">
             {/* New For You Section */}

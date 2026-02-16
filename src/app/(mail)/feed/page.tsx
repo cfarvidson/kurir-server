@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { MessageList } from "@/components/mail/message-list";
+import { SearchInput } from "@/components/mail/search-input";
 import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
+import { searchMessages } from "@/lib/mail/search";
 
 async function getFeedMessages(userId: string) {
   const messages = await db.message.findMany({
@@ -32,22 +35,33 @@ async function getFeedMessages(userId: string) {
   return collapseToThreads(withCounts);
 }
 
-export default async function FeedPage() {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const messages = await getFeedMessages(session.user.id);
+  const { q } = await searchParams;
+  const isSearching = !!(q && q.length >= 2);
+
+  const messages = isSearching
+    ? await searchMessages(
+        session.user.id,
+        q,
+        Prisma.sql`AND "isInFeed" = true`
+      )
+    : await getFeedMessages(session.user.id);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">The Feed</h1>
-        <div className="text-sm text-muted-foreground">
-          {messages.length} newsletters
-        </div>
+        <SearchInput />
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -68,13 +82,17 @@ export default async function FeedPage() {
                 />
               </svg>
             </div>
-            <h2 className="mt-4 text-lg font-medium">No newsletters yet</h2>
+            <h2 className="mt-4 text-lg font-medium">
+              {isSearching ? "No results found" : "No newsletters yet"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Screen in newsletter senders and send them to The Feed.
+              {isSearching
+                ? `No messages match "${q}"`
+                : "Screen in newsletter senders and send them to The Feed."}
             </p>
           </div>
         ) : (
-          <MessageList messages={messages} />
+          <MessageList messages={messages} basePath="/feed" />
         )}
       </div>
     </div>

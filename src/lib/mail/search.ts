@@ -1,0 +1,52 @@
+import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+
+export interface MessageSearchResult {
+  id: string;
+  subject: string | null;
+  snippet: string | null;
+  fromAddress: string;
+  fromName: string | null;
+  receivedAt: Date;
+  isRead: boolean;
+  hasAttachments: boolean;
+}
+
+/**
+ * Build a prefix tsquery from user input.
+ * "some thing" → "some:* & thing:*"
+ * This enables partial matching: "some" finds "someparts".
+ */
+function buildPrefixQuery(input: string): string {
+  const words = input
+    .replace(/[^\w\s]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
+  if (words.length === 0) return "";
+  return words.map((w) => `${w}:*`).join(" & ");
+}
+
+export async function searchMessages(
+  userId: string,
+  query: string,
+  categoryFilter: Prisma.Sql,
+  limit = 50
+): Promise<MessageSearchResult[]> {
+  const prefixQuery = buildPrefixQuery(query);
+  if (!prefixQuery) return [];
+
+  return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
+    SELECT
+      id, subject, snippet, "fromAddress", "fromName",
+      "receivedAt", "isRead", "hasAttachments"
+    FROM "Message"
+    WHERE "userId" = ${userId}
+      AND "search_vector" @@ to_tsquery('english', ${prefixQuery})
+      ${categoryFilter}
+    ORDER BY
+      ts_rank("search_vector", to_tsquery('english', ${prefixQuery})) DESC,
+      "receivedAt" DESC
+    LIMIT ${limit}
+  `);
+}
