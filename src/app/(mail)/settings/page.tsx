@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { ImportButton } from "@/components/mail/import-button";
 
 async function getUserStats(userId: string) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
@@ -89,19 +89,17 @@ export default async function SettingsPage() {
             </div>
           </section>
 
-          {/* Sync */}
+          {/* Import */}
           <section>
-            <h2 className="text-lg font-medium">Sync</h2>
+            <h2 className="text-lg font-medium">Import</h2>
             <div className="mt-4 rounded-lg border bg-card p-4">
               <p className="text-sm text-muted-foreground">
-                Manually trigger an email sync to fetch new messages.
+                Import all messages from your IMAP account. Progress will appear
+                at the bottom of the screen.
               </p>
-              <form action="/api/mail/sync" method="POST" className="mt-4">
-                <Button type="submit" variant="outline">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Sync Now
-                </Button>
-              </form>
+              <div className="mt-4">
+                <ImportButton />
+              </div>
             </div>
           </section>
 

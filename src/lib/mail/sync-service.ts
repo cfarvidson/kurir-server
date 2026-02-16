@@ -7,6 +7,9 @@ interface SyncResult {
   folderId: string;
   newMessages: number;
   errors: string[];
+  remaining: number;
+  totalOnServer: number;
+  totalCached: number;
 }
 
 /**
@@ -88,7 +91,8 @@ async function syncMailbox(
   client: ImapFlow,
   userId: string,
   mailboxPath: string,
-  imapSpecialUse?: string
+  imapSpecialUse?: string,
+  batchSize?: number
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -164,12 +168,16 @@ async function syncMailbox(
     console.log(`[sync] ${mailboxPath}: ${allUids.length} on server, ${existingUids.size} cached, ${newUids.length} new`);
 
     if (newUids.length === 0) {
-      return { folderId: folder.id, newMessages: 0, errors };
+      return { folderId: folder.id, newMessages: 0, errors, remaining: 0, totalOnServer: allUids.length, totalCached: existingUids.size };
     }
 
+    // Batch: only process a subset of new UIDs if batchSize is set
+    const batch = batchSize ? newUids.slice(0, batchSize) : newUids;
+    const remaining = newUids.length - batch.length;
+
     // Build a fetch range: use min:max UID range to limit what we download
-    const newUidSet = new Set(newUids);
-    const minUid = Math.min(...newUids);
+    const batchSet = new Set(batch);
+    const minUid = Math.min(...batch);
     const fetchRange = `${minUid}:*`;
 
     try {
@@ -181,7 +189,7 @@ async function syncMailbox(
         source: true,
       })) {
         const msgUid = Number(msg.uid);
-        if (!newUidSet.has(msgUid)) {
+        if (!batchSet.has(msgUid)) {
           continue;
         }
         try {
@@ -202,7 +210,7 @@ async function syncMailbox(
       data: { lastSyncedAt: new Date() },
     });
 
-    return { folderId: folder.id, newMessages, errors };
+    return { folderId: folder.id, newMessages, errors, remaining, totalOnServer: allUids.length, totalCached: existingUids.size + newMessages };
   } finally {
     mailbox.release();
   }
@@ -477,7 +485,7 @@ async function repairThreadIds(userId: string) {
 /**
  * Perform a full sync for a user's email account
  */
-export async function syncUserEmail(userId: string): Promise<{
+export async function syncUserEmail(userId: string, options?: { batchSize?: number }): Promise<{
   success: boolean;
   results: SyncResult[];
   error?: string;
@@ -526,8 +534,8 @@ export async function syncUserEmail(userId: string): Promise<{
     // Sync each mailbox
     for (const { path, specialUse } of toSync) {
       try {
-        const result = await syncMailbox(client, userId, path, specialUse);
-        console.log(`[sync] ${path}: ${result.newMessages} new, ${result.errors.length} errors`);
+        const result = await syncMailbox(client, userId, path, specialUse, options?.batchSize);
+        console.log(`[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`);
         results.push(result);
       } catch (err) {
         console.error(`[sync] ${path}: error:`, err);
@@ -535,12 +543,18 @@ export async function syncUserEmail(userId: string): Promise<{
           folderId: "",
           newMessages: 0,
           errors: [`Failed to sync ${path}: ${err}`],
+          remaining: 0,
+          totalOnServer: 0,
+          totalCached: 0,
         });
       }
     }
 
-    // Repair threadIds for messages synced before threading fix
-    await repairThreadIds(userId);
+    // Only repair threadIds when no remaining messages (import complete or regular sync)
+    const hasRemaining = results.some((r) => r.remaining > 0);
+    if (!hasRemaining) {
+      await repairThreadIds(userId);
+    }
 
     return { success: true, results };
   } catch (err) {

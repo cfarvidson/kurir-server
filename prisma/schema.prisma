@@ -35,10 +35,11 @@ model User {
   timezone String @default("UTC")
 
   // Relations
-  messages Message[]
-  senders  Sender[]
-  folders  Folder[]
-  sessions Session[]
+  messages  Message[]
+  senders   Sender[]
+  folders   Folder[]
+  sessions  Session[]
+  syncState SyncState?
 
   @@index([email])
 }
@@ -248,13 +249,15 @@ model Attachment {
 model SyncState {
   id     String @id @default(cuid())
   userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Last successful full sync
   lastFullSync DateTime?
 
   // Sync status
-  isSyncing Boolean @default(false)
-  syncError String?
+  isSyncing     Boolean   @default(false)
+  syncStartedAt DateTime?
+  syncError     String?
 
   @@index([userId])
 }
