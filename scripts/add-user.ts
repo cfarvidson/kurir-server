@@ -8,6 +8,7 @@
  *   pnpm add-user --email user@example.com --password "pass" --imap-host imap.example.com --smtp-host smtp.example.com
  */
 
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { createCipheriv, randomBytes, scryptSync } from "crypto";
 import * as readline from "readline";

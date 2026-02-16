@@ -7,6 +7,7 @@
  *   pnpm sync-user --all
  */
 
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { createDecipheriv, scryptSync } from "crypto";
 import { ImapFlow } from "imapflow";

@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
     "nodemailer",
     "mailparser",
   ],
+  devIndicators: {
+    buildActivityPosition: "bottom-right",
+  },
 };
 
 export default nextConfig;
