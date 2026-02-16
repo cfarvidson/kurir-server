@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 
-/** Generate a unique negative UID for locally-created messages. Uses milliseconds + random to avoid collisions on rapid sends. */
+/** Generate a unique negative UID for locally-created messages (must fit INT4: max 2,147,483,647). */
 export function generateTempUid(): number {
-  return -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+  return -(Math.floor(Math.random() * 2_000_000_000) + 1);
 }
 
 /** Find the user's Sent folder, falling back to any folder. */
