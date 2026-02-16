@@ -80,6 +80,7 @@ function mapSpecialUse(
     "\\Trash": "trash",
     "\\Junk": "junk",
     "\\Archive": "archive",
+    "\\All": "all",
   };
   return mapping[imapSpecialUse] || null;
 }
@@ -92,7 +93,8 @@ async function syncMailbox(
   userId: string,
   mailboxPath: string,
   imapSpecialUse?: string,
-  batchSize?: number
+  batchSize?: number,
+  userEmail?: string
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -193,7 +195,24 @@ async function syncMailbox(
           continue;
         }
         try {
-          await processMessage(msg, userId, folder.id, specialUse === "inbox");
+          // For All Mail: skip messages already synced from another folder
+          if (specialUse === "all" && msg.envelope?.messageId) {
+            const existing = await db.message.findFirst({
+              where: { userId, messageId: msg.envelope.messageId },
+              select: { id: true },
+            });
+            if (existing) continue;
+          }
+
+          // For All Mail: treat received messages as inbox (screener),
+          // sent messages (from == user) skip categorization like Sent folder
+          let isInbox = specialUse === "inbox";
+          if (specialUse === "all" && userEmail) {
+            const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
+            isInbox = fromAddr !== userEmail.toLowerCase();
+          }
+
+          await processMessage(msg, userId, folder.id, isInbox);
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -531,10 +550,18 @@ export async function syncUserEmail(userId: string, options?: { batchSize?: numb
       }
     }
 
+    // Also sync All Mail if found (Gmail's archive of everything)
+    for (const mb of mailboxes) {
+      if (mb.specialUse === "\\All") {
+        toSync.push({ path: mb.path, specialUse: mb.specialUse });
+        break;
+      }
+    }
+
     // Sync each mailbox
     for (const { path, specialUse } of toSync) {
       try {
-        const result = await syncMailbox(client, userId, path, specialUse, options?.batchSize);
+        const result = await syncMailbox(client, userId, path, specialUse, options?.batchSize, credentials.email);
         console.log(`[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`);
         results.push(result);
       } catch (err) {
