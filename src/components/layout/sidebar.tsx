@@ -49,7 +49,7 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProp
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -72,7 +72,7 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProp
         <Link
           href="/settings"
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
             pathname === "/settings"
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -83,7 +83,7 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProp
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           Sign out

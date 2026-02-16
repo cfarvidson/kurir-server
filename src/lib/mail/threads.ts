@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { revalidateTag } from "next/cache";
 
 /**
  * For a list of messages, compute how many messages are in each thread.
@@ -146,6 +147,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
       where: { id: { in: unreadIds } },
       data: { isRead: true },
     });
+    revalidateTag("sidebar-counts");
   }
 
   // Sort by sentAt (envelope Date header) with receivedAt fallback
