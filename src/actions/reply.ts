@@ -6,7 +6,7 @@ import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
-export async function replyToMessage(messageId: string, body: string) {
+export async function replyToMessage(messageId: string, body: string, to?: string) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -33,7 +33,7 @@ export async function replyToMessage(messageId: string, body: string) {
     throw new Error("Email credentials not found");
   }
 
-  const replyTo = message.replyTo || message.fromAddress;
+  const replyTo = to || message.replyTo || message.fromAddress;
   const subject = message.subject?.startsWith("Re:")
     ? message.subject
     : `Re: ${message.subject || ""}`;

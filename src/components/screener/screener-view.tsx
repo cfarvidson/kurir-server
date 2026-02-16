@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const router = useRouter();
   const [senders, setSenders] = useState(initialSenders);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setSenders(initialSenders);
+  }, [initialSenders]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
 

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, Paperclip } from "lucide-react";
+import { Archive, ChevronDown, MoreHorizontal, Paperclip } from "lucide-react";
+import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 
 interface ThreadMessage {
   id: string;
@@ -65,6 +66,17 @@ function MessageBubble({
   isLast: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const [quotesCollapsed, setQuotesCollapsed] = useState(true);
+
+  const hasHtmlQuotes =
+    /<blockquote|class="gmail_quote"|class="moz-cite-prefix"/.test(
+      message.htmlBody ?? ""
+    );
+  const { body: plainBody, quoted: plainQuoted } = splitPlainTextQuotes(
+    message.textBody ?? ""
+  );
+  const hasQuotes = message.htmlBody ? hasHtmlQuotes : !!plainQuoted;
+
   const senderName =
     message.sender?.displayName || message.fromName || message.fromAddress;
   const avatarColor = getInitialColor(message.fromAddress);
@@ -172,13 +184,47 @@ function MessageBubble({
                 <div className="mt-4">
                   {message.htmlBody ? (
                     <div
-                      className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4"
-                      dangerouslySetInnerHTML={{ __html: message.htmlBody }}
-                    />
+                      data-quotes-collapsed={
+                        quotesCollapsed && hasHtmlQuotes ? "true" : undefined
+                      }
+                    >
+                      <style>{`
+                        [data-quotes-collapsed="true"] blockquote,
+                        [data-quotes-collapsed="true"] .gmail_quote,
+                        [data-quotes-collapsed="true"] .moz-cite-prefix {
+                          display: none;
+                        }
+                      `}</style>
+                      <div
+                        className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4"
+                        dangerouslySetInnerHTML={{ __html: message.htmlBody }}
+                      />
+                    </div>
                   ) : (
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                      {message.textBody || "No content"}
-                    </pre>
+                    <div>
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                        {plainBody || "No content"}
+                      </pre>
+                      {plainQuoted && !quotesCollapsed && (
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
+                          {plainQuoted}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                  {hasQuotes && (
+                    <button
+                      onClick={() => setQuotesCollapsed(!quotesCollapsed)}
+                      aria-label={
+                        quotesCollapsed
+                          ? "Show quoted text"
+                          : "Hide quoted text"
+                      }
+                      aria-expanded={!quotesCollapsed}
+                      className="mt-1 flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
+                    >
+                      <MoreHorizontal className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
               </motion.div>

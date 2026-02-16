@@ -121,10 +121,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
     });
 
     if (pass2.length > 0) {
-      allMessages = [...pass1, ...pass2].sort(
-        (a, b) =>
-          new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime()
-      );
+      allMessages = [...pass1, ...pass2];
     }
   }
 
@@ -151,7 +148,12 @@ export async function getThreadMessages(userId: string, messageId: string) {
     });
   }
 
-  return deduped;
+  // Sort by sentAt (envelope Date header) with receivedAt fallback
+  return [...deduped].sort(
+    (a, b) =>
+      (a.sentAt ?? a.receivedAt).getTime() -
+      (b.sentAt ?? b.receivedAt).getTime()
+  );
 }
 
 /**

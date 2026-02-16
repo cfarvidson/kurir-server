@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
@@ -22,11 +22,18 @@ export function ReplyComposer({
 }: ReplyComposerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [body, setBody] = useState("");
+  const [to, setTo] = useState(replyToAddress);
+  const [isEditingTo, setIsEditingTo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [sent, setSent] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const toInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditingTo) setTo(replyToAddress);
+  }, [replyToAddress, isEditingTo]);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -44,7 +51,7 @@ export function ReplyComposer({
     setError(null);
     startTransition(async () => {
       try {
-        await replyToMessage(messageId, sentBody);
+        await replyToMessage(messageId, sentBody, to);
         onSent?.(sentBody);
         setSent(true);
         setBody("");
@@ -118,7 +125,9 @@ export function ReplyComposer({
             <CornerDownLeft className="h-4 w-4" />
             <span>
               Reply to{" "}
-              <span className="font-medium text-foreground">{replyToName}</span>
+              <span className="font-medium text-foreground">
+                {to === replyToAddress ? replyToName : to}
+              </span>
             </span>
           </motion.button>
         ) : (
@@ -132,15 +141,50 @@ export function ReplyComposer({
           >
             {/* Composer header */}
             <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
-              <span className="text-xs text-muted-foreground">
-                Replying to{" "}
-                <span className="font-medium text-foreground">
-                  {replyToName}
-                </span>{" "}
-                <span className="text-muted-foreground/60">
-                  &lt;{replyToAddress}&gt;
-                </span>
-              </span>
+              {isEditingTo ? (
+                <div className="flex flex-1 items-center gap-2 mr-2">
+                  <span className="text-xs text-muted-foreground">To:</span>
+                  <input
+                    ref={toInputRef}
+                    type="email"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    onBlur={() => {
+                      if (to.trim()) setIsEditingTo(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && to.trim()) {
+                        setIsEditingTo(false);
+                        textareaRef.current?.focus();
+                      }
+                      if (e.key === "Escape") {
+                        setTo(replyToAddress);
+                        setIsEditingTo(false);
+                      }
+                    }}
+                    className="flex-1 bg-transparent text-xs font-medium outline-none"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingTo(true);
+                    setTimeout(() => toInputRef.current?.select(), 0);
+                  }}
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  title="Click to edit recipient"
+                >
+                  To{" "}
+                  <span className="font-medium text-foreground">
+                    {to === replyToAddress ? replyToName : to}
+                  </span>{" "}
+                  <span className="text-muted-foreground/60">
+                    &lt;{to}&gt;
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (body.trim()) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
 
@@ -47,6 +47,10 @@ export function ThreadPageContent({
 }: ThreadPageContentProps) {
   const [messages, setMessages] = useState(initialMessages);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   const handleReplySent = (body: string) => {
     const optimisticMessage: ThreadMessage = {

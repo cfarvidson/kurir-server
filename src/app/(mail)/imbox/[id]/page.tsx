@@ -40,13 +40,19 @@ export default async function MessagePage({
   const targetMessage = messages.find((m) => m.id === id) || messages[0];
   const subject = targetMessage.subject || "(no subject)";
 
-  // For reply: use the last message in the thread
+  // For threading: always reference the actual last message
   const lastMessage = messages[messages.length - 1];
-  const replyToAddress = lastMessage.replyTo || lastMessage.fromAddress;
+
+  // For reply address: find the last message from someone else (not yourself)
+  const lastIncoming = [...messages]
+    .reverse()
+    .find((m) => m.fromAddress !== currentUserEmail);
+  const replyTarget = lastIncoming || lastMessage;
+  const replyToAddress = replyTarget.replyTo || replyTarget.fromAddress;
   const replyToName =
-    lastMessage.sender?.displayName ||
-    lastMessage.fromName ||
-    lastMessage.fromAddress;
+    replyTarget.sender?.displayName ||
+    replyTarget.fromName ||
+    replyTarget.fromAddress;
 
   return (
     <div className="flex h-full flex-col">
