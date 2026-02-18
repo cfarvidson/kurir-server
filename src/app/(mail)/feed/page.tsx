@@ -92,7 +92,7 @@ export default async function FeedPage({
             </p>
           </div>
         ) : (
-          <MessageList messages={messages} basePath="/feed" />
+          <MessageList showArchiveAction messages={messages} basePath="/feed" />
         )}
       </div>
     </div>
