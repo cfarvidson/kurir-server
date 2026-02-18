@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Archive, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
 
-interface Message {
+export interface MessageItem {
   id: string;
   subject: string | null;
   snippet: string | null;
@@ -16,6 +16,7 @@ interface Message {
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;
+  threadId?: string | null;
   threadCount?: number;
   sender?: {
     displayName: string | null;
@@ -24,7 +25,7 @@ interface Message {
 }
 
 interface MessageListProps {
-  messages: Message[];
+  messages: MessageItem[];
   basePath?: string;
   showArchiveAction?: boolean;
 }
@@ -48,14 +49,16 @@ export function MessageList({
   );
 }
 
-function MessageRow({
+export function MessageRow({
   message,
   basePath,
   showArchiveAction,
+  onArchived,
 }: {
-  message: Message;
+  message: MessageItem;
   basePath: string;
   showArchiveAction: boolean;
+  onArchived?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const hasThread = (message.threadCount ?? 0) > 1;
@@ -65,6 +68,7 @@ function MessageRow({
     e.stopPropagation();
     startTransition(async () => {
       await archiveConversation(message.id);
+      onArchived?.();
     });
   };
 
