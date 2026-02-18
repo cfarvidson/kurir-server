@@ -98,7 +98,7 @@ export default async function ImboxPage({
             </p>
           </div>
         ) : isSearching ? (
-          <MessageList messages={messages} />
+          <MessageList showArchiveAction messages={messages} />
         ) : (
           <div className="divide-y">
             {/* New For You Section */}
@@ -109,7 +109,7 @@ export default async function ImboxPage({
                     New For You
                   </h2>
                 </div>
-                <MessageList messages={newMessages} />
+                <MessageList showArchiveAction messages={newMessages} />
               </section>
             )}
 
@@ -121,7 +121,7 @@ export default async function ImboxPage({
                     Previously Seen
                   </h2>
                 </div>
-                <MessageList messages={seenMessages} />
+                <MessageList showArchiveAction messages={seenMessages} />
               </section>
             )}
           </div>

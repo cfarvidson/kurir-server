@@ -4,6 +4,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
+import { UnarchiveButton } from "@/components/mail/unarchive-button";
+import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 import { getThreadMessages } from "@/lib/mail/threads";
 
 async function getUserEmail(userId: string) {
@@ -54,6 +56,7 @@ export default async function ArchiveMessagePage({
 
   return (
     <div className="flex h-full flex-col">
+      <ArchiveKeyboardShortcut messageId={id} returnPath="/archive" action="unarchive" />
       {/* Header */}
       <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
         <Link
@@ -68,6 +71,9 @@ export default async function ArchiveMessagePage({
             {messages.length} messages
           </span>
         )}
+        <div className="ml-auto">
+          <UnarchiveButton messageId={id} />
+        </div>
       </div>
 
       {/* Thread */}

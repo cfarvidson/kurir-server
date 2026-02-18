@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { ArchiveButton } from "@/components/mail/archive-button";
+import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 import { getThreadMessages } from "@/lib/mail/threads";
 
 async function getUserEmail(userId: string) {
@@ -56,6 +57,7 @@ export default async function MessagePage({
 
   return (
     <div className="flex h-full flex-col">
+      <ArchiveKeyboardShortcut messageId={id} returnPath="/imbox" />
       {/* Header */}
       <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
         <Link

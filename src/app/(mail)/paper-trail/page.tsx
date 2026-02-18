@@ -92,7 +92,7 @@ export default async function PaperTrailPage({
             </p>
           </div>
         ) : (
-          <MessageList messages={messages} basePath="/paper-trail" />
+          <MessageList showArchiveAction messages={messages} basePath="/paper-trail" />
         )}
       </div>
     </div>

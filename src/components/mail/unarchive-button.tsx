@@ -2,37 +2,36 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Loader2 } from "lucide-react";
-import { archiveConversation } from "@/actions/archive";
+import { ArchiveRestore, Loader2 } from "lucide-react";
+import { unarchiveConversation } from "@/actions/archive";
 
-interface ArchiveButtonProps {
+interface UnarchiveButtonProps {
   messageId: string;
-  returnPath?: string;
 }
 
-export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButtonProps) {
+export function UnarchiveButton({ messageId }: UnarchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const handleArchive = () => {
+  const handleUnarchive = () => {
     startTransition(async () => {
-      await archiveConversation(messageId);
-      router.push(returnPath);
+      await unarchiveConversation(messageId);
+      router.push("/archive");
     });
   };
 
   return (
     <button
-      onClick={handleArchive}
+      onClick={handleUnarchive}
       disabled={isPending}
       className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
     >
       {isPending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
-        <Archive className="h-3.5 w-3.5" />
+        <ArchiveRestore className="h-3.5 w-3.5" />
       )}
-      Archive
+      Unarchive
     </button>
   );
 }
