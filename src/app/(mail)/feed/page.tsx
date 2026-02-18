@@ -110,6 +110,7 @@ async function PaginatedFeed({ userId }: { userId: string }) {
       initialCursor={result.nextCursor}
       category="feed"
       basePath="/feed"
+      showSections={true}
       showArchiveAction={true}
     />
   );

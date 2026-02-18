@@ -112,6 +112,7 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
       initialCursor={result.nextCursor}
       category="paper-trail"
       basePath="/paper-trail"
+      showSections={true}
       showArchiveAction={true}
     />
   );
