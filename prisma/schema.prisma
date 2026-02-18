@@ -17,7 +17,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Email account credentials
-  email       String @unique
+  email       String  @unique
   displayName String?
 
   // IMAP configuration
@@ -59,14 +59,14 @@ model Session {
 // ============================================
 
 enum SenderStatus {
-  PENDING  // In screener, awaiting decision
+  PENDING // In screener, awaiting decision
   APPROVED // Approved - emails go to Imbox
   REJECTED // Rejected - emails silently ignored
 }
 
 enum SenderCategory {
-  IMBOX       // Normal approved sender
-  FEED        // Newsletter/subscription
+  IMBOX // Normal approved sender
+  FEED // Newsletter/subscription
   PAPER_TRAIL // Transactional (receipts, shipping)
 }
 
@@ -76,9 +76,9 @@ model Sender {
   updatedAt DateTime @updatedAt
 
   // Sender identification
-  email       String  // Normalized email address
+  email       String // Normalized email address
   displayName String? // Display name from email headers
-  domain      String  // Extracted domain for domain-level rules
+  domain      String // Extracted domain for domain-level rules
 
   // Status and categorization
   status   SenderStatus   @default(PENDING)
@@ -150,26 +150,26 @@ model Message {
   updatedAt DateTime @updatedAt
 
   // IMAP identifiers
-  uid       Int     // Message UID within folder
+  uid       Int // Message UID within folder
   messageId String? // RFC 2822 Message-ID header
 
   // Thread grouping
-  threadId   String?  // Computed thread ID
-  inReplyTo  String?  // In-Reply-To header
+  threadId   String? // Computed thread ID
+  inReplyTo  String? // In-Reply-To header
   references String[] // References header
 
   // Headers
   subject      String?
-  fromAddress  String   // Raw From address
-  fromName     String?  // Parsed display name
+  fromAddress  String // Raw From address
+  fromName     String? // Parsed display name
   toAddresses  String[] // To recipients
   ccAddresses  String[] // CC recipients
   bccAddresses String[] // BCC recipients
-  replyTo      String?  // Reply-To header
+  replyTo      String? // Reply-To header
 
   // Dates
   sentAt     DateTime? // Date header
-  receivedAt DateTime  // IMAP INTERNALDATE
+  receivedAt DateTime // IMAP INTERNALDATE
 
   // Content (cached)
   textBody String? // Plain text body
@@ -189,7 +189,7 @@ model Message {
 
   // Hey.com categorization
   isInImbox      Boolean @default(false) // Visible in Imbox
-  isInScreener   Boolean @default(true)  // Awaiting screening
+  isInScreener   Boolean @default(true) // Awaiting screening
   isInFeed       Boolean @default(false) // Newsletter feed
   isInPaperTrail Boolean @default(false) // Transactional
   isArchived     Boolean @default(false) // Moved to archive
@@ -227,11 +227,11 @@ model Attachment {
   // Attachment metadata
   filename    String
   contentType String // MIME type
-  size        Int    // Size in bytes
+  size        Int // Size in bytes
   contentId   String? // For inline attachments (CID)
 
   // IMAP part reference (for lazy loading)
-  partId   String  // e.g., "1.2", "2"
+  partId   String // e.g., "1.2", "2"
   encoding String? // e.g., "base64", "quoted-printable"
 
   // Message relation
