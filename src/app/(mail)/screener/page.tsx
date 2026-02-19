@@ -3,13 +3,11 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerView } from "@/components/screener/screener-view";
 import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
+import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 async function getPendingSenders(userId: string) {
   return db.sender.findMany({
-    where: {
-      userId,
-      status: "PENDING",
-    },
+    where: visiblePendingSenderWhere(userId),
     orderBy: { createdAt: "desc" },
     include: {
       messages: {

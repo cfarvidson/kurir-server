@@ -7,19 +7,20 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { connectionManager } from "@/lib/mail/connection-manager";
+import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 const getScreenerCount = unstable_cache(
   async (userId: string) =>
-    db.sender.count({ where: { userId, status: "PENDING" } }),
+    db.sender.count({ where: visiblePendingSenderWhere(userId) }),
   ["screener-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 }
+  { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
 const getImboxUnreadCount = unstable_cache(
   async (userId: string) =>
     db.message.count({ where: { userId, isInImbox: true, isRead: false } }),
   ["imbox-unread-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 }
+  { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
 export default async function MailLayout({
@@ -44,8 +45,14 @@ export default async function MailLayout({
   return (
     <Providers>
       <div className="flex h-screen">
-        <Sidebar screenerCount={screenerCount} imboxUnreadCount={imboxUnreadCount} />
-        <MobileSidebar screenerCount={screenerCount} imboxUnreadCount={imboxUnreadCount} />
+        <Sidebar
+          screenerCount={screenerCount}
+          imboxUnreadCount={imboxUnreadCount}
+        />
+        <MobileSidebar
+          screenerCount={screenerCount}
+          imboxUnreadCount={imboxUnreadCount}
+        />
         <main className="flex-1 overflow-auto">{children}</main>
         <AutoSync />
       </div>

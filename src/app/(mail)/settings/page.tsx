@@ -2,12 +2,13 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ImportButton } from "@/components/mail/import-button";
+import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 async function getUserStats(userId: string) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
     db.sender.count({ where: { userId } }),
     db.message.count({ where: { userId } }),
-    db.sender.count({ where: { userId, status: "PENDING" } }),
+    db.sender.count({ where: visiblePendingSenderWhere(userId) }),
   ]);
 
   return { senderCount, messageCount, pendingCount };
@@ -105,7 +106,6 @@ export default async function SettingsPage() {
               </div>
             </div>
           </section>
-
         </div>
       </div>
     </div>
