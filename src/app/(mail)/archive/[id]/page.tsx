@@ -8,6 +8,7 @@ import { UnarchiveButton } from "@/components/mail/unarchive-button";
 import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
+import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
 async function getUserEmail(userId: string) {
   const user = await db.user.findUnique({
@@ -68,6 +69,7 @@ export default async function ArchiveMessagePage({
 
   return (
     <div className="flex h-full flex-col">
+      {markedRead.length > 0 && <SidebarRefresh />}
       <ArchiveKeyboardShortcut messageId={id} returnPath={returnPath} action="unarchive" />
       {/* Header */}
       <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
