@@ -53,11 +53,12 @@ export async function archiveConversation(messageId: string) {
 
     await withImapConnection(userId, async (client) => {
       const mailboxes = await client.list();
-      const archiveBox = mailboxes.find(
-        (mb) =>
-          mb.specialUse === "\\Archive" ||
-          mb.path.toLowerCase() === "archive"
-      );
+      const archiveBox =
+        mailboxes.find(
+          (mb) =>
+            mb.specialUse === "\\Archive" ||
+            mb.path.toLowerCase() === "archive"
+        ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
 
       if (archiveBox) {
         const lock = await client.getMailboxLock("INBOX");
@@ -138,7 +139,7 @@ export async function unarchiveConversation(messageId: string) {
 
   // Get archive folder to identify which messages need IMAP move back
   const archiveFolder = await db.folder.findFirst({
-    where: { userId, specialUse: "archive" },
+    where: { userId, specialUse: { in: ["archive", "all"] } },
     select: { id: true },
   });
 
@@ -160,11 +161,12 @@ export async function unarchiveConversation(messageId: string) {
 
     await withImapConnection(userId, async (client) => {
       const mailboxes = await client.list();
-      const archiveBox = mailboxes.find(
-        (mb) =>
-          mb.specialUse === "\\Archive" ||
-          mb.path.toLowerCase() === "archive"
-      );
+      const archiveBox =
+        mailboxes.find(
+          (mb) =>
+            mb.specialUse === "\\Archive" ||
+            mb.path.toLowerCase() === "archive"
+        ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
 
       if (archiveBox) {
         const lock = await client.getMailboxLock(archiveBox.path);
