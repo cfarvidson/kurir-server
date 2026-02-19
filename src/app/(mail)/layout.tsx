@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
+import { connectionManager } from "@/lib/mail/connection-manager";
 
 const getScreenerCount = unstable_cache(
   async (userId: string) =>
@@ -36,6 +37,9 @@ export default async function MailLayout({
     getScreenerCount(session.user.id),
     getImboxUnreadCount(session.user.id),
   ]);
+
+  // Start IDLE connection for realtime IMAP sync (no-op if already connected)
+  connectionManager.startUser(session.user.id).catch(console.error);
 
   return (
     <Providers>

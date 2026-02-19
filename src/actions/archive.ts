@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { withImapConnection } from "@/lib/mail/imap-client";
+import { suppressEcho } from "@/lib/mail/flag-push";
 
 export async function archiveConversation(messageId: string) {
   const session = await auth();
@@ -45,6 +46,11 @@ export async function archiveConversation(messageId: string) {
 
   // Move messages on IMAP if there are inbox messages to move
   if (inboxMessageUids.length > 0) {
+    // Register echo suppression before IMAP move (prevents IDLE re-processing)
+    for (const uid of inboxMessageUids) {
+      suppressEcho(userId, inboxFolder!.id, uid);
+    }
+
     await withImapConnection(userId, async (client) => {
       const mailboxes = await client.list();
       const archiveBox = mailboxes.find(
@@ -147,6 +153,11 @@ export async function unarchiveConversation(messageId: string) {
   // All unarchived messages go back to INBOX. UIDs will change after move;
   // next sync reconciles via message-ID dedup.
   if (archiveMessageUids.length > 0) {
+    // Register echo suppression before IMAP move
+    for (const uid of archiveMessageUids) {
+      suppressEcho(userId, archiveFolder!.id, uid);
+    }
+
     await withImapConnection(userId, async (client) => {
       const mailboxes = await client.list();
       const archiveBox = mailboxes.find(

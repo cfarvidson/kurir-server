@@ -141,21 +141,26 @@ export async function getThreadMessages(userId: string, messageId: string) {
   );
 
   // Mark unread messages as read
-  const unreadIds = deduped.filter((m) => !m.isRead).map((m) => m.id);
-  if (unreadIds.length > 0) {
+  const unreadMessages = deduped.filter((m) => !m.isRead);
+  if (unreadMessages.length > 0) {
     await db.message.updateMany({
-      where: { id: { in: unreadIds } },
+      where: { id: { in: unreadMessages.map((m) => m.id) } },
       data: { isRead: true },
     });
     revalidateTag("sidebar-counts");
   }
 
   // Sort by sentAt (envelope Date header) with receivedAt fallback
-  return [...deduped].sort(
+  const sorted = [...deduped].sort(
     (a, b) =>
       (a.sentAt ?? a.receivedAt).getTime() -
       (b.sentAt ?? b.receivedAt).getTime()
   );
+
+  return {
+    messages: sorted,
+    markedRead: unreadMessages.map((m) => ({ uid: m.uid, folderId: m.folderId })),
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,26 @@ export function AutoSync() {
   const prevDataRef = useRef<SyncResponse | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // Stable ref to router for SSE handler (avoids EventSource reconnect on render)
+  const routerRef = useRef(router);
+  useLayoutEffect(() => {
+    routerRef.current = router;
+  });
+
+  // SSE: realtime updates from IDLE
+  useEffect(() => {
+    const es = new EventSource("/api/mail/events");
+
+    const handleEvent = () => routerRef.current.refresh();
+    es.addEventListener("new-messages", handleEvent);
+    es.addEventListener("flags-changed", handleEvent);
+    es.addEventListener("message-deleted", handleEvent);
+
+    es.onerror = () => console.warn("[sse] reconnecting...");
+
+    return () => es.close();
+  }, []);
+
   // Listen for explicit import trigger from ImportButton
   useEffect(() => {
     const handler = () => setImporting(true);
@@ -39,7 +59,7 @@ export function AutoSync() {
       if (!res.ok) throw new Error("Sync failed");
       return res.json();
     },
-    refetchInterval: importing ? 1_000 : 5_000,
+    refetchInterval: importing ? 1_000 : 30_000,
     refetchIntervalInBackground: false,
   });
 

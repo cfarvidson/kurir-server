@@ -7,6 +7,7 @@ import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { ArchiveButton } from "@/components/mail/archive-button";
 import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 import { getThreadMessages } from "@/lib/mail/threads";
+import { pushFlagsToImap } from "@/lib/mail/flag-push";
 
 async function getUserEmail(userId: string) {
   const user = await db.user.findUnique({
@@ -28,13 +29,20 @@ export default async function FeedMessagePage({
   }
 
   const { id } = await params;
-  const [messages, currentUserEmail] = await Promise.all([
+  const [threadResult, currentUserEmail] = await Promise.all([
     getThreadMessages(session.user.id, id),
     getUserEmail(session.user.id),
   ]);
 
-  if (!messages || messages.length === 0) {
+  if (!threadResult || threadResult.messages.length === 0) {
     notFound();
+  }
+
+  const { messages, markedRead } = threadResult;
+
+  // Push \Seen to IMAP for messages just marked read (fire-and-forget)
+  if (markedRead.length > 0) {
+    pushFlagsToImap(session.user.id, markedRead, "\\Seen", "add").catch(console.error);
   }
 
   const targetMessage = messages.find((m) => m.id === id) || messages[0];

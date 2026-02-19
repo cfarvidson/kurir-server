@@ -115,6 +115,7 @@ async function syncMailbox(
       messages: true,
       uidNext: true,
       uidValidity: true,
+      highestModseq: true,
     });
 
     // Convert bigint to number for database storage
@@ -241,10 +242,15 @@ async function syncMailbox(
       errors.push(`Fetch error: ${fetchErr}`);
     }
 
-    // Update folder sync time
+    // Update folder sync time + highestModSeq
     await db.folder.update({
       where: { id: folder.id },
-      data: { lastSyncedAt: new Date() },
+      data: {
+        lastSyncedAt: new Date(),
+        highestModSeq: status.highestModseq
+          ? BigInt(status.highestModseq)
+          : undefined,
+      },
     });
 
     return {
@@ -263,7 +269,7 @@ async function syncMailbox(
 /**
  * Process and store a single message
  */
-async function processMessage(
+export async function processMessage(
   msg: FetchMessageObject,
   userId: string,
   folderId: string,
