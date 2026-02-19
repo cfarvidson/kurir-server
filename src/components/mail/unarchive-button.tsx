@@ -18,6 +18,7 @@ export function UnarchiveButton({ messageId, returnPath = "/archive" }: Unarchiv
     startTransition(async () => {
       await unarchiveConversation(messageId);
       router.push(returnPath);
+      router.refresh();
     });
   };
 
