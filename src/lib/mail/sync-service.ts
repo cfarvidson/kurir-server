@@ -245,18 +245,19 @@ async function syncMailbox(
             if (existing) continue;
           }
 
-          // For All Mail: messages that passed dedup are archived (not in INBOX/Sent).
-          // Sent messages (from == user) skip categorization like Sent folder.
-          // Received messages get categorized by sender but marked archived.
+          // For All Mail: messages that passed dedup are NOT in INBOX (already skipped).
+          // Sent messages (from == user) get isInbox=false (no categorization).
+          // Received messages get isInbox=false + isArchived=true (archived on server).
           let isInbox = specialUse === "inbox";
           let archived = false;
           if (specialUse === "all" && userEmail) {
             const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
-            isInbox = fromAddr !== userEmail.toLowerCase();
-            archived = true; // All Mail-only = archived on server
+            const isFromSelf = fromAddr === userEmail.toLowerCase();
+            isInbox = false; // Dedup already skipped actual inbox messages
+            archived = !isFromSelf; // Received messages are archived; sent are not
           }
 
-          await processMessage(msg, userId, folder.id, isInbox, userEmail, archived);
+          await processMessage(msg, userId, folder.id, { isInbox, userEmail, isArchived: archived });
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -291,6 +292,12 @@ async function syncMailbox(
   }
 }
 
+interface ProcessMessageOptions {
+  isInbox: boolean;
+  userEmail?: string;
+  isArchived?: boolean;
+}
+
 /**
  * Process and store a single message
  */
@@ -298,10 +305,9 @@ export async function processMessage(
   msg: FetchMessageObject,
   userId: string,
   folderId: string,
-  isInbox: boolean,
-  userEmail?: string,
-  isArchived = false,
+  options: ProcessMessageOptions,
 ) {
+  const { isInbox, userEmail, isArchived = false } = options;
   const envelope = msg.envelope;
   const flags = msg.flags;
 

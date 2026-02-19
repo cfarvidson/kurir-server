@@ -126,7 +126,7 @@ async function handleNewMessages(
 
       // Use the sync service's processMessage via dynamic import
       const { processMessage } = await import("./sync-service");
-      await processMessage(msg, userId, folderId, true, user?.email);
+      await processMessage(msg, userId, folderId, { isInbox: true, userEmail: user?.email });
       count++;
     }
   } catch (err) {
