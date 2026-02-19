@@ -10,8 +10,8 @@ import { connectionManager } from "@/lib/mail/connection-manager";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 const getScreenerCount = unstable_cache(
-  async (userId: string) =>
-    db.sender.count({ where: visiblePendingSenderWhere(userId) }),
+  async (userId: string, excludedEmail?: string | null) =>
+    db.sender.count({ where: visiblePendingSenderWhere(userId, excludedEmail) }),
   ["screener-count"],
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
@@ -34,8 +34,10 @@ export default async function MailLayout({
     redirect("/login");
   }
 
+  const userEmail = session.user.email?.trim().toLowerCase();
+
   const [screenerCount, imboxUnreadCount] = await Promise.all([
-    getScreenerCount(session.user.id),
+    getScreenerCount(session.user.id, userEmail),
     getImboxUnreadCount(session.user.id),
   ]);
 

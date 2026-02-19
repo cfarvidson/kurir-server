@@ -4,11 +4,11 @@ import { db } from "@/lib/db";
 import { ImportButton } from "@/components/mail/import-button";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
-async function getUserStats(userId: string) {
+async function getUserStats(userId: string, excludedEmail?: string | null) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
     db.sender.count({ where: { userId } }),
     db.message.count({ where: { userId } }),
-    db.sender.count({ where: visiblePendingSenderWhere(userId) }),
+    db.sender.count({ where: visiblePendingSenderWhere(userId, excludedEmail) }),
   ]);
 
   return { senderCount, messageCount, pendingCount };
@@ -21,6 +21,8 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
+  const userEmail = session.user.email?.trim().toLowerCase();
+
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
@@ -32,7 +34,7 @@ export default async function SettingsPage() {
     },
   });
 
-  const stats = await getUserStats(session.user.id);
+  const stats = await getUserStats(session.user.id, userEmail);
 
   return (
     <div className="flex h-full flex-col">

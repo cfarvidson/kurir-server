@@ -5,9 +5,9 @@ import { ScreenerView } from "@/components/screener/screener-view";
 import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
-async function getPendingSenders(userId: string) {
+async function getPendingSenders(userId: string, excludedEmail?: string | null) {
   return db.sender.findMany({
-    where: visiblePendingSenderWhere(userId),
+    where: visiblePendingSenderWhere(userId, excludedEmail),
     orderBy: { createdAt: "desc" },
     include: {
       messages: {
@@ -27,11 +27,18 @@ async function getPendingSenders(userId: string) {
   });
 }
 
-async function getScreenedSenders(userId: string) {
+async function getScreenedSenders(userId: string, excludedEmail?: string | null) {
+  const normalizedExcludedEmail = excludedEmail?.trim().toLowerCase();
+
   return db.sender.findMany({
     where: {
       userId,
       status: { in: ["APPROVED", "REJECTED"] },
+      ...(normalizedExcludedEmail
+        ? {
+            NOT: { email: normalizedExcludedEmail },
+          }
+        : {}),
     },
     orderBy: { decidedAt: "desc" },
     select: {
@@ -54,9 +61,11 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
+  const userEmail = session.user.email?.trim().toLowerCase();
+
   const [pendingSenders, screenedSenders] = await Promise.all([
-    getPendingSenders(session.user.id),
-    getScreenedSenders(session.user.id),
+    getPendingSenders(session.user.id, userEmail),
+    getScreenedSenders(session.user.id, userEmail),
   ]);
 
   return (
