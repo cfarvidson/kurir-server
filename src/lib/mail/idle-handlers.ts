@@ -100,6 +100,12 @@ async function handleNewMessages(
   const fetchRange = `${lastUid + 1}:*`;
   let count = 0;
 
+  // Look up user's email once for auto-approve logic
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+
   try {
     for await (const msg of client.fetch(fetchRange, {
       uid: true,
@@ -120,7 +126,7 @@ async function handleNewMessages(
 
       // Use the sync service's processMessage via dynamic import
       const { processMessage } = await import("./sync-service");
-      await processMessage(msg, userId, folderId, true);
+      await processMessage(msg, userId, folderId, true, user?.email);
       count++;
     }
   } catch (err) {

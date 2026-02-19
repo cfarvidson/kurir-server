@@ -37,14 +37,18 @@ function createSnippet(
 }
 
 /**
- * Get or create a sender record
+ * Get or create a sender record.
+ * If userEmail is provided and matches, auto-approve as IMBOX.
  */
 async function getOrCreateSender(
   userId: string,
   email: string,
   displayName: string | null,
+  userEmail?: string,
 ) {
   const domain = extractDomain(email);
+  const isOwnEmail =
+    !!userEmail && email.toLowerCase() === userEmail.toLowerCase();
 
   const sender = await db.sender.upsert({
     where: {
@@ -55,15 +59,33 @@ async function getOrCreateSender(
       email,
       displayName,
       domain,
-      status: "PENDING",
+      status: isOwnEmail ? "APPROVED" : "PENDING",
       category: "IMBOX",
       messageCount: 1,
+      ...(isOwnEmail ? { decidedAt: new Date() } : {}),
     },
     update: {
       displayName: displayName || undefined,
       messageCount: { increment: 1 },
     },
   });
+
+  // Retroactive fix: upgrade own email from PENDING to APPROVED
+  if (isOwnEmail && sender.status === "PENDING") {
+    const updated = await db.sender.update({
+      where: { id: sender.id },
+      data: { status: "APPROVED", category: "IMBOX", decidedAt: new Date() },
+    });
+
+    // Reclassify existing messages (mirrors approveSender() pattern)
+    await db.message.updateMany({
+      where: { senderId: sender.id, isInScreener: true },
+      data: { isInScreener: false, isInImbox: true },
+    });
+
+    console.log(`[sync] Auto-approved own email sender: ${email}`);
+    return updated;
+  }
 
   return sender;
 }
@@ -231,7 +253,7 @@ async function syncMailbox(
             isInbox = fromAddr !== userEmail.toLowerCase();
           }
 
-          await processMessage(msg, userId, folder.id, isInbox);
+          await processMessage(msg, userId, folder.id, isInbox, userEmail);
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -274,6 +296,7 @@ export async function processMessage(
   userId: string,
   folderId: string,
   isInbox: boolean,
+  userEmail?: string,
 ) {
   const envelope = msg.envelope;
   const flags = msg.flags;
@@ -298,7 +321,7 @@ export async function processMessage(
   const fromName = fromHeader?.name || null;
 
   // Get or create sender
-  const sender = await getOrCreateSender(userId, fromAddress, fromName);
+  const sender = await getOrCreateSender(userId, fromAddress, fromName, userEmail);
 
   // Only categorize inbox messages; sent/other folders skip categorization
   const isInScreener = isInbox && sender.status === "PENDING";
