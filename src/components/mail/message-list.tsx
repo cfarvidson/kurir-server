@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import { Archive, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
 
 export interface MessageItem {
@@ -55,11 +55,17 @@ export function MessageRow({
   basePath,
   showArchiveAction,
   onArchived,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
 }: {
   message: MessageItem;
   basePath: string;
   showArchiveAction: boolean;
   onArchived?: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
@@ -78,15 +84,44 @@ export function MessageRow({
     });
   };
 
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
-        !message.isRead && "bg-primary/5",
-        isPending && "opacity-50 pointer-events-none"
+  const handleClick = (e: React.MouseEvent) => {
+    // Shift-click enters/toggles selection
+    if (e.shiftKey && onToggleSelect) {
+      e.preventDefault();
+      onToggleSelect();
+      return;
+    }
+    // In selection mode, click toggles selection instead of navigating
+    if (isSelectionMode && onToggleSelect) {
+      e.preventDefault();
+      onToggleSelect();
+    }
+  };
+
+  const rowContent = (
+    <>
+      {/* Checkbox (selection mode only) */}
+      {isSelectionMode && (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={isSelected}
+          aria-label={`Select conversation from ${message.sender?.displayName || message.fromName || message.fromAddress}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.();
+          }}
+          className={cn(
+            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/30 bg-background hover:border-muted-foreground/60"
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+        </button>
       )}
-    >
+
       {/* Avatar */}
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary md:h-10 md:w-10">
         {(message.sender?.displayName || message.fromName || message.fromAddress)
@@ -133,8 +168,8 @@ export function MessageRow({
         )}
       </div>
 
-      {/* Hover archive button */}
-      {showArchiveAction && (
+      {/* Hover archive button (hidden in selection mode) */}
+      {showArchiveAction && !isSelectionMode && (
         <button
           onClick={handleArchive}
           className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 md:right-5"
@@ -147,6 +182,37 @@ export function MessageRow({
           )}
         </button>
       )}
+    </>
+  );
+
+  // In selection mode, render as div instead of Link to prevent navigation
+  if (isSelectionMode) {
+    return (
+      <div
+        onClick={handleClick}
+        className={cn(
+          "group relative flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
+          !message.isRead && "bg-primary/5",
+          isSelected && "bg-primary/10",
+          isPending && "opacity-50 pointer-events-none"
+        )}
+      >
+        {rowContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      onClick={handleClick}
+      className={cn(
+        "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
+        !message.isRead && "bg-primary/5",
+        isPending && "opacity-50 pointer-events-none"
+      )}
+    >
+      {rowContent}
     </Link>
   );
 }

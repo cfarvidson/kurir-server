@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
-import { Loader2 } from "lucide-react";
+import { SelectionActionBar } from "@/components/mail/selection-action-bar";
+import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
   messages: MessageItem[];
@@ -17,6 +18,7 @@ interface InfiniteMessageListProps {
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;
+  showSelectionToggle?: boolean;
 }
 
 export function InfiniteMessageList({
@@ -26,9 +28,44 @@ export function InfiniteMessageList({
   basePath,
   showSections = false,
   showArchiveAction = false,
+  showSelectionToggle = false,
 }: InfiniteMessageListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionModeActive, setSelectionModeActive] = useState(false);
+  const isSelectionMode = selectionModeActive || selectedIds.size > 0;
+
+  const toggleSelection = useCallback((threadKey: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(threadKey)) {
+        next.delete(threadKey);
+      } else {
+        next.add(threadKey);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setSelectionModeActive(false);
+  }, []);
+
+  // Escape key clears selection
+  useEffect(() => {
+    if (!isSelectionMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        clearSelection();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSelectionMode, clearSelection]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery<PageData>({
@@ -95,12 +132,57 @@ export function InfiniteMessageList({
     queryClient.invalidateQueries({ queryKey: ["messages", category] });
   }, [queryClient, category]);
 
+  // Resolve selected threadKeys to representative message IDs for the server action
+  const selectedMessageIds = useMemo(() => {
+    return threads
+      .filter((msg) => selectedIds.has(msg.threadId || msg.id))
+      .map((msg) => msg.id);
+  }, [threads, selectedIds]);
+
+  const renderRow = (message: MessageItem) => {
+    const threadKey = message.threadId || message.id;
+    return (
+      <MessageRow
+        key={message.id}
+        message={message}
+        basePath={basePath}
+        showArchiveAction={showArchiveAction}
+        onArchived={handleArchived}
+        isSelectionMode={isSelectionMode}
+        isSelected={selectedIds.has(threadKey)}
+        onToggleSelect={() => toggleSelection(threadKey)}
+      />
+    );
+  };
+
+  const selectionToggle = showSelectionToggle && (
+    <div className="flex items-center justify-end px-4 py-2 md:px-6">
+      <button
+        onClick={() =>
+          isSelectionMode
+            ? clearSelection()
+            : setSelectionModeActive(true)
+        }
+        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors ${
+          isSelectionMode
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        }`}
+      >
+        <CheckSquare className="h-3.5 w-3.5" />
+        {isSelectionMode ? "Cancel" : "Select"}
+      </button>
+    </div>
+  );
+
   if (showSections) {
     const newMessages = threads.filter((m) => !m.isRead);
     const seenMessages = threads.filter((m) => m.isRead);
 
     return (
       <div className="divide-y">
+        {selectionToggle}
+
         {newMessages.length > 0 && (
           <section>
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -109,15 +191,7 @@ export function InfiniteMessageList({
               </h2>
             </div>
             <div>
-              {newMessages.map((message) => (
-                <MessageRow
-                  key={message.id}
-                  message={message}
-                  basePath={basePath}
-                  showArchiveAction={showArchiveAction}
-                  onArchived={handleArchived}
-                />
-              ))}
+              {newMessages.map(renderRow)}
             </div>
           </section>
         )}
@@ -130,15 +204,7 @@ export function InfiniteMessageList({
               </h2>
             </div>
             <div>
-              {seenMessages.map((message) => (
-                <MessageRow
-                  key={message.id}
-                  message={message}
-                  basePath={basePath}
-                  showArchiveAction={showArchiveAction}
-                  onArchived={handleArchived}
-                />
-              ))}
+              {seenMessages.map(renderRow)}
             </div>
           </section>
         )}
@@ -148,25 +214,29 @@ export function InfiniteMessageList({
           isFetchingNextPage={isFetchingNextPage}
           hasNextPage={hasNextPage}
         />
+
+        <SelectionActionBar
+          selectedMessageIds={selectedMessageIds}
+          onComplete={clearSelection}
+          onQueryInvalidate={handleArchived}
+        />
       </div>
     );
   }
 
   return (
     <div>
-      {threads.map((message) => (
-        <MessageRow
-          key={message.id}
-          message={message}
-          basePath={basePath}
-          showArchiveAction={showArchiveAction}
-          onArchived={handleArchived}
-        />
-      ))}
+      {selectionToggle}
+      {threads.map(renderRow)}
       <ScrollSentinel
         ref={sentinelRef}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
+      />
+      <SelectionActionBar
+        selectedMessageIds={selectedMessageIds}
+        onComplete={clearSelection}
+        onQueryInvalidate={handleArchived}
       />
     </div>
   );
@@ -183,7 +253,7 @@ const ScrollSentinel = forwardRef<
       {isFetchingNextPage ? (
         <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
       ) : hasNextPage === false ? (
-        <p className="text-sm text-muted-foreground">You're all caught up</p>
+        <p className="text-sm text-muted-foreground">You&apos;re all caught up</p>
       ) : null}
     </div>
   );

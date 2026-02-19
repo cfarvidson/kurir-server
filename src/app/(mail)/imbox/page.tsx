@@ -114,6 +114,7 @@ async function PaginatedImbox({ userId }: { userId: string }) {
       basePath="/imbox"
       showSections={true}
       showArchiveAction={true}
+      showSelectionToggle={true}
     />
   );
 }
