@@ -17,7 +17,7 @@ export function ImportButton({ mode = "import" }: ImportButtonProps) {
   function handleImport() {
     if (mode === "resync") {
       const confirmed = window.confirm(
-        "This will remove all cached mail and re-import everything from IMAP. Continue?",
+        "This will erase all cached mail AND sender decisions, then re-import everything from IMAP. All senders will return to the Screener. Continue?",
       );
       if (!confirmed) return;
     }

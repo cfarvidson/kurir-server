@@ -98,8 +98,8 @@ export default async function SettingsPage() {
                 at the bottom of the screen.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Resync clears cached mail and downloads it again. Sender
-                approval choices are preserved.
+                Resync erases all cached mail and sender decisions, then
+                re-imports from IMAP. All senders return to the Screener.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ImportButton />

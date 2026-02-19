@@ -6,19 +6,15 @@ import { syncUserEmail } from "@/lib/mail/sync-service";
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
 async function clearUserMailCache(userId: string) {
-  // Keep sender decisions (approved/rejected/category), only reset derived counts.
-  await db.message.deleteMany({
-    where: { userId },
-  });
-
-  await db.folder.deleteMany({
-    where: { userId },
-  });
-
-  await db.sender.updateMany({
-    where: { userId },
-    data: { messageCount: 0 },
-  });
+  await db.$transaction([
+    db.message.deleteMany({ where: { userId } }),
+    db.folder.deleteMany({ where: { userId } }),
+    db.sender.deleteMany({ where: { userId } }),
+    db.syncState.update({
+      where: { userId },
+      data: { lastFullSync: null, syncError: null },
+    }),
+  ]);
 }
 
 async function claimSyncLock(userId: string): Promise<boolean> {
@@ -117,7 +113,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  // Allow GET for easy testing
-  return POST(request);
-}
