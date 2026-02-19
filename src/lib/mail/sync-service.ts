@@ -245,15 +245,18 @@ async function syncMailbox(
             if (existing) continue;
           }
 
-          // For All Mail: treat received messages as inbox (screener),
-          // sent messages (from == user) skip categorization like Sent folder
+          // For All Mail: messages that passed dedup are archived (not in INBOX/Sent).
+          // Sent messages (from == user) skip categorization like Sent folder.
+          // Received messages get categorized by sender but marked archived.
           let isInbox = specialUse === "inbox";
+          let archived = false;
           if (specialUse === "all" && userEmail) {
             const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
             isInbox = fromAddr !== userEmail.toLowerCase();
+            archived = true; // All Mail-only = archived on server
           }
 
-          await processMessage(msg, userId, folder.id, isInbox, userEmail);
+          await processMessage(msg, userId, folder.id, isInbox, userEmail, archived);
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -297,6 +300,7 @@ export async function processMessage(
   folderId: string,
   isInbox: boolean,
   userEmail?: string,
+  isArchived = false,
 ) {
   const envelope = msg.envelope;
   const flags = msg.flags;
@@ -324,7 +328,8 @@ export async function processMessage(
   const sender = await getOrCreateSender(userId, fromAddress, fromName, userEmail);
 
   // Only categorize inbox messages; sent/other folders skip categorization
-  const isInScreener = isInbox && sender.status === "PENDING";
+  // Archived messages skip screener but retain sender category
+  const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
   const isInImbox =
     isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
   const isInFeed =
@@ -480,6 +485,7 @@ export async function processMessage(
       isInImbox,
       isInFeed,
       isInPaperTrail,
+      isArchived,
       folderId,
       userId,
       senderId: sender.id,
