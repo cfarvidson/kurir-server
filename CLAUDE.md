@@ -1,0 +1,76 @@
+# Kurir Server
+
+Hey.com-inspired email client. Next.js 15, NextAuth v5 beta, Prisma 6, PostgreSQL 16, IMAP/SMTP via ImapFlow + nodemailer.
+
+## Commands
+
+```bash
+pnpm dev          # Dev server (Turbopack, port 3000)
+pnpm build        # Production build
+pnpm lint         # ESLint (Next.js defaults)
+pnpm db:push      # Push Prisma schema to DB
+pnpm db:generate  # Regenerate Prisma client
+pnpm db:studio    # Prisma Studio GUI
+pnpm add-user     # CLI: add user with IMAP/SMTP config
+pnpm sync-user    # CLI: trigger sync for user(s)
+```
+
+## Architecture
+
+**Route groups:** `(auth)` for login/setup (unprotected), `(mail)` for mail pages (protected by middleware).
+
+**Auth split:** `auth.config.ts` is edge-safe (used by middleware), `auth.ts` has full Node.js deps (Credentials provider + IMAP verification). Middleware can't import anything using Node.js `crypto`.
+
+**Categorization (Hey.com model):** New senders land in Screener. User approves → sender gets a category (IMBOX, FEED, PAPER_TRAIL). Messages have boolean flags: `isInImbox`, `isInFeed`, `isInPaperTrail`, `isArchived`, `isInScreener`.
+
+**Server actions pattern:** Auth check → ownership verification → DB mutation (often `$transaction`) → `revalidateTag`/`revalidatePath`.
+
+**IMAP sync:** Batched UID delta strategy. `withImapConnection(userId, fn)` handles connection boilerplate. ImapFlow fetch uses `"minUid:*"` range format (comma-separated UIDs return empty iterators).
+
+**Search:** PostgreSQL full-text search via `search_vector` tsvector column + GIN index + trigger. Queried via `$queryRaw` with `websearch_to_tsquery`.
+
+**Threading:** `threadId` field computed by `repairThreadIds()` after sync. Thread collapsing in list views via `collapseToThreads()`.
+
+## Key Files
+
+- `src/lib/mail/sync-service.ts` — IMAP sync engine
+- `src/lib/mail/imap-client.ts` — `withImapConnection` helper
+- `src/lib/mail/threads.ts` — Thread grouping/retrieval
+- `src/lib/mail/search.ts` — FTS query function
+- `src/actions/` — Server actions (senders, archive, reply)
+- `src/components/mail/` — Email UI components
+- `src/components/layout/sidebar.tsx` — Navigation with badge counts
+- `prisma/schema.prisma` — Data model
+
+## Conventions
+
+- **Language:** All UI text, labels, and messages must be in English (for now)
+- Path alias: `@/` → `src/`
+- Icons: `lucide-react`
+- Styling: Tailwind CSS with HSL variables, shadcn-style UI components (CVA)
+- Files: kebab-case. Components: PascalCase exports
+- All DB queries filter by `userId` (multi-tenant)
+- `revalidateTag("sidebar-counts")` after mutations that change category counts
+
+## Docker
+
+```bash
+docker compose up -d                    # Start services
+docker compose restart app              # Pick up code changes
+docker compose exec postgres psql -U kurir  # DB access
+```
+
+Bind mount `.:/app` with anonymous volumes for `node_modules`/`.next`. Needs `corepack prepare pnpm@9.15.0 --activate` and `pnpm db:generate` in Dockerfile dev stage.
+
+## Gotchas
+
+- **ImapFlow comma-separated UIDs:** `client.fetch("256,255", {uid:true})` returns empty. Use `"minUid:*"` range + filter in loop.
+- **`prisma db push`** won't drop the `search_vector` column (Prisma ignores unknown columns), but `--force-reset` would.
+- **Sent messages:** `processMessage` must check `isInbox` param before setting category flags.
+- **Build:** `pnpm build` may fail at "Collecting page data" with `tracingChannel` error (ImapFlow/Node.js compat issue). TypeScript compilation still passes.
+- **Stuck sync lock:** If sync crashes, `isSyncing` stays `true` and blocks future syncs ("Sync already in progress"). Stale lock auto-clears after 5 minutes, or fix manually: `docker compose exec postgres psql -U kurir -c 'UPDATE "SyncState" SET "isSyncing" = false;'`
+- No test framework configured yet.
+
+## Workflow
+
+- **Do not create new branches or PRs.** Commit directly to the current branch. The user will handle branch management and PR creation.

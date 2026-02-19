@@ -38,3 +38,4 @@ prisma/*.db-journal
 
 # Docker
 postgres_data/
+!CLAUDE.md

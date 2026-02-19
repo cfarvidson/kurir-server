@@ -5,23 +5,31 @@
 
 ## What We're Building
 
-A "full reset" function that wipes all app-side data for a user and re-imports everything from IMAP. This replaces the existing "Resync All Messages" behavior, which currently preserves sender screening decisions.
+A single "Reset Everything" button on the Settings page that wipes all app-side data for a user and re-imports everything from IMAP. Replaces the current two-button (Import + Resync) setup which is confusing and has bugs that prevent resync from working reliably.
 
 After reset, the user starts completely fresh — all senders re-enter the Screener, all messages are re-fetched, and sync state is cleared.
 
 ## Why This Approach
 
-- One resync behavior is simpler to maintain and reason about
+- One button is simpler than two (Import vs Resync distinction is confusing)
 - If you're resyncing, you likely want a clean slate
-- Sender decisions are quick to redo and may need updating anyway
 - IMAP data is the source of truth — app data is just a cache
+- The current resync flow has bugs that silently prevent it from working
+
+## Problems With the Current Flow
+
+1. **Lock contention** — AutoSync polls `/api/mail/sync` every 30s. If a poll is in-flight when the user clicks Resync, the API returns 409 and the user sees a vague alert.
+2. **Button permanently disabled** — `triggered` state is set to `true` on click and never resets. If resync fails or errors, the button stays disabled until page refresh.
+3. **Two confusing buttons** — Import and Resync side-by-side with subtle behavioral differences. User intent is always "nuke and restart."
+4. **Stats stay stale** — Settings page is a server component showing message/sender counts. After data wipe, those stats remain until next navigation.
 
 ## Key Decisions
 
-1. **Scope: Full nuclear reset of app data** — Delete Messages, Folders, Attachments (cascade), Senders, and SyncState. Preserve User record and auth Sessions.
-2. **IMAP untouched** — No deletions, moves, or flag changes on the IMAP server.
-3. **Replace existing resync** — Modify `clearUserMailCache` directly rather than adding a parallel function. The current "preserve sender decisions" behavior goes away.
-4. **Trigger: Settings page** — Same button location, same batch import flow with progress bar. Just a more thorough clear step.
+1. **Single button** — Replace Import + Resync with one "Reset Everything" destructive button with confirmation dialog.
+2. **Scope: Full nuclear reset** — Delete Messages, Folders, Attachments (cascade), Senders, and reset SyncState. Preserve User record and auth Sessions. IMAP untouched.
+3. **Force-release lock before resync** — The resync flow should force-release any existing sync lock before clearing data, so it never gets blocked by a stale or in-progress poll.
+4. **Retry on failure** — Reset `triggered` state if the API call fails, so the button is re-clickable.
+5. **Refresh page after wipe** — Call `router.refresh()` after the data is cleared so the stats section updates immediately.
 
 ## What Changes
 
@@ -30,19 +38,24 @@ After reset, the user starts completely fresh — all senders re-enter the Scree
 Current behavior:
 - `message.deleteMany` (attachments cascade)
 - `folder.deleteMany`
-- `sender.updateMany` (reset messageCount)
+- `sender.deleteMany`
+- `syncState.update` (reset lastFullSync + syncError)
 
 New behavior:
-- `message.deleteMany` (attachments cascade)
-- `folder.deleteMany`
-- `sender.deleteMany`
-- `syncState.deleteMany`
+- Same deletes
+- Also `syncState.delete` + recreate (fully reset, including clearing isSyncing lock)
 
-### Everything else stays the same
+### Settings page UI
 
-- Resync button, confirmation dialog, API route, lock mechanism, batch polling, progress bar — all unchanged.
-- `syncUserEmail` already handles missing Folders and SyncState gracefully (creates them on first sync).
-- `processMessage` already upserts Senders — they'll be recreated with `status: NEW` and land in Screener.
+- Remove the two `<ImportButton />` components
+- Replace with a single "Reset Everything" button (destructive variant)
+- Confirmation dialog explaining the consequences
+- After successful trigger, dispatch `start-import` event so AutoSync shows progress bar
+- If API call fails, re-enable button for retry
+
+### AutoSync compatibility
+
+- No changes needed — once reset triggers the first sync batch and dispatches `start-import`, AutoSync picks up and polls for remaining batches as before.
 
 ## Open Questions
 
