@@ -1,8 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { ImportButton } from "@/components/mail/import-button";
 
 async function getUserStats(userId: string) {
@@ -108,18 +106,6 @@ export default async function SettingsPage() {
             </div>
           </section>
 
-          {/* Manage Senders */}
-          <section>
-            <h2 className="text-lg font-medium">Senders</h2>
-            <div className="mt-4 rounded-lg border bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                View and manage all senders you&apos;ve approved or rejected.
-              </p>
-              <Button asChild variant="outline" className="mt-4">
-                <Link href="/settings/senders">Manage Senders</Link>
-              </Button>
-            </div>
-          </section>
         </div>
       </div>
     </div>
