@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { MessageList } from "@/components/mail/message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { searchMessages } from "@/lib/mail/search";
+import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
 
 async function getSentFolder(userId: string) {
   return db.folder.findFirst({
@@ -19,7 +20,7 @@ async function getSentFolder(userId: string) {
 }
 
 async function getSentMessages(userId: string, folderId: string) {
-  return db.message.findMany({
+  const messages = await db.message.findMany({
     where: {
       userId,
       folderId,
@@ -35,6 +36,39 @@ async function getSentMessages(userId: string, folderId: string) {
       },
     },
   });
+
+  const threadCounts = await getThreadCounts(userId, messages);
+
+  const withCounts = messages.map((m) => ({
+    ...m,
+    threadCount: threadCounts.get(m.id) ?? 1,
+  }));
+
+  return collapseToThreads(withCounts);
+}
+
+/**
+ * Look up display names for recipient email addresses from the Sender table.
+ */
+async function getRecipientNames(
+  userId: string,
+  emails: string[]
+): Promise<Map<string, string>> {
+  const unique = [...new Set(emails.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+
+  const senders = await db.sender.findMany({
+    where: { userId, email: { in: unique } },
+    select: { email: true, displayName: true },
+  });
+
+  const map = new Map<string, string>();
+  for (const s of senders) {
+    if (s.displayName) {
+      map.set(s.email, s.displayName);
+    }
+  }
+  return map;
 }
 
 export default async function SentPage({
@@ -69,13 +103,29 @@ export default async function SentPage({
   const { q } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
-  const messages = isSearching
+  const rawMessages = isSearching
     ? await searchMessages(
         session.user.id,
         q,
         Prisma.sql`AND "folderId" = ${sentFolder.id}`
       )
     : await getSentMessages(session.user.id, sentFolder.id);
+
+  // For sent messages, show recipient instead of sender
+  const recipientEmails = rawMessages.map((m) => m.toAddresses?.[0]).filter(Boolean) as string[];
+  const recipientNames = await getRecipientNames(session.user.id, recipientEmails);
+
+  const messages = rawMessages.map((m) => {
+    const recipientEmail = m.toAddresses?.[0];
+    if (!recipientEmail) return m;
+
+    return {
+      ...m,
+      fromName: recipientNames.get(recipientEmail) || recipientEmail,
+      fromAddress: recipientEmail,
+      sender: null,
+    };
+  });
 
   return (
     <div className="flex h-full flex-col">
