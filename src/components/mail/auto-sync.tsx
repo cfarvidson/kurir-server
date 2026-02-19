@@ -20,6 +20,7 @@ interface SyncResponse {
 export function AutoSync() {
   const router = useRouter();
   const prevDataRef = useRef<SyncResponse | null>(null);
+  const lastGoodResultsRef = useRef<SyncResultData[] | null>(null);
   const [importing, setImporting] = useState(false);
 
   // Stable ref to router for SSE handler (avoids EventSource reconnect on render)
@@ -70,11 +71,17 @@ export function AutoSync() {
     // Skip router refresh when another sync is already in progress
     if (data.importing) return;
 
+    // Track last good results for progress bar display
+    if (data.results && data.results.length > 0) {
+      lastGoodResultsRef.current = data.results;
+    }
+
     // Exit import mode when all messages have been imported
     if (importing) {
       const hasRemaining = data.results?.some((r) => r.remaining > 0);
-      if (!hasRemaining) {
+      if (!hasRemaining && data.results && data.results.length > 0) {
         setImporting(false);
+        lastGoodResultsRef.current = null;
         router.refresh();
       }
       return;
@@ -87,10 +94,12 @@ export function AutoSync() {
     }
   }, [data, router, importing]);
 
-  if (!importing || !data?.results) return null;
+  // Use last good results for progress bar (avoids 0/0 flicker when lock is held)
+  const progressResults = lastGoodResultsRef.current;
+  if (!importing || !progressResults) return null;
 
-  const synced = data.results.reduce((s, r) => s + r.totalCached, 0);
-  const total = data.results.reduce((s, r) => s + r.totalOnServer, 0);
+  const synced = progressResults.reduce((s, r) => s + r.totalCached, 0);
+  const total = progressResults.reduce((s, r) => s + r.totalOnServer, 0);
   const percent = total > 0 ? Math.round((synced / total) * 100) : 0;
 
   return (
