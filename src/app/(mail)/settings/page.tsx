@@ -97,8 +97,13 @@ export default async function SettingsPage() {
                 Import all messages from your IMAP account. Progress will appear
                 at the bottom of the screen.
               </p>
-              <div className="mt-4">
+              <p className="mt-2 text-sm text-muted-foreground">
+                Resync clears cached mail and downloads it again. Sender
+                approval choices are preserved.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
                 <ImportButton />
+                <ImportButton mode="resync" />
               </div>
             </div>
           </section>

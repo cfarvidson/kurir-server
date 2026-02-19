@@ -22,7 +22,10 @@ function extractDomain(email: string): string {
 /**
  * Create a preview snippet from email body
  */
-function createSnippet(text: string | undefined, maxLength = 150): string | null {
+function createSnippet(
+  text: string | undefined,
+  maxLength = 150,
+): string | null {
   if (!text) return null;
   const cleaned = text
     .replace(/\s+/g, " ")
@@ -39,7 +42,7 @@ function createSnippet(text: string | undefined, maxLength = 150): string | null
 async function getOrCreateSender(
   userId: string,
   email: string,
-  displayName: string | null
+  displayName: string | null,
 ) {
   const domain = extractDomain(email);
 
@@ -70,7 +73,7 @@ async function getOrCreateSender(
  */
 function mapSpecialUse(
   mailboxPath: string,
-  imapSpecialUse?: string
+  imapSpecialUse?: string,
 ): string | null {
   if (mailboxPath.toLowerCase() === "inbox") return "inbox";
   if (!imapSpecialUse) return null;
@@ -94,7 +97,7 @@ async function syncMailbox(
   mailboxPath: string,
   imapSpecialUse?: string,
   batchSize?: number,
-  userEmail?: string
+  userEmail?: string,
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -139,7 +142,11 @@ async function syncMailbox(
     }
 
     // Check if UIDVALIDITY changed (need full resync)
-    if (folder.uidValidity && uidValidity && folder.uidValidity !== uidValidity) {
+    if (
+      folder.uidValidity &&
+      uidValidity &&
+      folder.uidValidity !== uidValidity
+    ) {
       // Delete all cached messages for this folder
       await db.message.deleteMany({
         where: { folderId: folder.id },
@@ -162,15 +169,25 @@ async function syncMailbox(
     const searchResult = await client.search({ all: true }, { uid: true });
 
     // Handle case where search returns false (no messages)
-    const allUids: number[] = searchResult === false ? [] : (searchResult as any[]).map(Number);
+    const allUids: number[] =
+      searchResult === false ? [] : (searchResult as any[]).map(Number);
 
     // Find new UIDs
     const newUids = allUids.filter((uid) => !existingUids.has(uid));
 
-    console.log(`[sync] ${mailboxPath}: ${allUids.length} on server, ${existingUids.size} cached, ${newUids.length} new`);
+    console.log(
+      `[sync] ${mailboxPath}: ${allUids.length} on server, ${existingUids.size} cached, ${newUids.length} new`,
+    );
 
     if (newUids.length === 0) {
-      return { folderId: folder.id, newMessages: 0, errors, remaining: 0, totalOnServer: allUids.length, totalCached: existingUids.size };
+      return {
+        folderId: folder.id,
+        newMessages: 0,
+        errors,
+        remaining: 0,
+        totalOnServer: allUids.length,
+        totalCached: existingUids.size,
+      };
     }
 
     // Batch: only process a subset of new UIDs if batchSize is set
@@ -186,6 +203,7 @@ async function syncMailbox(
       for await (const msg of client.fetch(fetchRange, {
         uid: true,
         envelope: true,
+        internalDate: true,
         flags: true,
         bodyStructure: true,
         source: true,
@@ -229,7 +247,14 @@ async function syncMailbox(
       data: { lastSyncedAt: new Date() },
     });
 
-    return { folderId: folder.id, newMessages, errors, remaining, totalOnServer: allUids.length, totalCached: existingUids.size + newMessages };
+    return {
+      folderId: folder.id,
+      newMessages,
+      errors,
+      remaining,
+      totalOnServer: allUids.length,
+      totalCached: existingUids.size + newMessages,
+    };
   } finally {
     mailbox.release();
   }
@@ -242,7 +267,7 @@ async function processMessage(
   msg: FetchMessageObject,
   userId: string,
   folderId: string,
-  isInbox: boolean
+  isInbox: boolean,
 ) {
   const envelope = msg.envelope;
   const flags = msg.flags;
@@ -262,7 +287,8 @@ async function processMessage(
 
   // Extract sender info
   const fromHeader = envelope.from?.[0];
-  const fromAddress = fromHeader?.address?.toLowerCase() || "unknown@unknown.com";
+  const fromAddress =
+    fromHeader?.address?.toLowerCase() || "unknown@unknown.com";
   const fromName = fromHeader?.name || null;
 
   // Get or create sender
@@ -270,18 +296,23 @@ async function processMessage(
 
   // Only categorize inbox messages; sent/other folders skip categorization
   const isInScreener = isInbox && sender.status === "PENDING";
-  const isInImbox = isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
-  const isInFeed = isInbox && sender.status === "APPROVED" && sender.category === "FEED";
+  const isInImbox =
+    isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
+  const isInFeed =
+    isInbox && sender.status === "APPROVED" && sender.category === "FEED";
   const isInPaperTrail =
-    isInbox && sender.status === "APPROVED" && sender.category === "PAPER_TRAIL";
+    isInbox &&
+    sender.status === "APPROVED" &&
+    sender.category === "PAPER_TRAIL";
 
   // Check for attachments
-  const hasAttachments =
-    parsed.attachments && parsed.attachments.length > 0;
+  const hasAttachments = parsed.attachments && parsed.attachments.length > 0;
 
   // Compute threadId by looking up existing messages in the same conversation
   const references = parsed.references
-    ? (Array.isArray(parsed.references) ? parsed.references : [parsed.references])
+    ? Array.isArray(parsed.references)
+      ? parsed.references
+      : [parsed.references]
     : [];
   const inReplyTo = envelope.inReplyTo || null;
 
@@ -405,7 +436,7 @@ async function processMessage(
       ccAddresses:
         envelope.cc?.map((a) => a.address || "").filter(Boolean) || [],
       sentAt: envelope.date || null,
-      receivedAt: msg.internalDate || new Date(),
+      receivedAt: msg.internalDate || envelope.date || new Date(),
       textBody: parsed.text || null,
       htmlBody: parsed.html || null,
       snippet: createSnippet(parsed.text),
@@ -435,7 +466,9 @@ async function processMessage(
       size: att.size || 0,
       contentId: att.cid || null,
       partId: String(index + 1),
-      encoding: (att as unknown as { contentTransferEncoding?: string }).contentTransferEncoding || null,
+      encoding:
+        (att as unknown as { contentTransferEncoding?: string })
+          .contentTransferEncoding || null,
     }));
 
     await db.attachment.createMany({
@@ -504,7 +537,10 @@ async function repairThreadIds(userId: string) {
 /**
  * Perform a full sync for a user's email account
  */
-export async function syncUserEmail(userId: string, options?: { batchSize?: number }): Promise<{
+export async function syncUserEmail(
+  userId: string,
+  options?: { batchSize?: number },
+): Promise<{
   success: boolean;
   results: SyncResult[];
   error?: string;
@@ -535,9 +571,7 @@ export async function syncUserEmail(userId: string, options?: { batchSize?: numb
     const mailboxes = await client.list();
 
     // Find important mailboxes to sync
-    const toSync: { path: string; specialUse?: string }[] = [
-      { path: "INBOX" },
-    ];
+    const toSync: { path: string; specialUse?: string }[] = [{ path: "INBOX" }];
 
     // Also sync Sent if found
     for (const mb of mailboxes) {
@@ -561,8 +595,17 @@ export async function syncUserEmail(userId: string, options?: { batchSize?: numb
     // Sync each mailbox
     for (const { path, specialUse } of toSync) {
       try {
-        const result = await syncMailbox(client, userId, path, specialUse, options?.batchSize, credentials.email);
-        console.log(`[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`);
+        const result = await syncMailbox(
+          client,
+          userId,
+          path,
+          specialUse,
+          options?.batchSize,
+          credentials.email,
+        );
+        console.log(
+          `[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`,
+        );
         results.push(result);
       } catch (err) {
         console.error(`[sync] ${path}: error:`, err);

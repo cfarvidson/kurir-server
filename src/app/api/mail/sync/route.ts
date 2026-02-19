@@ -5,6 +5,22 @@ import { syncUserEmail } from "@/lib/mail/sync-service";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
+async function clearUserMailCache(userId: string) {
+  // Keep sender decisions (approved/rejected/category), only reset derived counts.
+  await db.message.deleteMany({
+    where: { userId },
+  });
+
+  await db.folder.deleteMany({
+    where: { userId },
+  });
+
+  await db.sender.updateMany({
+    where: { userId },
+    data: { messageCount: 0 },
+  });
+}
+
 async function claimSyncLock(userId: string): Promise<boolean> {
   // Ensure SyncState exists
   await db.syncState.upsert({
@@ -48,21 +64,39 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const batchSizeParam = searchParams.get("batchSize");
   const batchSize = batchSizeParam ? parseInt(batchSizeParam, 10) : undefined;
+  const shouldResync =
+    searchParams.get("resync") === "1" || searchParams.get("resync") === "true";
 
   // Try to claim the sync lock
   const locked = await claimSyncLock(userId);
   if (!locked) {
+    if (shouldResync) {
+      return NextResponse.json(
+        {
+          error:
+            "Sync already in progress. Wait for it to finish, then retry resync.",
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ success: true, results: [], importing: true });
   }
 
   try {
-    const result = await syncUserEmail(userId, batchSize ? { batchSize } : undefined);
+    if (shouldResync) {
+      await clearUserMailCache(userId);
+    }
+
+    const result = await syncUserEmail(
+      userId,
+      batchSize ? { batchSize } : undefined,
+    );
 
     if (!result.success) {
       await releaseSyncLock(userId, result.error);
       return NextResponse.json(
         { error: result.error, results: result.results },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -78,7 +112,7 @@ export async function POST(request: NextRequest) {
     await releaseSyncLock(userId, String(err));
     return NextResponse.json(
       { error: String(err), results: [] },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
