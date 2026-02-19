@@ -19,8 +19,10 @@ async function getUserEmail(userId: string) {
 
 export default async function FeedMessagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const session = await auth();
 
@@ -29,6 +31,8 @@ export default async function FeedMessagePage({
   }
 
   const { id } = await params;
+  const { q } = await searchParams;
+  const returnPath = q ? `/feed?q=${encodeURIComponent(q)}` : "/feed";
   const [threadResult, currentUserEmail] = await Promise.all([
     getThreadMessages(session.user.id, id),
     getUserEmail(session.user.id),
@@ -62,11 +66,11 @@ export default async function FeedMessagePage({
 
   return (
     <div className="flex h-full flex-col">
-      <ArchiveKeyboardShortcut messageId={id} returnPath="/feed" />
+      <ArchiveKeyboardShortcut messageId={id} returnPath={returnPath} />
       {/* Header */}
       <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
         <Link
-          href="/feed"
+          href={returnPath}
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -78,7 +82,7 @@ export default async function FeedMessagePage({
           </span>
         )}
         <div className="ml-auto">
-          <ArchiveButton messageId={id} returnPath="/feed" />
+          <ArchiveButton messageId={id} returnPath={returnPath} />
         </div>
       </div>
 

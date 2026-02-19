@@ -21,13 +21,13 @@ Pass `?q=searchterm` as a URL param on message detail links when navigating from
 
 ## Acceptance Criteria
 
-- [ ] Clicking a message from search results navigates to `/category/{id}?q=searchterm`
-- [ ] The back link on detail pages returns to `/category?q=searchterm` when `?q=` is present
-- [ ] Archiving from a detail page (button or "e" key) returns to `/category?q=searchterm`
-- [ ] Unarchiving from archive detail page returns to `/archive?q=searchterm`
-- [ ] Normal (non-search) navigation is unchanged — no `?q=` when not searching
-- [ ] Browser back from detail page returns to search results (already works via history)
-- [ ] Special characters in search queries survive the URL round-trip
+- [x] Clicking a message from search results navigates to `/category/{id}?q=searchterm`
+- [x] The back link on detail pages returns to `/category?q=searchterm` when `?q=` is present
+- [x] Archiving from a detail page (button or "e" key) returns to `/category?q=searchterm`
+- [x] Unarchiving from archive detail page returns to `/archive?q=searchterm`
+- [x] Normal (non-search) navigation is unchanged — no `?q=` when not searching
+- [x] Browser back from detail page returns to search results (already works via history)
+- [x] Special characters in search queries survive the URL round-trip
 
 ## Scope Decisions
 

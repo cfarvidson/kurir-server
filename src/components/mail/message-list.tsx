@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,11 @@ export function MessageRow({
   onArchived?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q");
+  const href = q
+    ? `${basePath}/${message.id}?q=${encodeURIComponent(q)}`
+    : `${basePath}/${message.id}`;
   const hasThread = (message.threadCount ?? 0) > 1;
 
   const handleArchive = (e: React.MouseEvent) => {
@@ -74,7 +80,7 @@ export function MessageRow({
 
   return (
     <Link
-      href={`${basePath}/${message.id}`}
+      href={href}
       className={cn(
         "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
         !message.isRead && "bg-primary/5",

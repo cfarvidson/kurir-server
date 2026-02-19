@@ -7,16 +7,17 @@ import { unarchiveConversation } from "@/actions/archive";
 
 interface UnarchiveButtonProps {
   messageId: string;
+  returnPath?: string;
 }
 
-export function UnarchiveButton({ messageId }: UnarchiveButtonProps) {
+export function UnarchiveButton({ messageId, returnPath = "/archive" }: UnarchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const handleUnarchive = () => {
     startTransition(async () => {
       await unarchiveConversation(messageId);
-      router.push("/archive");
+      router.push(returnPath);
     });
   };
 
