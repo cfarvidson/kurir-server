@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { Loader2, CheckSquare } from "lucide-react";
@@ -36,6 +37,7 @@ export function InfiniteMessageList({
 }: InfiniteMessageListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -134,7 +136,8 @@ export function InfiniteMessageList({
 
   const handleArchived = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["messages", category] });
-  }, [queryClient, category]);
+    router.refresh();
+  }, [queryClient, category, router]);
 
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {
