@@ -63,7 +63,7 @@ async function SearchResults({ userId, q }: { userId: string; q: string }) {
     );
   }
 
-  return <MessageList messages={messages} basePath="/snoozed" />;
+  return <MessageList messages={messages} basePath="/snoozed" showSnoozedUntil showSnoozeAction />;
 }
 
 async function PaginatedSnoozed({ userId }: { userId: string }) {
@@ -89,6 +89,9 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
       initialCursor={result.nextCursor}
       category="snoozed"
       basePath="/snoozed"
+      showSnoozeAction
+      showSnoozedUntil
+      showSelectionToggle
     />
   );
 }

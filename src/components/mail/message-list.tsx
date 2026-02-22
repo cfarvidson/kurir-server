@@ -3,9 +3,9 @@
 import { useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatDistanceToNow } from "@/lib/date";
+import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import { Archive, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
@@ -21,6 +21,7 @@ export interface MessageItem {
   hasAttachments: boolean;
   threadId?: string | null;
   threadCount?: number;
+  snoozedUntil?: Date | null;
   sender?: {
     displayName: string | null;
     email: string;
@@ -32,6 +33,7 @@ interface MessageListProps {
   basePath?: string;
   showArchiveAction?: boolean;
   showSnoozeAction?: boolean;
+  showSnoozedUntil?: boolean;
 }
 
 export function MessageList({
@@ -39,6 +41,7 @@ export function MessageList({
   basePath = "/imbox",
   showArchiveAction = false,
   showSnoozeAction = false,
+  showSnoozedUntil = false,
 }: MessageListProps) {
   return (
     <div>
@@ -49,6 +52,7 @@ export function MessageList({
           basePath={basePath}
           showArchiveAction={showArchiveAction}
           showSnoozeAction={showSnoozeAction}
+          showSnoozedUntil={showSnoozedUntil}
         />
       ))}
     </div>
@@ -60,6 +64,7 @@ export function MessageRow({
   basePath,
   showArchiveAction,
   showSnoozeAction,
+  showSnoozedUntil,
   onArchived,
   isSelectionMode,
   isSelected,
@@ -69,6 +74,7 @@ export function MessageRow({
   basePath: string;
   showArchiveAction: boolean;
   showSnoozeAction?: boolean;
+  showSnoozedUntil?: boolean;
   onArchived?: () => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -178,6 +184,12 @@ export function MessageRow({
         {message.snippet && (
           <div className="truncate text-sm text-muted-foreground">
             {message.snippet}
+          </div>
+        )}
+        {showSnoozedUntil && message.snoozedUntil && (
+          <div className="mt-0.5 flex items-center gap-1 text-xs text-primary/70" suppressHydrationWarning>
+            <AlarmClock className="h-3 w-3" />
+            {formatSnoozeUntil(new Date(message.snoozedUntil))}
           </div>
         )}
       </div>

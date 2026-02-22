@@ -38,6 +38,46 @@ export function formatDistanceToNow(date: Date): string {
 }
 
 /**
+ * Format a future date relative to now (e.g., "in 2 hours", "tomorrow 9:00 AM")
+ */
+export function formatSnoozeUntil(date: Date): string {
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+
+  if (diffMs <= 0) return "waking up...";
+
+  const diffMins = Math.floor(diffMs / 1000 / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (diffMins < 60) return `in ${diffMins}m`;
+  if (diffHours < 24) return `today ${timeStr}`;
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (date.toDateString() === tomorrow.toDateString()) {
+    return `tomorrow ${timeStr}`;
+  }
+
+  if (diffDays < 7) {
+    const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+    return `${dayName} ${timeStr}`;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
  * Format a date for display in message headers
  */
 export function formatDate(date: Date): string {

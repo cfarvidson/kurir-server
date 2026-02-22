@@ -20,6 +20,7 @@ export const MESSAGE_SELECT = {
   isFlagged: true,
   hasAttachments: true,
   threadId: true,
+  snoozedUntil: true,
   sender: { select: { displayName: true, email: true } },
 } as const;
 
