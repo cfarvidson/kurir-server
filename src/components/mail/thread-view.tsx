@@ -90,14 +90,14 @@ function MessageBubble({
     >
       {/* Connector line */}
       {!isLast && (
-        <div className="absolute left-4 top-10 bottom-0 w-px bg-border md:left-5 md:top-12" />
+        <div className="absolute left-[17px] top-11 bottom-0 w-px bg-border/40 md:left-5 md:top-12" />
       )}
 
       <div className="flex gap-2.5 md:gap-3">
         {/* Avatar */}
         <div
           className={cn(
-            "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold md:h-10 md:w-10 md:text-sm",
+            "relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background md:h-10 md:w-10 md:text-sm",
             avatarColor
           )}
         >
@@ -105,14 +105,14 @@ function MessageBubble({
         </div>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 pb-4 md:pb-6">
+        <div className="min-w-0 flex-1 pb-6 md:pb-8">
           {/* Header — always visible */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-start justify-between gap-2 text-left"
+            className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50"
           >
             <div className="min-w-0">
-              <span className="text-sm font-semibold">
+              <span className="text-[13px] font-semibold leading-none">
                 {isFromCurrentUser ? "You" : senderName}
               </span>
               {message.isArchived && (
@@ -128,9 +128,9 @@ function MessageBubble({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+              <time className="text-[11px] tabular-nums text-muted-foreground/70" suppressHydrationWarning>
                 {formatDate(new Date(message.sentAt || message.receivedAt))}
-              </span>
+              </time>
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
@@ -150,82 +150,85 @@ function MessageBubble({
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                {/* Recipients */}
-                <div className="mt-1 text-xs text-muted-foreground">
-                  to {message.toAddresses.join(", ")}
-                  {message.ccAddresses.length > 0 && (
-                    <span>, cc: {message.ccAddresses.join(", ")}</span>
-                  )}
-                </div>
-
-                {/* Attachments */}
-                {message.attachments.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {message.attachments.map((att) => (
-                      <div
-                        key={att.id}
-                        className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1 text-xs"
-                      >
-                        <Paperclip className="h-3 w-3 text-muted-foreground" />
-                        <span className="max-w-[200px] truncate">
-                          {att.filename}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {att.size < 1024
-                            ? `${att.size}B`
-                            : `${Math.round(att.size / 1024)}KB`}
-                        </span>
-                      </div>
-                    ))}
+                <div className="mt-1 rounded-lg border border-border/50 bg-card px-4 py-4 shadow-sm">
+                  {/* Recipients */}
+                  <div className="text-xs text-muted-foreground">
+                    to {message.toAddresses.join(", ")}
+                    {message.ccAddresses.length > 0 && (
+                      <span>, cc: {message.ccAddresses.join(", ")}</span>
+                    )}
                   </div>
-                )}
 
-                {/* Body */}
-                <div className="mt-4">
-                  {message.htmlBody ? (
-                    <div
-                      data-quotes-collapsed={
-                        quotesCollapsed && hasHtmlQuotes ? "true" : undefined
-                      }
-                    >
-                      <style>{`
-                        [data-quotes-collapsed="true"] blockquote,
-                        [data-quotes-collapsed="true"] .gmail_quote,
-                        [data-quotes-collapsed="true"] .moz-cite-prefix {
-                          display: none;
-                        }
-                      `}</style>
+                  {/* Attachments */}
+                  {message.attachments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {message.attachments.map((att) => (
+                        <div
+                          key={att.id}
+                          className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
+                        >
+                          <Paperclip className="h-3 w-3 text-primary/60" />
+                          <span className="max-w-[200px] truncate font-medium">
+                            {att.filename}
+                          </span>
+                          <span className="text-muted-foreground/60">
+                            {att.size < 1024
+                              ? `${att.size}B`
+                              : `${Math.round(att.size / 1024)}KB`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Body */}
+                  <div className="mt-4">
+                    {message.htmlBody ? (
                       <div
-                        className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4"
-                        dangerouslySetInnerHTML={{ __html: message.htmlBody }}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                        {plainBody || "No content"}
-                      </pre>
-                      {plainQuoted && !quotesCollapsed && (
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
-                          {plainQuoted}
+                        data-quotes-collapsed={
+                          quotesCollapsed && hasHtmlQuotes ? "true" : undefined
+                        }
+                      >
+                        <style>{`
+                          [data-quotes-collapsed="true"] blockquote,
+                          [data-quotes-collapsed="true"] .gmail_quote,
+                          [data-quotes-collapsed="true"] .moz-cite-prefix {
+                            display: none;
+                          }
+                        `}</style>
+                        <div
+                          className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4"
+                          dangerouslySetInnerHTML={{ __html: message.htmlBody }}
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                          {plainBody || "No content"}
                         </pre>
-                      )}
-                    </div>
-                  )}
-                  {hasQuotes && (
-                    <button
-                      onClick={() => setQuotesCollapsed(!quotesCollapsed)}
-                      aria-label={
-                        quotesCollapsed
-                          ? "Show quoted text"
-                          : "Hide quoted text"
-                      }
-                      aria-expanded={!quotesCollapsed}
-                      className="mt-1 flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
-                    >
-                      <MoreHorizontal className="h-3 w-3" />
-                    </button>
-                  )}
+                        {plainQuoted && !quotesCollapsed && (
+                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
+                            {plainQuoted}
+                          </pre>
+                        )}
+                      </div>
+                    )}
+                    {hasQuotes && (
+                      <button
+                        onClick={() => setQuotesCollapsed(!quotesCollapsed)}
+                        aria-label={
+                          quotesCollapsed
+                            ? "Show quoted text"
+                            : "Hide quoted text"
+                        }
+                        aria-expanded={!quotesCollapsed}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                        {quotesCollapsed ? "Show quoted text" : "Hide"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}

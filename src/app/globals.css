@@ -57,3 +57,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .prose a {
+    @apply text-primary no-underline hover:underline;
+  }
+  .prose img {
+    @apply rounded-md;
+  }
+  .prose blockquote {
+    @apply border-l-primary/30 text-muted-foreground;
+  }
+}

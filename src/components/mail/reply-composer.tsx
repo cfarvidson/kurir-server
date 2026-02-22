@@ -87,9 +87,10 @@ export function ReplyComposer({
         {sent ? (
           <motion.div
             key="sent"
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
             className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
           >
             <svg
@@ -115,10 +116,10 @@ export function ReplyComposer({
             exit={{ opacity: 0, y: -4 }}
             onClick={() => setIsOpen(true)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/20",
+              "flex w-full items-center gap-3 rounded-xl border bg-muted/30",
               "px-4 py-3.5 text-sm text-muted-foreground",
               "transition-all duration-200",
-              "hover:border-primary/30 hover:bg-primary/[0.02] hover:text-foreground",
+              "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-sm",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             )}
           >
@@ -137,7 +138,7 @@ export function ReplyComposer({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden rounded-xl border shadow-sm"
+            className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
           >
             {/* Composer header */}
             <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">

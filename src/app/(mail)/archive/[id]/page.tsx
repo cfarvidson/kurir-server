@@ -72,28 +72,30 @@ export default async function ArchiveMessagePage({
       {markedRead.length > 0 && <SidebarRefresh />}
       <ArchiveKeyboardShortcut messageId={id} returnPath={returnPath} action="unarchive" />
       {/* Header */}
-      <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 backdrop-blur-sm px-4 py-3 md:px-6">
         <Link
           href={returnPath}
-          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Archive
         </Link>
+        <div className="min-w-0 flex-1">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Archive
+          </span>
+        </div>
         {messages.length > 1 && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {messages.length} messages
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
+            {messages.length}
           </span>
         )}
-        <div className="ml-auto">
-          <UnarchiveButton messageId={id} returnPath={returnPath} />
-        </div>
+        <UnarchiveButton messageId={id} returnPath={returnPath} />
       </div>
 
       {/* Thread */}
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
-          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{subject}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{subject}</h1>
 
           <div className="mt-6 md:mt-8">
             <ThreadPageContent
