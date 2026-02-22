@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 interface SyncResultData {
@@ -15,6 +15,7 @@ interface SyncResponse {
   success: boolean;
   results: SyncResultData[];
   importing?: boolean;
+  wokenSnoozes?: number;
 }
 
 export function AutoSync() {
@@ -22,12 +23,24 @@ export function AutoSync() {
   const prevDataRef = useRef<SyncResponse | null>(null);
   const lastGoodResultsRef = useRef<SyncResultData[] | null>(null);
   const [importing, setImporting] = useState(false);
+  const queryClient = useQueryClient();
 
   // Stable ref to router for SSE handler (avoids EventSource reconnect on render)
   const routerRef = useRef(router);
   useLayoutEffect(() => {
     routerRef.current = router;
   });
+
+  // Immediate sync when tab regains focus (wakes expired snoozes promptly)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        queryClient.invalidateQueries({ queryKey: ["mail-sync"] });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [queryClient]);
 
   // SSE: realtime updates from IDLE
   useEffect(() => {
@@ -68,8 +81,13 @@ export function AutoSync() {
     if (!data || data === prevDataRef.current) return;
     prevDataRef.current = data;
 
-    // Skip router refresh when another sync is already in progress
-    if (data.importing) return;
+    // When another sync is in progress, still refresh if snoozes were woken
+    if (data.importing) {
+      if (data.wokenSnoozes && data.wokenSnoozes > 0) {
+        router.refresh();
+      }
+      return;
+    }
 
     // Track last good results for progress bar display
     if (data.results && data.results.length > 0) {
@@ -87,9 +105,10 @@ export function AutoSync() {
       return;
     }
 
-    // Refresh when new messages arrive during normal sync
+    // Refresh when new messages arrive or snoozes were woken during normal sync
     const hasNew = data.results?.some((r) => r.newMessages > 0);
-    if (hasNew) {
+    const hasWoken = data.wokenSnoozes && data.wokenSnoozes > 0;
+    if (hasNew || hasWoken) {
       router.refresh();
     }
   }, [data, router, importing]);

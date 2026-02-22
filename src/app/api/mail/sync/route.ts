@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncUserEmail } from "@/lib/mail/sync-service";
@@ -27,6 +27,10 @@ async function wakeExpiredSnoozes(userId: string): Promise<number> {
 
   if (result.count > 0) {
     revalidateTag("sidebar-counts");
+    revalidatePath("/imbox");
+    revalidatePath("/feed");
+    revalidatePath("/paper-trail");
+    revalidatePath("/snoozed");
   }
 
   return result.count;
@@ -103,8 +107,8 @@ export async function POST(request: NextRequest) {
       );
     }
     // Still wake expired snoozes even when sync is locked
-    await wakeExpiredSnoozes(userId);
-    return NextResponse.json({ success: true, results: [], importing: true });
+    const wokenSnoozes = await wakeExpiredSnoozes(userId);
+    return NextResponse.json({ success: true, results: [], importing: true, wokenSnoozes });
   }
 
   try {
@@ -130,11 +134,12 @@ export async function POST(request: NextRequest) {
     await releaseSyncLock(userId);
 
     // Wake any snoozed messages whose timer has expired
-    await wakeExpiredSnoozes(userId);
+    const wokenSnoozes = await wakeExpiredSnoozes(userId);
 
     return NextResponse.json({
       success: true,
       results: result.results,
+      wokenSnoozes,
     });
   } catch (err) {
     await releaseSyncLock(userId, String(err));
