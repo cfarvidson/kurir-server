@@ -1,40 +1,12 @@
-import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { MessageList } from "@/components/mail/message-list";
+import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
-import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
 import { searchMessages } from "@/lib/mail/search";
+import { getMessages } from "@/lib/mail/messages";
 import { Archive } from "lucide-react";
-
-async function getArchivedMessages(userId: string) {
-  const messages = await db.message.findMany({
-    where: {
-      userId,
-      isArchived: true,
-    },
-    orderBy: { receivedAt: "desc" },
-    take: 50,
-    include: {
-      sender: {
-        select: {
-          displayName: true,
-          email: true,
-        },
-      },
-    },
-  });
-
-  const threadCounts = await getThreadCounts(userId, messages);
-
-  const withCounts = messages.map((m) => ({
-    ...m,
-    threadCount: threadCounts.get(m.id) ?? 1,
-  }));
-
-  return collapseToThreads(withCounts);
-}
 
 export default async function ArchivePage({
   searchParams,
@@ -50,14 +22,6 @@ export default async function ArchivePage({
   const { q } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
-  const messages = isSearching
-    ? await searchMessages(
-        session.user.id,
-        q,
-        Prisma.sql`AND "isArchived" = true`
-      )
-    : await getArchivedMessages(session.user.id);
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -68,24 +32,63 @@ export default async function ArchivePage({
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-muted p-4">
-              <Archive className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h2 className="mt-4 text-lg font-medium">
-              {isSearching ? "No results found" : "Archive is empty"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isSearching
-                ? `No messages match "${q}"`
-                : "Archived conversations will appear here."}
-            </p>
-          </div>
+        {isSearching ? (
+          <SearchResults userId={session.user.id} q={q!} />
         ) : (
-          <MessageList messages={messages} basePath="/archive" />
+          <PaginatedArchive userId={session.user.id} />
         )}
       </div>
     </div>
+  );
+}
+
+async function SearchResults({ userId, q }: { userId: string; q: string }) {
+  const messages = await searchMessages(
+    userId,
+    q,
+    Prisma.sql`AND "isArchived" = true`
+  );
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="rounded-full bg-muted p-4">
+          <Archive className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="mt-4 text-lg font-medium">No results found</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No messages match &quot;{q}&quot;
+        </p>
+      </div>
+    );
+  }
+
+  return <MessageList messages={messages} basePath="/archive" />;
+}
+
+async function PaginatedArchive({ userId }: { userId: string }) {
+  const result = await getMessages(userId, "archive", 50);
+
+  if (!result || result.messages.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="rounded-full bg-muted p-4">
+          <Archive className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="mt-4 text-lg font-medium">Archive is empty</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Archived conversations will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <InfiniteMessageList
+      initialMessages={result.messages}
+      initialCursor={result.nextCursor}
+      category="archive"
+      basePath="/archive"
+    />
   );
 }

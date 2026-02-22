@@ -31,9 +31,9 @@ export async function approveSender(senderId: string, category: SenderCategory) 
         decidedAt: new Date(),
       },
     }),
-    // Move all messages from this sender to the appropriate location
+    // Move non-archived messages from this sender to the appropriate location
     db.message.updateMany({
-      where: { senderId },
+      where: { senderId, isArchived: false },
       data: {
         isInScreener: false,
         isInImbox: category === "IMBOX",
@@ -75,9 +75,9 @@ export async function rejectSender(senderId: string) {
         decidedAt: new Date(),
       },
     }),
-    // Remove messages from screener but don't show them anywhere
+    // Remove non-archived messages from screener but don't show them anywhere
     db.message.updateMany({
-      where: { senderId },
+      where: { senderId, isArchived: false },
       data: {
         isInScreener: false,
         isInImbox: false,
@@ -123,7 +123,7 @@ export async function changeSenderCategory(
       data: { category },
     }),
     db.message.updateMany({
-      where: { senderId },
+      where: { senderId, isArchived: false },
       data: {
         isInImbox: category === "IMBOX",
         isInFeed: category === "FEED",

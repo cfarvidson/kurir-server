@@ -5,6 +5,7 @@ const CATEGORY_FILTERS = {
   imbox: { isInImbox: true },
   feed: { isInFeed: true },
   "paper-trail": { isInPaperTrail: true },
+  archive: { isArchived: true },
 } as const;
 
 export const MESSAGE_SELECT = {

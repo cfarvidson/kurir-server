@@ -6,6 +6,47 @@ import { db } from "@/lib/db";
 import { withImapConnection } from "@/lib/mail/imap-client";
 import { suppressEcho } from "@/lib/mail/flag-push";
 
+/**
+ * Find PENDING senders linked to the given messages. If all of a sender's
+ * messages are now archived, auto-reject the sender so they don't
+ * reappear in the Screener when new mail arrives.
+ */
+async function autoRejectFullyArchivedSenders(messageIds: string[]) {
+  // Get distinct PENDING senders for the archived messages
+  const affectedMessages = await db.message.findMany({
+    where: { id: { in: messageIds }, senderId: { not: null } },
+    select: { senderId: true },
+    distinct: ["senderId"],
+  });
+
+  const senderIds = affectedMessages
+    .map((m) => m.senderId)
+    .filter((id): id is string => id !== null);
+
+  if (senderIds.length === 0) return;
+
+  // Only consider senders still in PENDING status
+  const pendingSenders = await db.sender.findMany({
+    where: { id: { in: senderIds }, status: "PENDING" },
+    select: { id: true },
+  });
+
+  for (const sender of pendingSenders) {
+    // Check if the sender has any non-archived messages left
+    const hasNonArchived = await db.message.findFirst({
+      where: { senderId: sender.id, isArchived: false },
+      select: { id: true },
+    });
+
+    if (!hasNonArchived) {
+      await db.sender.update({
+        where: { id: sender.id },
+        data: { status: "REJECTED", decidedAt: new Date() },
+      });
+    }
+  }
+}
+
 export async function archiveConversation(messageId: string) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -92,11 +133,16 @@ export async function archiveConversation(messageId: string) {
     },
   });
 
+  // Auto-reject PENDING senders whose messages are now all archived,
+  // so they don't reappear in the Screener when new mail arrives.
+  await autoRejectFullyArchivedSenders(messageIds);
+
   revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
   revalidatePath("/archive");
+  revalidatePath("/screener");
 }
 
 export async function archiveConversations(messageIds: string[]) {
@@ -193,11 +239,16 @@ export async function archiveConversations(messageIds: string[]) {
     },
   });
 
+  // Auto-reject PENDING senders whose messages are now all archived,
+  // so they don't reappear in the Screener when new mail arrives.
+  await autoRejectFullyArchivedSenders(allMessageIds);
+
   revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
   revalidatePath("/archive");
+  revalidatePath("/screener");
 }
 
 export async function unarchiveConversation(messageId: string) {
