@@ -5,8 +5,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import { Archive, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
+import { snoozeConversation } from "@/actions/snooze";
+import { SnoozePicker } from "@/components/mail/snooze-picker";
 
 export interface MessageItem {
   id: string;
@@ -29,12 +31,14 @@ interface MessageListProps {
   messages: MessageItem[];
   basePath?: string;
   showArchiveAction?: boolean;
+  showSnoozeAction?: boolean;
 }
 
 export function MessageList({
   messages,
   basePath = "/imbox",
   showArchiveAction = false,
+  showSnoozeAction = false,
 }: MessageListProps) {
   return (
     <div>
@@ -44,6 +48,7 @@ export function MessageList({
           message={message}
           basePath={basePath}
           showArchiveAction={showArchiveAction}
+          showSnoozeAction={showSnoozeAction}
         />
       ))}
     </div>
@@ -54,6 +59,7 @@ export function MessageRow({
   message,
   basePath,
   showArchiveAction,
+  showSnoozeAction,
   onArchived,
   isSelectionMode,
   isSelected,
@@ -62,6 +68,7 @@ export function MessageRow({
   message: MessageItem;
   basePath: string;
   showArchiveAction: boolean;
+  showSnoozeAction?: boolean;
   onArchived?: () => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -80,6 +87,13 @@ export function MessageRow({
     e.stopPropagation();
     startTransition(async () => {
       await archiveConversation(message.id);
+      onArchived?.();
+    });
+  };
+
+  const handleSnooze = (until: Date) => {
+    startTransition(async () => {
+      await snoozeConversation(message.id, until);
       onArchived?.();
     });
   };
@@ -168,19 +182,40 @@ export function MessageRow({
         )}
       </div>
 
-      {/* Hover archive button (hidden in selection mode) */}
-      {showArchiveAction && !isSelectionMode && (
-        <button
-          onClick={handleArchive}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 md:right-5"
-          title="Archive"
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Archive className="h-4 w-4" />
+      {/* Hover action buttons (hidden in selection mode) */}
+      {(showArchiveAction || showSnoozeAction) && !isSelectionMode && (
+        <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:right-5">
+          {showSnoozeAction && (
+            <SnoozePicker
+              onSnooze={handleSnooze}
+              isPending={isPending}
+              side="bottom"
+              align="end"
+              trigger={
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title="Snooze"
+                >
+                  <Clock className="h-4 w-4" />
+                </button>
+              }
+            />
           )}
-        </button>
+          {showArchiveAction && (
+            <button
+              onClick={handleArchive}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Archive"
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
       )}
     </>
   );

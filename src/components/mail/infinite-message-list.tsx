@@ -14,10 +14,11 @@ interface PageData {
 interface InfiniteMessageListProps {
   initialMessages: MessageItem[];
   initialCursor: string | null;
-  category: "imbox" | "feed" | "paper-trail" | "archive";
+  category: "imbox" | "feed" | "paper-trail" | "archive" | "snoozed";
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;
+  showSnoozeAction?: boolean;
   showSelectionToggle?: boolean;
 }
 
@@ -28,6 +29,7 @@ export function InfiniteMessageList({
   basePath,
   showSections = false,
   showArchiveAction = false,
+  showSnoozeAction = false,
   showSelectionToggle = false,
 }: InfiniteMessageListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -147,6 +149,7 @@ export function InfiniteMessageList({
         message={message}
         basePath={basePath}
         showArchiveAction={showArchiveAction}
+        showSnoozeAction={showSnoozeAction}
         onArchived={handleArchived}
         isSelectionMode={isSelectionMode}
         isSelected={selectedIds.has(threadKey)}
@@ -219,6 +222,7 @@ export function InfiniteMessageList({
           selectedMessageIds={selectedMessageIds}
           onComplete={clearSelection}
           onQueryInvalidate={handleArchived}
+          showSnoozeAction={showSnoozeAction}
         />
       </div>
     );

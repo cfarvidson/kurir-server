@@ -23,6 +23,13 @@ const getImboxUnreadCount = unstable_cache(
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
+const getSnoozedCount = unstable_cache(
+  async (userId: string) =>
+    db.message.count({ where: { userId, isSnoozed: true } }),
+  ["snoozed-count"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
 export default async function MailLayout({
   children,
 }: {
@@ -36,9 +43,10 @@ export default async function MailLayout({
 
   const userEmail = session.user.email?.trim().toLowerCase();
 
-  const [screenerCount, imboxUnreadCount] = await Promise.all([
+  const [screenerCount, imboxUnreadCount, snoozedCount] = await Promise.all([
     getScreenerCount(session.user.id, userEmail),
     getImboxUnreadCount(session.user.id),
+    getSnoozedCount(session.user.id),
   ]);
 
   // Start IDLE connection for realtime IMAP sync (no-op if already connected)
@@ -50,10 +58,12 @@ export default async function MailLayout({
         <Sidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
+          snoozedCount={snoozedCount}
         />
         <MobileSidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
+          snoozedCount={snoozedCount}
         />
         <main className="flex-1 overflow-auto">{children}</main>
         <AutoSync />

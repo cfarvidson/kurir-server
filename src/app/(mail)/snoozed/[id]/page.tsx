@@ -4,22 +4,20 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
-import { ArchiveButton } from "@/components/mail/archive-button";
-import { SnoozeButton } from "@/components/mail/snooze-button";
-import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
+import { UnsnoozeButton } from "@/components/mail/unsnooze-button";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
-async function getUserInfo(userId: string) {
+async function getUserEmail(userId: string) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { email: true, timezone: true },
+    select: { email: true },
   });
-  return { email: user?.email || "", timezone: user?.timezone || "UTC" };
+  return user?.email || "";
 }
 
-export default async function MessagePage({
+export default async function SnoozedMessagePage({
   params,
   searchParams,
 }: {
@@ -34,12 +32,11 @@ export default async function MessagePage({
 
   const { id } = await params;
   const { q } = await searchParams;
-  const returnPath = q ? `/imbox?q=${encodeURIComponent(q)}` : "/imbox";
-  const [threadResult, userInfo] = await Promise.all([
+  const returnPath = q ? `/snoozed?q=${encodeURIComponent(q)}` : "/snoozed";
+  const [threadResult, currentUserEmail] = await Promise.all([
     getThreadMessages(session.user.id, id),
-    getUserInfo(session.user.id),
+    getUserEmail(session.user.id),
   ]);
-  const currentUserEmail = userInfo.email;
 
   if (!threadResult || threadResult.messages.length === 0) {
     notFound();
@@ -52,7 +49,6 @@ export default async function MessagePage({
     pushFlagsToImap(session.user.id, markedRead, "\\Seen", "add").catch(console.error);
   }
 
-  // The message that was clicked
   const targetMessage = messages.find((m) => m.id === id) || messages[0];
   const subject = targetMessage.subject || "(no subject)";
 
@@ -73,7 +69,6 @@ export default async function MessagePage({
   return (
     <div className="flex h-full flex-col">
       {markedRead.length > 0 && <SidebarRefresh />}
-      <ArchiveKeyboardShortcut messageId={id} returnPath={returnPath} />
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 backdrop-blur-sm px-4 py-3 md:px-6">
         <Link
@@ -84,7 +79,7 @@ export default async function MessagePage({
         </Link>
         <div className="min-w-0 flex-1">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Imbox
+            Snoozed
           </span>
         </div>
         {messages.length > 1 && (
@@ -92,17 +87,14 @@ export default async function MessagePage({
             {messages.length}
           </span>
         )}
-        <SnoozeButton messageId={id} returnPath={returnPath} timezone={userInfo.timezone} />
-        <ArchiveButton messageId={id} returnPath={returnPath} />
+        <UnsnoozeButton messageId={id} returnPath={returnPath} />
       </div>
 
       {/* Thread */}
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
-          {/* Subject */}
           <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{subject}</h1>
 
-          {/* Messages + Reply */}
           <div className="mt-6 md:mt-8">
             <ThreadPageContent
               initialMessages={messages}

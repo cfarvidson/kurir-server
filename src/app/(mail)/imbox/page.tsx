@@ -74,7 +74,7 @@ async function SearchResults({ userId, q }: { userId: string; q: string }) {
     );
   }
 
-  return <MessageList showArchiveAction messages={messages} basePath="/imbox" />;
+  return <MessageList showArchiveAction showSnoozeAction messages={messages} basePath="/imbox" />;
 }
 
 async function PaginatedImbox({ userId }: { userId: string }) {
@@ -114,6 +114,7 @@ async function PaginatedImbox({ userId }: { userId: string }) {
       basePath="/imbox"
       showSections={true}
       showArchiveAction={true}
+      showSnoozeAction={true}
       showSelectionToggle={true}
     />
   );

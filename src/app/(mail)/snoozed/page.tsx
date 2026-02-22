@@ -6,8 +6,9 @@ import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { searchMessages } from "@/lib/mail/search";
 import { getMessages } from "@/lib/mail/messages";
+import { Clock } from "lucide-react";
 
-export default async function FeedPage({
+export default async function SnoozedPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
@@ -23,16 +24,18 @@ export default async function FeedPage({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header */}
       <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
-        <h1 className="text-xl font-semibold md:text-2xl">The Feed</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">Snoozed</h1>
         <SearchInput />
       </div>
 
+      {/* Content */}
       <div className="flex-1 overflow-auto">
         {isSearching ? (
           <SearchResults userId={session.user.id} q={q!} />
         ) : (
-          <PaginatedFeed userId={session.user.id} />
+          <PaginatedSnoozed userId={session.user.id} />
         )}
       </div>
     </div>
@@ -43,26 +46,14 @@ async function SearchResults({ userId, q }: { userId: string; q: string }) {
   const messages = await searchMessages(
     userId,
     q,
-    Prisma.sql`AND "isInFeed" = true`
+    Prisma.sql`AND "isSnoozed" = true`
   );
 
   if (messages.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-blue-100 p-4">
-          <svg
-            className="h-8 w-8 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-            />
-          </svg>
+        <div className="rounded-full bg-muted p-4">
+          <Clock className="h-8 w-8 text-muted-foreground" />
         </div>
         <h2 className="mt-4 text-lg font-medium">No results found</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -72,33 +63,21 @@ async function SearchResults({ userId, q }: { userId: string; q: string }) {
     );
   }
 
-  return <MessageList showArchiveAction showSnoozeAction messages={messages} basePath="/feed" />;
+  return <MessageList messages={messages} basePath="/snoozed" />;
 }
 
-async function PaginatedFeed({ userId }: { userId: string }) {
-  const result = await getMessages(userId, "feed", 50);
+async function PaginatedSnoozed({ userId }: { userId: string }) {
+  const result = await getMessages(userId, "snoozed", 50);
 
   if (!result || result.messages.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-blue-100 p-4">
-          <svg
-            className="h-8 w-8 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-            />
-          </svg>
+        <div className="rounded-full bg-muted p-4">
+          <Clock className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h2 className="mt-4 text-lg font-medium">No newsletters yet</h2>
+        <h2 className="mt-4 text-lg font-medium">No snoozed conversations</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Screen in newsletter senders and send them to The Feed.
+          Snoozed conversations will appear here until they wake up.
         </p>
       </div>
     );
@@ -108,11 +87,8 @@ async function PaginatedFeed({ userId }: { userId: string }) {
     <InfiniteMessageList
       initialMessages={result.messages}
       initialCursor={result.nextCursor}
-      category="feed"
-      basePath="/feed"
-      showSections={true}
-      showArchiveAction={true}
-      showSnoozeAction={true}
+      category="snoozed"
+      basePath="/snoozed"
     />
   );
 }

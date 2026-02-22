@@ -1,9 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncUserEmail } from "@/lib/mail/sync-service";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Wake snoozed messages whose snoozedUntil has passed.
+ * Restores them as unread so they resurface in their category view.
+ * Piggybacks on the existing ~30s AutoSync poll.
+ */
+async function wakeExpiredSnoozes(userId: string): Promise<number> {
+  const result = await db.message.updateMany({
+    where: {
+      userId,
+      isSnoozed: true,
+      snoozedUntil: { lte: new Date() },
+    },
+    data: {
+      isSnoozed: false,
+      snoozedUntil: null,
+      isRead: false,
+    },
+  });
+
+  if (result.count > 0) {
+    revalidateTag("sidebar-counts");
+  }
+
+  return result.count;
+}
 
 async function clearUserMailCache(userId: string) {
   await db.$transaction([
@@ -75,6 +102,8 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
+    // Still wake expired snoozes even when sync is locked
+    await wakeExpiredSnoozes(userId);
     return NextResponse.json({ success: true, results: [], importing: true });
   }
 
@@ -99,6 +128,9 @@ export async function POST(request: NextRequest) {
     // Release lock (import may still have remaining messages — that's fine,
     // next call will re-acquire the lock for the next batch)
     await releaseSyncLock(userId);
+
+    // Wake any snoozed messages whose timer has expired
+    await wakeExpiredSnoozes(userId);
 
     return NextResponse.json({
       success: true,

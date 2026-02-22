@@ -194,6 +194,10 @@ model Message {
   isInPaperTrail Boolean @default(false) // Transactional
   isArchived     Boolean @default(false) // Moved to archive
 
+  // Snooze
+  isSnoozed    Boolean   @default(false)
+  snoozedUntil DateTime?
+
   // Relations
   folderId String
   folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
@@ -212,6 +216,7 @@ model Message {
   @@index([userId, isInFeed])
   @@index([userId, isInPaperTrail])
   @@index([userId, isArchived])
+  @@index([userId, isSnoozed, snoozedUntil])
   @@index([userId, receivedAt(sort: Desc)])
   @@index([userId, uid])
   @@index([userId, inReplyTo])

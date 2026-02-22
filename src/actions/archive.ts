@@ -130,6 +130,8 @@ export async function archiveConversation(messageId: string) {
       isInFeed: false,
       isInPaperTrail: false,
       isInScreener: false,
+      isSnoozed: false,
+      snoozedUntil: null,
     },
   });
 
@@ -236,6 +238,8 @@ export async function archiveConversations(messageIds: string[]) {
       isInFeed: false,
       isInPaperTrail: false,
       isInScreener: false,
+      isSnoozed: false,
+      snoozedUntil: null,
     },
   });
 

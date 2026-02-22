@@ -73,7 +73,7 @@ async function SearchResults({ userId, q }: { userId: string; q: string }) {
   }
 
   return (
-    <MessageList showArchiveAction messages={messages} basePath="/paper-trail" />
+    <MessageList showArchiveAction showSnoozeAction messages={messages} basePath="/paper-trail" />
   );
 }
 
@@ -114,6 +114,7 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
       basePath="/paper-trail"
       showSections={true}
       showArchiveAction={true}
+      showSnoozeAction={true}
     />
   );
 }

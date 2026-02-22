@@ -11,12 +11,14 @@ import { navigation } from "./navigation";
 interface SidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
+  snoozedCount?: number;
 }
 
-export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProps) {
+export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: SidebarProps) {
   const badgeCounts: Record<string, number> = {
     imbox: imboxUnreadCount,
     screener: screenerCount,
+    snoozed: snoozedCount,
   };
   const pathname = usePathname();
 

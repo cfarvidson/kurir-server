@@ -2,10 +2,11 @@ import { db } from "@/lib/db";
 import { getThreadCounts } from "@/lib/mail/threads";
 
 const CATEGORY_FILTERS = {
-  imbox: { isInImbox: true },
-  feed: { isInFeed: true },
-  "paper-trail": { isInPaperTrail: true },
+  imbox: { isInImbox: true, isSnoozed: false },
+  feed: { isInFeed: true, isSnoozed: false },
+  "paper-trail": { isInPaperTrail: true, isSnoozed: false },
   archive: { isArchived: true },
+  snoozed: { isSnoozed: true },
 } as const;
 
 export const MESSAGE_SELECT = {

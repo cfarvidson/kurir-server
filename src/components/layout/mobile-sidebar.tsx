@@ -12,12 +12,14 @@ import { navigation } from "./navigation";
 interface MobileSidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
+  snoozedCount?: number;
 }
 
-export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: MobileSidebarProps) {
+export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: MobileSidebarProps) {
   const badgeCounts: Record<string, number> = {
     imbox: imboxUnreadCount,
     screener: screenerCount,
+    snoozed: snoozedCount,
   };
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
