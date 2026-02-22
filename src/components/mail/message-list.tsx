@@ -184,7 +184,11 @@ export function MessageRow({
 
       {/* Hover action buttons (hidden in selection mode) */}
       {(showArchiveAction || showSnoozeAction) && !isSelectionMode && (
-        <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:right-5">
+        <div
+          className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 md:right-5"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           {showSnoozeAction && (
             <SnoozePicker
               onSnooze={handleSnooze}
@@ -193,7 +197,6 @@ export function MessageRow({
               align="end"
               trigger={
                 <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                   title="Snooze"
                 >
