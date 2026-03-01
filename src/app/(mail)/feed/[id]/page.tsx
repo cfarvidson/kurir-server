@@ -14,9 +14,16 @@ import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 async function getUserInfo(userId: string) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { email: true, timezone: true },
+    select: {
+      timezone: true,
+      emailConnections: {
+        select: { email: true },
+        orderBy: [{ isDefault: "desc" as const }, { createdAt: "asc" as const }],
+        take: 1,
+      },
+    },
   });
-  return { email: user?.email || "", timezone: user?.timezone || "UTC" };
+  return { email: user?.emailConnections[0]?.email || "", timezone: user?.timezone || "UTC" };
 }
 
 export default async function FeedMessagePage({

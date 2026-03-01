@@ -11,11 +11,12 @@ import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
 async function getUserEmail(userId: string) {
-  const user = await db.user.findUnique({
-    where: { id: userId },
+  const conn = await db.emailConnection.findFirst({
+    where: { userId },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     select: { email: true },
   });
-  return user?.email || "";
+  return conn?.email || "";
 }
 
 export default async function SentMessagePage({

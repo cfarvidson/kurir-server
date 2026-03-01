@@ -74,7 +74,11 @@ async function claimSyncLock(emailConnectionId: string): Promise<boolean> {
 async function releaseSyncLock(emailConnectionId: string, error?: string) {
   await db.syncState.updateMany({
     where: { emailConnectionId },
-    data: { isSyncing: false, syncError: error || null },
+    data: {
+      isSyncing: false,
+      syncError: error || null,
+      ...(!error ? { lastFullSync: new Date() } : {}),
+    },
   });
 }
 

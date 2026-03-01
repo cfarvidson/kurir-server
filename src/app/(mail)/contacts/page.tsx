@@ -31,7 +31,12 @@ export default async function ContactsPage() {
     redirect("/login");
   }
 
-  const contacts = await getContacts(session.user.id, session.user.email || "");
+  const defaultConn = await db.emailConnection.findFirst({
+    where: { userId: session.user.id },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { email: true },
+  });
+  const contacts = await getContacts(session.user.id, defaultConn?.email || "");
 
   return (
     <div className="flex h-full flex-col">

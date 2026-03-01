@@ -61,7 +61,12 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
-  const userEmail = session.user.email?.trim().toLowerCase();
+  const defaultConn = await db.emailConnection.findFirst({
+    where: { userId: session.user.id },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { email: true },
+  });
+  const userEmail = defaultConn?.email?.trim().toLowerCase();
 
   const [pendingSenders, screenedSenders] = await Promise.all([
     getPendingSenders(session.user.id, userEmail),

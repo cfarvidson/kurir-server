@@ -15,11 +15,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([]);
   }
 
+  // Exclude the user's own email addresses from contact suggestions
+  const userConnections = await db.emailConnection.findMany({
+    where: { userId: session.user.id },
+    select: { email: true },
+  });
+  const userEmails = userConnections.map((c) => c.email);
+
   const contacts = await db.sender.findMany({
     where: {
       userId: session.user.id,
       status: "APPROVED",
-      NOT: { email: session.user.email || "" },
+      NOT: { email: { in: userEmails } },
       OR: [
         { email: { contains: q, mode: "insensitive" } },
         { displayName: { contains: q, mode: "insensitive" } },
