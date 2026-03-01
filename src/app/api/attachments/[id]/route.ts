@@ -24,7 +24,7 @@ export async function GET(
           uid: true,
           userId: true,
           emailConnectionId: true,
-          folder: { select: { name: true } },
+          folder: { select: { path: true } },
         },
       },
     },
@@ -39,7 +39,7 @@ export async function GET(
 
   // Fetch the message source from IMAP and extract the attachment
   const content = await withImapConnection(message.emailConnectionId, async (client) => {
-    const mailbox = await client.getMailboxLock(message.folder.name);
+    const mailbox = await client.getMailboxLock(message.folder.path);
     try {
       // Fetch full source for this specific UID
       const fetched = await client.fetchOne(String(message.uid), { source: true }, { uid: true });
