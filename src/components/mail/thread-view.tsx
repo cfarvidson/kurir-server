@@ -164,8 +164,10 @@ function MessageBubble({
                   {message.attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {message.attachments.map((att) => (
-                        <div
+                        <a
                           key={att.id}
+                          href={`/api/attachments/${att.id}`}
+                          download={att.filename}
                           className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
                         >
                           <Paperclip className="h-3 w-3 text-primary/60" />
@@ -177,7 +179,7 @@ function MessageBubble({
                               ? `${att.size}B`
                               : `${Math.round(att.size / 1024)}KB`}
                           </span>
-                        </div>
+                        </a>
                       ))}
                     </div>
                   )}
