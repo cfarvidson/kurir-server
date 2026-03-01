@@ -10,8 +10,8 @@ import { connectionManager } from "@/lib/mail/connection-manager";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 const getScreenerCount = unstable_cache(
-  async (userId: string, excludedEmail?: string | null) =>
-    db.sender.count({ where: visiblePendingSenderWhere(userId, excludedEmail) }),
+  async (userId: string) =>
+    db.sender.count({ where: visiblePendingSenderWhere(userId, null) }),
   ["screener-count"],
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
@@ -41,16 +41,14 @@ export default async function MailLayout({
     redirect("/login");
   }
 
-  const userEmail = session.user.email?.trim().toLowerCase();
-
   const [screenerCount, imboxUnreadCount, snoozedCount] = await Promise.all([
-    getScreenerCount(session.user.id, userEmail),
+    getScreenerCount(session.user.id),
     getImboxUnreadCount(session.user.id),
     getSnoozedCount(session.user.id),
   ]);
 
-  // Start IDLE connection for realtime IMAP sync (no-op if already connected)
-  connectionManager.startUser(session.user.id).catch(console.error);
+  // Start IDLE for all email connections (no-op if already connected)
+  connectionManager.startAllForUser(session.user.id).catch(console.error);
 
   return (
     <Providers>
