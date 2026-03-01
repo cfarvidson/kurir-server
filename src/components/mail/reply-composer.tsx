@@ -83,61 +83,54 @@ export function ReplyComposer({
 
   return (
     <div className="relative">
-      <AnimatePresence mode="wait" initial={false}>
-        {sent ? (
-          <motion.div
-            key="sent"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
-            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+      {sent ? (
+        <motion.div
+          key="sent"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
+          className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            Reply sent
-          </motion.div>
-        ) : !isOpen ? (
-          <motion.button
-            key="collapsed"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            onClick={() => setIsOpen(true)}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl border bg-muted/30",
-              "px-4 py-3.5 text-sm text-muted-foreground",
-              "transition-all duration-200",
-              "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            )}
-          >
-            <CornerDownLeft className="h-4 w-4" />
-            <span>
-              Reply to{" "}
-              <span className="font-medium text-foreground">
-                {to === replyToAddress ? replyToName : to}
-              </span>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          Reply sent
+        </motion.div>
+      ) : !isOpen ? (
+        <button
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl border bg-muted/30",
+            "px-4 py-3.5 text-sm text-muted-foreground",
+            "transition-all duration-200",
+            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-sm",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          )}
+        >
+          <CornerDownLeft className="h-4 w-4" />
+          <span>
+            Reply to{" "}
+            <span className="font-medium text-foreground">
+              {to === replyToAddress ? replyToName : to}
             </span>
-          </motion.button>
-        ) : (
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2 }}
+          </span>
+        </button>
+      ) : (
+        <motion.div
+          key="expanded"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15 }}
             className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
           >
             {/* Composer header */}
@@ -266,7 +259,6 @@ export function ReplyComposer({
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
     </div>
   );
 }
