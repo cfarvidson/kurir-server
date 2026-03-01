@@ -83,7 +83,7 @@ export function ReplyComposer({
 
   return (
     <div className="relative">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {sent ? (
           <motion.div
             key="sent"
