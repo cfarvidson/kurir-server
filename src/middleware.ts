@@ -8,6 +8,7 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isOnLoginPage = req.nextUrl.pathname === "/login";
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
+  const isOnRegisterPage = req.nextUrl.pathname === "/register";
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
 
   // Allow auth routes
@@ -21,7 +22,7 @@ export default auth((req) => {
   }
 
   // Redirect non-logged-in users to login
-  if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage) {
+  if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 

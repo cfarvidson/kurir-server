@@ -16,8 +16,48 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Identity (no email/IMAP fields -- those are on EmailConnection)
+  displayName String?
+  timezone    String  @default("UTC")
+
+  // Relations
+  passkeys         Passkey[]
+  emailConnections EmailConnection[]
+  messages         Message[]
+  senders          Sender[]
+  folders          Folder[]
+  sessions         Session[]
+}
+
+model Passkey {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // WebAuthn credential data
+  credentialId String @unique // base64url encoded credential ID
+  publicKey    String // base64url encoded public key (COSE format)
+  counter      BigInt @default(0) // signature counter for replay protection
+  deviceType   String // "singleDevice" | "multiDevice"
+  backedUp     Boolean @default(false)
+  transports   String[] // e.g. ["internal", "hybrid"]
+
+  // User-facing label
+  friendlyName String? // e.g. "MacBook Pro Touch ID", "iPhone Face ID"
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Email account credentials
-  email       String  @unique
+  email       String
   displayName String?
 
   // IMAP configuration
@@ -31,17 +71,21 @@ model User {
   // Password stored encrypted with AES-256-GCM
   encryptedPassword String
 
-  // App preferences
-  timezone String @default("UTC")
+  // Default connection for compose/reply
+  isDefault Boolean @default(false)
 
-  // Relations
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations -- data scoped to this connection
   messages  Message[]
   senders   Sender[]
   folders   Folder[]
-  sessions  Session[]
   syncState SyncState?
 
-  @@index([email])
+  @@unique([userId, email])
+  @@index([userId])
 }
 
 model Session {
@@ -90,16 +134,23 @@ model Sender {
   // Message count for stats
   messageCount Int @default(0)
 
-  // User relation
+  // User relation (kept for cross-connection queries)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email connection relation (scopes sender to specific account)
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
 
   // Messages from this sender
   messages Message[]
 
-  @@unique([userId, email])
+  // Unique per connection (same external sender may email different accounts)
+  @@unique([emailConnectionId, email])
   @@index([userId, status])
   @@index([userId, category])
+  @@index([emailConnectionId, status])
+  @@index([emailConnectionId, category])
   @@index([domain])
 }
 
@@ -129,15 +180,20 @@ model Folder {
   // Special folder type (RFC 6154)
   specialUse String? // "inbox", "sent", "drafts", "trash", "junk", "archive"
 
-  // User relation
+  // User relation (kept for cross-connection queries)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email connection relation (scopes folder to specific IMAP account)
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
 
   // Messages in this folder
   messages Message[]
 
-  @@unique([userId, path])
+  @@unique([emailConnectionId, path])
   @@index([userId, specialUse])
+  @@index([emailConnectionId, specialUse])
 }
 
 // ============================================
@@ -202,8 +258,13 @@ model Message {
   folderId String
   folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
+  // User relation (kept for efficient cross-connection queries, e.g. unified inbox)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email connection relation (scopes IMAP operations to the right account)
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
 
   senderId String? // Linked after sender detection
   sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
@@ -220,6 +281,7 @@ model Message {
   @@index([userId, receivedAt(sort: Desc)])
   @@index([userId, uid])
   @@index([userId, inReplyTo])
+  @@index([emailConnectionId])
   @@index([threadId])
   @@index([messageId])
   @@index([senderId])
@@ -252,9 +314,11 @@ model Attachment {
 // ============================================
 
 model SyncState {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  // Per-connection sync state (each email syncs independently)
+  emailConnectionId String          @unique
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
 
   // Last successful full sync
   lastFullSync DateTime?
@@ -264,5 +328,5 @@ model SyncState {
   syncStartedAt DateTime?
   syncError     String?
 
-  @@index([userId])
+  @@index([emailConnectionId])
 }
