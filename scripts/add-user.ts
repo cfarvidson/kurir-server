@@ -1,11 +1,17 @@
 #!/usr/bin/env npx tsx
 /**
- * Add a user to Kurir via CLI
+ * Add a user and email connection to Kurir via CLI
+ *
+ * In the new auth system, a "user" is just an identity (no email on User).
+ * Email credentials live on EmailConnection. This script creates both.
  *
  * Usage:
  *   pnpm add-user
  *   pnpm add-user --email user@gmail.com --password "app-password" --provider gmail
  *   pnpm add-user --email user@example.com --password "pass" --imap-host imap.example.com --smtp-host smtp.example.com
+ *
+ * Note: The created user has no passkey. To log in, register a passkey at /register
+ * and then link it to this user ID, or use the database directly to add a session.
  */
 
 import "dotenv/config";
@@ -103,7 +109,7 @@ async function prompt(question: string, hidden = false): Promise<string> {
 async function main() {
   const args = parseArgs();
 
-  console.log("\n🔐 Kurir - Add User\n");
+  console.log("\nKurir - Add User + Email Connection\n");
 
   // Get email
   let email = args.email;
@@ -112,14 +118,14 @@ async function main() {
   }
 
   if (!email || !email.includes("@")) {
-    console.error("❌ Invalid email address");
+    console.error("Invalid email address");
     process.exit(1);
   }
 
-  // Check if user exists
-  const existing = await db.user.findUnique({ where: { email } });
+  // Check if an EmailConnection for this email already exists
+  const existing = await db.emailConnection.findFirst({ where: { email } });
   if (existing) {
-    const update = await prompt(`User ${email} already exists. Update credentials? (y/n): `);
+    const update = await prompt(`EmailConnection for ${email} already exists. Update credentials? (y/n): `);
     if (update.toLowerCase() !== "y") {
       console.log("Cancelled.");
       process.exit(0);
@@ -133,7 +139,7 @@ async function main() {
   }
 
   if (!password) {
-    console.error("❌ Password is required");
+    console.error("Password is required");
     process.exit(1);
   }
 
@@ -166,7 +172,7 @@ async function main() {
   }
 
   if (!imapHost || !smtpHost) {
-    console.error("❌ IMAP and SMTP hosts are required");
+    console.error("IMAP and SMTP hosts are required");
     process.exit(1);
   }
 
@@ -188,9 +194,9 @@ async function main() {
 
       await client.connect();
       await client.logout();
-      console.log("✅ Credentials verified!");
+      console.log("Credentials verified!");
     } catch (error) {
-      console.error("❌ IMAP connection failed:", error);
+      console.error("IMAP connection failed:", error);
       const cont = await prompt("Continue anyway? (y/n): ");
       if (cont.toLowerCase() !== "y") {
         process.exit(1);
@@ -198,35 +204,49 @@ async function main() {
     }
   }
 
-  // Encrypt password
   const encryptedPassword = encrypt(password);
 
-  // Create or update user
-  const user = await db.user.upsert({
-    where: { email },
-    create: {
-      email,
-      encryptedPassword,
-      imapHost,
-      imapPort,
-      smtpHost,
-      smtpPort,
-    },
-    update: {
-      encryptedPassword,
-      imapHost,
-      imapPort,
-      smtpHost,
-      smtpPort,
-    },
-  });
+  if (existing) {
+    // Update the existing EmailConnection
+    const updated = await db.emailConnection.update({
+      where: { id: existing.id },
+      data: { encryptedPassword, imapHost, imapPort, smtpHost, smtpPort },
+    });
+    console.log(`\nEmailConnection updated!`);
+    console.log(`  Connection ID: ${updated.id}`);
+    console.log(`  User ID:       ${updated.userId}`);
+    console.log(`  Email:         ${email}`);
+    console.log(`  IMAP:          ${imapHost}:${imapPort}`);
+    console.log(`  SMTP:          ${smtpHost}:${smtpPort}`);
+  } else {
+    // Create a new User + EmailConnection
+    const user = await db.user.create({
+      data: {
+        emailConnections: {
+          create: {
+            email,
+            imapHost,
+            imapPort,
+            smtpHost,
+            smtpPort,
+            encryptedPassword,
+            isDefault: true,
+          },
+        },
+      },
+      include: { emailConnections: true },
+    });
 
-  console.log(`\n✅ User ${existing ? "updated" : "created"} successfully!`);
-  console.log(`   ID: ${user.id}`);
-  console.log(`   Email: ${user.email}`);
-  console.log(`   IMAP: ${imapHost}:${imapPort}`);
-  console.log(`   SMTP: ${smtpHost}:${smtpPort}`);
-  console.log(`\nThe user can now log in at http://localhost:3000/login\n`);
+    const connection = user.emailConnections[0];
+    console.log(`\nUser and EmailConnection created!`);
+    console.log(`  User ID:       ${user.id}`);
+    console.log(`  Connection ID: ${connection.id}`);
+    console.log(`  Email:         ${email}`);
+    console.log(`  IMAP:          ${imapHost}:${imapPort}`);
+    console.log(`  SMTP:          ${smtpHost}:${smtpPort}`);
+    console.log(`\nNext: Register a passkey at http://localhost:3000/register`);
+    console.log(`(The passkey will be linked to user ${user.id})\n`);
+  }
 
   await db.$disconnect();
 }

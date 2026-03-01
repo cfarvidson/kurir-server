@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "add-user": "tsx scripts/add-user.ts",
     "list-users": "tsx scripts/list-users.ts",
-    "sync-user": "tsx scripts/sync-user.ts"
+    "sync-user": "tsx scripts/sync-user.ts",
+    "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
