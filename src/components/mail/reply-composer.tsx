@@ -215,6 +215,7 @@ export function ReplyComposer({
               <textarea
                 ref={textareaRef}
                 autoFocus
+                spellCheck={false}
                 value={body}
                 onChange={(e) => {
                   setBody(e.target.value);
