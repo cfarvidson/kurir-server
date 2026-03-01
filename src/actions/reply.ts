@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, getUserCredentials } from "@/lib/auth";
+import { auth, getConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -21,6 +21,7 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
       subject: true,
       fromAddress: true,
       replyTo: true,
+      emailConnectionId: true,
     },
   });
 
@@ -28,7 +29,8 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     throw new Error("Message not found");
   }
 
-  const credentials = await getUserCredentials(session.user.id);
+  // Use the connection that received the message to reply from
+  const credentials = await getConnectionCredentials(message.emailConnectionId);
   if (!credentials) {
     throw new Error("Email credentials not found");
   }
@@ -38,7 +40,6 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     ? message.subject
     : `Re: ${message.subject || ""}`;
 
-  // Build references chain
   const references = [...(message.references || [])];
   if (message.messageId && !references.includes(message.messageId)) {
     references.push(message.messageId);
@@ -65,9 +66,9 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     }),
   });
 
-  // Save the sent reply to DB so it appears everywhere immediately
   await createLocalSentMessage({
     userId: session.user.id,
+    emailConnectionId: message.emailConnectionId,
     messageId: info.messageId || null,
     threadId: message.threadId || message.messageId || null,
     inReplyTo: message.messageId || null,
@@ -78,13 +79,11 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     text: body,
   });
 
-  // Mark the original as answered
   await db.message.update({
     where: { id: messageId },
     data: { isAnswered: true },
   });
 
-  // Refresh all server-rendered pages
   revalidateTag("sidebar-counts");
   revalidatePath("/", "layout");
 }

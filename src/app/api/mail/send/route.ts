@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, getUserCredentials } from "@/lib/auth";
+import { auth, getConnectionCredentials, getDefaultConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 import nodemailer from "nodemailer";
@@ -12,6 +12,7 @@ const sendSchema = z.object({
   html: z.string().optional(),
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
+  fromConnectionId: z.string().optional(), // which email to send from
 });
 
 export async function POST(request: Request) {
@@ -19,15 +20,6 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const credentials = await getUserCredentials(session.user.id);
-
-  if (!credentials) {
-    return NextResponse.json(
-      { error: "Email credentials not found" },
-      { status: 400 }
-    );
   }
 
   const body = await request.json();
@@ -40,7 +32,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const { to, subject, text, html, inReplyTo, references } = parsed.data;
+  const { to, subject, text, html, inReplyTo, references, fromConnectionId } = parsed.data;
+
+  // Resolve credentials: use specified connection or fall back to default
+  let credentials;
+  let resolvedConnectionId: string;
+
+  if (fromConnectionId) {
+    // Verify the connection belongs to this user
+    const conn = await db.emailConnection.findFirst({
+      where: { id: fromConnectionId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!conn) {
+      return NextResponse.json(
+        { error: "Email connection not found" },
+        { status: 404 }
+      );
+    }
+    credentials = await getConnectionCredentials(fromConnectionId);
+    resolvedConnectionId = fromConnectionId;
+  } else {
+    const defaultCreds = await getDefaultConnectionCredentials(session.user.id);
+    if (!defaultCreds) {
+      return NextResponse.json(
+        { error: "No email connection found. Please add an email account in settings." },
+        { status: 400 }
+      );
+    }
+    credentials = defaultCreds;
+    resolvedConnectionId = defaultCreds.connectionId;
+  }
+
+  if (!credentials) {
+    return NextResponse.json(
+      { error: "Email credentials not found" },
+      { status: 400 }
+    );
+  }
 
   const transporter = nodemailer.createTransport({
     host: credentials.smtp.host,
@@ -86,9 +115,9 @@ export async function POST(request: Request) {
       threadId = existingThread?.threadId || relatedIds[0] || null;
     }
 
-    // Persist sent message to DB so it appears immediately
     await createLocalSentMessage({
       userId: session.user.id,
+      emailConnectionId: resolvedConnectionId,
       messageId: result.messageId || null,
       threadId,
       inReplyTo: inReplyTo || null,

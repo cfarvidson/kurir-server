@@ -12,7 +12,6 @@ import { suppressEcho } from "@/lib/mail/flag-push";
  * reappear in the Screener when new mail arrives.
  */
 async function autoRejectFullyArchivedSenders(messageIds: string[]) {
-  // Get distinct PENDING senders for the archived messages
   const affectedMessages = await db.message.findMany({
     where: { id: { in: messageIds }, senderId: { not: null } },
     select: { senderId: true },
@@ -25,14 +24,12 @@ async function autoRejectFullyArchivedSenders(messageIds: string[]) {
 
   if (senderIds.length === 0) return;
 
-  // Only consider senders still in PENDING status
   const pendingSenders = await db.sender.findMany({
     where: { id: { in: senderIds }, status: "PENDING" },
     select: { id: true },
   });
 
   for (const sender of pendingSenders) {
-    // Check if the sender has any non-archived messages left
     const hasNonArchived = await db.message.findFirst({
       where: { senderId: sender.id, isArchived: false },
       select: { id: true },
@@ -55,15 +52,16 @@ export async function archiveConversation(messageId: string) {
 
   const userId = session.user.id;
 
-  // Find the target message and its threadId
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    select: { id: true, threadId: true },
+    select: { id: true, threadId: true, emailConnectionId: true },
   });
 
   if (!message) {
     throw new Error("Message not found");
   }
+
+  const connectionId = message.emailConnectionId;
 
   // Find all messages in this thread
   const threadMessages = message.threadId
@@ -73,9 +71,9 @@ export async function archiveConversation(messageId: string) {
       })
     : [{ id: message.id, uid: 0, folderId: "" }];
 
-  // Get inbox folder to identify which messages need IMAP move
+  // Get inbox folder scoped to this connection
   const inboxFolder = await db.folder.findFirst({
-    where: { userId, specialUse: "inbox" },
+    where: { emailConnectionId: connectionId, specialUse: "inbox" },
     select: { id: true },
   });
 
@@ -85,14 +83,12 @@ export async function archiveConversation(messageId: string) {
         .map((m) => m.uid)
     : [];
 
-  // Move messages on IMAP if there are inbox messages to move
   if (inboxMessageUids.length > 0) {
-    // Register echo suppression before IMAP move (prevents IDLE re-processing)
     for (const uid of inboxMessageUids) {
       suppressEcho(userId, inboxFolder!.id, uid);
     }
 
-    await withImapConnection(userId, async (client) => {
+    await withImapConnection(connectionId, async (client) => {
       const mailboxes = await client.list();
       const archiveBox =
         mailboxes.find(
@@ -120,7 +116,6 @@ export async function archiveConversation(messageId: string) {
     });
   }
 
-  // Update all thread messages in DB
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
@@ -135,8 +130,6 @@ export async function archiveConversation(messageId: string) {
     },
   });
 
-  // Auto-reject PENDING senders whose messages are now all archived,
-  // so they don't reappear in the Screener when new mail arrives.
   await autoRejectFullyArchivedSenders(messageIds);
 
   revalidateTag("sidebar-counts");
@@ -155,10 +148,9 @@ export async function archiveConversations(messageIds: string[]) {
 
   const userId = session.user.id;
 
-  // Find all target messages and their threadIds
   const messages = await db.message.findMany({
     where: { id: { in: messageIds }, userId },
-    select: { id: true, threadId: true },
+    select: { id: true, threadId: true, emailConnectionId: true },
   });
 
   if (messages.length === 0) return;
@@ -179,56 +171,63 @@ export async function archiveConversations(messageIds: string[]) {
         ...(singleIds.length > 0 ? [{ id: { in: singleIds } }] : []),
       ],
     },
-    select: { id: true, uid: true, folderId: true },
+    select: { id: true, uid: true, folderId: true, emailConnectionId: true },
   });
 
-  // Get inbox folder to identify which messages need IMAP move
-  const inboxFolder = await db.folder.findFirst({
-    where: { userId, specialUse: "inbox" },
-    select: { id: true },
-  });
-
-  const inboxMessageUids = inboxFolder
-    ? threadMessages
-        .filter((m) => m.folderId === inboxFolder.id && m.uid > 0)
-        .map((m) => m.uid)
-    : [];
-
-  // Move messages on IMAP with a single connection
-  if (inboxMessageUids.length > 0) {
-    for (const uid of inboxMessageUids) {
-      suppressEcho(userId, inboxFolder!.id, uid);
-    }
-
-    await withImapConnection(userId, async (client) => {
-      const mailboxes = await client.list();
-      const archiveBox =
-        mailboxes.find(
-          (mb) =>
-            mb.specialUse === "\\Archive" ||
-            mb.path.toLowerCase() === "archive"
-        ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
-
-      if (archiveBox) {
-        const lock = await client.getMailboxLock("INBOX");
-        try {
-          for (const uid of inboxMessageUids) {
-            try {
-              await client.messageMove(String(uid), archiveBox.path, {
-                uid: true,
-              });
-            } catch {
-              // Message may already be moved or deleted, continue
-            }
-          }
-        } finally {
-          lock.release();
-        }
-      }
-    });
+  // Group by connection so each uses the right IMAP credentials
+  const byConnection = new Map<string, typeof threadMessages>();
+  for (const msg of threadMessages) {
+    const group = byConnection.get(msg.emailConnectionId) ?? [];
+    group.push(msg);
+    byConnection.set(msg.emailConnectionId, group);
   }
 
-  // Update all thread messages in DB with a single updateMany
+  for (const [connectionId, connMessages] of byConnection) {
+    const inboxFolder = await db.folder.findFirst({
+      where: { emailConnectionId: connectionId, specialUse: "inbox" },
+      select: { id: true },
+    });
+
+    const inboxMessageUids = inboxFolder
+      ? connMessages
+          .filter((m) => m.folderId === inboxFolder.id && m.uid > 0)
+          .map((m) => m.uid)
+      : [];
+
+    if (inboxMessageUids.length > 0) {
+      for (const uid of inboxMessageUids) {
+        suppressEcho(userId, inboxFolder!.id, uid);
+      }
+
+      await withImapConnection(connectionId, async (client) => {
+        const mailboxes = await client.list();
+        const archiveBox =
+          mailboxes.find(
+            (mb) =>
+              mb.specialUse === "\\Archive" ||
+              mb.path.toLowerCase() === "archive"
+          ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+
+        if (archiveBox) {
+          const lock = await client.getMailboxLock("INBOX");
+          try {
+            for (const uid of inboxMessageUids) {
+              try {
+                await client.messageMove(String(uid), archiveBox.path, {
+                  uid: true,
+                });
+              } catch {
+                // Message may already be moved or deleted, continue
+              }
+            }
+          } finally {
+            lock.release();
+          }
+        }
+      });
+    }
+  }
+
   const allMessageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: allMessageIds } },
@@ -243,8 +242,6 @@ export async function archiveConversations(messageIds: string[]) {
     },
   });
 
-  // Auto-reject PENDING senders whose messages are now all archived,
-  // so they don't reappear in the Screener when new mail arrives.
   await autoRejectFullyArchivedSenders(allMessageIds);
 
   revalidateTag("sidebar-counts");
@@ -263,12 +260,12 @@ export async function unarchiveConversation(messageId: string) {
 
   const userId = session.user.id;
 
-  // Find the target message with its sender to auto-detect destination
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
     select: {
       id: true,
       threadId: true,
+      emailConnectionId: true,
       sender: { select: { category: true } },
     },
   });
@@ -277,7 +274,8 @@ export async function unarchiveConversation(messageId: string) {
     throw new Error("Message not found");
   }
 
-  // Auto-detect destination from sender's current category
+  const connectionId = message.emailConnectionId;
+
   const category = message.sender?.category ?? "IMBOX";
   const categoryFlags = {
     isInImbox: category === "IMBOX",
@@ -285,7 +283,6 @@ export async function unarchiveConversation(messageId: string) {
     isInPaperTrail: category === "PAPER_TRAIL",
   };
 
-  // Find all messages in this thread
   const threadMessages = message.threadId
     ? await db.message.findMany({
         where: { userId, threadId: message.threadId },
@@ -293,9 +290,8 @@ export async function unarchiveConversation(messageId: string) {
       })
     : [{ id: message.id, uid: 0, folderId: "" }];
 
-  // Get archive folder to identify which messages need IMAP move back
   const archiveFolder = await db.folder.findFirst({
-    where: { userId, specialUse: { in: ["archive", "all"] } },
+    where: { emailConnectionId: connectionId, specialUse: { in: ["archive", "all"] } },
     select: { id: true },
   });
 
@@ -305,17 +301,12 @@ export async function unarchiveConversation(messageId: string) {
         .map((m) => m.uid)
     : [];
 
-  // Move messages back to INBOX on IMAP
-  // Note: IMAP has no concept of Imbox/Feed/Paper Trail — those are app-level categories.
-  // All unarchived messages go back to INBOX. UIDs will change after move;
-  // next sync reconciles via message-ID dedup.
   if (archiveMessageUids.length > 0) {
-    // Register echo suppression before IMAP move
     for (const uid of archiveMessageUids) {
       suppressEcho(userId, archiveFolder!.id, uid);
     }
 
-    await withImapConnection(userId, async (client) => {
+    await withImapConnection(connectionId, async (client) => {
       const mailboxes = await client.list();
       const archiveBox =
         mailboxes.find(
@@ -341,7 +332,6 @@ export async function unarchiveConversation(messageId: string) {
     });
   }
 
-  // Update all thread messages in DB
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
