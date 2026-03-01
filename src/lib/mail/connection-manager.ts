@@ -1,11 +1,12 @@
 import { ImapFlow, MailboxLockObject } from "imapflow";
-import { getUserCredentials } from "@/lib/auth";
+import { getConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Single-process constraint: ConnectionManager, sseSubscribers, and echo
 // suppression must all live in the same Node.js process. See plan doc for details.
 
-export interface UserConnection {
+export interface EmailConnectionConn {
+  connectionId: string;
   userId: string;
   client: ImapFlow;
   folderId: string;
@@ -19,26 +20,36 @@ export interface UserConnection {
 const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 min
 
 class ConnectionManager {
-  private connections = new Map<string, UserConnection>();
+  // Keyed by emailConnectionId
+  private connections = new Map<string, EmailConnectionConn>();
   private stopping = false;
 
-  async startUser(userId: string): Promise<void> {
-    if (this.connections.has(userId) || this.stopping) return;
+  async startConnection(connectionId: string): Promise<void> {
+    if (this.connections.has(connectionId) || this.stopping) return;
 
-    const credentials = await getUserCredentials(userId);
+    const credentials = await getConnectionCredentials(connectionId);
     if (!credentials) {
-      console.error("[idle] No credentials for user", userId);
+      console.error("[idle] No credentials for connection", connectionId);
       return;
     }
 
-    // Find INBOX folder ID
+    // Look up userId and INBOX folder for this email connection
+    const emailConn = await db.emailConnection.findUnique({
+      where: { id: connectionId },
+      select: { userId: true },
+    });
+    if (!emailConn) {
+      console.error("[idle] EmailConnection not found", connectionId);
+      return;
+    }
+
     const inboxFolder = await db.folder.findFirst({
-      where: { userId, specialUse: "inbox" },
+      where: { emailConnectionId: connectionId, specialUse: "inbox" },
       select: { id: true },
     });
 
     if (!inboxFolder) {
-      console.warn("[idle] No INBOX folder found for user", userId);
+      console.warn("[idle] No INBOX folder found for connection", connectionId);
       return;
     }
 
@@ -53,8 +64,9 @@ class ConnectionManager {
       qresync: true,
     });
 
-    const conn: UserConnection = {
-      userId,
+    const conn: EmailConnectionConn = {
+      connectionId,
+      userId: emailConn.userId,
       client,
       folderId: inboxFolder.id,
       lock: null,
@@ -64,7 +76,7 @@ class ConnectionManager {
       isGmail,
     };
 
-    this.connections.set(userId, conn);
+    this.connections.set(connectionId, conn);
 
     try {
       await client.connect();
@@ -78,55 +90,54 @@ class ConnectionManager {
 
       // CONDSTORE catch-up: fetch flag changes missed during disconnection
       if (conn.reconnectAttempt > 0) {
-        await catchUpAfterReconnect(client, userId, conn.folderId);
+        await catchUpAfterReconnect(client, connectionId, conn.folderId);
       }
 
       client.on("close", () => {
         if (!this.stopping) {
-          this.scheduleReconnect(userId);
+          this.scheduleReconnect(connectionId);
         }
       });
 
-      console.log(`[idle] Started IDLE for user ${userId}${isGmail ? " (Gmail)" : ""}`);
+      console.log(`[idle] Started IDLE for connection ${connectionId}${isGmail ? " (Gmail)" : ""}`);
     } catch (err) {
-      console.error("[idle] Failed to start for user", userId, err);
-      this.connections.delete(userId);
-      this.scheduleReconnect(userId);
+      console.error("[idle] Failed to start for connection", connectionId, err);
+      this.connections.delete(connectionId);
+      this.scheduleReconnect(connectionId);
     }
   }
 
-  private scheduleReconnect(userId: string) {
-    const conn = this.connections.get(userId);
+  private scheduleReconnect(connectionId: string) {
+    const conn = this.connections.get(connectionId);
     const attempt = conn?.reconnectAttempt ?? 0;
     const delay = BACKOFF_SCHEDULE[Math.min(attempt, BACKOFF_SCHEDULE.length - 1)];
 
     // Clean up old connection
     if (conn) {
       this.cleanupConnection(conn);
-      this.connections.delete(userId);
+      this.connections.delete(connectionId);
     }
 
     if (this.stopping) return;
 
-    console.log(`[idle] Reconnecting user ${userId} in ${delay}ms (attempt ${attempt + 1})`);
+    console.log(`[idle] Reconnecting connection ${connectionId} in ${delay}ms (attempt ${attempt + 1})`);
 
     const timer = setTimeout(async () => {
-      // Store attempt count before the old conn is gone
       const nextAttempt = attempt + 1;
-      await this.startUser(userId);
-      const newConn = this.connections.get(userId);
+      await this.startConnection(connectionId);
+      const newConn = this.connections.get(connectionId);
       if (newConn) {
         newConn.reconnectAttempt = nextAttempt;
       }
     }, delay);
 
-    // Track timer so stopUser can clear it
+    // Track timer so stopConnection can clear it
     if (conn) {
       conn.reconnectTimer = timer;
     }
   }
 
-  private cleanupConnection(conn: UserConnection) {
+  private cleanupConnection(conn: EmailConnectionConn) {
     // Clear all debounce timers
     for (const timer of conn.debounceTimers.values()) {
       clearTimeout(timer);
@@ -146,39 +157,58 @@ class ConnectionManager {
     try { conn.client.close(); } catch { /* ignore */ }
   }
 
-  async stopUser(userId: string): Promise<void> {
-    const conn = this.connections.get(userId);
+  async stopConnection(connectionId: string): Promise<void> {
+    const conn = this.connections.get(connectionId);
     if (!conn) return;
 
     this.cleanupConnection(conn);
-    this.connections.delete(userId);
+    this.connections.delete(connectionId);
 
     try {
       await conn.client.logout();
     } catch { /* ignore */ }
 
-    console.log(`[idle] Stopped IDLE for user ${userId}`);
+    console.log(`[idle] Stopped IDLE for connection ${connectionId}`);
   }
 
   async stopAll(): Promise<void> {
     this.stopping = true;
     const promises = Array.from(this.connections.keys()).map((id) =>
-      this.stopUser(id)
+      this.stopConnection(id)
     );
     await Promise.allSettled(promises);
     console.log("[idle] All connections stopped");
   }
 
-  getClient(userId: string): ImapFlow | null {
-    return this.connections.get(userId)?.client ?? null;
+  getClient(connectionId: string): ImapFlow | null {
+    return this.connections.get(connectionId)?.client ?? null;
   }
 
-  getConnection(userId: string): UserConnection | undefined {
-    return this.connections.get(userId);
+  getConnection(connectionId: string): EmailConnectionConn | undefined {
+    return this.connections.get(connectionId);
   }
 
-  isConnected(userId: string): boolean {
-    return this.connections.has(userId);
+  isConnected(connectionId: string): boolean {
+    return this.connections.has(connectionId);
+  }
+
+  // Start IDLE for all email connections belonging to a user
+  async startAllForUser(userId: string): Promise<void> {
+    const emailConns = await db.emailConnection.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    await Promise.allSettled(
+      emailConns.map((ec) => this.startConnection(ec.id))
+    );
+  }
+
+  // Stop IDLE for all email connections belonging to a user
+  async stopAllForUser(userId: string): Promise<void> {
+    const toStop = Array.from(this.connections.values())
+      .filter((c) => c.userId === userId)
+      .map((c) => c.connectionId);
+    await Promise.allSettled(toStop.map((id) => this.stopConnection(id)));
   }
 }
 

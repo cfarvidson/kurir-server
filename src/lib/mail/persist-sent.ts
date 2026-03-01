@@ -5,14 +5,14 @@ export function generateTempUid(): number {
   return -(Math.floor(Math.random() * 2_000_000_000) + 1);
 }
 
-/** Find the user's Sent folder, falling back to any folder. */
-export async function getSentFolder(userId: string) {
+/** Find the Sent folder for an email connection, falling back to any folder. */
+export async function getSentFolder(emailConnectionId: string) {
   return (
     (await db.folder.findFirst({
-      where: { userId, specialUse: "sent" },
+      where: { emailConnectionId, specialUse: "sent" },
     })) ||
     (await db.folder.findFirst({
-      where: { userId },
+      where: { emailConnectionId },
     }))
   );
 }
@@ -28,6 +28,7 @@ export function createSnippet(text: string): string {
  */
 export async function createLocalSentMessage(opts: {
   userId: string;
+  emailConnectionId: string;
   messageId: string | null;
   threadId: string | null;
   inReplyTo: string | null;
@@ -38,7 +39,7 @@ export async function createLocalSentMessage(opts: {
   text: string;
   html?: string | null;
 }) {
-  const folder = await getSentFolder(opts.userId);
+  const folder = await getSentFolder(opts.emailConnectionId);
   if (!folder) return null;
 
   return db.message.create({
@@ -65,6 +66,7 @@ export async function createLocalSentMessage(opts: {
       isInPaperTrail: false,
       folderId: folder.id,
       userId: opts.userId,
+      emailConnectionId: opts.emailConnectionId,
     },
   });
 }

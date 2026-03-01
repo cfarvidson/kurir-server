@@ -1,5 +1,5 @@
 import { ImapFlow } from "imapflow";
-import { getUserCredentials } from "@/lib/auth";
+import { getConnectionCredentials } from "@/lib/auth";
 
 /**
  * Runs a callback with an authenticated ImapFlow connection.
@@ -7,10 +7,10 @@ import { getUserCredentials } from "@/lib/auth";
  * Returns null on IMAP failure (DB updates should still proceed).
  */
 export async function withImapConnection<T>(
-  userId: string,
+  connectionId: string,
   fn: (client: ImapFlow) => Promise<T>
 ): Promise<T | null> {
-  const credentials = await getUserCredentials(userId);
+  const credentials = await getConnectionCredentials(connectionId);
   if (!credentials) return null;
 
   const client = new ImapFlow({

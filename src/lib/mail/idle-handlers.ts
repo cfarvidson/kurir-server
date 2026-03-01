@@ -2,7 +2,7 @@ import { ImapFlow } from "imapflow";
 import { db } from "@/lib/db";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
-import type { UserConnection } from "./connection-manager";
+import type { EmailConnectionConn } from "./connection-manager";
 
 /**
  * Wrap an async handler so unhandled rejections don't crash Node.js.
@@ -30,13 +30,13 @@ function mapFlagsToDb(flags: Set<string>) {
 /**
  * Register all IDLE event handlers on a connection's client.
  */
-export function registerIdleHandlers(conn: UserConnection): void {
-  const { client, userId, folderId } = conn;
+export function registerIdleHandlers(conn: EmailConnectionConn): void {
+  const { client, connectionId, userId, folderId } = conn;
 
   // --- exists: new messages arrived ---
   client.on(
     "exists",
-    safeAsync(async (data: { count?: number; prevCount?: number }) => {
+    safeAsync(async (_data: { count?: number; prevCount?: number }) => {
       // Debounce rapid arrivals (200ms)
       const key = "exists";
       const existing = conn.debounceTimers.get(key);
@@ -46,7 +46,7 @@ export function registerIdleHandlers(conn: UserConnection): void {
         key,
         setTimeout(() => {
           conn.debounceTimers.delete(key);
-          handleNewMessages(userId, folderId, client).catch((err) =>
+          handleNewMessages(connectionId, userId, folderId, client).catch((err) =>
             console.error("[idle] handleNewMessages error:", err)
           );
         }, 200)
@@ -80,12 +80,13 @@ export function registerIdleHandlers(conn: UserConnection): void {
  * Checks sync lock, then fetches only new UIDs.
  */
 async function handleNewMessages(
+  connectionId: string,
   userId: string,
   folderId: string,
   client: ImapFlow
 ): Promise<void> {
-  // Skip if full sync is running
-  const syncState = await db.syncState.findUnique({ where: { userId } });
+  // Skip if full sync is running for this connection
+  const syncState = await db.syncState.findUnique({ where: { emailConnectionId: connectionId } });
   if (syncState?.isSyncing) return;
 
   // Find highest UID we already have for this folder
@@ -100,9 +101,9 @@ async function handleNewMessages(
   const fetchRange = `${lastUid + 1}:*`;
   let count = 0;
 
-  // Look up user's email once for auto-approve logic
-  const user = await db.user.findUnique({
-    where: { id: userId },
+  // Look up the email for this connection (for auto-approve logic)
+  const emailConn = await db.emailConnection.findUnique({
+    where: { id: connectionId },
     select: { email: true },
   });
 
@@ -124,9 +125,11 @@ async function handleNewMessages(
       });
       if (exists) continue;
 
-      // Use the sync service's processMessage via dynamic import
       const { processMessage } = await import("./sync-service");
-      await processMessage(msg, userId, folderId, { isInbox: true, userEmail: user?.email });
+      await processMessage(msg, userId, connectionId, folderId, {
+        isInbox: true,
+        userEmail: emailConn?.email,
+      });
       count++;
     }
   } catch (err) {
@@ -134,7 +137,7 @@ async function handleNewMessages(
   }
 
   if (count > 0) {
-    console.log(`[idle] ${count} new message(s) for user ${userId}`);
+    console.log(`[idle] ${count} new message(s) for connection ${connectionId}`);
     emitToUser(userId, { type: "new-messages", data: { folderId, count } });
   }
 }
@@ -226,7 +229,7 @@ async function handleFlagChange(
  */
 export async function catchUpAfterReconnect(
   client: ImapFlow,
-  userId: string,
+  connectionId: string,
   folderId: string
 ): Promise<void> {
   const folder = await db.folder.findUnique({
@@ -234,6 +237,13 @@ export async function catchUpAfterReconnect(
     select: { highestModSeq: true },
   });
   if (!folder?.highestModSeq) return;
+
+  // Look up userId for SSE emission
+  const emailConn = await db.emailConnection.findUnique({
+    where: { id: connectionId },
+    select: { userId: true },
+  });
+  if (!emailConn) return;
 
   let maxModSeq = folder.highestModSeq;
   let changeCount = 0;
@@ -266,7 +276,7 @@ export async function catchUpAfterReconnect(
           data: newFlags,
         });
         changeCount++;
-        emitToUser(userId, {
+        emitToUser(emailConn.userId, {
           type: "flags-changed",
           data: { messageId: dbMsg.id, flags: newFlags },
         });
@@ -289,6 +299,6 @@ export async function catchUpAfterReconnect(
   }
 
   if (changeCount > 0) {
-    console.log(`[idle] Catch-up: ${changeCount} flag changes for user ${userId}`);
+    console.log(`[idle] Catch-up: ${changeCount} flag changes for connection ${connectionId}`);
   }
 }

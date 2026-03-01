@@ -18,6 +18,7 @@ export function isEcho(userId: string, folderId: string, uid: number): boolean {
 
 /**
  * Push flag changes to IMAP server.
+ * Resolves the emailConnectionId from the message's folder.
  * Prefers the persistent ConnectionManager client; falls back to ephemeral.
  */
 export async function pushFlagsToImap(
@@ -34,12 +35,20 @@ export async function pushFlagsToImap(
     suppressEcho(userId, msg.folderId, msg.uid);
   }
 
-  const persistentClient = connectionManager.getClient(userId);
+  // Resolve connectionId from the first message's folder
+  const folder = await db.folder.findUnique({
+    where: { id: imapMessages[0].folderId },
+    select: { emailConnectionId: true },
+  });
+  if (!folder?.emailConnectionId) return;
+
+  const connectionId = folder.emailConnectionId;
+  const persistentClient = connectionManager.getClient(connectionId);
 
   if (persistentClient) {
     await pushWithClient(persistentClient, imapMessages, flag, action);
   } else {
-    await withImapConnection(userId, async (client) => {
+    await withImapConnection(connectionId, async (client) => {
       await pushWithClient(client, imapMessages, flag, action);
     });
   }

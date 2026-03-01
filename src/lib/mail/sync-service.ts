@@ -1,7 +1,7 @@
 import { ImapFlow, FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
-import { getUserCredentials } from "@/lib/auth";
+import { getConnectionCredentials } from "@/lib/auth";
 
 interface SyncResult {
   folderId: string;
@@ -37,11 +37,12 @@ function createSnippet(
 }
 
 /**
- * Get or create a sender record.
+ * Get or create a sender record scoped to an email connection.
  * If userEmail is provided and matches, auto-approve as IMBOX.
  */
 async function getOrCreateSender(
   userId: string,
+  emailConnectionId: string,
   email: string,
   displayName: string | null,
   userEmail?: string,
@@ -52,10 +53,11 @@ async function getOrCreateSender(
 
   const sender = await db.sender.upsert({
     where: {
-      userId_email: { userId, email },
+      emailConnectionId_email: { emailConnectionId, email },
     },
     create: {
       userId,
+      emailConnectionId,
       email,
       displayName,
       domain,
@@ -111,11 +113,12 @@ function mapSpecialUse(
 }
 
 /**
- * Sync a single mailbox/folder
+ * Sync a single mailbox/folder for a given email connection
  */
 async function syncMailbox(
   client: ImapFlow,
   userId: string,
+  emailConnectionId: string,
   mailboxPath: string,
   imapSpecialUse?: string,
   batchSize?: number,
@@ -124,9 +127,9 @@ async function syncMailbox(
   const errors: string[] = [];
   let newMessages = 0;
 
-  // Get or create folder record
+  // Get or create folder record scoped to the email connection
   let folder = await db.folder.findUnique({
-    where: { userId_path: { userId, path: mailboxPath } },
+    where: { emailConnectionId_path: { emailConnectionId, path: mailboxPath } },
   });
 
   // Open the mailbox
@@ -150,6 +153,7 @@ async function syncMailbox(
       folder = await db.folder.create({
         data: {
           userId,
+          emailConnectionId,
           name: mailboxPath.split("/").pop() || mailboxPath,
           path: mailboxPath,
           uidValidity,
@@ -245,19 +249,16 @@ async function syncMailbox(
             if (existing) continue;
           }
 
-          // For All Mail: messages that passed dedup are NOT in INBOX (already skipped).
-          // Sent messages (from == user) get isInbox=false (no categorization).
-          // Received messages get isInbox=false + isArchived=true (archived on server).
           let isInbox = specialUse === "inbox";
           let archived = false;
           if (specialUse === "all" && userEmail) {
             const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
             const isFromSelf = fromAddr === userEmail.toLowerCase();
-            isInbox = false; // Dedup already skipped actual inbox messages
-            archived = !isFromSelf; // Received messages are archived; sent are not
+            isInbox = false;
+            archived = !isFromSelf;
           }
 
-          await processMessage(msg, userId, folder.id, { isInbox, userEmail, isArchived: archived });
+          await processMessage(msg, userId, emailConnectionId, folder.id, { isInbox, userEmail, isArchived: archived });
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -299,11 +300,12 @@ interface ProcessMessageOptions {
 }
 
 /**
- * Process and store a single message
+ * Process and store a single message, scoped to an email connection
  */
 export async function processMessage(
   msg: FetchMessageObject,
   userId: string,
+  emailConnectionId: string,
   folderId: string,
   options: ProcessMessageOptions,
 ) {
@@ -311,12 +313,10 @@ export async function processMessage(
   const envelope = msg.envelope;
   const flags = msg.flags;
 
-  // Skip if no envelope (shouldn't happen but be safe)
   if (!envelope) {
     throw new Error("Message has no envelope");
   }
 
-  // Skip if no source (shouldn't happen but be safe)
   if (!msg.source) {
     throw new Error("Message has no source");
   }
@@ -330,11 +330,10 @@ export async function processMessage(
     fromHeader?.address?.toLowerCase() || "unknown@unknown.com";
   const fromName = fromHeader?.name || null;
 
-  // Get or create sender
-  const sender = await getOrCreateSender(userId, fromAddress, fromName, userEmail);
+  // Get or create sender scoped to the email connection
+  const sender = await getOrCreateSender(userId, emailConnectionId, fromAddress, fromName, userEmail);
 
   // Only categorize inbox messages; sent/other folders skip categorization
-  // Archived messages skip screener but retain sender category
   const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
   const isInImbox =
     isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
@@ -358,7 +357,6 @@ export async function processMessage(
 
   let threadId: string | null = null;
 
-  // Look up existing messages by inReplyTo or references to find an existing threadId
   const relatedIds = [...references];
   if (inReplyTo && !relatedIds.includes(inReplyTo)) {
     relatedIds.push(inReplyTo);
@@ -380,12 +378,10 @@ export async function processMessage(
     if (existingThreadMsg?.threadId) {
       threadId = existingThreadMsg.threadId;
     } else {
-      // Use the first reference (thread root) as the threadId
       threadId = references[0] || inReplyTo;
     }
   }
 
-  // Fall back to own messageId if not part of any thread
   if (!threadId) {
     threadId = envelope.messageId || null;
   }
@@ -415,7 +411,6 @@ export async function processMessage(
       },
     });
     if (localDuplicate) {
-      // Replace the local placeholder with real IMAP data
       const updated = await db.message.update({
         where: { id: localDuplicate.id },
         data: { uid: msg.uid, folderId },
@@ -424,8 +419,7 @@ export async function processMessage(
     }
   }
 
-  // Fallback dedup: some mail servers rewrite Message-ID headers.
-  // Match by fromAddress + sentAt (±60s) + subject + snippet for negative-UID records.
+  // Fallback dedup by content for negative-UID records
   if (envelope.date) {
     const snippet = createSnippet(parsed.text);
     const localByContent = await db.message.findFirst({
@@ -449,7 +443,6 @@ export async function processMessage(
         where: { id: localByContent.id },
         data: { uid: msg.uid, folderId, messageId: newMessageId },
       });
-      // Update inReplyTo references that pointed to the old messageId
       if (oldMessageId && newMessageId && oldMessageId !== newMessageId) {
         await db.message.updateMany({
           where: { userId, inReplyTo: oldMessageId },
@@ -494,6 +487,7 @@ export async function processMessage(
       isArchived,
       folderId,
       userId,
+      emailConnectionId,
       senderId: sender.id,
     },
   });
@@ -522,8 +516,6 @@ export async function processMessage(
 
 /**
  * Walk inReplyTo chains to unify threadIds across entire conversations.
- * Messages synced before threading was fixed may each have their own
- * messageId as threadId — this repairs them.
  */
 async function repairThreadIds(userId: string) {
   const messages = await db.message.findMany({
@@ -531,13 +523,11 @@ async function repairThreadIds(userId: string) {
     select: { id: true, messageId: true, threadId: true, inReplyTo: true },
   });
 
-  // Index by messageId for chain walking
   const byMessageId = new Map<string, (typeof messages)[number]>();
   for (const m of messages) {
     if (m.messageId) byMessageId.set(m.messageId, m);
   }
 
-  // Walk up the inReplyTo chain to find the conversation root
   function findRootMessageId(msg: (typeof messages)[number]): string | null {
     const visited = new Set<string>();
     let current = msg;
@@ -549,7 +539,6 @@ async function repairThreadIds(userId: string) {
     return current.messageId;
   }
 
-  // Group messages by their root's messageId (the canonical threadId)
   const fixes: { id: string; threadId: string }[] = [];
   for (const msg of messages) {
     const rootMessageId = findRootMessageId(msg);
@@ -559,7 +548,6 @@ async function repairThreadIds(userId: string) {
   }
 
   if (fixes.length > 0) {
-    // Batch by threadId to minimize queries
     const byThreadId = new Map<string, string[]>();
     for (const { id, threadId } of fixes) {
       if (!byThreadId.has(threadId)) byThreadId.set(threadId, []);
@@ -576,21 +564,32 @@ async function repairThreadIds(userId: string) {
 }
 
 /**
- * Perform a full sync for a user's email account
+ * Perform a full sync for a single email connection
  */
-export async function syncUserEmail(
-  userId: string,
+export async function syncEmailConnection(
+  emailConnectionId: string,
   options?: { batchSize?: number },
 ): Promise<{
   success: boolean;
   results: SyncResult[];
   error?: string;
 }> {
-  const credentials = await getUserCredentials(userId);
+  const credentials = await getConnectionCredentials(emailConnectionId);
 
   if (!credentials) {
-    return { success: false, results: [], error: "User credentials not found" };
+    return { success: false, results: [], error: "Connection credentials not found" };
   }
+
+  // Look up userId for this connection
+  const emailConn = await db.emailConnection.findUnique({
+    where: { id: emailConnectionId },
+    select: { userId: true },
+  });
+  if (!emailConn) {
+    return { success: false, results: [], error: "Email connection not found" };
+  }
+
+  const userId = emailConn.userId;
 
   const client = new ImapFlow({
     host: credentials.imap.host,
@@ -608,13 +607,10 @@ export async function syncUserEmail(
   try {
     await client.connect();
 
-    // Get list of mailboxes
     const mailboxes = await client.list();
 
-    // Find important mailboxes to sync
     const toSync: { path: string; specialUse?: string }[] = [{ path: "INBOX" }];
 
-    // Also sync Sent if found
     for (const mb of mailboxes) {
       if (
         mb.specialUse === "\\Sent" ||
@@ -625,7 +621,6 @@ export async function syncUserEmail(
       }
     }
 
-    // Also sync All Mail if found (Gmail's archive of everything)
     for (const mb of mailboxes) {
       if (mb.specialUse === "\\All") {
         toSync.push({ path: mb.path, specialUse: mb.specialUse });
@@ -633,12 +628,12 @@ export async function syncUserEmail(
       }
     }
 
-    // Sync each mailbox
     for (const { path, specialUse } of toSync) {
       try {
         const result = await syncMailbox(
           client,
           userId,
+          emailConnectionId,
           path,
           specialUse,
           options?.batchSize,
@@ -661,7 +656,6 @@ export async function syncUserEmail(
       }
     }
 
-    // Only repair threadIds when no remaining messages (import complete or regular sync)
     const hasRemaining = results.some((r) => r.remaining > 0);
     if (!hasRemaining) {
       await repairThreadIds(userId);
