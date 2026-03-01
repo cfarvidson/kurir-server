@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { Archive, ChevronDown, MoreHorizontal, Paperclip } from "lucide-react";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
+import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 
 interface ThreadMessage {
   id: string;
@@ -184,23 +185,10 @@ function MessageBubble({
                   {/* Body */}
                   <div className="mt-4">
                     {message.htmlBody ? (
-                      <div
-                        data-quotes-collapsed={
-                          quotesCollapsed && hasHtmlQuotes ? "true" : undefined
-                        }
-                      >
-                        <style>{`
-                          [data-quotes-collapsed="true"] blockquote,
-                          [data-quotes-collapsed="true"] .gmail_quote,
-                          [data-quotes-collapsed="true"] .moz-cite-prefix {
-                            display: none;
-                          }
-                        `}</style>
-                        <div
-                          className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4"
-                          dangerouslySetInnerHTML={{ __html: message.htmlBody }}
-                        />
-                      </div>
+                      <EmailBodyFrame
+                        html={message.htmlBody}
+                        collapseQuotes={quotesCollapsed && hasHtmlQuotes}
+                      />
                     ) : (
                       <div>
                         <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
