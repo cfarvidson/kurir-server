@@ -24,13 +24,17 @@ interface EmailBodyFrameProps {
 export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(200);
+  const [mounted, setMounted] = useState(false);
 
-  // Build the full srcdoc document once per prop change.
-  const srcdoc = buildSrcdoc(html, collapseQuotes);
+  // Only render on the client — DOMPurify needs a DOM and srcdoc must match
+  // between server and client to avoid hydration mismatches.
+  useEffect(() => setMounted(true), []);
+
+  const srcdoc = mounted ? buildSrcdoc(html, collapseQuotes) : "";
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe) return;
+    if (!iframe || !mounted) return;
 
     let observer: ResizeObserver | null = null;
 
@@ -38,10 +42,8 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
       const body = iframe?.contentDocument?.body;
       if (!body) return;
 
-      // Set initial height.
       setHeight(body.scrollHeight);
 
-      // Observe future size changes (e.g. images loading).
       observer = new ResizeObserver(() => {
         if (body) setHeight(body.scrollHeight);
       });
@@ -54,7 +56,9 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
       iframe.removeEventListener("load", onLoad);
       observer?.disconnect();
     };
-  }, [srcdoc]);
+  }, [srcdoc, mounted]);
+
+  if (!mounted) return null;
 
   return (
     <iframe
