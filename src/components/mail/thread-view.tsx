@@ -122,9 +122,9 @@ function MessageBubble({
                 </span>
               )}
               {collapsed && message.snippet && (
-                <span className="ml-2 truncate text-sm text-muted-foreground">
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
                   — {message.snippet}
-                </span>
+                </p>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
