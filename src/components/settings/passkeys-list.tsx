@@ -41,7 +41,8 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
 
       const options = await optionsRes.json();
       const { startRegistration } = await import("@simplewebauthn/browser");
-      const credential = await startRegistration(options);
+      // v13 API: startRegistration expects { optionsJSON }; server returns { options }
+      const credential = await startRegistration({ optionsJSON: options.options });
 
       const verifyRes = await fetch(
         "/api/auth/webauthn/register/verify?addPasskey=true",

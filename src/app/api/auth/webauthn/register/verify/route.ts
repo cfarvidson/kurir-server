@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { consumeChallenge } from "@/lib/webauthn-challenge-store";
 import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
@@ -17,11 +18,16 @@ const ORIGIN =
  * POST /api/auth/webauthn/register/verify
  *
  * Body: RegistrationResponseJSON from @simplewebauthn/browser's startRegistration()
+ * Query: ?addPasskey=true — if present, adds passkey to existing authenticated user
  *
- * Verifies the WebAuthn registration, creates the User + Passkey records,
- * and issues a NextAuth JWT session cookie.
+ * Verifies the WebAuthn registration:
+ * - Without addPasskey: creates User + Passkey records and issues a session cookie.
+ * - With addPasskey: creates only a Passkey record for the current user (no new session).
  */
 export async function POST(req: NextRequest) {
+  const url = new URL(req.url);
+  const addPasskey = url.searchParams.get("addPasskey") === "true";
+
   const sessionKey = req.cookies.get("wa_reg_session")?.value;
   if (!sessionKey) {
     return NextResponse.json({ error: "Missing registration session" }, { status: 400 });
@@ -32,17 +38,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Challenge expired or invalid" }, { status: 400 });
   }
 
-  let body: RegistrationResponseJSON;
+  let body: { credential: RegistrationResponseJSON } | RegistrationResponseJSON;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  // passkeys-list.tsx sends { credential } wrapped; new-user register sends the credential directly
+  const registrationResponse: RegistrationResponseJSON =
+    "credential" in body ? (body as { credential: RegistrationResponseJSON }).credential : body;
+
   let verification;
   try {
     verification = await verifyRegistrationResponse({
-      response: body,
+      response: registrationResponse,
       expectedChallenge,
       expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
@@ -60,7 +70,31 @@ export async function POST(req: NextRequest) {
   const { credential, credentialDeviceType, credentialBackedUp } =
     verification.registrationInfo;
 
-  // Create the User and Passkey records in a transaction
+  if (addPasskey) {
+    // Adding a passkey to an already-authenticated user — don't create a new User
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await db.passkey.create({
+      data: {
+        userId: session.user.id,
+        credentialId: credential.id,
+        publicKey: isoBase64URL.fromBuffer(Buffer.from(credential.publicKey)),
+        counter: BigInt(credential.counter),
+        deviceType: credentialDeviceType,
+        backedUp: credentialBackedUp,
+        transports: credential.transports ?? [],
+      },
+    });
+
+    const response = NextResponse.json({ success: true });
+    response.cookies.set("wa_reg_session", "", { maxAge: 0, path: "/" });
+    return response;
+  }
+
+  // New user registration — create User + Passkey in a transaction
   const user = await db.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {

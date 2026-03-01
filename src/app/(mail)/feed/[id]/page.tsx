@@ -11,19 +11,18 @@ import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
-async function getUserInfo(userId: string) {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      timezone: true,
-      emailConnections: {
-        select: { email: true },
-        orderBy: [{ isDefault: "desc" as const }, { createdAt: "asc" as const }],
-        take: 1,
-      },
-    },
-  });
-  return { email: user?.emailConnections[0]?.email || "", timezone: user?.timezone || "UTC" };
+async function getUserInfo(userId: string, connectionId: string) {
+  const [conn, user] = await Promise.all([
+    db.emailConnection.findFirst({
+      where: { id: connectionId, userId },
+      select: { email: true },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
+  ]);
+  return { email: conn?.email || "", timezone: user?.timezone || "UTC" };
 }
 
 export default async function FeedMessagePage({
@@ -42,11 +41,8 @@ export default async function FeedMessagePage({
   const { id } = await params;
   const { q } = await searchParams;
   const returnPath = q ? `/feed?q=${encodeURIComponent(q)}` : "/feed";
-  const [threadResult, userInfo] = await Promise.all([
-    getThreadMessages(session.user.id, id),
-    getUserInfo(session.user.id),
-  ]);
-  const currentUserEmail = userInfo.email;
+
+  const threadResult = await getThreadMessages(session.user.id, id);
 
   if (!threadResult || threadResult.messages.length === 0) {
     notFound();
@@ -54,12 +50,17 @@ export default async function FeedMessagePage({
 
   const { messages, markedRead } = threadResult;
 
+  // Resolve currentUserEmail from the thread's connection, not the default connection.
+  // This ensures "You" labels and reply address are correct for non-default accounts.
+  const targetMessage = messages.find((m) => m.id === id) || messages[0];
+  const userInfo = await getUserInfo(session.user.id, targetMessage.emailConnectionId);
+  const currentUserEmail = userInfo.email;
+
   // Push \Seen to IMAP for messages just marked read (fire-and-forget)
   if (markedRead.length > 0) {
     pushFlagsToImap(session.user.id, markedRead, "\\Seen", "add").catch(console.error);
   }
 
-  const targetMessage = messages.find((m) => m.id === id) || messages[0];
   const subject = targetMessage.subject || "(no subject)";
 
   const lastMessage = messages[messages.length - 1];

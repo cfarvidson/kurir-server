@@ -10,10 +10,9 @@ import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
-async function getUserEmail(userId: string) {
+async function getConnectionEmail(userId: string, connectionId: string) {
   const conn = await db.emailConnection.findFirst({
-    where: { userId },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    where: { id: connectionId, userId },
     select: { email: true },
   });
   return conn?.email || "";
@@ -35,10 +34,8 @@ export default async function SentMessagePage({
   const { id } = await params;
   const { q } = await searchParams;
   const returnPath = q ? `/sent?q=${encodeURIComponent(q)}` : "/sent";
-  const [threadResult, currentUserEmail] = await Promise.all([
-    getThreadMessages(session.user.id, id),
-    getUserEmail(session.user.id),
-  ]);
+
+  const threadResult = await getThreadMessages(session.user.id, id);
 
   if (!threadResult || threadResult.messages.length === 0) {
     notFound();
@@ -46,13 +43,19 @@ export default async function SentMessagePage({
 
   const { messages, markedRead } = threadResult;
 
+  // Resolve currentUserEmail from the thread's connection, not the default connection.
+  // This ensures "You" labels and reply address are correct for non-default accounts.
+  const targetMessage = messages.find((m) => m.id === id) || messages[0];
+  const currentUserEmail = await getConnectionEmail(
+    session.user.id,
+    targetMessage.emailConnectionId
+  );
+
   // Push \Seen to IMAP for messages just marked read (fire-and-forget)
   if (markedRead.length > 0) {
     pushFlagsToImap(session.user.id, markedRead, "\\Seen", "add").catch(console.error);
   }
 
-  // The message that was clicked
-  const targetMessage = messages.find((m) => m.id === id) || messages[0];
   const subject = targetMessage.subject || "(no subject)";
 
   // For threading: always reference the actual last message

@@ -1,18 +1,7 @@
 "use client";
 
-/**
- * Add Email Connection page design.
- * This replaces the current setup/page.tsx which combined account creation
- * + email connection into one step.
- *
- * Now: user is already authenticated with passkey. This page adds an email connection.
- * Used both post-registration (first email) and from settings (additional emails).
- *
- * File to use: rename to page.tsx once backend routes are ready.
- */
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,15 +35,11 @@ const PROVIDERS = [
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
-interface AddConnectionPageProps {
-  /** If true, show "skip for now" link — used in post-registration flow */
-  isFirstConnection?: boolean;
-}
-
-export default function AddConnectionPage({
-  isFirstConnection = false,
-}: AddConnectionPageProps) {
+export default function AddConnectionPage() {
+  const searchParams = useSearchParams();
+  const isAddMode = searchParams.get("mode") === "add";
   const router = useRouter();
+  const successRedirect = isAddMode ? "/settings" : "/imbox";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -120,7 +105,7 @@ export default function AddConnectionPage({
 
       setVerifyState("success");
       setTimeout(() => {
-        router.push("/imbox");
+        router.push(successRedirect);
         router.refresh();
       }, 1200);
     } catch (err) {
@@ -147,11 +132,13 @@ export default function AddConnectionPage({
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
               <Mail className="h-7 w-7 text-primary" />
             </div>
-            <CardTitle className="text-2xl">Connect an email account</CardTitle>
+            <CardTitle className="text-2xl">
+              {isAddMode ? "Add another email" : "Connect your first email account"}
+            </CardTitle>
             <CardDescription>
-              {isFirstConnection
-                ? "Add your first email account to start receiving mail in Kurir."
-                : "Add another email account to your Kurir inbox."}
+              {isAddMode
+                ? "Add another email account to your Kurir inbox."
+                : "Add your first email account to start receiving mail in Kurir."}
             </CardDescription>
           </CardHeader>
 
@@ -362,7 +349,16 @@ export default function AddConnectionPage({
                 )}
               </Button>
 
-              {isFirstConnection && (
+              {isAddMode ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  <Link
+                    href="/settings"
+                    className="hover:text-foreground transition-colors"
+                  >
+                    Back to settings
+                  </Link>
+                </p>
+              ) : (
                 <p className="text-center text-sm text-muted-foreground">
                   <Link
                     href="/imbox"
