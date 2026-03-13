@@ -38,4 +38,10 @@ prisma/*.db-journal
 
 # Docker
 postgres_data/
+
+# Kamal secrets (may contain real values via env expansion)
+.kamal/secrets
+.kamal/secrets.*
+!.kamal/secrets.example
+
 !CLAUDE.md

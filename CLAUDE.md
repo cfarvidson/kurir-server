@@ -62,6 +62,22 @@ docker compose exec postgres psql -U kurir  # DB access
 
 Bind mount `.:/app` with anonymous volumes for `node_modules`/`.next`. Needs `corepack prepare pnpm@9.15.0 --activate` and `pnpm db:generate` in Dockerfile dev stage.
 
+## Kamal (Production Deployment)
+
+```bash
+kamal setup                         # First deploy: provisions server, boots accessories + app
+kamal deploy                        # Subsequent deploys
+kamal app logs -f                   # Tail production logs
+kamal app exec -i node              # Node REPL in production container
+kamal app exec "npx prisma db push" # Push schema changes
+kamal accessory boot postgres       # Boot/reboot postgres accessory
+kamal accessory logs postgres -f    # Tail postgres logs
+```
+
+Config: `config/deploy.yml`. Secrets: `.kamal/secrets` (gitignored — copy from `.kamal/secrets.example`).
+
+Post-deploy hook auto-runs `prisma db push`. Search vector migration must be run manually once: `kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"`.
+
 ## Gotchas
 
 - **ImapFlow comma-separated UIDs:** `client.fetch("256,255", {uid:true})` returns empty. Use `"minUid:*"` range + filter in loop.

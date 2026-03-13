@@ -1,0 +1,71 @@
+service: kurir
+image: your-registry/kurir
+
+servers:
+  web:
+    hosts:
+      - YOUR_SERVER_IP
+    options:
+      memory: 512m
+
+proxy:
+  host: mail.yourdomain.com
+  ssl: true
+  app_port: 3000
+  healthcheck:
+    interval: 3
+    path: /api/auth/session
+    timeout: 5
+  response_timeout: 30
+  buffering:
+    requests: true
+    responses: true
+    max_request_body: 10_000_000
+
+registry:
+  server: ghcr.io
+  username: your-github-username
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+env:
+  clear:
+    NODE_ENV: production
+    WEBAUTHN_RP_NAME: Kurir
+    WEBAUTHN_RP_ID: mail.yourdomain.com
+    NEXTAUTH_URL: https://mail.yourdomain.com
+  secret:
+    - DATABASE_URL
+    - NEXTAUTH_SECRET
+    - ENCRYPTION_KEY
+
+volumes:
+  - /var/lib/kurir/data:/app/data
+
+accessories:
+  postgres:
+    image: postgres:16-alpine
+    host: YOUR_SERVER_IP
+    port: "127.0.0.1:5432:5432"
+    env:
+      clear:
+        POSTGRES_DB: kurir
+        POSTGRES_USER: kurir
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - /var/lib/kurir/postgres:/var/lib/postgresql/data
+    options:
+      memory: 512m
+      restart: always
+
+aliases:
+  console: app exec -i node
+  logs: app logs -f
+  db:push: app exec npx prisma db push
+  db:migrate: app exec npx prisma migrate deploy
+  db:setup: app exec npx prisma db push && kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"
+  shell: app exec -i /bin/sh

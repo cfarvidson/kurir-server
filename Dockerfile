@@ -23,6 +23,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN pnpm db:generate
 RUN pnpm build
 
 # Production
@@ -31,9 +32,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Prisma needs schema + engine at runtime for db push / migrate
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Search vector migration for db:setup
+COPY --from=builder /app/prisma/migrations ./prisma/migrations
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
