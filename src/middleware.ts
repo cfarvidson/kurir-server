@@ -10,9 +10,10 @@ export default auth((req) => {
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
   const isOnRegisterPage = req.nextUrl.pathname === "/register";
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
+  const isHealthCheck = req.nextUrl.pathname === "/api/up";
 
-  // Allow auth routes
-  if (isAuthRoute) {
+  // Allow auth and health check routes
+  if (isAuthRoute || isHealthCheck) {
     return NextResponse.next();
   }
 

@@ -1,6 +1,0 @@
-#!/bin/sh
-
-# Run Prisma schema push after each deploy
-# This is idempotent — safe to run on every deploy
-echo "Running prisma db push..."
-kamal app exec "npx prisma db push --skip-generate"

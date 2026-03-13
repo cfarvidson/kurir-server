@@ -69,12 +69,15 @@ kamal setup                         # First deploy: provisions server, boots acc
 kamal deploy                        # Subsequent deploys
 kamal app logs -f                   # Tail production logs
 kamal app exec -i node              # Node REPL in production container
-kamal app exec "npx prisma db push" # Push schema changes
-kamal accessory boot postgres       # Boot/reboot postgres accessory
-kamal accessory logs postgres -f    # Tail postgres logs
+kamal app exec "npx prisma db push --skip-generate" # Push schema changes
+kamal accessory details db          # Check postgres status
+kamal accessory logs db -f          # Tail postgres logs
+kamal accessory exec db "psql -U kurir" # DB shell
 ```
 
-Config: `config/deploy.yml`. Secrets: `.kamal/secrets` (gitignored — copy from `.kamal/secrets.example`).
+Config: `config/deploy.yml`. Secrets: `.kamal/secrets` (env var refs only, safe for git). Set `KAMAL_*` prefixed env vars locally (see `DEPLOY.md`).
+
+Registry: `docker-registry.banded-beta.ts.net`. Postgres on separate Tailscale host.
 
 Post-deploy hook auto-runs `prisma db push`. Search vector migration must be run manually once: `kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"`.
 
