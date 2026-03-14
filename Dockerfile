@@ -33,17 +33,17 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Static assets
 COPY --from=builder /app/public ./public
+
+# Standalone output (includes server.js + bundled node_modules)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma needs schema + engine at runtime for db push / migrate
+# Prisma schema + CLI for runtime migrations (prisma db push)
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# Search vector migration for db:setup
-COPY --from=builder /app/prisma/migrations ./prisma/migrations
 
 USER nextjs
 EXPOSE 3000
