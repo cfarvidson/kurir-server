@@ -43,9 +43,10 @@ export async function GET(
     try {
       // Fetch full source for this specific UID
       const fetched = await client.fetchOne(String(message.uid), { source: true }, { uid: true });
-      if (!fetched?.source) return null;
+      const source = fetched && "source" in fetched ? fetched.source : null;
+      if (!source) return null;
 
-      const parsed = await simpleParser(fetched.source);
+      const parsed = await simpleParser(source);
       const att = parsed.attachments?.[partIndex];
       if (!att) return null;
 
@@ -62,7 +63,7 @@ export async function GET(
     );
   }
 
-  return new NextResponse(content, {
+  return new NextResponse(new Uint8Array(content), {
     headers: {
       "Content-Type": attachment.contentType || "application/octet-stream",
       "Content-Disposition": `attachment; filename="${encodeURIComponent(attachment.filename)}"`,

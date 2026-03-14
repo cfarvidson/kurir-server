@@ -7,6 +7,7 @@ export interface MessageSearchResult {
   snippet: string | null;
   fromAddress: string;
   fromName: string | null;
+  toAddresses: string[];
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;
@@ -38,7 +39,7 @@ export async function searchMessages(
 
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
     SELECT
-      id, subject, snippet, "fromAddress", "fromName",
+      id, subject, snippet, "fromAddress", "fromName", "toAddresses",
       "receivedAt", "isRead", "hasAttachments"
     FROM "Message"
     WHERE "userId" = ${userId}
