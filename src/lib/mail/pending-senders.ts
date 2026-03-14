@@ -11,6 +11,7 @@ export function visiblePendingSenderWhere(
   return {
     userId,
     status: "PENDING",
+    OR: [{ skippedUntil: null }, { skippedUntil: { lte: new Date() } }],
     ...(excludedEmails?.length
       ? { NOT: { email: { in: excludedEmails } } }
       : {}),

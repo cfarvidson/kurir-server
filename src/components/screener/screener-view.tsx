@@ -5,8 +5,16 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { approveSender, rejectSender } from "@/actions/senders";
-import { Check, X, Inbox, Newspaper, Receipt, Loader2 } from "lucide-react";
+import { approveSender, rejectSender, skipSender } from "@/actions/senders";
+import {
+  Check,
+  X,
+  Inbox,
+  Newspaper,
+  Receipt,
+  Loader2,
+  Clock,
+} from "lucide-react";
 
 interface Sender {
   id: string;
@@ -60,6 +68,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
     startTransition(async () => {
       await rejectSender(senderId);
+      setSenders((prev) => prev.filter((s) => s.id !== senderId));
+      setProcessingId(null);
+      router.refresh();
+    });
+  };
+
+  const handleSkip = async (senderId: string) => {
+    setProcessingId(senderId);
+
+    startTransition(async () => {
+      await skipSender(senderId);
       setSenders((prev) => prev.filter((s) => s.id !== senderId));
       setProcessingId(null);
       router.refresh();
@@ -185,6 +204,22 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   <X className="h-5 w-5" />
                 )}
                 Screen Out
+              </button>
+              <button
+                onClick={() => handleSkip(currentSender.id)}
+                disabled={isProcessing}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-2 py-4 text-sm font-medium transition-colors",
+                  "border-r hover:bg-muted hover:text-muted-foreground",
+                  isProcessing && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Clock className="h-5 w-5" />
+                )}
+                Skip
               </button>
               <button
                 onClick={() => {

@@ -94,6 +94,31 @@ export async function rejectSender(senderId: string) {
   revalidatePath("/paper-trail");
 }
 
+export async function skipSender(senderId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { userId: true },
+  });
+
+  if (!sender || sender.userId !== session.user.id) {
+    throw new Error("Sender not found");
+  }
+
+  // Hide from Screener for 24 hours
+  await db.sender.update({
+    where: { id: senderId },
+    data: { skippedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+  });
+
+  revalidateTag("sidebar-counts");
+  revalidatePath("/screener");
+}
+
 export async function changeSenderCategory(
   senderId: string,
   category: SenderCategory

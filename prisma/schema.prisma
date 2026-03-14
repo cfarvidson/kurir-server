@@ -136,7 +136,8 @@ model Sender {
   category SenderCategory @default(IMBOX)
 
   // Decision metadata
-  decidedAt DateTime? // When approved/rejected
+  decidedAt    DateTime? // When approved/rejected
+  skippedUntil DateTime? // Hidden from Screener until this time
 
   // Message count for stats
   messageCount Int @default(0)
