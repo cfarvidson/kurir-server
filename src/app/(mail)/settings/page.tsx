@@ -225,7 +225,7 @@ export default async function SettingsPage() {
             <div className="mt-4 rounded-lg border bg-card p-4">
               <p className="text-sm text-muted-foreground">
                 Auto-approve pending senders whose most recent message is
-                older than 30 days. They go to the Imbox so you only need
+                older than 90 days. They go to the Imbox so you only need
                 to manually screen recent senders.
               </p>
               <div className="mt-4">

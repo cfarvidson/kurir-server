@@ -124,7 +124,7 @@ export async function skipSender(senderId: string) {
  * than `days` days. Approved into IMBOX by default. Returns the count
  * of senders approved.
  */
-export async function bulkApproveOldSenders(days: number = 30) {
+export async function bulkApproveOldSenders(days: number = 90) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");

@@ -13,11 +13,11 @@ export function ScreenRecentButton() {
 
   function handleClick() {
     startTransition(async () => {
-      const count = await bulkApproveOldSenders(30);
+      const count = await bulkApproveOldSenders(90);
       setResult(
         count === 0
-          ? "No old senders to clear — all pending senders have recent messages."
-          : `Auto-approved ${count} sender${count !== 1 ? "s" : ""} with no messages in the last 30 days.`,
+          ? "No old senders to clear — all pending senders have messages within the last 90 days."
+          : `Auto-approved ${count} sender${count !== 1 ? "s" : ""} with no messages in the last 90 days.`,
       );
       router.refresh();
     });
@@ -31,7 +31,7 @@ export function ScreenRecentButton() {
         ) : (
           <Filter className="mr-2 h-4 w-4" />
         )}
-        {isPending ? "Processing..." : "Screen recent only (30 days)"}
+        {isPending ? "Processing..." : "Screen recent only (90 days)"}
       </Button>
       {result && (
         <p className="mt-2 text-sm text-muted-foreground">{result}</p>
