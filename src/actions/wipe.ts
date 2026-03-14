@@ -25,3 +25,42 @@ export async function wipeAllData() {
 
   return { success: true };
 }
+
+/**
+ * Wipe all mail data but keep email connections.
+ * Deletes messages, folders, senders, and resets sync state.
+ * Connections (accounts) are preserved.
+ */
+export async function wipeMailData() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const userId = session.user.id;
+
+  // Stop any active IMAP IDLE connections
+  await connectionManager.stopAllForUser(userId);
+
+  const connectionIds = (
+    await db.emailConnection.findMany({
+      where: { userId },
+      select: { id: true },
+    })
+  ).map((c) => c.id);
+
+  // Delete messages, folders, senders and reset sync states per connection
+  await db.$transaction([
+    db.message.deleteMany({ where: { userId } }),
+    db.folder.deleteMany({ where: { userId } }),
+    db.sender.deleteMany({ where: { userId } }),
+    ...connectionIds.map((id) =>
+      db.syncState.updateMany({
+        where: { emailConnectionId: id },
+        data: { lastFullSync: null, syncError: null, isSyncing: false },
+      }),
+    ),
+  ]);
+
+  return { success: true };
+}

@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
-import { WipeButton } from "@/components/settings/wipe-button";
+import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 
 async function getUserStats(userId: string, excludedEmails: string[]) {
@@ -314,14 +314,27 @@ export default async function SettingsPage() {
             <h2 className="text-lg font-medium text-destructive">
               Danger zone
             </h2>
-            <div className="mt-4 rounded-lg border border-destructive/30 bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                Delete all email connections, messages, senders, and folders.
-                Your account and passkeys are kept. You will be redirected to
-                set up a new connection.
-              </p>
-              <div className="mt-4">
-                <WipeButton />
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg border border-destructive/30 bg-card p-4">
+                <p className="text-sm font-medium">Clear all messages</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Delete all messages, senders, and folders. Your email
+                  connections are kept — just re-import afterwards.
+                </p>
+                <div className="mt-3">
+                  <WipeMailButton />
+                </div>
+              </div>
+              <div className="rounded-lg border border-destructive/30 bg-card p-4">
+                <p className="text-sm font-medium">Wipe everything</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Delete all email connections, messages, senders, and folders.
+                  Your account and passkeys are kept. You will be redirected to
+                  set up a new connection.
+                </p>
+                <div className="mt-3">
+                  <WipeButton />
+                </div>
               </div>
             </div>
           </section>

@@ -3,10 +3,24 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Trash2, Loader2 } from "lucide-react";
-import { wipeAllData } from "@/actions/wipe";
+import { Trash2, Loader2, Eraser } from "lucide-react";
+import { wipeAllData, wipeMailData } from "@/actions/wipe";
 
-export function WipeButton() {
+function ConfirmButton({
+  label,
+  confirmLabel,
+  pendingLabel,
+  icon: Icon,
+  onConfirm,
+  redirect,
+}: {
+  label: string;
+  confirmLabel: string;
+  pendingLabel: string;
+  icon: typeof Trash2;
+  onConfirm: () => Promise<unknown>;
+  redirect?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<"idle" | "confirm">("idle");
   const router = useRouter();
@@ -18,8 +32,12 @@ export function WipeButton() {
     }
 
     startTransition(async () => {
-      await wipeAllData();
-      router.push("/setup");
+      await onConfirm();
+      if (redirect) {
+        router.push(redirect);
+      } else {
+        router.refresh();
+      }
     });
   }
 
@@ -33,13 +51,9 @@ export function WipeButton() {
         {isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Icon className="mr-2 h-4 w-4" />
         )}
-        {isPending
-          ? "Wiping..."
-          : step === "confirm"
-            ? "Yes, wipe everything"
-            : "Wipe All Data & Start Over"}
+        {isPending ? pendingLabel : step === "confirm" ? confirmLabel : label}
       </Button>
       {step === "confirm" && !isPending && (
         <Button variant="ghost" size="sm" onClick={() => setStep("idle")}>
@@ -47,5 +61,30 @@ export function WipeButton() {
         </Button>
       )}
     </div>
+  );
+}
+
+export function WipeMailButton() {
+  return (
+    <ConfirmButton
+      label="Clear All Messages"
+      confirmLabel="Yes, clear all messages"
+      pendingLabel="Clearing..."
+      icon={Eraser}
+      onConfirm={wipeMailData}
+    />
+  );
+}
+
+export function WipeButton() {
+  return (
+    <ConfirmButton
+      label="Wipe All Data & Start Over"
+      confirmLabel="Yes, wipe everything"
+      pendingLabel="Wiping..."
+      icon={Trash2}
+      onConfirm={wipeAllData}
+      redirect="/setup"
+    />
   );
 }
