@@ -45,6 +45,8 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     references.push(message.messageId);
   }
 
+  const fromAddress = credentials.sendAsEmail || credentials.email;
+
   const transporter = nodemailer.createTransport({
     host: credentials.smtp.host,
     port: credentials.smtp.port,
@@ -56,7 +58,7 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
   });
 
   const info = await transporter.sendMail({
-    from: credentials.email,
+    from: fromAddress,
     to: replyTo,
     subject,
     text: body,
@@ -74,7 +76,7 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     inReplyTo: message.messageId || null,
     references,
     subject,
-    fromAddress: credentials.email,
+    fromAddress,
     toAddresses: [replyTo],
     text: body,
   });

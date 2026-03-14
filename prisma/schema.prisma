@@ -68,6 +68,10 @@ model EmailConnection {
   smtpHost String
   smtpPort Int    @default(587)
 
+  // Optional "send as" address (e.g. custom domain via iCloud)
+  // SMTP auth still uses `email`, but outgoing From header uses this address
+  sendAsEmail String?
+
   // Password stored encrypted with AES-256-GCM
   encryptedPassword String
 

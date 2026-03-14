@@ -12,6 +12,7 @@ const createConnectionSchema = z.object({
   smtpHost: z.string().min(1),
   smtpPort: z.coerce.number().int().min(1).max(65535).default(587),
   displayName: z.string().optional(),
+  sendAsEmail: z.string().email().optional(),
   isDefault: z.boolean().optional().default(false),
 });
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, password, imapHost, imapPort, smtpHost, smtpPort, displayName, isDefault } =
+  const { email, password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, isDefault } =
     parsed.data;
   const userId = session.user.id;
 
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
       smtpHost,
       smtpPort,
       displayName: displayName ?? null,
+      sendAsEmail: sendAsEmail ?? null,
       isDefault: shouldBeDefault,
     },
   });

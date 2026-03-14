@@ -44,6 +44,7 @@ export async function getConnectionCredentials(connectionId: string) {
       imapPort: true,
       smtpHost: true,
       smtpPort: true,
+      sendAsEmail: true,
     },
   });
 
@@ -51,6 +52,7 @@ export async function getConnectionCredentials(connectionId: string) {
 
   return {
     email: conn.email,
+    sendAsEmail: conn.sendAsEmail,
     password: decrypt(conn.encryptedPassword),
     imap: {
       host: conn.imapHost,
@@ -77,6 +79,7 @@ export async function getDefaultConnectionCredentials(userId: string) {
       imapPort: true,
       smtpHost: true,
       smtpPort: true,
+      sendAsEmail: true,
     },
   });
 
@@ -85,6 +88,7 @@ export async function getDefaultConnectionCredentials(userId: string) {
   return {
     connectionId: conn.id,
     email: conn.email,
+    sendAsEmail: conn.sendAsEmail,
     password: decrypt(conn.encryptedPassword),
     imap: {
       host: conn.imapHost,

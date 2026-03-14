@@ -22,12 +22,14 @@ import {
   MoreHorizontal,
   Trash2,
   StarOff,
+  Send,
 } from "lucide-react";
 
 export interface EmailConnection {
   id: string;
   email: string;
   displayName: string | null;
+  sendAsEmail: string | null;
   imapHost: string;
   smtpHost: string;
   isDefault: boolean;
@@ -41,6 +43,7 @@ interface ConnectionCardProps {
   onSetDefault: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSync: (id: string) => Promise<void>;
+  onUpdateSendAs: (id: string, sendAsEmail: string | null) => Promise<void>;
   /** Prevent deleting if this is the last connection */
   isOnly: boolean;
 }
@@ -50,15 +53,19 @@ export function ConnectionCard({
   onSetDefault,
   onDelete,
   onSync,
+  onUpdateSendAs,
   isOnly,
 }: ConnectionCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSendAsForm, setShowSendAsForm] = useState(false);
+  const [sendAsValue, setSendAsValue] = useState(connection.sendAsEmail ?? "");
   const [isPending, startTransition] = useTransition();
   const [localStatus, setLocalStatus] = useState<
-    "idle" | "setting-default" | "syncing" | "deleting"
+    "idle" | "setting-default" | "syncing" | "deleting" | "saving-send-as"
   >("idle");
   const menuRef = useRef<HTMLDivElement>(null);
+  const sendAsInputRef = useRef<HTMLInputElement>(null);
 
   const isBusy = isPending || localStatus !== "idle";
 
@@ -73,6 +80,13 @@ export function ConnectionCard({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
+
+  // Focus input when send-as form opens
+  useEffect(() => {
+    if (showSendAsForm) {
+      sendAsInputRef.current?.focus();
+    }
+  }, [showSendAsForm]);
 
   const handleSetDefault = () => {
     if (connection.isDefault) return;
@@ -98,6 +112,29 @@ export function ConnectionCard({
       await onDelete(connection.id);
       setLocalStatus("idle");
       setShowDeleteConfirm(false);
+    });
+  };
+
+  const handleSendAsSave = () => {
+    const trimmed = sendAsValue.trim();
+    // Basic email validation
+    if (trimmed && !trimmed.includes("@")) return;
+
+    setLocalStatus("saving-send-as");
+    startTransition(async () => {
+      await onUpdateSendAs(connection.id, trimmed || null);
+      setLocalStatus("idle");
+      setShowSendAsForm(false);
+    });
+  };
+
+  const handleSendAsRemove = () => {
+    setLocalStatus("saving-send-as");
+    startTransition(async () => {
+      await onUpdateSendAs(connection.id, null);
+      setSendAsValue("");
+      setLocalStatus("idle");
+      setShowSendAsForm(false);
     });
   };
 
@@ -159,6 +196,11 @@ export function ConnectionCard({
               {connection.email}
             </p>
           )}
+          {connection.sendAsEmail && (
+            <p className="text-xs text-muted-foreground truncate">
+              Sends as {connection.sendAsEmail}
+            </p>
+          )}
 
           {/* Sync status */}
           <div className="mt-1 flex items-center gap-1.5">
@@ -209,8 +251,28 @@ export function ConnectionCard({
                   exit={{ opacity: 0, scale: 0.95, y: -4 }}
                   transition={{ duration: 0.12 }}
                   role="menu"
-                  className="absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border bg-popover shadow-lg"
+                  className="absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg border bg-popover shadow-lg"
                 >
+                  {/* Send-as address */}
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setSendAsValue(connection.sendAsEmail ?? "");
+                      setShowSendAsForm(true);
+                    }}
+                    disabled={isBusy}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    <Send className="h-4 w-4" />
+                    {connection.sendAsEmail
+                      ? "Change send-as address"
+                      : "Set send-as address"}
+                  </button>
+
                   {/* Set as default */}
                   <button
                     role="menuitem"
@@ -267,6 +329,72 @@ export function ConnectionCard({
           <span>SMTP: {connection.smtpHost}</span>
         </div>
       </div>
+
+      {/* Send-as address form */}
+      <AnimatePresence>
+        {showSendAsForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="border-t bg-muted/30 px-4 py-3">
+              <p className="text-sm font-medium">Send-as address</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Outgoing emails will use this address in the From field.
+                SMTP authentication still uses {connection.email}.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  ref={sendAsInputRef}
+                  type="email"
+                  value={sendAsValue}
+                  onChange={(e) => setSendAsValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendAsSave();
+                    if (e.key === "Escape") setShowSendAsForm(false);
+                  }}
+                  placeholder="you@yourdomain.com"
+                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleSendAsSave}
+                  disabled={isBusy}
+                >
+                  {localStatus === "saving-send-as" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+                {connection.sendAsEmail && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSendAsRemove}
+                    disabled={isBusy}
+                  >
+                    Remove
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowSendAsForm(false)}
+                  disabled={isBusy}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Delete confirmation */}
       <AnimatePresence>

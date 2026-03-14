@@ -81,9 +81,11 @@ export async function POST(request: Request) {
     },
   });
 
+  const fromAddress = credentials.sendAsEmail || credentials.email;
+
   try {
     const result = await transporter.sendMail({
-      from: credentials.email,
+      from: fromAddress,
       to,
       subject,
       text,
@@ -123,7 +125,7 @@ export async function POST(request: Request) {
       inReplyTo: inReplyTo || null,
       references: references || [],
       subject,
-      fromAddress: credentials.email,
+      fromAddress,
       toAddresses: [to],
       text,
       html,
