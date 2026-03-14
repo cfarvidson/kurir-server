@@ -16,13 +16,30 @@ interface MobileSidebarProps {
 }
 
 export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: MobileSidebarProps) {
-  const badgeCounts: Record<string, number> = {
-    imbox: imboxUnreadCount,
-    screener: screenerCount,
-    snoozed: snoozedCount,
-  };
+  const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  // Listen for optimistic badge updates
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { key, delta } = (e as CustomEvent).detail;
+      setDeltas((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + delta }));
+    };
+    window.addEventListener("badge-count-update", handler);
+    return () => window.removeEventListener("badge-count-update", handler);
+  }, []);
+
+  // Reset deltas when server props change
+  useEffect(() => {
+    setDeltas({});
+  }, [screenerCount, imboxUnreadCount, snoozedCount]);
+
+  const badgeCounts: Record<string, number> = {
+    imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
+    screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
+    snoozed: Math.max(0, snoozedCount + (deltas.snoozed ?? 0)),
+  };
 
   // Hide hamburger on detail/sub-pages that have their own back button
   // e.g. /imbox/abc123 or /contacts/abc123

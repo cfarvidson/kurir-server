@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -14,13 +15,40 @@ interface SidebarProps {
   snoozedCount?: number;
 }
 
+/**
+ * Dispatch from anywhere to optimistically adjust a sidebar badge.
+ * Example: badgeUpdate("screener", -1)
+ */
+export function badgeUpdate(key: string, delta: number) {
+  window.dispatchEvent(
+    new CustomEvent("badge-count-update", { detail: { key, delta } }),
+  );
+}
+
 export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: SidebarProps) {
-  const badgeCounts: Record<string, number> = {
-    imbox: imboxUnreadCount,
-    screener: screenerCount,
-    snoozed: snoozedCount,
-  };
+  const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
+
+  // Listen for optimistic badge updates
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { key, delta } = (e as CustomEvent).detail;
+      setDeltas((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + delta }));
+    };
+    window.addEventListener("badge-count-update", handler);
+    return () => window.removeEventListener("badge-count-update", handler);
+  }, []);
+
+  // Reset deltas when server props change (router.refresh() completed)
+  useEffect(() => {
+    setDeltas({});
+  }, [screenerCount, imboxUnreadCount, snoozedCount]);
+
+  const badgeCounts: Record<string, number> = {
+    imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
+    screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
+    snoozed: Math.max(0, snoozedCount + (deltas.snoozed ?? 0)),
+  };
 
   return (
     <div className="hidden h-full w-64 flex-col border-r bg-card md:flex">

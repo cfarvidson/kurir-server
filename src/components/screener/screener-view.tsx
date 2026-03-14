@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { approveSender, rejectSender, skipSender } from "@/actions/senders";
+import { badgeUpdate } from "@/components/layout/sidebar";
 import {
   Check,
   X,
@@ -54,10 +55,11 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const handleApprove = async (senderId: string, category: Category = "IMBOX") => {
     setProcessingId(senderId);
     setShowCategoryPicker(null);
+    setSenders((prev) => prev.filter((s) => s.id !== senderId));
+    badgeUpdate("screener", -1);
 
     startTransition(async () => {
       await approveSender(senderId, category);
-      setSenders((prev) => prev.filter((s) => s.id !== senderId));
       setProcessingId(null);
       router.refresh();
     });
@@ -65,10 +67,11 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   const handleReject = async (senderId: string) => {
     setProcessingId(senderId);
+    setSenders((prev) => prev.filter((s) => s.id !== senderId));
+    badgeUpdate("screener", -1);
 
     startTransition(async () => {
       await rejectSender(senderId);
-      setSenders((prev) => prev.filter((s) => s.id !== senderId));
       setProcessingId(null);
       router.refresh();
     });
@@ -76,10 +79,11 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   const handleSkip = async (senderId: string) => {
     setProcessingId(senderId);
+    setSenders((prev) => prev.filter((s) => s.id !== senderId));
+    badgeUpdate("screener", -1);
 
     startTransition(async () => {
       await skipSender(senderId);
-      setSenders((prev) => prev.filter((s) => s.id !== senderId));
       setProcessingId(null);
       router.refresh();
     });
