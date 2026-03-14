@@ -24,7 +24,7 @@
  *   pnpm tsx scripts/migrate-to-passkey-auth.ts --dry-run
  */
 
-import "dotenv/config";
+try { await import("dotenv/config"); } catch {}
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();

@@ -13,6 +13,7 @@ servers:
       memory: 2048m
 
 proxy:
+  ssl: false
   app_port: 3000
   healthcheck:
     path: /api/up
@@ -42,7 +43,6 @@ env:
     - DATABASE_URL
     - NEXTAUTH_SECRET
     - ENCRYPTION_KEY
-    - POSTGRES_PASSWORD
 
 # Use accessory services (secrets come from .kamal/secrets).
 accessories:

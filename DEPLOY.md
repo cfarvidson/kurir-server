@@ -28,6 +28,16 @@ KAMAL_ENCRYPTION_KEY=your_encryption_key
 
 ## First-Time Setup
 
+### Tailscale HTTPS (required for passkeys)
+
+On the app server, enable Tailscale Serve to terminate TLS. kamal-proxy serves HTTP on port 80; Tailscale handles HTTPS on port 443:
+
+```bash
+sudo tailscale serve --bg --https=443 http://localhost:80
+```
+
+### Deploy
+
 ```bash
 # Provision servers, boot accessories (postgres) and deploy the app
 kamal setup

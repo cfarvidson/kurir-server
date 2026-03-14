@@ -4,8 +4,19 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
+/**
+ * Build a redirect URL using the public-facing base URL.
+ * Behind Tailscale Serve → kamal-proxy, the app sees HTTP but the browser is on HTTPS.
+ * Using req.nextUrl directly would generate http:// redirects, dropping the user
+ * out of the TLS tunnel. NEXTAUTH_URL reflects the real browser-facing origin.
+ */
+function redirect(req: Parameters<Parameters<typeof auth>[0]>[0], path: string) {
+  const base = process.env.NEXTAUTH_URL || req.nextUrl.origin;
+  return NextResponse.redirect(new URL(path, base));
+}
+
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+  const isLoggedIn = !!req.auth?.user;
   const isOnLoginPage = req.nextUrl.pathname === "/login";
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
   const isOnRegisterPage = req.nextUrl.pathname === "/register";
@@ -19,12 +30,12 @@ export default auth((req) => {
 
   // Redirect logged-in users away from login page
   if (isLoggedIn && isOnLoginPage) {
-    return NextResponse.redirect(new URL("/imbox", req.nextUrl));
+    return redirect(req, "/imbox");
   }
 
   // Redirect non-logged-in users to login
   if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl));
+    return redirect(req, "/login");
   }
 
   return NextResponse.next();

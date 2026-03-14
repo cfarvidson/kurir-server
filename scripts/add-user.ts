@@ -14,7 +14,7 @@
  * and then link it to this user ID, or use the database directly to add a session.
  */
 
-import "dotenv/config";
+try { await import("dotenv/config"); } catch {}
 import { PrismaClient } from "@prisma/client";
 import { createCipheriv, randomBytes, scryptSync } from "crypto";
 import * as readline from "readline";

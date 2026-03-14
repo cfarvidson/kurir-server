@@ -6,7 +6,7 @@
  *   pnpm list-users
  */
 
-import "dotenv/config";
+try { await import("dotenv/config"); } catch {}
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();

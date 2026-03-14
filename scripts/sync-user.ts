@@ -7,7 +7,7 @@
  *   pnpm sync-user --all
  */
 
-import "dotenv/config";
+try { await import("dotenv/config"); } catch {}
 import { PrismaClient } from "@prisma/client";
 import { syncEmailConnection } from "../src/lib/mail/sync-service";
 
