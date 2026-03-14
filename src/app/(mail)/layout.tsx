@@ -9,9 +9,26 @@ import { unstable_cache } from "next/cache";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
+async function getUserEmails(userId: string): Promise<string[]> {
+  const connections = await db.emailConnection.findMany({
+    where: { userId },
+    select: { email: true, sendAsEmail: true, aliases: true },
+  });
+  return [
+    ...new Set(
+      connections
+        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
+        .filter(Boolean)
+        .map((e) => e!.trim().toLowerCase()),
+    ),
+  ];
+}
+
 const getScreenerCount = unstable_cache(
-  async (userId: string) =>
-    db.sender.count({ where: visiblePendingSenderWhere(userId, null) }),
+  async (userId: string, excludedEmails: string[]) =>
+    db.sender.count({
+      where: visiblePendingSenderWhere(userId, excludedEmails.length > 0 ? excludedEmails : null),
+    }),
   ["screener-count"],
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
@@ -41,8 +58,10 @@ export default async function MailLayout({
     redirect("/login");
   }
 
+  const userEmails = await getUserEmails(session.user.id);
+
   const [screenerCount, imboxUnreadCount, snoozedCount] = await Promise.all([
-    getScreenerCount(session.user.id),
+    getScreenerCount(session.user.id, userEmails),
     getImboxUnreadCount(session.user.id),
     getSnoozedCount(session.user.id),
   ]);

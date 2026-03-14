@@ -12,11 +12,16 @@ import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton } from "@/components/settings/wipe-button";
 
-async function getUserStats(userId: string) {
+async function getUserStats(userId: string, excludedEmails: string[]) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
     db.sender.count({ where: { userId } }),
     db.message.count({ where: { userId } }),
-    db.sender.count({ where: visiblePendingSenderWhere(userId, null) }),
+    db.sender.count({
+      where: visiblePendingSenderWhere(
+        userId,
+        excludedEmails.length > 0 ? excludedEmails : null,
+      ),
+    }),
   ]);
 
   return { senderCount, messageCount, pendingCount };
@@ -31,7 +36,7 @@ export default async function SettingsPage() {
 
   const userId = session.user.id;
 
-  const [user, rawConnections, rawPasskeys, stats] = await Promise.all([
+  const [user, rawConnections, rawPasskeys] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: {
@@ -72,8 +77,17 @@ export default async function SettingsPage() {
         backedUp: true,
       },
     }),
-    getUserStats(userId),
   ]);
+
+  const excludedEmails = [
+    ...new Set(
+      rawConnections
+        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
+        .filter(Boolean)
+        .map((e) => e!.trim().toLowerCase()),
+    ),
+  ];
+  const stats = await getUserStats(userId, excludedEmails);
 
   // Shape connections for the client component (dates must be strings)
   const connections: EmailConnection[] = rawConnections.map((c) => ({
