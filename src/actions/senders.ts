@@ -119,6 +119,61 @@ export async function skipSender(senderId: string) {
   revalidatePath("/screener");
 }
 
+/**
+ * Auto-approve all PENDING senders whose most recent message is older
+ * than `days` days. Approved into IMBOX by default. Returns the count
+ * of senders approved.
+ */
+export async function bulkApproveOldSenders(days: number = 30) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const userId = session.user.id;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Find PENDING senders whose newest message is older than cutoff
+  const oldSenders = await db.sender.findMany({
+    where: {
+      userId,
+      status: "PENDING",
+      messages: {
+        every: { receivedAt: { lt: cutoff } },
+      },
+    },
+    select: { id: true },
+  });
+
+  if (oldSenders.length === 0) return 0;
+
+  const senderIds = oldSenders.map((s) => s.id);
+
+  await db.$transaction([
+    db.sender.updateMany({
+      where: { id: { in: senderIds } },
+      data: {
+        status: "APPROVED",
+        category: "IMBOX",
+        decidedAt: new Date(),
+      },
+    }),
+    db.message.updateMany({
+      where: { senderId: { in: senderIds }, isArchived: false },
+      data: {
+        isInScreener: false,
+        isInImbox: true,
+      },
+    }),
+  ]);
+
+  revalidateTag("sidebar-counts");
+  revalidatePath("/screener");
+  revalidatePath("/imbox");
+
+  return oldSenders.length;
+}
+
 export async function changeSenderCategory(
   senderId: string,
   category: SenderCategory

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton } from "@/components/settings/wipe-button";
+import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 
 async function getUserStats(userId: string, excludedEmails: string[]) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
@@ -214,6 +215,21 @@ export default async function SettingsPage() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <ImportButton />
                 <ImportButton mode="resync" />
+              </div>
+            </div>
+          </section>
+
+          {/* Screener */}
+          <section>
+            <h2 className="text-lg font-medium">Screener</h2>
+            <div className="mt-4 rounded-lg border bg-card p-4">
+              <p className="text-sm text-muted-foreground">
+                Auto-approve pending senders whose most recent message is
+                older than 30 days. They go to the Imbox so you only need
+                to manually screen recent senders.
+              </p>
+              <div className="mt-4">
+                <ScreenRecentButton />
               </div>
             </div>
           </section>
