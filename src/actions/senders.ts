@@ -133,13 +133,14 @@ export async function bulkApproveOldSenders(days: number = 90) {
   const userId = session.user.id;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // Find PENDING senders whose newest message is older than cutoff
+  // Find PENDING senders who have messages, but NONE within the last N days
   const oldSenders = await db.sender.findMany({
     where: {
       userId,
       status: "PENDING",
       messages: {
-        every: { receivedAt: { lt: cutoff } },
+        some: {},
+        none: { receivedAt: { gte: cutoff } },
       },
     },
     select: { id: true },
