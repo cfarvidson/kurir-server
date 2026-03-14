@@ -14,7 +14,15 @@ import { WipeButton } from "@/components/settings/wipe-button";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 
 async function getUserStats(userId: string, excludedEmails: string[]) {
-  const [senderCount, messageCount, pendingCount] = await Promise.all([
+  const [
+    senderCount,
+    messageCount,
+    pendingCount,
+    imboxCount,
+    feedCount,
+    paperTrailCount,
+    archivedCount,
+  ] = await Promise.all([
     db.sender.count({ where: { userId } }),
     db.message.count({ where: { userId } }),
     db.sender.count({
@@ -23,9 +31,21 @@ async function getUserStats(userId: string, excludedEmails: string[]) {
         excludedEmails.length > 0 ? excludedEmails : null,
       ),
     }),
+    db.message.count({ where: { userId, isInImbox: true } }),
+    db.message.count({ where: { userId, isInFeed: true } }),
+    db.message.count({ where: { userId, isInPaperTrail: true } }),
+    db.message.count({ where: { userId, isArchived: true } }),
   ]);
 
-  return { senderCount, messageCount, pendingCount };
+  return {
+    senderCount,
+    messageCount,
+    pendingCount,
+    imboxCount,
+    feedCount,
+    paperTrailCount,
+    archivedCount,
+  };
 }
 
 export default async function SettingsPage() {
@@ -184,18 +204,34 @@ export default async function SettingsPage() {
           {/* Stats */}
           <section>
             <h2 className="text-lg font-medium">Statistics</h2>
-            <div className="mt-4 grid grid-cols-3 gap-2 md:gap-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
               <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.messageCount}</div>
-                <div className="text-sm text-muted-foreground">Messages</div>
+                <div className="text-2xl font-bold">{stats.messageCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Total synced</div>
               </div>
               <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.senderCount}</div>
+                <div className="text-2xl font-bold">{stats.senderCount.toLocaleString()}</div>
                 <div className="text-sm text-muted-foreground">Senders</div>
               </div>
               <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.pendingCount}</div>
-                <div className="text-sm text-muted-foreground">Pending</div>
+                <div className="text-2xl font-bold">{stats.imboxCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Imbox</div>
+              </div>
+              <div className="rounded-lg border bg-card p-4 text-center">
+                <div className="text-2xl font-bold">{stats.feedCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Feed</div>
+              </div>
+              <div className="rounded-lg border bg-card p-4 text-center">
+                <div className="text-2xl font-bold">{stats.paperTrailCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Paper Trail</div>
+              </div>
+              <div className="rounded-lg border bg-card p-4 text-center">
+                <div className="text-2xl font-bold">{stats.archivedCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Archived</div>
+              </div>
+              <div className="rounded-lg border bg-card p-4 text-center">
+                <div className="text-2xl font-bold">{stats.pendingCount.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Pending screening</div>
               </div>
             </div>
           </section>
