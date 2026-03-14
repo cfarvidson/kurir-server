@@ -257,6 +257,9 @@ async function syncMailbox(
             const isFromSelf = !!fromAddr && userEmails.some((ue) => fromAddr === ue.toLowerCase());
             isInbox = false;
             archived = !isFromSelf;
+          } else if (specialUse === "archive") {
+            isInbox = false;
+            archived = true;
           }
 
           await processMessage(msg, userId, emailConnectionId, folder.id, { isInbox, userEmails, isArchived: archived });
@@ -625,6 +628,17 @@ export async function syncEmailConnection(
     for (const mb of mailboxes) {
       if (mb.specialUse === "\\All") {
         toSync.push({ path: mb.path, specialUse: mb.specialUse });
+        break;
+      }
+    }
+
+    // Sync Archive folder (iCloud and others that don't have \All)
+    for (const mb of mailboxes) {
+      if (
+        mb.specialUse === "\\Archive" ||
+        mb.path.toLowerCase() === "archive"
+      ) {
+        toSync.push({ path: mb.path, specialUse: mb.specialUse || "\\Archive" });
         break;
       }
     }

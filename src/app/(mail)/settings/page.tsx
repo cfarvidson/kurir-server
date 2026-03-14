@@ -37,6 +37,19 @@ async function getUserStats(userId: string, excludedEmails: string[]) {
     db.message.count({ where: { userId, isArchived: true } }),
   ]);
 
+  // Get folder-level sync debug info
+  const folders = await db.folder.findMany({
+    where: { userId },
+    select: {
+      name: true,
+      path: true,
+      specialUse: true,
+      lastSyncedAt: true,
+      _count: { select: { messages: true } },
+    },
+    orderBy: { path: "asc" },
+  });
+
   return {
     senderCount,
     messageCount,
@@ -45,6 +58,7 @@ async function getUserStats(userId: string, excludedEmails: string[]) {
     feedCount,
     paperTrailCount,
     archivedCount,
+    folders,
   };
 }
 
@@ -235,6 +249,31 @@ export default async function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* Synced folders */}
+          {stats.folders.length > 0 && (
+            <section>
+              <h2 className="text-lg font-medium">Synced folders</h2>
+              <div className="mt-4 rounded-lg border bg-card divide-y">
+                {stats.folders.map((f) => (
+                  <div key={f.path} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{f.path}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {f.specialUse || "—"}
+                        {f.lastSyncedAt && (
+                          <> · synced {new Date(f.lastSyncedAt).toLocaleString()}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-sm font-medium tabular-nums">
+                      {f._count.messages.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Import */}
           <section>
