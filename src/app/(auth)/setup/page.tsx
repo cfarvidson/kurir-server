@@ -17,19 +17,47 @@ import {
   Mail,
   Lock,
   Server,
-  ChevronDown,
-  ChevronUp,
   Loader2,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 
-const PROVIDERS = [
-  { id: "gmail", name: "Gmail", domain: "gmail.com" },
-  { id: "outlook", name: "Outlook / Hotmail", domain: "outlook.com" },
-  { id: "icloud", name: "iCloud", domain: "icloud.com" },
-  { id: "yahoo", name: "Yahoo", domain: "yahoo.com" },
+const PROVIDERS: {
+  id: string;
+  name: string;
+  domain: string | null;
+  imap?: { host: string; port: number };
+  smtp?: { host: string; port: number };
+}[] = [
+  {
+    id: "gmail",
+    name: "Gmail",
+    domain: "gmail.com",
+    imap: { host: "imap.gmail.com", port: 993 },
+    smtp: { host: "smtp.gmail.com", port: 587 },
+  },
+  {
+    id: "outlook",
+    name: "Outlook / Hotmail",
+    domain: "outlook.com",
+    imap: { host: "outlook.office365.com", port: 993 },
+    smtp: { host: "smtp.office365.com", port: 587 },
+  },
+  {
+    id: "icloud",
+    name: "iCloud",
+    domain: "icloud.com",
+    imap: { host: "imap.mail.me.com", port: 993 },
+    smtp: { host: "smtp.mail.me.com", port: 587 },
+  },
+  {
+    id: "yahoo",
+    name: "Yahoo",
+    domain: "yahoo.com",
+    imap: { host: "imap.mail.yahoo.com", port: 993 },
+    smtp: { host: "smtp.mail.yahoo.com", port: 465 },
+  },
   { id: "custom", name: "Other / Custom", domain: null },
 ];
 
@@ -52,7 +80,6 @@ function AddConnectionForm() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [provider, setProvider] = useState("gmail");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [imapHost, setImapHost] = useState("");
   const [imapPort, setImapPort] = useState("993");
   const [smtpHost, setSmtpHost] = useState("");
@@ -74,7 +101,6 @@ function AddConnectionForm() {
       }
     }
     setProvider("custom");
-    setShowAdvanced(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,15 +115,18 @@ function AddConnectionForm() {
         displayName: displayName || email,
       };
 
-      if (provider !== "custom") {
-        body.provider = provider;
-      }
-
-      if (showAdvanced) {
+      // Resolve server addresses from provider or custom input
+      const providerConfig = PROVIDERS.find((p) => p.id === provider);
+      if (provider === "custom") {
         body.imapHost = imapHost;
         body.imapPort = imapPort;
         body.smtpHost = smtpHost;
         body.smtpPort = smtpPort;
+      } else if (providerConfig?.imap && providerConfig?.smtp) {
+        body.imapHost = providerConfig.imap.host;
+        body.imapPort = String(providerConfig.imap.port);
+        body.smtpHost = providerConfig.smtp.host;
+        body.smtpPort = String(providerConfig.smtp.port);
       }
 
       if (sendAsEmail.trim()) {
@@ -337,10 +366,7 @@ function AddConnectionForm() {
                 <select
                   id="provider"
                   value={provider}
-                  onChange={(e) => {
-                    setProvider(e.target.value);
-                    if (e.target.value === "custom") setShowAdvanced(true);
-                  }}
+                  onChange={(e) => setProvider(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {PROVIDERS.map((p) => (
@@ -351,92 +377,80 @@ function AddConnectionForm() {
                 </select>
               </div>
 
-              {/* Advanced settings */}
-              <div className="rounded-md border bg-muted/50">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced((v) => !v)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
-                >
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Server className="h-4 w-4" />
-                    Server settings
-                  </span>
-                  {showAdvanced ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                <AnimatePresence>
-                  {showAdvanced && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-3 border-t px-4 py-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="col-span-2">
-                            <Label htmlFor="imapHost" className="text-xs">
-                              IMAP host
-                            </Label>
-                            <Input
-                              id="imapHost"
-                              placeholder="imap.example.com"
-                              value={imapHost}
-                              onChange={(e) => setImapHost(e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="imapPort" className="text-xs">
-                              Port
-                            </Label>
-                            <Input
-                              id="imapPort"
-                              placeholder="993"
-                              value={imapPort}
-                              onChange={(e) => setImapPort(e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </div>
+              {/* Server settings — only shown for custom provider */}
+              <AnimatePresence>
+                {provider === "custom" && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="rounded-md border bg-muted/50 p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <Server className="h-4 w-4" />
+                        Server settings
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <Label htmlFor="imapHost" className="text-xs">
+                            IMAP host
+                          </Label>
+                          <Input
+                            id="imapHost"
+                            placeholder="imap.example.com"
+                            value={imapHost}
+                            onChange={(e) => setImapHost(e.target.value)}
+                            className="h-8 text-sm"
+                            required
+                          />
                         </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="col-span-2">
-                            <Label htmlFor="smtpHost" className="text-xs">
-                              SMTP host
-                            </Label>
-                            <Input
-                              id="smtpHost"
-                              placeholder="smtp.example.com"
-                              value={smtpHost}
-                              onChange={(e) => setSmtpHost(e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="smtpPort" className="text-xs">
-                              Port
-                            </Label>
-                            <Input
-                              id="smtpPort"
-                              placeholder="587"
-                              value={smtpPort}
-                              onChange={(e) => setSmtpPort(e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </div>
+                        <div>
+                          <Label htmlFor="imapPort" className="text-xs">
+                            Port
+                          </Label>
+                          <Input
+                            id="imapPort"
+                            placeholder="993"
+                            value={imapPort}
+                            onChange={(e) => setImapPort(e.target.value)}
+                            className="h-8 text-sm"
+                          />
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <Label htmlFor="smtpHost" className="text-xs">
+                            SMTP host
+                          </Label>
+                          <Input
+                            id="smtpHost"
+                            placeholder="smtp.example.com"
+                            value={smtpHost}
+                            onChange={(e) => setSmtpHost(e.target.value)}
+                            className="h-8 text-sm"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="smtpPort" className="text-xs">
+                            Port
+                          </Label>
+                          <Input
+                            id="smtpPort"
+                            placeholder="587"
+                            value={smtpPort}
+                            onChange={(e) => setSmtpPort(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Submit */}
               <Button type="submit" className="w-full" disabled={isLoading || isSuccess}>
