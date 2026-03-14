@@ -48,7 +48,7 @@ env:
 accessories:
   db:
     image: postgres:16-alpine
-    host: kurir-database-1.banded-beta.ts.net
+    host: kurir-app-1.banded-beta.ts.net
     port: 5432
     env:
       clear:

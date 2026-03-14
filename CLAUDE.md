@@ -69,7 +69,7 @@ kamal setup                         # First deploy: provisions server, boots acc
 kamal deploy                        # Subsequent deploys
 kamal app logs -f                   # Tail production logs
 kamal app exec -i node              # Node REPL in production container
-kamal app exec "npx prisma db push --skip-generate" # Push schema changes
+kamal app exec "prisma db push"              # Push schema changes
 kamal accessory details db          # Check postgres status
 kamal accessory logs db -f          # Tail postgres logs
 kamal accessory exec db "psql -U kurir" # DB shell
