@@ -57,6 +57,9 @@ function AddConnectionForm() {
   const [imapPort, setImapPort] = useState("993");
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
+  const [sendAsEmail, setSendAsEmail] = useState("");
+  const [aliases, setAliases] = useState<string[]>([]);
+  const [newAliasInput, setNewAliasInput] = useState("");
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +83,7 @@ function AddConnectionForm() {
     setError(null);
 
     try {
-      const body: Record<string, string> = {
+      const body: Record<string, string | string[]> = {
         email,
         password,
         displayName: displayName || email,
@@ -95,6 +98,14 @@ function AddConnectionForm() {
         body.imapPort = imapPort;
         body.smtpHost = smtpHost;
         body.smtpPort = smtpPort;
+      }
+
+      if (sendAsEmail.trim()) {
+        body.sendAsEmail = sendAsEmail.trim();
+      }
+
+      if (aliases.length > 0) {
+        body.aliases = aliases;
       }
 
       const res = await fetch("/api/connections", {
@@ -231,6 +242,93 @@ function AddConnectionForm() {
                   </a>
                   .
                 </p>
+              </div>
+
+              {/* Send-as & aliases */}
+              <div className="space-y-2">
+                <Label htmlFor="sendAsEmail">
+                  Send-as email{" "}
+                  <span className="text-muted-foreground font-normal text-xs">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="sendAsEmail"
+                  type="email"
+                  placeholder="you@yourdomain.com"
+                  value={sendAsEmail}
+                  onChange={(e) => setSendAsEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  If you send from a different address than you log in with
+                  (e.g. custom domain via iCloud), enter it here.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  Additional aliases{" "}
+                  <span className="text-muted-foreground font-normal text-xs">
+                    (optional)
+                  </span>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Other email addresses you own. Messages from these won&apos;t
+                  appear in the Screener.
+                </p>
+                {aliases.length > 0 && (
+                  <div className="space-y-1">
+                    {aliases.map((alias) => (
+                      <div
+                        key={alias}
+                        className="flex items-center justify-between rounded-md border px-3 py-1.5"
+                      >
+                        <span className="text-sm">{alias}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAliases((prev) => prev.filter((a) => a !== alias))
+                          }
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="old-address@example.com"
+                    value={newAliasInput}
+                    onChange={(e) => setNewAliasInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const trimmed = newAliasInput.trim().toLowerCase();
+                        if (trimmed && trimmed.includes("@") && !aliases.includes(trimmed)) {
+                          setAliases((prev) => [...prev, trimmed]);
+                          setNewAliasInput("");
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const trimmed = newAliasInput.trim().toLowerCase();
+                      if (trimmed && trimmed.includes("@") && !aliases.includes(trimmed)) {
+                        setAliases((prev) => [...prev, trimmed]);
+                        setNewAliasInput("");
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
               </div>
 
               {/* Provider */}

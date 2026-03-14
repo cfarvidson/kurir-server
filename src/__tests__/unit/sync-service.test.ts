@@ -80,6 +80,8 @@ describe("syncEmailConnection", () => {
     const { getConnectionCredentials } = await import("@/lib/auth");
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "me@example.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.example.com", port: 993 },
       smtp: { host: "smtp.example.com", port: 587 },
@@ -113,6 +115,8 @@ describe("syncEmailConnection", () => {
     const { getConnectionCredentials } = await import("@/lib/auth");
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.gmail.com", port: 993 },
       smtp: { host: "smtp.gmail.com", port: 587 },
@@ -185,7 +189,7 @@ describe("processMessage scoping", () => {
       "user-1",
       "conn-42", // emailConnectionId
       "folder-1",
-      { isInbox: true, userEmail: "me@example.com" }
+      { isInbox: true, userEmails: ["me@example.com"] }
     );
 
     // Verify message was created with the emailConnectionId

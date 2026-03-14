@@ -72,6 +72,9 @@ model EmailConnection {
   // SMTP auth still uses `email`, but outgoing From header uses this address
   sendAsEmail String?
 
+  // Additional owned email addresses (historical, not for sending)
+  aliases String[] @default([])
+
   // Password stored encrypted with AES-256-GCM
   encryptedPassword String
 

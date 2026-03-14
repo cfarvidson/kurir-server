@@ -6,17 +6,13 @@ import { Prisma } from "@prisma/client";
  */
 export function visiblePendingSenderWhere(
   userId: string,
-  excludedEmail?: string | null,
+  excludedEmails?: string[] | null,
 ): Prisma.SenderWhereInput {
-  const normalizedExcludedEmail = excludedEmail?.trim().toLowerCase();
-
   return {
     userId,
     status: "PENDING",
-    ...(normalizedExcludedEmail
-      ? {
-          NOT: { email: normalizedExcludedEmail },
-        }
+    ...(excludedEmails?.length
+      ? { NOT: { email: { in: excludedEmails } } }
       : {}),
     messages: {
       some: { isArchived: false },

@@ -5,9 +5,9 @@ import { ScreenerView } from "@/components/screener/screener-view";
 import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
-async function getPendingSenders(userId: string, excludedEmail?: string | null) {
+async function getPendingSenders(userId: string, excludedEmails?: string[]) {
   return db.sender.findMany({
-    where: visiblePendingSenderWhere(userId, excludedEmail),
+    where: visiblePendingSenderWhere(userId, excludedEmails),
     orderBy: { createdAt: "desc" },
     include: {
       messages: {
@@ -27,17 +27,13 @@ async function getPendingSenders(userId: string, excludedEmail?: string | null) 
   });
 }
 
-async function getScreenedSenders(userId: string, excludedEmail?: string | null) {
-  const normalizedExcludedEmail = excludedEmail?.trim().toLowerCase();
-
+async function getScreenedSenders(userId: string, excludedEmails?: string[]) {
   return db.sender.findMany({
     where: {
       userId,
       status: { in: ["APPROVED", "REJECTED"] },
-      ...(normalizedExcludedEmail
-        ? {
-            NOT: { email: normalizedExcludedEmail },
-          }
+      ...(excludedEmails?.length
+        ? { NOT: { email: { in: excludedEmails } } }
         : {}),
     },
     orderBy: { decidedAt: "desc" },
@@ -61,16 +57,22 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
-  const defaultConn = await db.emailConnection.findFirst({
+  const connections = await db.emailConnection.findMany({
     where: { userId: session.user.id },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-    select: { email: true },
+    select: { email: true, sendAsEmail: true, aliases: true },
   });
-  const userEmail = defaultConn?.email?.trim().toLowerCase();
+  const userEmails = [
+    ...new Set(
+      connections
+        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
+        .filter(Boolean)
+        .map((e) => e!.trim().toLowerCase()),
+    ),
+  ];
 
   const [pendingSenders, screenedSenders] = await Promise.all([
-    getPendingSenders(session.user.id, userEmail),
-    getScreenedSenders(session.user.id, userEmail),
+    getPendingSenders(session.user.id, userEmails),
+    getScreenedSenders(session.user.id, userEmails),
   ]);
 
   return (

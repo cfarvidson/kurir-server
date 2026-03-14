@@ -30,6 +30,7 @@ export interface EmailConnection {
   email: string;
   displayName: string | null;
   sendAsEmail: string | null;
+  aliases: string[];
   imapHost: string;
   smtpHost: string;
   isDefault: boolean;
@@ -44,6 +45,7 @@ interface ConnectionCardProps {
   onDelete: (id: string) => Promise<void>;
   onSync: (id: string) => Promise<void>;
   onUpdateSendAs: (id: string, sendAsEmail: string | null) => Promise<void>;
+  onUpdateAliases: (id: string, aliases: string[]) => Promise<void>;
   /** Prevent deleting if this is the last connection */
   isOnly: boolean;
 }
@@ -54,6 +56,7 @@ export function ConnectionCard({
   onDelete,
   onSync,
   onUpdateSendAs,
+  onUpdateAliases,
   isOnly,
 }: ConnectionCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,10 +65,18 @@ export function ConnectionCard({
   const [sendAsValue, setSendAsValue] = useState(connection.sendAsEmail ?? "");
   const [isPending, startTransition] = useTransition();
   const [localStatus, setLocalStatus] = useState<
-    "idle" | "setting-default" | "syncing" | "deleting" | "saving-send-as"
+    | "idle"
+    | "setting-default"
+    | "syncing"
+    | "deleting"
+    | "saving-send-as"
+    | "saving-aliases"
   >("idle");
   const menuRef = useRef<HTMLDivElement>(null);
   const sendAsInputRef = useRef<HTMLInputElement>(null);
+  const [showAliasForm, setShowAliasForm] = useState(false);
+  const [newAlias, setNewAlias] = useState("");
+  const aliasInputRef = useRef<HTMLInputElement>(null);
 
   const isBusy = isPending || localStatus !== "idle";
 
@@ -87,6 +98,12 @@ export function ConnectionCard({
       sendAsInputRef.current?.focus();
     }
   }, [showSendAsForm]);
+
+  useEffect(() => {
+    if (showAliasForm) {
+      aliasInputRef.current?.focus();
+    }
+  }, [showAliasForm]);
 
   const handleSetDefault = () => {
     if (connection.isDefault) return;
@@ -135,6 +152,29 @@ export function ConnectionCard({
       setSendAsValue("");
       setLocalStatus("idle");
       setShowSendAsForm(false);
+    });
+  };
+
+  const handleAddAlias = () => {
+    const trimmed = newAlias.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) return;
+    if (connection.aliases.includes(trimmed)) return;
+    setLocalStatus("saving-aliases");
+    startTransition(async () => {
+      await onUpdateAliases(connection.id, [...connection.aliases, trimmed]);
+      setNewAlias("");
+      setLocalStatus("idle");
+    });
+  };
+
+  const handleRemoveAlias = (alias: string) => {
+    setLocalStatus("saving-aliases");
+    startTransition(async () => {
+      await onUpdateAliases(
+        connection.id,
+        connection.aliases.filter((a) => a !== alias)
+      );
+      setLocalStatus("idle");
     });
   };
 
@@ -199,6 +239,12 @@ export function ConnectionCard({
           {connection.sendAsEmail && (
             <p className="text-xs text-muted-foreground truncate">
               Sends as {connection.sendAsEmail}
+            </p>
+          )}
+          {connection.aliases.length > 0 && (
+            <p className="text-xs text-muted-foreground truncate">
+              {connection.aliases.length} alias
+              {connection.aliases.length !== 1 ? "es" : ""}
             </p>
           )}
 
@@ -271,6 +317,27 @@ export function ConnectionCard({
                     {connection.sendAsEmail
                       ? "Change send-as address"
                       : "Set send-as address"}
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowAliasForm(true);
+                    }}
+                    disabled={isBusy}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    <Mail className="h-4 w-4" />
+                    Manage aliases
+                    {connection.aliases.length > 0 && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {connection.aliases.length}
+                      </span>
+                    )}
                   </button>
 
                   {/* Set as default */}
@@ -389,6 +456,83 @@ export function ConnectionCard({
                   disabled={isBusy}
                 >
                   Cancel
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Alias management form */}
+      <AnimatePresence>
+        {showAliasForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="border-t bg-muted/30 px-4 py-3">
+              <p className="text-sm font-medium">Email aliases</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Additional email addresses you own. Messages from these
+                addresses won&apos;t appear in the Screener.
+              </p>
+
+              {connection.aliases.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {connection.aliases.map((alias) => (
+                    <div
+                      key={alias}
+                      className="flex items-center justify-between rounded-md border bg-background px-3 py-1.5"
+                    >
+                      <span className="text-sm">{alias}</span>
+                      <button
+                        onClick={() => handleRemoveAlias(alias)}
+                        disabled={isBusy}
+                        className="text-xs text-muted-foreground hover:text-destructive disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-2 flex gap-2">
+                <input
+                  ref={aliasInputRef}
+                  type="email"
+                  value={newAlias}
+                  onChange={(e) => setNewAlias(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddAlias();
+                    if (e.key === "Escape") setShowAliasForm(false);
+                  }}
+                  placeholder="old-address@example.com"
+                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                />
+              </div>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleAddAlias}
+                  disabled={isBusy || !newAlias.trim()}
+                >
+                  {localStatus === "saving-aliases" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Add"
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowAliasForm(false)}
+                  disabled={isBusy}
+                >
+                  Done
                 </Button>
               </div>
             </div>

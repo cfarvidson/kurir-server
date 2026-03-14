@@ -50,6 +50,15 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
     router.refresh();
   };
 
+  const handleUpdateAliases = async (id: string, aliases: string[]) => {
+    await fetch(`/api/connections/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aliases }),
+    });
+    router.refresh();
+  };
+
   if (connections.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-card">
@@ -82,6 +91,7 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
           onDelete={handleDelete}
           onSync={handleSync}
           onUpdateSendAs={handleUpdateSendAs}
+          onUpdateAliases={handleUpdateAliases}
           isOnly={connections.length === 1}
         />
       ))}

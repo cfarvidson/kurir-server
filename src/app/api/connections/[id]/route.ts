@@ -12,6 +12,7 @@ const updateConnectionSchema = z.object({
   smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
   displayName: z.string().optional(),
   sendAsEmail: z.string().email().nullable().optional(),
+  aliases: z.array(z.string().email()).optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -40,7 +41,7 @@ export async function PATCH(
     );
   }
 
-  const { password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, isDefault } =
+  const { password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
     parsed.data;
 
   // If password changed, re-verify IMAP before storing
@@ -80,6 +81,7 @@ export async function PATCH(
       ...(smtpPort !== undefined && { smtpPort }),
       ...(displayName !== undefined && { displayName }),
       ...(sendAsEmail !== undefined && { sendAsEmail }),
+      ...(aliases !== undefined && { aliases }),
       ...(isDefault !== undefined && { isDefault }),
     },
   });

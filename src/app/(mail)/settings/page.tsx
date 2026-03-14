@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
+import { WipeButton } from "@/components/settings/wipe-button";
 
 async function getUserStats(userId: string) {
   const [senderCount, messageCount, pendingCount] = await Promise.all([
@@ -46,6 +47,7 @@ export default async function SettingsPage() {
         email: true,
         displayName: true,
         sendAsEmail: true,
+        aliases: true,
         imapHost: true,
         smtpHost: true,
         isDefault: true,
@@ -79,6 +81,7 @@ export default async function SettingsPage() {
     email: c.email,
     displayName: c.displayName,
     sendAsEmail: c.sendAsEmail,
+    aliases: c.aliases,
     imapHost: c.imapHost,
     smtpHost: c.smtpHost,
     isDefault: c.isDefault,
@@ -201,6 +204,22 @@ export default async function SettingsPage() {
             </div>
           </section>
 
+          {/* Danger zone */}
+          <section>
+            <h2 className="text-lg font-medium text-destructive">
+              Danger zone
+            </h2>
+            <div className="mt-4 rounded-lg border border-destructive/30 bg-card p-4">
+              <p className="text-sm text-muted-foreground">
+                Delete all email connections, messages, senders, and folders.
+                Your account and passkeys are kept. You will be redirected to
+                set up a new connection.
+              </p>
+              <div className="mt-4">
+                <WipeButton />
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

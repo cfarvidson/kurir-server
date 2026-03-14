@@ -104,7 +104,7 @@ async function handleNewMessages(
   // Look up the email for this connection (for auto-approve logic)
   const emailConn = await db.emailConnection.findUnique({
     where: { id: connectionId },
-    select: { email: true },
+    select: { email: true, sendAsEmail: true, aliases: true },
   });
 
   try {
@@ -126,9 +126,10 @@ async function handleNewMessages(
       if (exists) continue;
 
       const { processMessage } = await import("./sync-service");
+      const userEmails = [emailConn?.email, emailConn?.sendAsEmail, ...(emailConn?.aliases ?? [])].filter(Boolean) as string[];
       await processMessage(msg, userId, connectionId, folderId, {
         isInbox: true,
-        userEmail: emailConn?.email,
+        userEmails,
       });
       count++;
     }

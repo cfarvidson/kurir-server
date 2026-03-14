@@ -78,6 +78,8 @@ describe("replyToMessage", () => {
 
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "me@work.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.work.com", port: 993 },
       smtp: { host: "smtp.work.com", port: 587 },
@@ -134,6 +136,8 @@ describe("replyToMessage", () => {
 
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "myaccount@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "app-password",
       imap: { host: "imap.gmail.com", port: 993 },
       smtp: { host: "smtp.gmail.com", port: 587 },
@@ -169,6 +173,8 @@ describe("replyToMessage", () => {
 
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "me@icloud.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.mail.me.com", port: 993 },
       smtp: { host: "smtp.mail.me.com", port: 587 },

@@ -78,6 +78,8 @@ describe("POST /api/mail/send", () => {
     vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
       connectionId: "conn-default",
       email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.gmail.com", port: 993 },
       smtp: { host: "smtp.gmail.com", port: 587 },
@@ -120,6 +122,8 @@ describe("POST /api/mail/send", () => {
 
     vi.mocked(getConnectionCredentials).mockResolvedValue({
       email: "me@work.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.work.com", port: 993 },
       smtp: { host: "smtp.work.com", port: 587 },
@@ -171,6 +175,8 @@ describe("POST /api/mail/send", () => {
     vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
       connectionId: "conn-personal",
       email: "me@personal.com",
+      sendAsEmail: null,
+      aliases: [],
       password: "pass",
       imap: { host: "imap.personal.com", port: 993 },
       smtp: { host: "smtp.personal.com", port: 587 },

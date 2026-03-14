@@ -45,11 +45,12 @@ async function getOrCreateSender(
   emailConnectionId: string,
   email: string,
   displayName: string | null,
-  userEmail?: string,
+  userEmails?: string[],
 ) {
   const domain = extractDomain(email);
   const isOwnEmail =
-    !!userEmail && email.toLowerCase() === userEmail.toLowerCase();
+    !!userEmails &&
+    userEmails.some((ue) => email.toLowerCase() === ue.toLowerCase());
 
   const sender = await db.sender.upsert({
     where: {
@@ -122,7 +123,7 @@ async function syncMailbox(
   mailboxPath: string,
   imapSpecialUse?: string,
   batchSize?: number,
-  userEmail?: string,
+  userEmails?: string[],
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -251,14 +252,14 @@ async function syncMailbox(
 
           let isInbox = specialUse === "inbox";
           let archived = false;
-          if (specialUse === "all" && userEmail) {
+          if (specialUse === "all" && userEmails?.length) {
             const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
-            const isFromSelf = fromAddr === userEmail.toLowerCase();
+            const isFromSelf = !!fromAddr && userEmails.some((ue) => fromAddr === ue.toLowerCase());
             isInbox = false;
             archived = !isFromSelf;
           }
 
-          await processMessage(msg, userId, emailConnectionId, folder.id, { isInbox, userEmail, isArchived: archived });
+          await processMessage(msg, userId, emailConnectionId, folder.id, { isInbox, userEmails, isArchived: archived });
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -295,7 +296,7 @@ async function syncMailbox(
 
 interface ProcessMessageOptions {
   isInbox: boolean;
-  userEmail?: string;
+  userEmails?: string[];
   isArchived?: boolean;
 }
 
@@ -309,7 +310,7 @@ export async function processMessage(
   folderId: string,
   options: ProcessMessageOptions,
 ) {
-  const { isInbox, userEmail, isArchived = false } = options;
+  const { isInbox, userEmails, isArchived = false } = options;
   const envelope = msg.envelope;
   const flags = msg.flags;
 
@@ -331,7 +332,7 @@ export async function processMessage(
   const fromName = fromHeader?.name || null;
 
   // Get or create sender scoped to the email connection
-  const sender = await getOrCreateSender(userId, emailConnectionId, fromAddress, fromName, userEmail);
+  const sender = await getOrCreateSender(userId, emailConnectionId, fromAddress, fromName, userEmails);
 
   // Only categorize inbox messages; sent/other folders skip categorization
   const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
@@ -628,6 +629,15 @@ export async function syncEmailConnection(
       }
     }
 
+    // Collect all emails the user sends from (login email + sendAs alias)
+    const userEmails = [credentials.email];
+    if (credentials.sendAsEmail && credentials.sendAsEmail.toLowerCase() !== credentials.email.toLowerCase()) {
+      userEmails.push(credentials.sendAsEmail);
+    }
+    if (credentials.aliases?.length) {
+      userEmails.push(...credentials.aliases.filter(a => !userEmails.some(ue => ue.toLowerCase() === a.toLowerCase())));
+    }
+
     for (const { path, specialUse } of toSync) {
       try {
         const result = await syncMailbox(
@@ -637,7 +647,7 @@ export async function syncEmailConnection(
           path,
           specialUse,
           options?.batchSize,
-          credentials.email,
+          userEmails,
         );
         console.log(
           `[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`,
