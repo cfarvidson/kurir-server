@@ -17,15 +17,22 @@ async function main() {
   const users = await db.user.findMany({
     select: {
       id: true,
-      email: true,
       displayName: true,
-      imapHost: true,
-      smtpHost: true,
       createdAt: true,
+      emailConnections: {
+        select: {
+          email: true,
+          imapHost: true,
+          smtpHost: true,
+          isDefault: true,
+        },
+        orderBy: { isDefault: "desc" },
+      },
       _count: {
         select: {
           messages: true,
           senders: true,
+          passkeys: true,
         },
       },
     },
@@ -42,15 +49,19 @@ async function main() {
   for (const user of users) {
     console.log(`─────────────────────────────────────`);
     console.log(`ID:       ${user.id}`);
-    console.log(`Email:    ${user.email}`);
     if (user.displayName) {
       console.log(`Name:     ${user.displayName}`);
     }
-    console.log(`IMAP:     ${user.imapHost}`);
-    console.log(`SMTP:     ${user.smtpHost}`);
+    console.log(`Passkeys: ${user._count.passkeys}`);
     console.log(`Messages: ${user._count.messages}`);
     console.log(`Senders:  ${user._count.senders}`);
     console.log(`Created:  ${user.createdAt.toISOString()}`);
+
+    for (const conn of user.emailConnections) {
+      console.log(
+        `  ${conn.isDefault ? "★" : " "} ${conn.email}  IMAP: ${conn.imapHost}  SMTP: ${conn.smtpHost}`
+      );
+    }
   }
 
   console.log(`─────────────────────────────────────\n`);
