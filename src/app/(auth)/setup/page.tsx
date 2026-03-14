@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,14 @@ const PROVIDERS = [
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
 export default function AddConnectionPage() {
+  return (
+    <Suspense>
+      <AddConnectionForm />
+    </Suspense>
+  );
+}
+
+function AddConnectionForm() {
   const searchParams = useSearchParams();
   const isAddMode = searchParams.get("mode") === "add";
   const router = useRouter();
