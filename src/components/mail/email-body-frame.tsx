@@ -69,38 +69,42 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
       title="Email content"
       aria-label="Email body"
       style={{ height: Math.min(height, 2000) }}
-      className="block w-full overflow-auto rounded border-0 bg-white dark:bg-neutral-900"
+      className="block w-full overflow-auto rounded border-0 bg-white"
     />
   );
 }
 
-/** Minimal CSS reset + dark mode injected into every email document. */
+/**
+ * Minimal CSS reset injected into every email document.
+ * Always light background — email HTML almost never supports dark mode
+ * and mixing dark app chrome with light email content looks broken.
+ */
 const BASE_STYLES = `
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
+    background: #ffffff;
+    color: #1a1a1a;
+    color-scheme: light;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     word-break: break-word;
     overflow-wrap: break-word;
   }
-  body { padding: 0 4px; }
+  body { padding: 0 4px; max-width: 100%; overflow-x: hidden; }
   img { max-width: 100%; height: auto; }
   a { color: #2563eb; }
-  pre, code { white-space: pre-wrap; }
+  pre, code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
+  table { max-width: 100%; overflow-x: auto; display: block; }
   blockquote {
     margin: 8px 0 8px 16px;
     padding-left: 12px;
     border-left: 3px solid #d1d5db;
     color: #6b7280;
   }
-  @media (prefers-color-scheme: dark) {
-    html, body { background: #171717; color: #e5e5e5; }
-    a { color: #60a5fa; }
-    blockquote { border-left-color: #374151; color: #9ca3af; }
-  }
+  div, td, th, p, span { max-width: 100%; }
 `;
 
 function buildSrcdoc(html: string, collapseQuotes?: boolean): string {
