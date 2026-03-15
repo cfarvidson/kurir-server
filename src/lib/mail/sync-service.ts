@@ -203,6 +203,18 @@ async function syncMailbox(
     // Find new UIDs
     const newUids = allUids.filter((uid) => !existingUids.has(uid));
 
+    // Clean up messages that were deleted on the IMAP server
+    const serverUidSet = new Set(allUids);
+    const deletedUids = [...existingUids].filter((uid) => uid > 0 && !serverUidSet.has(uid));
+    if (deletedUids.length > 0) {
+      await db.message.deleteMany({
+        where: { folderId: folder.id, uid: { in: deletedUids } },
+      });
+      console.log(
+        `[sync] ${mailboxPath}: removed ${deletedUids.length} messages deleted on server`,
+      );
+    }
+
     console.log(
       `[sync] ${mailboxPath}: ${allUids.length} on server, ${existingUids.size} cached, ${newUids.length} new`,
     );
@@ -214,7 +226,7 @@ async function syncMailbox(
         errors,
         remaining: 0,
         totalOnServer: allUids.length,
-        totalCached: existingUids.size,
+        totalCached: existingUids.size - deletedUids.length,
       };
     }
 

@@ -146,8 +146,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
       where: { id: { in: unreadMessages.map((m) => m.id) } },
       data: { isRead: true },
     });
-    const { revalidateTag } = await import("next/cache");
-    revalidateTag("sidebar-counts");
+    // Sidebar revalidation is handled by <SidebarRefresh /> in the page component
   }
 
   // Sort by sentAt (envelope Date header) with receivedAt fallback

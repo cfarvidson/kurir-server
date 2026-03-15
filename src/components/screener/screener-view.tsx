@@ -109,24 +109,24 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
             className="overflow-hidden rounded-xl border bg-card shadow-lg"
           >
             {/* Sender Header */}
-            <div className="border-b bg-muted/50 p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">
+            <div className="border-b bg-muted/50 p-4 md:p-6">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="flex h-11 w-11 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg md:text-xl font-semibold text-primary">
                   {(currentSender.displayName || currentSender.email)
                     .charAt(0)
                     .toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="truncate text-lg font-semibold">
+                  <h3 className="truncate text-base md:text-lg font-semibold">
                     {currentSender.displayName || currentSender.email}
                   </h3>
-                  <p className="truncate text-sm text-muted-foreground">
+                  <p className="truncate text-xs md:text-sm text-muted-foreground">
                     {currentSender.email}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="mt-3 md:mt-4 flex items-center gap-3 text-xs md:text-sm text-muted-foreground">
                 <span>{currentSender._count.messages} email(s)</span>
                 <span>•</span>
                 <span>from {currentSender.domain}</span>
@@ -135,7 +135,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
             {/* Latest Message Preview */}
             {latestMessage && (
-              <div className="p-6">
+              <div className="p-4 md:p-6">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Latest Message
                 </p>
@@ -197,31 +197,32 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                 onClick={() => handleReject(currentSender.id)}
                 disabled={isProcessing}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-2 py-4 text-sm font-medium transition-colors",
-                  "border-r hover:bg-destructive/10 hover:text-destructive",
+                  "flex flex-1 items-center justify-center gap-1.5 md:gap-2 py-3.5 md:py-4 text-xs md:text-sm font-medium transition-colors",
+                  "border-r hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20",
                   isProcessing && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isProcessing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
                 ) : (
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 md:h-5 md:w-5" />
                 )}
-                Screen Out
+                <span className="hidden sm:inline">Screen Out</span>
+                <span className="sm:hidden">Out</span>
               </button>
               <button
                 onClick={() => handleSkip(currentSender.id)}
                 disabled={isProcessing}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-2 py-4 text-sm font-medium transition-colors",
-                  "border-r hover:bg-muted hover:text-muted-foreground",
+                  "flex flex-1 items-center justify-center gap-1.5 md:gap-2 py-3.5 md:py-4 text-xs md:text-sm font-medium transition-colors",
+                  "border-r hover:bg-muted hover:text-muted-foreground active:bg-muted/80",
                   isProcessing && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isProcessing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
                 ) : (
-                  <Clock className="h-5 w-5" />
+                  <Clock className="h-4 w-4 md:h-5 md:w-5" />
                 )}
                 Skip
               </button>
@@ -235,17 +236,18 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                 }}
                 disabled={isProcessing}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-2 py-4 text-sm font-medium transition-colors",
-                  "hover:bg-green-50 hover:text-green-600",
+                  "flex flex-1 items-center justify-center gap-1.5 md:gap-2 py-3.5 md:py-4 text-xs md:text-sm font-medium transition-colors",
+                  "hover:bg-green-50 hover:text-green-600 active:bg-green-100",
                   isProcessing && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {isProcessing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
                 ) : (
-                  <Check className="h-5 w-5" />
+                  <Check className="h-4 w-4 md:h-5 md:w-5" />
                 )}
-                Screen In
+                <span className="hidden sm:inline">Screen In</span>
+                <span className="sm:hidden">In</span>
               </button>
             </div>
           </motion.div>
