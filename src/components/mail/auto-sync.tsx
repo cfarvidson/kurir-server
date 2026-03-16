@@ -11,9 +11,16 @@ interface SyncResultData {
   totalCached: number;
 }
 
-interface SyncResponse {
+interface ConnectionResult {
+  connectionId: string;
   success: boolean;
   results: SyncResultData[];
+  error?: string;
+}
+
+interface SyncResponse {
+  success: boolean;
+  results: ConnectionResult[];
   importing?: boolean;
   wokenSnoozes?: number;
 }
@@ -81,6 +88,10 @@ export function AutoSync() {
     if (!data || data === prevDataRef.current) return;
     prevDataRef.current = data;
 
+    // Flatten nested results: ConnectionResult[] → SyncResultData[]
+    const flat: SyncResultData[] =
+      data.results?.flatMap((cr) => cr.results ?? []) ?? [];
+
     // When another sync is in progress and we're NOT importing, just wake snoozes
     if (data.importing && !importing) {
       if (data.wokenSnoozes && data.wokenSnoozes > 0) {
@@ -90,14 +101,14 @@ export function AutoSync() {
     }
 
     // Track last good results for progress bar display
-    if (data.results && data.results.length > 0) {
-      lastGoodResultsRef.current = data.results;
+    if (flat.length > 0) {
+      lastGoodResultsRef.current = flat;
     }
 
     // Exit import mode when all messages have been imported
     if (importing) {
-      const hasRemaining = data.results?.some((r) => r.remaining > 0);
-      if (!hasRemaining && data.results && data.results.length > 0) {
+      const hasRemaining = flat.some((r) => r.remaining > 0);
+      if (!hasRemaining && flat.length > 0) {
         setImporting(false);
         lastGoodResultsRef.current = null;
         router.refresh();
@@ -106,7 +117,7 @@ export function AutoSync() {
     }
 
     // Refresh when new messages arrive or snoozes were woken during normal sync
-    const hasNew = data.results?.some((r) => r.newMessages > 0);
+    const hasNew = flat.some((r) => r.newMessages > 0);
     const hasWoken = data.wokenSnoozes && data.wokenSnoozes > 0;
     if (hasNew || hasWoken) {
       router.refresh();
