@@ -14,7 +14,7 @@ BEGIN
   NEW.search_vector :=
     setweight(to_tsvector('english', COALESCE(NEW.subject, '')), 'A') ||
     setweight(to_tsvector('english', COALESCE(NEW."fromName", '')), 'B') ||
-    setweight(to_tsvector('english',
+    setweight(to_tsvector('english', left(
       CASE
         WHEN NEW."textBody" IS NOT NULL AND NEW."textBody" != ''
           THEN NEW."textBody"
@@ -22,7 +22,7 @@ BEGIN
           THEN regexp_replace(NEW."htmlBody", '<[^>]+>', ' ', 'g')
         ELSE ''
       END
-    ), 'C');
+    , 500000)), 'C');
   RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
