@@ -203,16 +203,25 @@ async function syncMailbox(
     // Find new UIDs
     const newUids = allUids.filter((uid) => !existingUids.has(uid));
 
-    // Clean up messages that were deleted on the IMAP server
+    // Clean up messages deleted on the IMAP server.
+    // Skip archived messages — they were intentionally moved by Kurir.
     const serverUidSet = new Set(allUids);
-    const deletedUids = [...existingUids].filter((uid) => uid > 0 && !serverUidSet.has(uid));
+    const deletedUids = [...existingUids].filter(
+      (uid) => uid > 0 && !serverUidSet.has(uid),
+    );
     if (deletedUids.length > 0) {
-      await db.message.deleteMany({
-        where: { folderId: folder.id, uid: { in: deletedUids } },
+      const { count } = await db.message.deleteMany({
+        where: {
+          folderId: folder.id,
+          uid: { in: deletedUids },
+          isArchived: false,
+        },
       });
-      console.log(
-        `[sync] ${mailboxPath}: removed ${deletedUids.length} messages deleted on server`,
-      );
+      if (count > 0) {
+        console.log(
+          `[sync] ${mailboxPath}: removed ${count} messages deleted on server`,
+        );
+      }
     }
 
     console.log(
@@ -282,7 +291,9 @@ async function syncMailbox(
           let archived = false;
           if (specialUse === "all" && userEmails?.length) {
             const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
-            const isFromSelf = !!fromAddr && userEmails.some((ue) => fromAddr === ue.toLowerCase());
+            const isFromSelf =
+              !!fromAddr &&
+              userEmails.some((ue) => fromAddr === ue.toLowerCase());
             isInbox = false;
             archived = !isFromSelf;
           } else if (specialUse === "archive") {
@@ -290,7 +301,11 @@ async function syncMailbox(
             archived = true;
           }
 
-          await processMessage(msg, userId, emailConnectionId, folder.id, { isInbox, userEmails, isArchived: archived });
+          await processMessage(msg, userId, emailConnectionId, folder.id, {
+            isInbox,
+            userEmails,
+            isArchived: archived,
+          });
           newMessages++;
         } catch (err) {
           errors.push(`Failed to process message ${msgUid}: ${err}`);
@@ -363,7 +378,13 @@ export async function processMessage(
   const fromName = fromHeader?.name || null;
 
   // Get or create sender scoped to the email connection
-  const sender = await getOrCreateSender(userId, emailConnectionId, fromAddress, fromName, userEmails);
+  const sender = await getOrCreateSender(
+    userId,
+    emailConnectionId,
+    fromAddress,
+    fromName,
+    userEmails,
+  );
 
   // Only categorize inbox messages; sent/other folders skip categorization
   const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
@@ -609,7 +630,11 @@ export async function syncEmailConnection(
   const credentials = await getConnectionCredentials(emailConnectionId);
 
   if (!credentials) {
-    return { success: false, results: [], error: "Connection credentials not found" };
+    return {
+      success: false,
+      results: [],
+      error: "Connection credentials not found",
+    };
   }
 
   // Look up userId for this connection
@@ -666,18 +691,28 @@ export async function syncEmailConnection(
         mb.specialUse === "\\Archive" ||
         mb.path.toLowerCase() === "archive"
       ) {
-        toSync.push({ path: mb.path, specialUse: mb.specialUse || "\\Archive" });
+        toSync.push({
+          path: mb.path,
+          specialUse: mb.specialUse || "\\Archive",
+        });
         break;
       }
     }
 
     // Collect all emails the user sends from (login email + sendAs alias)
     const userEmails = [credentials.email];
-    if (credentials.sendAsEmail && credentials.sendAsEmail.toLowerCase() !== credentials.email.toLowerCase()) {
+    if (
+      credentials.sendAsEmail &&
+      credentials.sendAsEmail.toLowerCase() !== credentials.email.toLowerCase()
+    ) {
       userEmails.push(credentials.sendAsEmail);
     }
     if (credentials.aliases?.length) {
-      userEmails.push(...credentials.aliases.filter(a => !userEmails.some(ue => ue.toLowerCase() === a.toLowerCase())));
+      userEmails.push(
+        ...credentials.aliases.filter(
+          (a) => !userEmails.some((ue) => ue.toLowerCase() === a.toLowerCase()),
+        ),
+      );
     }
 
     for (const { path, specialUse } of toSync) {
