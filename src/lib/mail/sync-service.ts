@@ -244,13 +244,7 @@ async function syncMailbox(
     const batch = batchSize ? newUids.slice(0, batchSize) : newUids;
     const remaining = newUids.length - batch.length;
 
-    // Fetch new messages by UID range. Use minUid:* first; if the server
-    // rejects it (UID doesn't exist), fall back to 1:* and filter.
-    const batchSet = new Set(batch);
-    const minUid = Math.min(...batch);
-    const maxUid = Math.max(...batch);
-    let fetchRange = `${minUid}:${maxUid}`;
-
+    // Fetch target UIDs individually to avoid streaming entire UID ranges
     const fetchOpts = {
       uid: true,
       envelope: true,
@@ -261,36 +255,21 @@ async function syncMailbox(
     } as const;
 
     console.log(
-      `[sync] ${mailboxPath}: fetching range ${fetchRange} (${batch.length} target UIDs)`,
+      `[sync] ${mailboxPath}: fetching ${batch.length} messages individually`,
     );
 
-    async function* resilientFetch() {
-      try {
-        yield* client.fetch(fetchRange, fetchOpts);
-      } catch (rangeErr) {
-        console.warn(
-          `[sync] ${mailboxPath}: range fetch ${fetchRange} failed, falling back to 1:*`,
-          rangeErr,
+    for (let i = 0; i < batch.length; i++) {
+      const targetUid = batch[i];
+      if ((i + 1) % 50 === 0) {
+        console.log(
+          `[sync] ${mailboxPath}: processed ${i + 1}/${batch.length}`,
         );
-        fetchRange = "1:*";
-        yield* client.fetch("1:*", fetchOpts);
       }
-    }
-
-    let fetched = 0;
-    try {
-      for await (const msg of resilientFetch()) {
-        const msgUid = Number(msg.uid);
-        fetched++;
-        if (fetched % 50 === 0) {
-          console.log(
-            `[sync] ${mailboxPath}: fetched ${fetched} messages so far...`,
-          );
-        }
-        if (!batchSet.has(msgUid)) {
-          continue;
-        }
-        try {
+      try {
+        for await (const msg of client.fetch(
+          `${targetUid}:${targetUid}`,
+          fetchOpts,
+        )) {
           // For All Mail: skip messages already synced from another folder
           if (specialUse === "all" && msg.envelope?.messageId) {
             const existing = await db.message.findFirst({
@@ -320,13 +299,10 @@ async function syncMailbox(
             isArchived: archived,
           });
           newMessages++;
-        } catch (err) {
-          errors.push(`Failed to process message ${msgUid}: ${err}`);
         }
+      } catch (err) {
+        errors.push(`Failed to process message ${targetUid}: ${err}`);
       }
-    } catch (fetchErr) {
-      console.error(`[sync] ${mailboxPath}: fetch error:`, fetchErr);
-      errors.push(`Fetch error: ${fetchErr}`);
     }
 
     // Update folder sync time + highestModSeq
