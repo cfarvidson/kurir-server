@@ -37,6 +37,8 @@ export interface EmailConnection {
   createdAt: string;
   syncStatus?: "synced" | "syncing" | "error" | "idle";
   lastSyncedAt?: string | null;
+  syncError?: string | null;
+  lastSyncLog?: string | null;
 }
 
 interface ConnectionCardProps {
@@ -396,6 +398,25 @@ export function ConnectionCard({
           <span>SMTP: {connection.smtpHost}</span>
         </div>
       </div>
+
+      {/* Sync error */}
+      {connection.syncStatus === "error" && connection.syncError && (
+        <div className="border-t px-4 py-2.5">
+          <p className="text-xs text-destructive">{connection.syncError}</p>
+        </div>
+      )}
+
+      {/* Last sync log */}
+      {connection.lastSyncLog && (
+        <div className="border-t px-4 py-2.5">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">
+            Last sync
+          </p>
+          <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground font-mono">
+            {connection.lastSyncLog}
+          </pre>
+        </div>
+      )}
 
       {/* Send-as address form */}
       <AnimatePresence>

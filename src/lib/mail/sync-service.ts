@@ -3,8 +3,9 @@ import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
 import { getConnectionCredentials } from "@/lib/auth";
 
-interface SyncResult {
+export interface SyncResult {
   folderId: string;
+  folderPath: string;
   newMessages: number;
   errors: string[];
   remaining: number;
@@ -231,6 +232,7 @@ async function syncMailbox(
     if (newUids.length === 0) {
       return {
         folderId: folder.id,
+        folderPath: mailboxPath,
         newMessages: 0,
         errors,
         remaining: 0,
@@ -353,6 +355,7 @@ async function syncMailbox(
 
     return {
       folderId: folder.id,
+      folderPath: mailboxPath,
       newMessages,
       errors,
       remaining,
@@ -758,6 +761,7 @@ export async function syncEmailConnection(
         console.error(`[sync] ${path}: error:`, err);
         results.push({
           folderId: "",
+          folderPath: path,
           newMessages: 0,
           errors: [`Failed to sync ${path}: ${err}`],
           remaining: 0,

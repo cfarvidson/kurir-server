@@ -97,6 +97,7 @@ export default async function SettingsPage() {
             isSyncing: true,
             syncError: true,
             lastFullSync: true,
+            lastSyncLog: true,
           },
         },
       },
@@ -143,6 +144,8 @@ export default async function SettingsPage() {
           ? "synced"
           : "idle",
     lastSyncedAt: c.syncState?.lastFullSync?.toISOString() ?? null,
+    syncError: c.syncState?.syncError ?? null,
+    lastSyncLog: c.syncState?.lastSyncLog ?? null,
   }));
 
   // Shape passkeys for the client component

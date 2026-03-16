@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { syncEmailConnection } from "@/lib/mail/sync-service";
+import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -71,15 +71,33 @@ async function claimSyncLock(emailConnectionId: string): Promise<boolean> {
   return claimed.count > 0;
 }
 
-async function releaseSyncLock(emailConnectionId: string, error?: string) {
+async function releaseSyncLock(emailConnectionId: string, error?: string, log?: string) {
   await db.syncState.updateMany({
     where: { emailConnectionId },
     data: {
       isSyncing: false,
       syncError: error || null,
+      lastSyncLog: log || null,
       ...(!error ? { lastFullSync: new Date() } : {}),
     },
   });
+}
+
+function buildSyncLog(results: SyncResult[]): string {
+  return results
+    .map((r) => {
+      let line = `${r.folderPath}: ${r.totalOnServer} on server, ${r.totalCached} cached, ${r.newMessages} new`;
+      if (r.newMessages > 0 && r.remaining > 0) {
+        line += `, ${r.newMessages} fetched, ${r.remaining} remaining`;
+      } else if (r.remaining > 0) {
+        line += `, ${r.remaining} remaining`;
+      }
+      if (r.errors.length > 0) {
+        line += `, ${r.errors.length} error${r.errors.length !== 1 ? "s" : ""}`;
+      }
+      return line;
+    })
+    .join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -160,11 +178,12 @@ export async function POST(request: NextRequest) {
         batchSize ? { batchSize } : undefined,
       );
 
+      const log = buildSyncLog(result.results);
       if (!result.success) {
-        await releaseSyncLock(connectionId, result.error);
+        await releaseSyncLock(connectionId, result.error, log);
         allResults.push({ connectionId, success: false, results: result.results, error: result.error });
       } else {
-        await releaseSyncLock(connectionId);
+        await releaseSyncLock(connectionId, undefined, log);
         allResults.push({ connectionId, success: true, results: result.results });
       }
     } catch (err) {

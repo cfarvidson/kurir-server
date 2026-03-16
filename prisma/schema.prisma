@@ -335,6 +335,7 @@ model SyncState {
   isSyncing     Boolean   @default(false)
   syncStartedAt DateTime?
   syncError     String?
+  lastSyncLog   String?
 
   @@index([emailConnectionId])
 }
