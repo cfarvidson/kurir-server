@@ -258,18 +258,19 @@ async function syncMailbox(
       `[sync] ${mailboxPath}: fetching ${batch.length} messages individually`,
     );
 
+    console.log(
+      `[sync] ${mailboxPath}: client usable=${client.usable}, first UID=${batch[0]}`,
+    );
+
     for (let i = 0; i < batch.length; i++) {
       const targetUid = batch[i];
-      if ((i + 1) % 50 === 0) {
+      if (i === 0 || (i + 1) % 50 === 0) {
         console.log(
-          `[sync] ${mailboxPath}: processed ${i + 1}/${batch.length}`,
+          `[sync] ${mailboxPath}: fetching UID ${targetUid} (${i + 1}/${batch.length})`,
         );
       }
       try {
-        for await (const msg of client.fetch(
-          `${targetUid}:${targetUid}`,
-          fetchOpts,
-        )) {
+        for await (const msg of client.fetch(`${targetUid}`, fetchOpts)) {
           // For All Mail: skip messages already synced from another folder
           if (specialUse === "all" && msg.envelope?.messageId) {
             const existing = await db.message.findFirst({
