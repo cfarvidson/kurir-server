@@ -89,6 +89,8 @@ async function PaginatedArchive({ userId }: { userId: string }) {
       initialCursor={result.nextCursor}
       category="archive"
       basePath="/archive"
+      showUnarchiveAction
+      showSelectionToggle
     />
   );
 }

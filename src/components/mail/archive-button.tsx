@@ -15,9 +15,9 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
   const router = useRouter();
 
   const handleArchive = () => {
+    router.push(returnPath);
     startTransition(async () => {
       await archiveConversation(messageId);
-      router.push(returnPath);
       router.refresh();
     });
   };

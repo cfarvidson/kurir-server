@@ -5,8 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
-import { archiveConversation } from "@/actions/archive";
+import { Archive, ArchiveRestore, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 
@@ -32,6 +32,7 @@ interface MessageListProps {
   messages: MessageItem[];
   basePath?: string;
   showArchiveAction?: boolean;
+  showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
 }
@@ -40,6 +41,7 @@ export function MessageList({
   messages,
   basePath = "/imbox",
   showArchiveAction = false,
+  showUnarchiveAction = false,
   showSnoozeAction = false,
   showSnoozedUntil = false,
 }: MessageListProps) {
@@ -51,6 +53,7 @@ export function MessageList({
           message={message}
           basePath={basePath}
           showArchiveAction={showArchiveAction}
+          showUnarchiveAction={showUnarchiveAction}
           showSnoozeAction={showSnoozeAction}
           showSnoozedUntil={showSnoozedUntil}
         />
@@ -63,6 +66,7 @@ export function MessageRow({
   message,
   basePath,
   showArchiveAction,
+  showUnarchiveAction,
   showSnoozeAction,
   showSnoozedUntil,
   onArchived,
@@ -73,6 +77,7 @@ export function MessageRow({
   message: MessageItem;
   basePath: string;
   showArchiveAction: boolean;
+  showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
   onArchived?: (messageId?: string) => void;
@@ -96,6 +101,16 @@ export function MessageRow({
     onArchived?.(message.id);
     startTransition(async () => {
       await archiveConversation(message.id);
+      router.refresh();
+    });
+  };
+
+  const handleUnarchive = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onArchived?.(message.id);
+    startTransition(async () => {
+      await unarchiveConversation(message.id);
       router.refresh();
     });
   };
@@ -199,7 +214,7 @@ export function MessageRow({
       </div>
 
       {/* Hover action buttons (hidden in selection mode) */}
-      {(showArchiveAction || showSnoozeAction) && !isSelectionMode && (
+      {(showArchiveAction || showUnarchiveAction || showSnoozeAction) && !isSelectionMode && (
         <div
           className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -231,6 +246,19 @@ export function MessageRow({
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Archive className="h-4 w-4" />
+              )}
+            </button>
+          )}
+          {showUnarchiveAction && (
+            <button
+              onClick={handleUnarchive}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Unarchive"
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArchiveRestore className="h-4 w-4" />
               )}
             </button>
           )}

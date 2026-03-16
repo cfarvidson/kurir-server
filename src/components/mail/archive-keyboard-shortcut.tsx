@@ -21,9 +21,9 @@ export function ArchiveKeyboardShortcut({
   const handleAction = useCallback(() => {
     const actionFn =
       action === "unarchive" ? unarchiveConversation : archiveConversation;
+    router.push(returnPath);
     startTransition(async () => {
       await actionFn(messageId);
-      router.push(returnPath);
       router.refresh();
     });
   }, [messageId, returnPath, action, router, startTransition]);

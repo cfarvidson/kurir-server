@@ -1,8 +1,11 @@
 "use client";
 
 import { useTransition } from "react";
-import { Archive, Clock, Loader2, X } from "lucide-react";
-import { archiveConversations } from "@/actions/archive";
+import { Archive, ArchiveRestore, Clock, Loader2, X } from "lucide-react";
+import {
+  archiveConversations,
+  unarchiveConversations,
+} from "@/actions/archive";
 import { snoozeConversations } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 
@@ -11,6 +14,7 @@ interface SelectionActionBarProps {
   onComplete: () => void;
   onQueryInvalidate: () => void;
   showSnoozeAction?: boolean;
+  showUnarchiveAction?: boolean;
 }
 
 export function SelectionActionBar({
@@ -18,6 +22,7 @@ export function SelectionActionBar({
   onComplete,
   onQueryInvalidate,
   showSnoozeAction = false,
+  showUnarchiveAction = false,
 }: SelectionActionBarProps) {
   const [isPending, startTransition] = useTransition();
   const count = selectedMessageIds.length;
@@ -27,6 +32,14 @@ export function SelectionActionBar({
   const handleArchive = () => {
     startTransition(async () => {
       await archiveConversations(selectedMessageIds);
+      onComplete();
+      onQueryInvalidate();
+    });
+  };
+
+  const handleUnarchive = () => {
+    startTransition(async () => {
+      await unarchiveConversations(selectedMessageIds);
       onComplete();
       onQueryInvalidate();
     });
@@ -68,18 +81,33 @@ export function SelectionActionBar({
             }
           />
         )}
-        <button
-          onClick={handleArchive}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Archive className="h-4 w-4" />
-          )}
-          Archive
-        </button>
+        {showUnarchiveAction ? (
+          <button
+            onClick={handleUnarchive}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ArchiveRestore className="h-4 w-4" />
+            )}
+            Unarchive
+          </button>
+        ) : (
+          <button
+            onClick={handleArchive}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            Archive
+          </button>
+        )}
         <button
           onClick={onComplete}
           className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

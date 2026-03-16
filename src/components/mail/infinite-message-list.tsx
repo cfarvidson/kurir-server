@@ -19,6 +19,7 @@ interface InfiniteMessageListProps {
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;
+  showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSelectionToggle?: boolean;
   showSnoozedUntil?: boolean;
@@ -31,6 +32,7 @@ export function InfiniteMessageList({
   basePath,
   showSections = false,
   showArchiveAction = false,
+  showUnarchiveAction = false,
   showSnoozeAction = false,
   showSelectionToggle = false,
   showSnoozedUntil = false,
@@ -180,6 +182,7 @@ export function InfiniteMessageList({
         message={message}
         basePath={basePath}
         showArchiveAction={showArchiveAction}
+        showUnarchiveAction={showUnarchiveAction}
         showSnoozeAction={showSnoozeAction}
         showSnoozedUntil={showSnoozedUntil}
         onArchived={handleArchived}
@@ -255,6 +258,7 @@ export function InfiniteMessageList({
           onComplete={clearSelection}
           onQueryInvalidate={handleArchived}
           showSnoozeAction={showSnoozeAction}
+          showUnarchiveAction={showUnarchiveAction}
         />
       </div>
     );
@@ -273,6 +277,7 @@ export function InfiniteMessageList({
         selectedMessageIds={selectedMessageIds}
         onComplete={clearSelection}
         onQueryInvalidate={handleArchived}
+        showUnarchiveAction={showUnarchiveAction}
       />
     </div>
   );

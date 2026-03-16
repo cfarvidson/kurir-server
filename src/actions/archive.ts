@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { withImapConnection } from "@/lib/mail/imap-client";
@@ -24,31 +25,115 @@ async function autoRejectFullyArchivedSenders(messageIds: string[]) {
 
   if (senderIds.length === 0) return;
 
-  const pendingSenders = await db.sender.findMany({
-    where: { id: { in: senderIds }, status: "PENDING" },
-    select: { id: true },
+  // Single query: find which senders still have non-archived messages
+  const sendersWithNonArchived = await db.message.findMany({
+    where: {
+      senderId: { in: senderIds },
+      isArchived: false,
+    },
+    select: { senderId: true },
+    distinct: ["senderId"],
   });
 
-  for (const sender of pendingSenders) {
-    const hasNonArchived = await db.message.findFirst({
-      where: { senderId: sender.id, isArchived: false },
-      select: { id: true },
-    });
+  const keepSet = new Set(sendersWithNonArchived.map((m) => m.senderId));
+  const rejectIds = senderIds.filter((id) => !keepSet.has(id));
 
-    if (!hasNonArchived) {
-      await db.sender.update({
-        where: { id: sender.id },
-        data: { status: "REJECTED", decidedAt: new Date() },
-      });
-    }
+  if (rejectIds.length > 0) {
+    await db.sender.updateMany({
+      where: { id: { in: rejectIds }, status: "PENDING" },
+      data: { status: "REJECTED", decidedAt: new Date() },
+    });
   }
+}
+
+function categoryToPath(category: string | null | undefined): string {
+  switch (category) {
+    case "FEED":
+      return "/feed";
+    case "PAPER_TRAIL":
+      return "/paper-trail";
+    default:
+      return "/imbox";
+  }
+}
+
+async function moveToArchiveViaImap(
+  userId: string,
+  connectionId: string,
+  folderId: string,
+  uids: number[]
+) {
+  for (const uid of uids) {
+    suppressEcho(userId, folderId, uid);
+  }
+
+  await withImapConnection(connectionId, async (client) => {
+    const mailboxes = await client.list();
+    const archiveBox =
+      mailboxes.find(
+        (mb) =>
+          mb.specialUse === "\\Archive" ||
+          mb.path.toLowerCase() === "archive"
+      ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+
+    if (archiveBox) {
+      const lock = await client.getMailboxLock("INBOX");
+      try {
+        for (const uid of uids) {
+          try {
+            await client.messageMove(String(uid), archiveBox.path, {
+              uid: true,
+            });
+          } catch {
+            // Message may already be moved or deleted
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    }
+  });
+}
+
+async function moveToInboxViaImap(
+  userId: string,
+  connectionId: string,
+  folderId: string,
+  uids: number[]
+) {
+  for (const uid of uids) {
+    suppressEcho(userId, folderId, uid);
+  }
+
+  await withImapConnection(connectionId, async (client) => {
+    const mailboxes = await client.list();
+    const archiveBox =
+      mailboxes.find(
+        (mb) =>
+          mb.specialUse === "\\Archive" ||
+          mb.path.toLowerCase() === "archive"
+      ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+
+    if (archiveBox) {
+      const lock = await client.getMailboxLock(archiveBox.path);
+      try {
+        for (const uid of uids) {
+          try {
+            await client.messageMove(String(uid), "INBOX", { uid: true });
+          } catch {
+            // Message may already be moved or deleted
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    }
+  });
 }
 
 export async function archiveConversation(messageId: string) {
   const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
 
@@ -57,13 +142,10 @@ export async function archiveConversation(messageId: string) {
     select: { id: true, threadId: true, emailConnectionId: true },
   });
 
-  if (!message) {
-    throw new Error("Message not found");
-  }
+  if (!message) throw new Error("Message not found");
 
   const connectionId = message.emailConnectionId;
 
-  // Find all messages in this thread
   const threadMessages = message.threadId
     ? await db.message.findMany({
         where: { userId, threadId: message.threadId },
@@ -71,7 +153,6 @@ export async function archiveConversation(messageId: string) {
       })
     : [{ id: message.id, uid: 0, folderId: "" }];
 
-  // Get inbox folder scoped to this connection
   const inboxFolder = await db.folder.findFirst({
     where: { emailConnectionId: connectionId, specialUse: "inbox" },
     select: { id: true },
@@ -83,39 +164,7 @@ export async function archiveConversation(messageId: string) {
         .map((m) => m.uid)
     : [];
 
-  if (inboxMessageUids.length > 0) {
-    for (const uid of inboxMessageUids) {
-      suppressEcho(userId, inboxFolder!.id, uid);
-    }
-
-    await withImapConnection(connectionId, async (client) => {
-      const mailboxes = await client.list();
-      const archiveBox =
-        mailboxes.find(
-          (mb) =>
-            mb.specialUse === "\\Archive" ||
-            mb.path.toLowerCase() === "archive"
-        ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
-
-      if (archiveBox) {
-        const lock = await client.getMailboxLock("INBOX");
-        try {
-          for (const uid of inboxMessageUids) {
-            try {
-              await client.messageMove(String(uid), archiveBox.path, {
-                uid: true,
-              });
-            } catch {
-              // Message may already be moved or deleted, continue
-            }
-          }
-        } finally {
-          lock.release();
-        }
-      }
-    });
-  }
-
+  // DB update + revalidation first
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
@@ -133,18 +182,24 @@ export async function archiveConversation(messageId: string) {
   await autoRejectFullyArchivedSenders(messageIds);
 
   revalidateTag("sidebar-counts");
-  revalidatePath("/imbox");
-  revalidatePath("/feed");
-  revalidatePath("/paper-trail");
   revalidatePath("/archive");
-  revalidatePath("/screener");
+
+  // Defer IMAP to after response
+  if (inboxMessageUids.length > 0 && inboxFolder) {
+    after(() =>
+      moveToArchiveViaImap(
+        userId,
+        connectionId,
+        inboxFolder.id,
+        inboxMessageUids
+      ).catch((err) => console.error("IMAP archive move failed:", err))
+    );
+  }
 }
 
 export async function archiveConversations(messageIds: string[]) {
   const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
 
@@ -155,13 +210,10 @@ export async function archiveConversations(messageIds: string[]) {
 
   if (messages.length === 0) return;
 
-  // Collect all thread messages across all selected threads
   const threadIds = [
     ...new Set(messages.map((m) => m.threadId).filter(Boolean)),
   ] as string[];
-  const singleIds = messages
-    .filter((m) => !m.threadId)
-    .map((m) => m.id);
+  const singleIds = messages.filter((m) => !m.threadId).map((m) => m.id);
 
   const threadMessages = await db.message.findMany({
     where: {
@@ -174,7 +226,7 @@ export async function archiveConversations(messageIds: string[]) {
     select: { id: true, uid: true, folderId: true, emailConnectionId: true },
   });
 
-  // Group by connection so each uses the right IMAP credentials
+  // Pre-compute IMAP work per connection
   const byConnection = new Map<string, typeof threadMessages>();
   for (const msg of threadMessages) {
     const group = byConnection.get(msg.emailConnectionId) ?? [];
@@ -182,52 +234,30 @@ export async function archiveConversations(messageIds: string[]) {
     byConnection.set(msg.emailConnectionId, group);
   }
 
+  const imapWork: Array<{
+    connectionId: string;
+    folderId: string;
+    uids: number[];
+  }> = [];
+
   for (const [connectionId, connMessages] of byConnection) {
     const inboxFolder = await db.folder.findFirst({
       where: { emailConnectionId: connectionId, specialUse: "inbox" },
       select: { id: true },
     });
 
-    const inboxMessageUids = inboxFolder
+    const uids = inboxFolder
       ? connMessages
           .filter((m) => m.folderId === inboxFolder.id && m.uid > 0)
           .map((m) => m.uid)
       : [];
 
-    if (inboxMessageUids.length > 0) {
-      for (const uid of inboxMessageUids) {
-        suppressEcho(userId, inboxFolder!.id, uid);
-      }
-
-      await withImapConnection(connectionId, async (client) => {
-        const mailboxes = await client.list();
-        const archiveBox =
-          mailboxes.find(
-            (mb) =>
-              mb.specialUse === "\\Archive" ||
-              mb.path.toLowerCase() === "archive"
-          ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
-
-        if (archiveBox) {
-          const lock = await client.getMailboxLock("INBOX");
-          try {
-            for (const uid of inboxMessageUids) {
-              try {
-                await client.messageMove(String(uid), archiveBox.path, {
-                  uid: true,
-                });
-              } catch {
-                // Message may already be moved or deleted, continue
-              }
-            }
-          } finally {
-            lock.release();
-          }
-        }
-      });
+    if (uids.length > 0 && inboxFolder) {
+      imapWork.push({ connectionId, folderId: inboxFolder.id, uids });
     }
   }
 
+  // DB update + revalidation first
   const allMessageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: allMessageIds } },
@@ -245,18 +275,23 @@ export async function archiveConversations(messageIds: string[]) {
   await autoRejectFullyArchivedSenders(allMessageIds);
 
   revalidateTag("sidebar-counts");
-  revalidatePath("/imbox");
-  revalidatePath("/feed");
-  revalidatePath("/paper-trail");
   revalidatePath("/archive");
-  revalidatePath("/screener");
+
+  // Defer IMAP to after response
+  if (imapWork.length > 0) {
+    after(async () => {
+      for (const { connectionId, folderId, uids } of imapWork) {
+        await moveToArchiveViaImap(userId, connectionId, folderId, uids).catch(
+          (err) => console.error("IMAP archive move failed:", err)
+        );
+      }
+    });
+  }
 }
 
 export async function unarchiveConversation(messageId: string) {
   const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const userId = session.user.id;
 
@@ -270,9 +305,7 @@ export async function unarchiveConversation(messageId: string) {
     },
   });
 
-  if (!message) {
-    throw new Error("Message not found");
-  }
+  if (!message) throw new Error("Message not found");
 
   const connectionId = message.emailConnectionId;
 
@@ -291,7 +324,10 @@ export async function unarchiveConversation(messageId: string) {
     : [{ id: message.id, uid: 0, folderId: "" }];
 
   const archiveFolder = await db.folder.findFirst({
-    where: { emailConnectionId: connectionId, specialUse: { in: ["archive", "all"] } },
+    where: {
+      emailConnectionId: connectionId,
+      specialUse: { in: ["archive", "all"] },
+    },
     select: { id: true },
   });
 
@@ -301,37 +337,7 @@ export async function unarchiveConversation(messageId: string) {
         .map((m) => m.uid)
     : [];
 
-  if (archiveMessageUids.length > 0) {
-    for (const uid of archiveMessageUids) {
-      suppressEcho(userId, archiveFolder!.id, uid);
-    }
-
-    await withImapConnection(connectionId, async (client) => {
-      const mailboxes = await client.list();
-      const archiveBox =
-        mailboxes.find(
-          (mb) =>
-            mb.specialUse === "\\Archive" ||
-            mb.path.toLowerCase() === "archive"
-        ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
-
-      if (archiveBox) {
-        const lock = await client.getMailboxLock(archiveBox.path);
-        try {
-          for (const uid of archiveMessageUids) {
-            try {
-              await client.messageMove(String(uid), "INBOX", { uid: true });
-            } catch {
-              // Message may already be moved or deleted, continue
-            }
-          }
-        } finally {
-          lock.release();
-        }
-      }
-    });
-  }
-
+  // DB update + revalidation first
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
@@ -345,8 +351,127 @@ export async function unarchiveConversation(messageId: string) {
   });
 
   revalidateTag("sidebar-counts");
+  revalidatePath(categoryToPath(category));
+
+  // Defer IMAP to after response
+  if (archiveMessageUids.length > 0 && archiveFolder) {
+    after(() =>
+      moveToInboxViaImap(
+        userId,
+        connectionId,
+        archiveFolder.id,
+        archiveMessageUids
+      ).catch((err) => console.error("IMAP unarchive move failed:", err))
+    );
+  }
+}
+
+export async function unarchiveConversations(messageIds: string[]) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+
+  const messages = await db.message.findMany({
+    where: { id: { in: messageIds }, userId },
+    select: {
+      id: true,
+      threadId: true,
+      emailConnectionId: true,
+      sender: { select: { category: true } },
+    },
+  });
+
+  if (messages.length === 0) return;
+
+  const threadIds = [
+    ...new Set(messages.map((m) => m.threadId).filter(Boolean)),
+  ] as string[];
+  const singleIds = messages.filter((m) => !m.threadId).map((m) => m.id);
+
+  const threadMessages = await db.message.findMany({
+    where: {
+      userId,
+      OR: [
+        ...(threadIds.length > 0 ? [{ threadId: { in: threadIds } }] : []),
+        ...(singleIds.length > 0 ? [{ id: { in: singleIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      uid: true,
+      folderId: true,
+      emailConnectionId: true,
+      sender: { select: { category: true } },
+    },
+  });
+
+  // Group by sender category for DB updates
+  const byCat = new Map<string, string[]>();
+  for (const msg of threadMessages) {
+    const cat = msg.sender?.category ?? "IMBOX";
+    const ids = byCat.get(cat) ?? [];
+    ids.push(msg.id);
+    byCat.set(cat, ids);
+  }
+
+  for (const [cat, ids] of byCat) {
+    await db.message.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        isArchived: false,
+        isInImbox: cat === "IMBOX",
+        isInFeed: cat === "FEED",
+        isInPaperTrail: cat === "PAPER_TRAIL",
+        isInScreener: false,
+      },
+    });
+  }
+
+  revalidateTag("sidebar-counts");
   revalidatePath("/archive");
-  revalidatePath("/imbox");
-  revalidatePath("/feed");
-  revalidatePath("/paper-trail");
+
+  // Pre-compute IMAP work per connection
+  const byConnection = new Map<string, typeof threadMessages>();
+  for (const msg of threadMessages) {
+    const group = byConnection.get(msg.emailConnectionId) ?? [];
+    group.push(msg);
+    byConnection.set(msg.emailConnectionId, group);
+  }
+
+  const imapWork: Array<{
+    connectionId: string;
+    folderId: string;
+    uids: number[];
+  }> = [];
+
+  for (const [connectionId, connMessages] of byConnection) {
+    const archiveFolder = await db.folder.findFirst({
+      where: {
+        emailConnectionId: connectionId,
+        specialUse: { in: ["archive", "all"] },
+      },
+      select: { id: true },
+    });
+
+    const uids = archiveFolder
+      ? connMessages
+          .filter((m) => m.folderId === archiveFolder.id && m.uid > 0)
+          .map((m) => m.uid)
+      : [];
+
+    if (uids.length > 0 && archiveFolder) {
+      imapWork.push({ connectionId, folderId: archiveFolder.id, uids });
+    }
+  }
+
+  if (imapWork.length > 0) {
+    after(async () => {
+      for (const { connectionId, folderId, uids } of imapWork) {
+        await moveToInboxViaImap(userId, connectionId, folderId, uids).catch(
+          (err) => console.error("IMAP unarchive move failed:", err)
+        );
+      }
+    });
+  }
 }
