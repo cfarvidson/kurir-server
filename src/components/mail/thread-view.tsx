@@ -102,34 +102,48 @@ async function downloadPdf(message: ThreadMessage) {
       .replace(/\s+/g, "-")
       .slice(0, 60) + ".pdf";
 
-  // Open a new window with the rendered email, then capture it as PDF
-  const win = window.open("", "_blank");
-  if (!win) return;
+  // Render in a hidden iframe (no flickering window, fully rendered content)
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText =
+    "position:fixed;left:0;top:0;width:800px;height:100vh;opacity:0;pointer-events:none;z-index:-1";
+  document.body.appendChild(iframe);
 
-  win.document.write(html);
-  win.document.close();
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    document.body.removeChild(iframe);
+    return;
+  }
 
-  // Wait for content to render
+  iframeDoc.open();
+  iframeDoc.write(html);
+  iframeDoc.close();
+
+  // Wait for content to fully render (images, fonts, layout)
   await new Promise((resolve) => {
-    win.addEventListener("load", resolve);
-    // Fallback in case load already fired
-    setTimeout(resolve, 500);
+    iframe.addEventListener("load", resolve);
+    setTimeout(resolve, 1000);
   });
 
-  // Dynamically load html2pdf.js and generate the PDF
-  const html2pdf = (await import("html2pdf.js")).default;
+  try {
+    const html2pdf = (await import("html2pdf.js")).default;
 
-  await html2pdf()
-    .set({
-      margin: [10, 10, 10, 10],
-      filename,
-      html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    })
-    .from(win.document.body)
-    .save();
-
-  win.close();
+    await html2pdf()
+      .set({
+        margin: [8, 8, 8, 8],
+        filename,
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          width: 780,
+          windowWidth: 780,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      })
+      .from(iframeDoc.body)
+      .save();
+  } finally {
+    document.body.removeChild(iframe);
+  }
 }
 
 function MessageBubble({

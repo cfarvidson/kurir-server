@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,7 @@ export function MessageRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const q = searchParams.get("q");
   const href = q
     ? `${basePath}/${message.id}?q=${encodeURIComponent(q)}`
@@ -91,18 +92,19 @@ export function MessageRow({
   const handleArchive = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Optimistically remove row immediately, run action in background
+    // Optimistically remove row, then run action, then refresh from server
     onArchived?.(message.id);
     startTransition(async () => {
       await archiveConversation(message.id);
+      router.refresh();
     });
   };
 
   const handleSnooze = (until: Date) => {
-    // Optimistically remove row immediately
     onArchived?.(message.id);
     startTransition(async () => {
       await snoozeConversation(message.id, until);
+      router.refresh();
     });
   };
 

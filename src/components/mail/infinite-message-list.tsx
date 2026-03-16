@@ -137,7 +137,7 @@ export function InfiniteMessageList({
   const handleArchived = useCallback(
     (messageId?: string) => {
       if (messageId) {
-        // Find the thread key for this message, then remove all messages in that thread
+        // Optimistically remove from cache — do NOT refetch yet
         const allMessages = data?.pages.flatMap((p) => p.messages) ?? [];
         const target = allMessages.find((m) => m.id === messageId);
         const threadKey = target?.threadId || messageId;
@@ -158,11 +158,10 @@ export function InfiniteMessageList({
           },
         );
       }
-      // Refresh from server in background
-      queryClient.invalidateQueries({ queryKey: ["messages", category] });
-      router.refresh();
+      // Don't invalidate here — the server action hasn't completed yet.
+      // The MessageRow's startTransition will refresh after the action finishes.
     },
-    [queryClient, category, router, data],
+    [queryClient, category, data],
   );
 
 
