@@ -248,7 +248,8 @@ async function syncMailbox(
     // rejects it (UID doesn't exist), fall back to 1:* and filter.
     const batchSet = new Set(batch);
     const minUid = Math.min(...batch);
-    let fetchRange = `${minUid}:*`;
+    const maxUid = Math.max(...batch);
+    let fetchRange = `${minUid}:${maxUid}`;
 
     const fetchOpts = {
       uid: true,
@@ -258,6 +259,10 @@ async function syncMailbox(
       bodyStructure: true,
       source: true,
     } as const;
+
+    console.log(
+      `[sync] ${mailboxPath}: fetching range ${fetchRange} (${batch.length} target UIDs)`,
+    );
 
     async function* resilientFetch() {
       try {
@@ -272,9 +277,16 @@ async function syncMailbox(
       }
     }
 
+    let fetched = 0;
     try {
       for await (const msg of resilientFetch()) {
         const msgUid = Number(msg.uid);
+        fetched++;
+        if (fetched % 50 === 0) {
+          console.log(
+            `[sync] ${mailboxPath}: fetched ${fetched} messages so far...`,
+          );
+        }
         if (!batchSet.has(msgUid)) {
           continue;
         }
