@@ -66,23 +66,19 @@ function buildEmailHtml(message: ThreadMessage) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; color: #1a1a1a; font-size: 14px; }
-  .header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
-  .subject { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
-  .meta { font-size: 11px; color: #6b7280; line-height: 1.6; }
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   @media print { body { padding: 0; } }
-</style></head><body>
-<div class="header">
-  <div class="subject">${message.subject || "(no subject)"}</div>
-  <div class="meta">
-    From: ${senderName} &lt;${message.fromAddress}&gt;<br>
-    To: ${message.toAddresses.join(", ")}${message.ccAddresses.length > 0 ? `<br>Cc: ${message.ccAddresses.join(", ")}` : ""}<br>
-    Date: ${date}
+</style></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:800px;margin:0 auto;padding:16px;color:#1a1a1a;font-size:14px">
+<div style="margin-bottom:20px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px">
+  <div style="font-size:15px;font-weight:600;margin:0 0 8px;color:#111827">${message.subject || "(no subject)"}</div>
+  <div style="font-size:11px;color:#6b7280;line-height:1.7">
+    <strong style="color:#374151">From:</strong> ${senderName} &lt;${message.fromAddress}&gt;<br>
+    <strong style="color:#374151">To:</strong> ${message.toAddresses.join(", ")}${message.ccAddresses.length > 0 ? `<br><strong style="color:#374151">Cc:</strong> ${message.ccAddresses.join(", ")}` : ""}<br>
+    <strong style="color:#374151">Date:</strong> ${date}
   </div>
 </div>
-${body}
+<div style="overflow:hidden">${body}</div>
 </body></html>`;
 }
 
