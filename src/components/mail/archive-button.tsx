@@ -15,11 +15,12 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
   const router = useRouter();
 
   const handleArchive = () => {
-    // Fire action and navigate in parallel — don't await
+    // Navigate with hint to hide this message, fire action in parallel
+    const sep = returnPath.includes("?") ? "&" : "?";
+    router.push(`${returnPath}${sep}archived=${messageId}`);
     startTransition(() => {
       archiveConversation(messageId);
     });
-    router.push(returnPath);
   };
 
   return (

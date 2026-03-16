@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { Loader2, CheckSquare } from "lucide-react";
@@ -38,6 +38,8 @@ export function InfiniteMessageList({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const archivedId = searchParams.get("archived");
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -124,15 +126,20 @@ export function InfiniteMessageList({
       }
     }
 
-    // Propagate unread status
-    return Array.from(threadMap.values()).map((msg) => {
-      const key = msg.threadId || msg.id;
-      if (hasUnread.has(key) && msg.isRead) {
-        return { ...msg, isRead: false };
-      }
-      return msg;
-    });
-  }, [data]);
+    // Propagate unread status, and filter out just-archived message
+    return Array.from(threadMap.values())
+      .filter((msg) => {
+        if (!archivedId) return true;
+        return msg.id !== archivedId && msg.threadId !== archivedId;
+      })
+      .map((msg) => {
+        const key = msg.threadId || msg.id;
+        if (hasUnread.has(key) && msg.isRead) {
+          return { ...msg, isRead: false };
+        }
+        return msg;
+      });
+  }, [data, archivedId]);
 
   const handleArchived = useCallback(
     (messageId?: string) => {

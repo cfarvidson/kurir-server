@@ -94,19 +94,12 @@ function printEmail(message: ThreadMessage) {
   win.addEventListener("load", () => win.print());
 }
 
-function saveEmail(message: ThreadMessage) {
-  const html = buildEmailHtml(message);
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
+function downloadPdf(messageId: string) {
+  // Trigger server-side PDF generation via API
   const a = document.createElement("a");
-  a.href = url;
-  a.download =
-    (message.subject || "email")
-      .replace(/[^a-zA-Z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .slice(0, 60) + ".html";
+  a.href = `/api/messages/${messageId}/pdf`;
+  a.download = "";
   a.click();
-  URL.revokeObjectURL(url);
 }
 
 function MessageBubble({
@@ -218,8 +211,8 @@ function MessageBubble({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          saveEmail(message);
-                        }}
+                          downloadPdf(message.id);
+                        }
                         className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                         title="Download email"
                       >

@@ -19,12 +19,13 @@ export function ArchiveKeyboardShortcut({
   const router = useRouter();
 
   const handleAction = useCallback(() => {
+    const sep = returnPath.includes("?") ? "&" : "?";
+    router.push(`${returnPath}${sep}archived=${messageId}`);
     const actionFn =
       action === "unarchive" ? unarchiveConversation : archiveConversation;
     startTransition(() => {
       actionFn(messageId);
     });
-    router.push(returnPath);
   }, [messageId, returnPath, action, router, startTransition]);
 
   useEffect(() => {
