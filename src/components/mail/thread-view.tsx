@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, MoreHorizontal, Paperclip, Printer } from "lucide-react";
+import { Archive, ChevronDown, Download, MoreHorizontal, Paperclip, Printer } from "lucide-react";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 
@@ -55,7 +55,7 @@ function getInitialColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function printEmail(message: ThreadMessage) {
+function buildEmailHtml(message: ThreadMessage) {
   const senderName =
     message.sender?.displayName || message.fromName || message.fromAddress;
   const date = new Date(
@@ -63,7 +63,7 @@ function printEmail(message: ThreadMessage) {
   ).toLocaleString();
   const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${message.textBody || ""}</pre>`;
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; color: #1a1a1a; font-size: 14px; }
@@ -84,14 +84,22 @@ function printEmail(message: ThreadMessage) {
 </div>
 ${body}
 </body></html>`;
+}
 
+function printEmail(message: ThreadMessage) {
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(html);
+  win.document.write(buildEmailHtml(message));
   win.document.close();
-  win.addEventListener("load", () => {
-    win.print();
-  });
+  win.addEventListener("load", () => win.print());
+}
+
+function downloadPdf(message: ThreadMessage) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(buildEmailHtml(message));
+  win.document.close();
+  // Let user save as PDF from the clean page (Cmd/Ctrl+P → Save as PDF)
 }
 
 function MessageBubble({
@@ -199,16 +207,28 @@ function MessageBubble({
                         <span>, cc: {message.ccAddresses.join(", ")}</span>
                       )}
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        printEmail(message);
-                      }}
-                      className="shrink-0 rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                      title="Print this email"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadPdf(message);
+                        }}
+                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                        title="Save as PDF"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          printEmail(message);
+                        }}
+                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                        title="Print this email"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Attachments */}
