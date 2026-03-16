@@ -284,9 +284,13 @@ async function syncMailbox(
         const fetchRange = `${range.start}:${range.end}`;
         console.log(`[sync] ${mailboxPath}: fetching range ${fetchRange}`);
         try {
+          let rangeTotal = 0;
+          let rangeMatched = 0;
           for await (const msg of client.fetch(fetchRange, fetchOpts)) {
+            rangeTotal++;
             const msgUid = Number(msg.uid);
             if (!batchSet.has(msgUid)) continue;
+            rangeMatched++;
 
             try {
               // For All Mail: skip messages already synced from another folder
@@ -329,6 +333,9 @@ async function syncMailbox(
               errors.push(`Failed to process message ${msgUid}: ${err}`);
             }
           }
+          console.log(
+            `[sync] ${mailboxPath}: range ${fetchRange} done: ${rangeTotal} fetched, ${rangeMatched} matched, ${newMessages} saved`,
+          );
         } catch (fetchErr) {
           console.error(
             `[sync] ${mailboxPath}: range ${fetchRange} error:`,
