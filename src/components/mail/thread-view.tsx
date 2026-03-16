@@ -94,70 +94,19 @@ function printEmail(message: ThreadMessage) {
   win.addEventListener("load", () => win.print());
 }
 
-async function downloadPdf(message: ThreadMessage) {
-  // Build a visible (but covered) container so html2canvas can render it
-  const container = document.createElement("div");
-  container.style.position = "absolute";
-  container.style.top = "0";
-  container.style.left = "0";
-  container.style.width = "800px";
-  container.style.zIndex = "-1";
-  container.style.opacity = "0.01";
-  container.style.background = "#fff";
-  container.style.fontFamily =
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  container.style.fontSize = "14px";
-  container.style.color = "#1a1a1a";
-  container.style.padding = "16px";
-  container.style.lineHeight = "1.6";
-
-  const senderName =
-    message.sender?.displayName || message.fromName || message.fromAddress;
-  const date = new Date(
-    message.sentAt || message.receivedAt,
-  ).toLocaleString();
-  const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${message.textBody || ""}</pre>`;
-
-  container.innerHTML = `
-    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e5e7eb">
-      <div style="font-size:15px;font-weight:600;margin:0 0 6px">${message.subject || "(no subject)"}</div>
-      <div style="font-size:11px;color:#6b7280;line-height:1.6">
-        From: ${senderName} &lt;${message.fromAddress}&gt;<br>
-        To: ${message.toAddresses.join(", ")}${message.ccAddresses.length > 0 ? `<br>Cc: ${message.ccAddresses.join(", ")}` : ""}<br>
-        Date: ${date}
-      </div>
-    </div>
-    ${body}
-  `;
-
-  // Constrain images
-  container.querySelectorAll("img").forEach((img) => {
-    img.style.maxWidth = "100%";
-    img.style.height = "auto";
-  });
-
-  document.body.appendChild(container);
-
-  try {
-    const html2pdf = (await import("html2pdf.js")).default;
-    const filename =
-      (message.subject || "email")
-        .replace(/[^a-zA-Z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .slice(0, 60) + ".pdf";
-
-    await html2pdf()
-      .set({
-        margin: [10, 10, 10, 10],
-        filename,
-        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(container)
-      .save();
-  } finally {
-    document.body.removeChild(container);
-  }
+function saveEmail(message: ThreadMessage) {
+  const html = buildEmailHtml(message);
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download =
+    (message.subject || "email")
+      .replace(/[^a-zA-Z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 60) + ".html";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function MessageBubble({
@@ -269,10 +218,10 @@ function MessageBubble({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadPdf(message);
+                          saveEmail(message);
                         }}
                         className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                        title="Save as PDF"
+                        title="Download email"
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
