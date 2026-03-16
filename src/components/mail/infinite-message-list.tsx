@@ -136,8 +136,12 @@ export function InfiniteMessageList({
 
   const handleArchived = useCallback(
     (messageId?: string) => {
-      // Optimistically remove the message from the cache immediately
       if (messageId) {
+        // Find the thread key for this message, then remove all messages in that thread
+        const allMessages = data?.pages.flatMap((p) => p.messages) ?? [];
+        const target = allMessages.find((m) => m.id === messageId);
+        const threadKey = target?.threadId || messageId;
+
         queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
           ["messages", category],
           (old) => {
@@ -146,14 +150,9 @@ export function InfiniteMessageList({
               ...old,
               pages: old.pages.map((page) => ({
                 ...page,
-                messages: page.messages.filter((m) => {
-                  const archivedThread = old.pages
-                    .flatMap((p) => p.messages)
-                    .find((msg) => msg.id === messageId);
-                  const threadKey = archivedThread?.threadId || messageId;
-                  const msgKey = m.threadId || m.id;
-                  return msgKey !== threadKey;
-                }),
+                messages: page.messages.filter(
+                  (m) => (m.threadId || m.id) !== threadKey,
+                ),
               })),
             };
           },
@@ -163,7 +162,7 @@ export function InfiniteMessageList({
       queryClient.invalidateQueries({ queryKey: ["messages", category] });
       router.refresh();
     },
-    [queryClient, category, router],
+    [queryClient, category, router, data],
   );
 
   // Resolve selected threadKeys to representative message IDs for the server action
