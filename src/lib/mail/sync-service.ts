@@ -282,13 +282,20 @@ async function syncMailbox(
     try {
       for (const range of ranges) {
         const fetchRange = `${range.start}:${range.end}`;
-        console.log(`[sync] ${mailboxPath}: fetching range ${fetchRange}`);
+        const batchInRange = sortedBatch.filter(
+          (u) => u >= range.start && u <= range.end,
+        );
+        console.log(
+          `[sync] ${mailboxPath}: fetching range ${fetchRange} (${batchInRange.length} targets, sample: ${batchInRange.slice(0, 3).join(",")})`,
+        );
         try {
           let rangeTotal = 0;
           let rangeMatched = 0;
+          const sampleFetchUids: number[] = [];
           for await (const msg of client.fetch(fetchRange, fetchOpts)) {
             rangeTotal++;
             const msgUid = Number(msg.uid);
+            if (sampleFetchUids.length < 3) sampleFetchUids.push(msgUid);
             if (!batchSet.has(msgUid)) continue;
             rangeMatched++;
 
@@ -334,7 +341,7 @@ async function syncMailbox(
             }
           }
           console.log(
-            `[sync] ${mailboxPath}: range ${fetchRange} done: ${rangeTotal} fetched, ${rangeMatched} matched, ${newMessages} saved`,
+            `[sync] ${mailboxPath}: range ${fetchRange} done: ${rangeTotal} fetched (sample UIDs: ${sampleFetchUids.join(",")}), ${rangeMatched} matched, ${newMessages} saved`,
           );
         } catch (fetchErr) {
           console.error(
