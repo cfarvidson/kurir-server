@@ -67,12 +67,21 @@ function printEmail(message: ThreadMessage) {
 <html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; color: #1a1a1a; font-size: 14px; }
-  .meta { font-size: 11px; color: #9ca3af; line-height: 1.5; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f3f4f6; }
+  .header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+  .subject { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+  .meta { font-size: 11px; color: #6b7280; line-height: 1.6; }
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   @media print { body { padding: 0; } }
 </style></head><body>
-<div class="meta">${senderName} &lt;${message.fromAddress}&gt; · ${date}</div>
+<div class="header">
+  <div class="subject">${message.subject || "(no subject)"}</div>
+  <div class="meta">
+    From: ${senderName} &lt;${message.fromAddress}&gt;<br>
+    To: ${message.toAddresses.join(", ")}${message.ccAddresses.length > 0 ? `<br>Cc: ${message.ccAddresses.join(", ")}` : ""}<br>
+    Date: ${date}
+  </div>
+</div>
 ${body}
 </body></html>`;
 
