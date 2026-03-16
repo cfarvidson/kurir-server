@@ -212,7 +212,7 @@ function MessageBubble({
                         onClick={(e) => {
                           e.stopPropagation();
                           downloadPdf(message.id);
-                        }
+                        }}
                         className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                         title="Download email"
                       >
