@@ -134,10 +134,37 @@ export function InfiniteMessageList({
     });
   }, [data]);
 
-  const handleArchived = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["messages", category] });
-    router.refresh();
-  }, [queryClient, category, router]);
+  const handleArchived = useCallback(
+    (messageId?: string) => {
+      // Optimistically remove the message from the cache immediately
+      if (messageId) {
+        queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
+          ["messages", category],
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                messages: page.messages.filter((m) => {
+                  const archivedThread = old.pages
+                    .flatMap((p) => p.messages)
+                    .find((msg) => msg.id === messageId);
+                  const threadKey = archivedThread?.threadId || messageId;
+                  const msgKey = m.threadId || m.id;
+                  return msgKey !== threadKey;
+                }),
+              })),
+            };
+          },
+        );
+      }
+      // Refresh from server in background
+      queryClient.invalidateQueries({ queryKey: ["messages", category] });
+      router.refresh();
+    },
+    [queryClient, category, router],
+  );
 
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {

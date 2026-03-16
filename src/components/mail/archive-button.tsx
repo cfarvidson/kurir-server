@@ -17,8 +17,8 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
   const handleArchive = () => {
     if (clicked) return;
     setClicked(true);
-    // Navigate immediately — archive runs in background
-    router.push(returnPath);
+    // Navigate back instantly (cached in browser history), archive in background
+    router.back();
     archiveConversation(messageId).then(() => router.refresh());
   };
 

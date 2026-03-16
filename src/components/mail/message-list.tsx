@@ -75,7 +75,7 @@ export function MessageRow({
   showArchiveAction: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
-  onArchived?: () => void;
+  onArchived?: (messageId?: string) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -91,16 +91,18 @@ export function MessageRow({
   const handleArchive = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Optimistically remove row immediately, run action in background
+    onArchived?.(message.id);
     startTransition(async () => {
       await archiveConversation(message.id);
-      onArchived?.();
     });
   };
 
   const handleSnooze = (until: Date) => {
+    // Optimistically remove row immediately
+    onArchived?.(message.id);
     startTransition(async () => {
       await snoozeConversation(message.id, until);
-      onArchived?.();
     });
   };
 

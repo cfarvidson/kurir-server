@@ -19,8 +19,8 @@ export function ArchiveKeyboardShortcut({
   const router = useRouter();
 
   const handleAction = useCallback(() => {
-    // Navigate immediately — action runs in background
-    router.push(returnPath);
+    // Navigate back instantly, action runs in background
+    router.back();
     const actionFn = action === "unarchive" ? unarchiveConversation : archiveConversation;
     startTransition(async () => {
       await actionFn(messageId);
