@@ -28,7 +28,7 @@ interface SyncResponse {
 export function AutoSync() {
   const router = useRouter();
   const prevDataRef = useRef<SyncResponse | null>(null);
-  const lastGoodResultsRef = useRef<SyncResultData[] | null>(null);
+  const [progressResults, setProgressResults] = useState<SyncResultData[] | null>(null);
   const [importing, setImporting] = useState(false);
   const queryClient = useQueryClient();
 
@@ -102,7 +102,7 @@ export function AutoSync() {
 
     // Track last good results for progress bar display
     if (flat.length > 0) {
-      lastGoodResultsRef.current = flat;
+      setProgressResults(flat);
     }
 
     // Exit import mode when all messages have been imported
@@ -110,7 +110,7 @@ export function AutoSync() {
       const hasRemaining = flat.some((r) => r.remaining > 0);
       if (!hasRemaining && flat.length > 0) {
         setImporting(false);
-        lastGoodResultsRef.current = null;
+        setProgressResults(null);
         router.refresh();
       }
       return;
@@ -124,8 +124,6 @@ export function AutoSync() {
     }
   }, [data, router, importing]);
 
-  // Use last good results for progress bar (avoids 0/0 flicker when lock is held)
-  const progressResults = lastGoodResultsRef.current;
   if (!importing || !progressResults) return null;
 
   const synced = progressResults.reduce((s, r) => s + r.totalCached, 0);
