@@ -292,7 +292,9 @@ async function syncMailbox(
           let rangeTotal = 0;
           let rangeMatched = 0;
           const sampleFetchUids: number[] = [];
-          for await (const msg of client.fetch(fetchRange, fetchOpts)) {
+          for await (const msg of client.fetch(fetchRange, fetchOpts, {
+            uid: true,
+          })) {
             rangeTotal++;
             const msgUid = Number(msg.uid);
             if (sampleFetchUids.length < 3) sampleFetchUids.push(msgUid);
@@ -324,17 +326,11 @@ async function syncMailbox(
                 archived = true;
               }
 
-              await processMessage(
-                msg,
-                userId,
-                emailConnectionId,
-                folder.id,
-                {
-                  isInbox,
-                  userEmails,
-                  isArchived: archived,
-                },
-              );
+              await processMessage(msg, userId, emailConnectionId, folder.id, {
+                isInbox,
+                userEmails,
+                isArchived: archived,
+              });
               newMessages++;
             } catch (err) {
               errors.push(`Failed to process message ${msgUid}: ${err}`);
