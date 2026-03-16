@@ -81,8 +81,8 @@ export function AutoSync() {
     if (!data || data === prevDataRef.current) return;
     prevDataRef.current = data;
 
-    // When another sync is in progress, still refresh if snoozes were woken
-    if (data.importing) {
+    // When another sync is in progress and we're NOT importing, just wake snoozes
+    if (data.importing && !importing) {
       if (data.wokenSnoozes && data.wokenSnoozes > 0) {
         router.refresh();
       }
