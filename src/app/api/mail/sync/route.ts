@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const batchSizeParam = searchParams.get("batchSize");
-  const batchSize = batchSizeParam ? parseInt(batchSizeParam, 10) : undefined;
+  const batchSize = batchSizeParam ? parseInt(batchSizeParam, 10) : 200;
   const shouldResync =
     searchParams.get("resync") === "1" || searchParams.get("resync") === "true";
   const connectionIdParam = searchParams.get("connectionId");
