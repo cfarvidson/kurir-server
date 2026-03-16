@@ -165,6 +165,16 @@ export function InfiniteMessageList({
     [queryClient, category, router, data],
   );
 
+  // Listen for archive events from detail pages (archive button / keyboard shortcut)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { messageId } = (e as CustomEvent).detail;
+      handleArchived(messageId);
+    };
+    window.addEventListener("message-archived", handler);
+    return () => window.removeEventListener("message-archived", handler);
+  }, [handleArchived]);
+
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {
     return threads

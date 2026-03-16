@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Loader2 } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
+import { badgeUpdate } from "@/components/layout/sidebar";
 
 interface ArchiveButtonProps {
   messageId: string;
@@ -17,7 +18,12 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
   const handleArchive = () => {
     if (clicked) return;
     setClicked(true);
-    // Navigate back instantly (cached in browser history), archive in background
+    // Tell lists to optimistically remove this message
+    window.dispatchEvent(
+      new CustomEvent("message-archived", { detail: { messageId } }),
+    );
+    badgeUpdate("imbox", -1);
+    // Navigate back instantly, archive in background
     router.back();
     archiveConversation(messageId).then(() => router.refresh());
   };

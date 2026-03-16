@@ -19,6 +19,10 @@ export function ArchiveKeyboardShortcut({
   const router = useRouter();
 
   const handleAction = useCallback(() => {
+    // Tell lists to optimistically remove this message
+    window.dispatchEvent(
+      new CustomEvent("message-archived", { detail: { messageId } }),
+    );
     // Navigate back instantly, action runs in background
     router.back();
     const actionFn = action === "unarchive" ? unarchiveConversation : archiveConversation;
