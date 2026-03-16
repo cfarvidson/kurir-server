@@ -94,12 +94,42 @@ function printEmail(message: ThreadMessage) {
   win.addEventListener("load", () => win.print());
 }
 
-function downloadPdf(messageId: string) {
-  // Trigger server-side PDF generation via API
-  const a = document.createElement("a");
-  a.href = `/api/messages/${messageId}/pdf`;
-  a.download = "";
-  a.click();
+async function downloadPdf(message: ThreadMessage) {
+  const html = buildEmailHtml(message);
+  const filename =
+    (message.subject || "email")
+      .replace(/[^a-zA-Z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 60) + ".pdf";
+
+  // Open a new window with the rendered email, then capture it as PDF
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  win.document.write(html);
+  win.document.close();
+
+  // Wait for content to render
+  await new Promise((resolve) => {
+    win.addEventListener("load", resolve);
+    // Fallback in case load already fired
+    setTimeout(resolve, 500);
+  });
+
+  // Dynamically load html2pdf.js and generate the PDF
+  const html2pdf = (await import("html2pdf.js")).default;
+
+  await html2pdf()
+    .set({
+      margin: [10, 10, 10, 10],
+      filename,
+      html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    })
+    .from(win.document.body)
+    .save();
+
+  win.close();
 }
 
 function MessageBubble({
@@ -211,7 +241,7 @@ function MessageBubble({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadPdf(message.id);
+                          downloadPdf(message);
                         }}
                         className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                         title="Download email"
