@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, Loader2 } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
@@ -11,24 +11,24 @@ interface ArchiveButtonProps {
 }
 
 export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButtonProps) {
-  const [isPending, startTransition] = useTransition();
+  const [clicked, setClicked] = useState(false);
   const router = useRouter();
 
   const handleArchive = () => {
-    startTransition(async () => {
-      await archiveConversation(messageId);
-      router.push(returnPath);
-      router.refresh();
-    });
+    if (clicked) return;
+    setClicked(true);
+    // Navigate immediately — archive runs in background
+    router.push(returnPath);
+    archiveConversation(messageId).then(() => router.refresh());
   };
 
   return (
     <button
       onClick={handleArchive}
-      disabled={isPending}
+      disabled={clicked}
       className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
     >
-      {isPending ? (
+      {clicked ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
         <Archive className="h-3.5 w-3.5" />

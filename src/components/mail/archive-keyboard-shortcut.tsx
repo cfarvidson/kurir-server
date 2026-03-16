@@ -19,16 +19,14 @@ export function ArchiveKeyboardShortcut({
   const router = useRouter();
 
   const handleAction = useCallback(() => {
+    // Navigate immediately — action runs in background
+    router.push(returnPath);
+    const actionFn = action === "unarchive" ? unarchiveConversation : archiveConversation;
     startTransition(async () => {
-      if (action === "unarchive") {
-        await unarchiveConversation(messageId);
-      } else {
-        await archiveConversation(messageId);
-      }
-      router.push(returnPath);
+      await actionFn(messageId);
       router.refresh();
     });
-  }, [messageId, returnPath, action, router]);
+  }, [messageId, returnPath, action, router, startTransition]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

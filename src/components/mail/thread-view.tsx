@@ -66,23 +66,13 @@ function printEmail(message: ThreadMessage) {
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #1a1a1a; }
-  .header { border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px; }
-  .subject { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
-  .meta { font-size: 13px; color: #6b7280; line-height: 1.6; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; color: #1a1a1a; font-size: 14px; }
+  .meta { font-size: 11px; color: #9ca3af; line-height: 1.5; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f3f4f6; }
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   @media print { body { padding: 0; } }
 </style></head><body>
-<div class="header">
-  <h1 class="subject">${message.subject || "(no subject)"}</h1>
-  <div class="meta">
-    <div>From: ${senderName} &lt;${message.fromAddress}&gt;</div>
-    <div>To: ${message.toAddresses.join(", ")}</div>
-    ${message.ccAddresses.length > 0 ? `<div>Cc: ${message.ccAddresses.join(", ")}</div>` : ""}
-    <div>Date: ${date}</div>
-  </div>
-</div>
+<div class="meta">${senderName} &lt;${message.fromAddress}&gt; · ${date}</div>
 ${body}
 </body></html>`;
 
