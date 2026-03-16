@@ -27,18 +27,16 @@ interface SyncResponse {
 
 export function AutoSync() {
   const router = useRouter();
-  const prevDataRef = useRef<SyncResponse | null>(null);
-  const [progressResults, setProgressResults] = useState<SyncResultData[] | null>(null);
-  const [importing, setImporting] = useState(false);
   const queryClient = useQueryClient();
+  const [importing, setImporting] = useState(false);
 
-  // Stable ref to router for SSE handler (avoids EventSource reconnect on render)
+  // Stable ref to router for SSE handler
   const routerRef = useRef(router);
   useLayoutEffect(() => {
     routerRef.current = router;
   });
 
-  // Immediate sync when tab regains focus (wakes expired snoozes promptly)
+  // Immediate sync when tab regains focus
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -46,24 +44,22 @@ export function AutoSync() {
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
   }, [queryClient]);
 
   // SSE: realtime updates from IDLE
   useEffect(() => {
     const es = new EventSource("/api/mail/events");
-
     const handleEvent = () => routerRef.current.refresh();
     es.addEventListener("new-messages", handleEvent);
     es.addEventListener("flags-changed", handleEvent);
     es.addEventListener("message-deleted", handleEvent);
-
     es.onerror = () => console.warn("[sse] reconnecting...");
-
     return () => es.close();
   }, []);
 
-  // Listen for explicit import trigger from ImportButton
+  // Listen for import trigger from ImportButton
   useEffect(() => {
     const handler = () => setImporting(true);
     window.addEventListener("start-import", handler);
@@ -71,7 +67,7 @@ export function AutoSync() {
   }, []);
 
   const { data } = useQuery<SyncResponse>({
-    queryKey: ["mail-sync", importing],
+    queryKey: ["mail-sync"],
     queryFn: async () => {
       const url = importing
         ? "/api/mail/sync?batchSize=200"
@@ -80,62 +76,67 @@ export function AutoSync() {
       if (!res.ok) throw new Error("Sync failed");
       return res.json();
     },
-    refetchInterval: importing ? 1_000 : 30_000,
+    refetchInterval: importing ? 2_000 : 30_000,
     refetchIntervalInBackground: false,
   });
 
+  // Flatten results
+  const flat: SyncResultData[] =
+    data?.results?.flatMap((cr) => cr.results ?? []) ?? [];
+
+  // Handle side effects
+  const prevRef = useRef<SyncResponse | null>(null);
   useEffect(() => {
-    if (!data || data === prevDataRef.current) return;
-    prevDataRef.current = data;
+    if (!data || data === prevRef.current) return;
+    prevRef.current = data;
 
-    // Flatten nested results: ConnectionResult[] → SyncResultData[]
-    const flat: SyncResultData[] =
-      data.results?.flatMap((cr) => cr.results ?? []) ?? [];
-
-    // When another sync is in progress and we're NOT importing, just wake snoozes
-    if (data.importing && !importing) {
-      if (data.wokenSnoozes && data.wokenSnoozes > 0) {
-        router.refresh();
-      }
-      return;
-    }
-
-    // Track last good results for progress bar display
-    if (flat.length > 0) {
-      setProgressResults(flat);
-    }
-
-    // Exit import mode when all messages have been imported
-    if (importing) {
+    if (importing && flat.length > 0) {
       const hasRemaining = flat.some((r) => r.remaining > 0);
-      if (!hasRemaining && flat.length > 0) {
+      if (!hasRemaining) {
         setImporting(false);
-        setProgressResults(null);
         router.refresh();
+        return;
       }
+      // Refresh on each batch to show new messages
+      router.refresh();
       return;
     }
 
-    // Refresh when new messages arrive or snoozes were woken during normal sync
+    // Normal sync: refresh when new messages arrive
     const hasNew = flat.some((r) => r.newMessages > 0);
-    const hasWoken = data.wokenSnoozes && data.wokenSnoozes > 0;
+    const hasWoken = (data.wokenSnoozes ?? 0) > 0;
     if (hasNew || hasWoken) {
       router.refresh();
     }
-  }, [data, router, importing]);
+  }, [data, router, importing, flat]);
 
-  if (!importing || !progressResults) return null;
+  // Progress bar
+  if (!importing) return null;
 
-  const synced = progressResults.reduce((s, r) => s + r.totalCached, 0);
-  const total = progressResults.reduce((s, r) => s + r.totalOnServer, 0);
-  const percent = total > 0 ? Math.round((synced / total) * 100) : 0;
+  const synced = flat.reduce((s, r) => s + r.totalCached, 0);
+  const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
+  const remaining = flat.reduce((s, r) => s + r.remaining, 0);
+
+  if (total === 0) {
+    return (
+      <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
+        <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
+          <div className="text-sm font-medium">Starting import...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const percent = Math.round((synced / total) * 100);
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
       <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="text-sm font-medium">
-            Importing: {synced.toLocaleString()} / {total.toLocaleString()}
+            {remaining > 0
+              ? `Importing: ${synced.toLocaleString()} / ${total.toLocaleString()}`
+              : "Import complete!"}
           </div>
           <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
             <div
