@@ -94,12 +94,49 @@ function printEmail(message: ThreadMessage) {
   win.addEventListener("load", () => win.print());
 }
 
-function downloadPdf(message: ThreadMessage) {
-  const win = window.open("", "_blank");
-  if (!win) return;
-  win.document.write(buildEmailHtml(message));
-  win.document.close();
-  // Let user save as PDF from the clean page (Cmd/Ctrl+P → Save as PDF)
+async function downloadPdf(message: ThreadMessage) {
+  const html = buildEmailHtml(message);
+
+  // Create a hidden container, render the email HTML, convert to PDF
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "800px";
+  container.innerHTML = html
+    .replace(/^<!DOCTYPE[^>]*>/i, "")
+    .replace(/<\/?html[^>]*>/gi, "")
+    .replace(/<\/?head[^>]*>[\s\S]*?<\/head>/gi, "")
+    .replace(/<\/?body[^>]*>/gi, "");
+
+  // Apply print styles inline
+  container.style.fontFamily =
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  container.style.fontSize = "14px";
+  container.style.color = "#1a1a1a";
+  container.style.padding = "16px";
+  document.body.appendChild(container);
+
+  try {
+    const html2pdf = (await import("html2pdf.js")).default;
+    const filename =
+      (message.subject || "email")
+        .replace(/[^a-zA-Z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .slice(0, 60) + ".pdf";
+
+    await html2pdf()
+      .set({
+        margin: [10, 10, 10, 10],
+        filename,
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      })
+      .from(container)
+      .save();
+  } finally {
+    document.body.removeChild(container);
+  }
 }
 
 function MessageBubble({
