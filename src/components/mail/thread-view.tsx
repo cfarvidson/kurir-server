@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, MoreHorizontal, Paperclip } from "lucide-react";
+import { Archive, ChevronDown, MoreHorizontal, Paperclip, Printer } from "lucide-react";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 
@@ -53,6 +53,46 @@ function getInitialColor(name: string): string {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   return colors[Math.abs(hash) % colors.length];
+}
+
+function printEmail(message: ThreadMessage) {
+  const senderName =
+    message.sender?.displayName || message.fromName || message.fromAddress;
+  const date = new Date(
+    message.sentAt || message.receivedAt,
+  ).toLocaleString();
+  const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${message.textBody || ""}</pre>`;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #1a1a1a; }
+  .header { border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px; }
+  .subject { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+  .meta { font-size: 13px; color: #6b7280; line-height: 1.6; }
+  img { max-width: 100%; height: auto; }
+  table { max-width: 100%; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<div class="header">
+  <h1 class="subject">${message.subject || "(no subject)"}</h1>
+  <div class="meta">
+    <div>From: ${senderName} &lt;${message.fromAddress}&gt;</div>
+    <div>To: ${message.toAddresses.join(", ")}</div>
+    ${message.ccAddresses.length > 0 ? `<div>Cc: ${message.ccAddresses.join(", ")}</div>` : ""}
+    <div>Date: ${date}</div>
+  </div>
+</div>
+${body}
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.addEventListener("load", () => {
+    win.print();
+  });
 }
 
 function MessageBubble({
@@ -152,12 +192,24 @@ function MessageBubble({
                 className="overflow-hidden"
               >
                 <div className="mt-1 rounded-lg border border-border/50 bg-card px-4 py-4 shadow-sm">
-                  {/* Recipients */}
-                  <div className="text-xs text-muted-foreground">
-                    to {message.toAddresses.join(", ")}
-                    {message.ccAddresses.length > 0 && (
-                      <span>, cc: {message.ccAddresses.join(", ")}</span>
-                    )}
+                  {/* Recipients + actions */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-xs text-muted-foreground">
+                      to {message.toAddresses.join(", ")}
+                      {message.ccAddresses.length > 0 && (
+                        <span>, cc: {message.ccAddresses.join(", ")}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        printEmail(message);
+                      }}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Print this email"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
                   </div>
 
                   {/* Attachments */}

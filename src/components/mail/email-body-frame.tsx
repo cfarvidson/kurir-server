@@ -75,18 +75,19 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
 }
 
 /**
- * Minimal CSS reset injected into every email document.
- * Always light background — email HTML almost never supports dark mode
- * and mixing dark app chrome with light email content looks broken.
+ * CSS reset + overrides injected into every email document.
+ * Forces light mode — email HTML almost never properly supports dark mode.
+ * Uses !important on background/color to override dark inline styles from
+ * emails that detect prefers-color-scheme: dark.
  */
 const BASE_STYLES = `
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
-    background: #ffffff;
-    color: #1a1a1a;
-    color-scheme: light;
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    color-scheme: light !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.6;
@@ -97,7 +98,7 @@ const BASE_STYLES = `
   img { max-width: 100%; height: auto; }
   a { color: #2563eb; }
   pre, code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
-  table { max-width: 100%; overflow-x: auto; display: block; }
+  table { max-width: 100%; }
   blockquote {
     margin: 8px 0 8px 16px;
     padding-left: 12px;
@@ -105,6 +106,17 @@ const BASE_STYLES = `
     color: #6b7280;
   }
   div, td, th, p, span { max-width: 100%; }
+
+  /* Override dark-mode media queries that some emails inject */
+  @media (prefers-color-scheme: dark) {
+    html, body { background: #ffffff !important; color: #1a1a1a !important; }
+  }
+
+  /* Print styles */
+  @media print {
+    body { padding: 0; }
+    a { color: inherit; text-decoration: underline; }
+  }
 `;
 
 function buildSrcdoc(html: string, collapseQuotes?: boolean): string {
