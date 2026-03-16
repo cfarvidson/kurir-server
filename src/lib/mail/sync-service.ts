@@ -244,7 +244,26 @@ async function syncMailbox(
     const batch = batchSize ? newUids.slice(0, batchSize) : newUids;
     const remaining = newUids.length - batch.length;
 
-    // Fetch target UIDs individually to avoid streaming entire UID ranges
+    // Group batch UIDs into tight contiguous ranges (gap ≤ 10)
+    // Range fetch works but individual UID fetch hangs in ImapFlow
+    const sortedBatch = [...batch].sort((a, b) => a - b);
+    const ranges: { start: number; end: number }[] = [];
+    let rangeStart = sortedBatch[0];
+    let rangeEnd = sortedBatch[0];
+
+    for (let i = 1; i < sortedBatch.length; i++) {
+      if (sortedBatch[i] - rangeEnd <= 10) {
+        rangeEnd = sortedBatch[i];
+      } else {
+        ranges.push({ start: rangeStart, end: rangeEnd });
+        rangeStart = sortedBatch[i];
+        rangeEnd = sortedBatch[i];
+      }
+    }
+    ranges.push({ start: rangeStart, end: rangeEnd });
+
+    const batchSet = new Set(batch);
+
     const fetchOpts = {
       uid: true,
       envelope: true,
@@ -255,55 +274,70 @@ async function syncMailbox(
     } as const;
 
     console.log(
-      `[sync] ${mailboxPath}: fetching ${batch.length} messages individually`,
+      `[sync] ${mailboxPath}: fetching ${batch.length} UIDs in ${ranges.length} ranges`,
     );
 
-    console.log(
-      `[sync] ${mailboxPath}: client usable=${client.usable}, first UID=${batch[0]}`,
-    );
+    try {
+      for (const range of ranges) {
+        const fetchRange = `${range.start}:${range.end}`;
+        console.log(`[sync] ${mailboxPath}: fetching range ${fetchRange}`);
+        try {
+          for await (const msg of client.fetch(fetchRange, fetchOpts)) {
+            const msgUid = Number(msg.uid);
+            if (!batchSet.has(msgUid)) continue;
 
-    for (let i = 0; i < batch.length; i++) {
-      const targetUid = batch[i];
-      if (i === 0 || (i + 1) % 50 === 0) {
-        console.log(
-          `[sync] ${mailboxPath}: fetching UID ${targetUid} (${i + 1}/${batch.length})`,
-        );
-      }
-      try {
-        for await (const msg of client.fetch(`${targetUid}`, fetchOpts)) {
-          // For All Mail: skip messages already synced from another folder
-          if (specialUse === "all" && msg.envelope?.messageId) {
-            const existing = await db.message.findFirst({
-              where: { userId, messageId: msg.envelope.messageId },
-              select: { id: true },
-            });
-            if (existing) continue;
+            try {
+              // For All Mail: skip messages already synced from another folder
+              if (specialUse === "all" && msg.envelope?.messageId) {
+                const existing = await db.message.findFirst({
+                  where: { userId, messageId: msg.envelope.messageId },
+                  select: { id: true },
+                });
+                if (existing) continue;
+              }
+
+              let isInbox = specialUse === "inbox";
+              let archived = false;
+              if (specialUse === "all" && userEmails?.length) {
+                const fromAddr =
+                  msg.envelope?.from?.[0]?.address?.toLowerCase();
+                const isFromSelf =
+                  !!fromAddr &&
+                  userEmails.some((ue) => fromAddr === ue.toLowerCase());
+                isInbox = false;
+                archived = !isFromSelf;
+              } else if (specialUse === "archive") {
+                isInbox = false;
+                archived = true;
+              }
+
+              await processMessage(
+                msg,
+                userId,
+                emailConnectionId,
+                folder.id,
+                {
+                  isInbox,
+                  userEmails,
+                  isArchived: archived,
+                },
+              );
+              newMessages++;
+            } catch (err) {
+              errors.push(`Failed to process message ${msgUid}: ${err}`);
+            }
           }
-
-          let isInbox = specialUse === "inbox";
-          let archived = false;
-          if (specialUse === "all" && userEmails?.length) {
-            const fromAddr = msg.envelope?.from?.[0]?.address?.toLowerCase();
-            const isFromSelf =
-              !!fromAddr &&
-              userEmails.some((ue) => fromAddr === ue.toLowerCase());
-            isInbox = false;
-            archived = !isFromSelf;
-          } else if (specialUse === "archive") {
-            isInbox = false;
-            archived = true;
-          }
-
-          await processMessage(msg, userId, emailConnectionId, folder.id, {
-            isInbox,
-            userEmails,
-            isArchived: archived,
-          });
-          newMessages++;
+        } catch (fetchErr) {
+          console.error(
+            `[sync] ${mailboxPath}: range ${fetchRange} error:`,
+            fetchErr,
+          );
+          errors.push(`Fetch error for range ${fetchRange}: ${fetchErr}`);
         }
-      } catch (err) {
-        errors.push(`Failed to process message ${targetUid}: ${err}`);
       }
+    } catch (outerErr) {
+      console.error(`[sync] ${mailboxPath}: fetch error:`, outerErr);
+      errors.push(`Fetch error: ${outerErr}`);
     }
 
     // Update folder sync time + highestModSeq
