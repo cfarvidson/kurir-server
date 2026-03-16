@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Menu, X, Settings, PenSquare, LogOut, Mail } from "lucide-react";
+import { Menu, X, Settings, PenSquare, LogOut } from "lucide-react";
+import { KurirLogo } from "@/components/logo";
 import { navigation } from "./navigation";
 
 interface MobileSidebarProps {
@@ -101,9 +102,7 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozed
               {/* Logo + close */}
               <div className="flex h-16 items-center justify-between border-b px-5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                    <Mail className="h-4 w-4 text-primary-foreground" />
-                  </div>
+                  <KurirLogo className="h-8 w-8" />
                   <span className="text-xl font-semibold">Kurir</span>
                 </div>
                 <button

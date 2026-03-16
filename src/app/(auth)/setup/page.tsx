@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { KurirLogo } from "@/components/logo";
 
 const PROVIDERS: {
   id: string;
@@ -168,7 +169,7 @@ function AddConnectionForm() {
   const isSuccess = verifyState === "success";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -178,7 +179,7 @@ function AddConnectionForm() {
         <Card>
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              <Mail className="h-7 w-7 text-primary" />
+              <KurirLogo className="h-8 w-8" />
             </div>
             <CardTitle className="text-2xl">
               {isAddMode ? "Add another email" : "Connect your first email account"}

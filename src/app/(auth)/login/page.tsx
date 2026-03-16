@@ -11,8 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Fingerprint, Mail, Loader2 } from "lucide-react";
+import { Fingerprint, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { KurirLogo } from "@/components/logo";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 type LoginState = "idle" | "waiting" | "loading" | "error";
@@ -123,7 +124,7 @@ export default function LoginPage() {
   const isWorking = state === "waiting" || state === "loading";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,7 +134,7 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              <Mail className="h-7 w-7 text-primary" />
+              <KurirLogo className="h-8 w-8" />
             </div>
             <CardTitle className="text-2xl">Welcome back</CardTitle>
             <CardDescription>

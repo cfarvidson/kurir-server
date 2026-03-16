@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Settings, PenSquare, LogOut, Mail } from "lucide-react";
+import { Settings, PenSquare, LogOut } from "lucide-react";
+import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { navigation } from "./navigation";
 
@@ -54,9 +55,7 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount 
     <div className="hidden h-full w-64 flex-col border-r bg-card md:flex">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Mail className="h-4 w-4 text-primary-foreground" />
-        </div>
+        <KurirLogo className="h-8 w-8" />
         <span className="text-xl font-semibold">Kurir</span>
       </div>
 

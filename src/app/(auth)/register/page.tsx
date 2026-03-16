@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Fingerprint, Mail, Loader2, ShieldCheck, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { KurirLogo } from "@/components/logo";
 
 type Step = "intro" | "name" | "passkey" | "done";
 
@@ -82,7 +83,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
       <AnimatePresence mode="wait">
         {step === "intro" && (
           <motion.div
@@ -96,7 +97,7 @@ export default function RegisterPage() {
             <Card>
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <Mail className="h-7 w-7 text-primary" />
+                  <KurirLogo className="h-8 w-8" />
                 </div>
                 <CardTitle className="text-2xl">Create your account</CardTitle>
                 <CardDescription>
@@ -158,7 +159,7 @@ export default function RegisterPage() {
             <Card>
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <Mail className="h-7 w-7 text-primary" />
+                  <KurirLogo className="h-8 w-8" />
                 </div>
                 <CardTitle className="text-2xl">What should we call you?</CardTitle>
                 <CardDescription>
