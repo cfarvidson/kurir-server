@@ -79,13 +79,43 @@ export function parseCursor(cursor: string) {
   };
 }
 
+function encodeChronoCursor(msg: { receivedAt: Date; id: string }): string {
+  return `${msg.receivedAt.toISOString()}_${msg.id}`;
+}
+
+function parseChronoCursor(cursor: string) {
+  // Format: {isoDate}_{cuid}
+  const lastUnderscore = cursor.lastIndexOf("_");
+  if (lastUnderscore === -1) return null;
+
+  const dateStr = cursor.substring(0, lastUnderscore);
+  const id = cursor.substring(lastUnderscore + 1);
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  if (!/^c[a-z0-9]{20,}$/.test(id)) return null;
+
+  // Sort order: receivedAt DESC, id DESC
+  return {
+    OR: [
+      { receivedAt: { lt: date } },
+      { receivedAt: date, id: { lt: id } },
+    ],
+  };
+}
+
 export async function getMessages(
   userId: string,
   category: Category,
   limit: number,
   cursor?: string
 ) {
-  const cursorCondition = cursor ? parseCursor(cursor) : undefined;
+  const chronological = category === "archive";
+  const cursorCondition = cursor
+    ? chronological
+      ? parseChronoCursor(cursor)
+      : parseCursor(cursor)
+    : undefined;
   if (cursor && !cursorCondition) return null;
 
   const messages = await db.message.findMany({
@@ -94,7 +124,9 @@ export async function getMessages(
       ...CATEGORY_FILTERS[category],
       ...cursorCondition,
     },
-    orderBy: [{ isRead: "asc" }, { receivedAt: "desc" }, { id: "desc" }],
+    orderBy: chronological
+      ? [{ receivedAt: "desc" }, { id: "desc" }]
+      : [{ isRead: "asc" }, { receivedAt: "desc" }, { id: "desc" }],
     take: limit,
     select: MESSAGE_SELECT,
   });
@@ -106,9 +138,12 @@ export async function getMessages(
     threadCount: threadCounts.get(m.id) ?? 1,
   }));
 
+  const lastMsg = messages[messages.length - 1];
   const nextCursor =
     messages.length === limit
-      ? encodeCursor(messages[messages.length - 1])
+      ? chronological
+        ? encodeChronoCursor(lastMsg)
+        : encodeCursor(lastMsg)
       : null;
 
   return { messages: withCounts, nextCursor };
