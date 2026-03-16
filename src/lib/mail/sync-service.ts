@@ -239,7 +239,8 @@ async function syncMailbox(
       };
     }
 
-    // Batch: only process a subset of new UIDs if batchSize is set
+    // Process newest first — keeps the minUid:* IMAP range tight
+    newUids.sort((a, b) => b - a);
     const batch = batchSize ? newUids.slice(0, batchSize) : newUids;
     const remaining = newUids.length - batch.length;
 
