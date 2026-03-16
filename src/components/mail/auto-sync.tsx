@@ -16,12 +16,13 @@ interface ConnectionResult {
   success: boolean;
   results: SyncResultData[];
   error?: string;
+  locked?: boolean;
 }
 
 interface SyncResponse {
   success: boolean;
   results: ConnectionResult[];
-  importing?: boolean;
+  locked?: boolean;
   wokenSnoozes?: number;
 }
 
@@ -29,11 +30,20 @@ export function AutoSync() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [importing, setImporting] = useState(false);
+  const [lockHeld, setLockHeld] = useState(false);
   const [progress, setProgress] = useState<{
     synced: number;
     total: number;
     remaining: number;
   } | null>(null);
+
+  // Dismiss timer cleanup
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    return () => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, []);
 
   // Stable ref to router for SSE handler
   const routerRef = useRef(router);
@@ -102,6 +112,13 @@ export function AutoSync() {
       data.results?.flatMap((cr) => cr.results ?? []) ?? [];
 
     if (importing) {
+      // Another sync holds the lock — wait for it to clear
+      if (data.locked) {
+        setLockHeld(true);
+        return;
+      }
+      setLockHeld(false);
+
       const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
       if (total > 0) {
         const synced = flat.reduce((s, r) => s + r.totalCached, 0);
@@ -109,12 +126,17 @@ export function AutoSync() {
         setProgress({ synced, total, remaining });
 
         if (remaining === 0) {
-          setImporting(false);
-          setProgress(null);
+          router.refresh();
+          if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = setTimeout(() => {
+            setImporting(false);
+            setProgress(null);
+          }, 2_000);
+          return;
         }
         router.refresh();
       }
-      // When total === 0 (lock held, empty response), keep current progress
+      // When total === 0 (empty results but no lock), keep current progress
       return;
     }
 
@@ -128,6 +150,16 @@ export function AutoSync() {
 
   // Progress bar
   if (!importing) return null;
+
+  if (lockHeld) {
+    return (
+      <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
+        <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
+          <div className="text-sm font-medium">Sync in progress, waiting...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!progress) {
     return (

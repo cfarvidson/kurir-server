@@ -124,8 +124,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Run sync for each connection, collecting results
-  const allResults: Array<{ connectionId: string; success: boolean; results: unknown[]; error?: string }> = [];
-  let anyImporting = false;
+  const allResults: Array<{
+    connectionId: string;
+    success: boolean;
+    results: unknown[];
+    error?: string;
+    locked?: boolean;
+  }> = [];
 
   for (const connectionId of connectionIds) {
     const locked = await claimSyncLock(connectionId);
@@ -136,8 +141,12 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      anyImporting = true;
-      allResults.push({ connectionId, success: true, results: [] });
+      allResults.push({
+        connectionId,
+        success: true,
+        results: [],
+        locked: true,
+      });
       continue;
     }
 
@@ -169,7 +178,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     results: allResults,
-    importing: anyImporting,
+    locked: allResults.some((r) => r.locked),
     wokenSnoozes,
   });
 }
