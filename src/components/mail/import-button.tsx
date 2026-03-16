@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, RotateCcw } from "lucide-react";
 
@@ -12,7 +11,6 @@ interface ImportButtonProps {
 export function ImportButton({ mode = "import" }: ImportButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [triggered, setTriggered] = useState(false);
-  const queryClient = useQueryClient();
 
   function handleImport() {
     if (mode === "resync") {
@@ -20,35 +18,33 @@ export function ImportButton({ mode = "import" }: ImportButtonProps) {
         "This will erase all cached mail AND sender decisions, then re-import everything from IMAP. All senders will return to the Screener. Continue?",
       );
       if (!confirmed) return;
+
+      // Resync needs to clear data first, so we await the initial request
+      startTransition(async () => {
+        const res = await fetch("/api/mail/sync?batchSize=200&resync=1", {
+          method: "POST",
+        });
+        if (!res.ok) {
+          let message = "Failed to start resync.";
+          try {
+            const body = (await res.json()) as { error?: string };
+            if (body.error) message = body.error;
+          } catch {
+            // Ignore JSON parse errors
+          }
+          window.alert(message);
+          return;
+        }
+        setTriggered(true);
+        window.dispatchEvent(new CustomEvent("start-import"));
+      });
+      return;
     }
 
-    startTransition(async () => {
-      const url =
-        mode === "resync"
-          ? "/api/mail/sync?batchSize=200&resync=1"
-          : "/api/mail/sync?batchSize=200";
-
-      const response = await fetch(url, { method: "POST" });
-      if (!response.ok) {
-        let message = "Failed to start sync.";
-        try {
-          const body = (await response.json()) as { error?: string };
-          if (body.error) {
-            message = body.error;
-          }
-        } catch {
-          // Ignore JSON parse errors and keep generic message.
-        }
-        window.alert(message);
-        return;
-      }
-
-      setTriggered(true);
-      // Tell AutoSync to enter import mode with progress bar
-      window.dispatchEvent(new CustomEvent("start-import"));
-      // Invalidate the mail-sync query so AutoSync picks up the remaining count
-      queryClient.invalidateQueries({ queryKey: ["mail-sync"] });
-    });
+    // Regular import: just enter import mode immediately.
+    // AutoSync handles all syncing — no duplicate fetch that holds the lock.
+    setTriggered(true);
+    window.dispatchEvent(new CustomEvent("start-import"));
   }
 
   return (

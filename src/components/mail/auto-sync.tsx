@@ -29,6 +29,11 @@ export function AutoSync() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState<{
+    synced: number;
+    total: number;
+    remaining: number;
+  } | null>(null);
 
   // Stable ref to router for SSE handler
   const routerRef = useRef(router);
@@ -66,6 +71,13 @@ export function AutoSync() {
     return () => window.removeEventListener("start-import", handler);
   }, []);
 
+  // When importing starts, trigger an immediate refetch with batchSize
+  useEffect(() => {
+    if (importing) {
+      queryClient.invalidateQueries({ queryKey: ["mail-sync"] });
+    }
+  }, [importing, queryClient]);
+
   const { data } = useQuery<SyncResponse>({
     queryKey: ["mail-sync"],
     queryFn: async () => {
@@ -80,25 +92,29 @@ export function AutoSync() {
     refetchIntervalInBackground: false,
   });
 
-  // Flatten results
-  const flat: SyncResultData[] =
-    data?.results?.flatMap((cr) => cr.results ?? []) ?? [];
-
-  // Handle side effects
-  const prevRef = useRef<SyncResponse | null>(null);
+  // Handle sync results — only update progress when we get real data
+  const prevDataRef = useRef<SyncResponse | null>(null);
   useEffect(() => {
-    if (!data || data === prevRef.current) return;
-    prevRef.current = data;
+    if (!data || data === prevDataRef.current) return;
+    prevDataRef.current = data;
 
-    if (importing && flat.length > 0) {
-      const hasRemaining = flat.some((r) => r.remaining > 0);
-      if (!hasRemaining) {
-        setImporting(false);
+    const flat: SyncResultData[] =
+      data.results?.flatMap((cr) => cr.results ?? []) ?? [];
+
+    if (importing) {
+      const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
+      if (total > 0) {
+        const synced = flat.reduce((s, r) => s + r.totalCached, 0);
+        const remaining = flat.reduce((s, r) => s + r.remaining, 0);
+        setProgress({ synced, total, remaining });
+
+        if (remaining === 0) {
+          setImporting(false);
+          setProgress(null);
+        }
         router.refresh();
-        return;
       }
-      // Refresh on each batch to show new messages
-      router.refresh();
+      // When total === 0 (lock held, empty response), keep current progress
       return;
     }
 
@@ -108,16 +124,12 @@ export function AutoSync() {
     if (hasNew || hasWoken) {
       router.refresh();
     }
-  }, [data, router, importing, flat]);
+  }, [data, router, importing]);
 
   // Progress bar
   if (!importing) return null;
 
-  const synced = flat.reduce((s, r) => s + r.totalCached, 0);
-  const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
-  const remaining = flat.reduce((s, r) => s + r.remaining, 0);
-
-  if (total === 0) {
+  if (!progress) {
     return (
       <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
         <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
@@ -127,15 +139,15 @@ export function AutoSync() {
     );
   }
 
-  const percent = Math.round((synced / total) * 100);
+  const percent = Math.round((progress.synced / progress.total) * 100);
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
       <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="text-sm font-medium">
-            {remaining > 0
-              ? `Importing: ${synced.toLocaleString()} / ${total.toLocaleString()}`
+            {progress.remaining > 0
+              ? `Importing: ${progress.synced.toLocaleString()} / ${progress.total.toLocaleString()}`
               : "Import complete!"}
           </div>
           <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
