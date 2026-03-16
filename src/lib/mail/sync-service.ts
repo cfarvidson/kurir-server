@@ -234,20 +234,36 @@ async function syncMailbox(
     const batch = batchSize ? newUids.slice(0, batchSize) : newUids;
     const remaining = newUids.length - batch.length;
 
-    // Build a fetch range: use min:max UID range to limit what we download
+    // Fetch new messages by UID range. Use minUid:* first; if the server
+    // rejects it (UID doesn't exist), fall back to 1:* and filter.
     const batchSet = new Set(batch);
     const minUid = Math.min(...batch);
-    const fetchRange = `${minUid}:*`;
+    let fetchRange = `${minUid}:*`;
+
+    const fetchOpts = {
+      uid: true,
+      envelope: true,
+      internalDate: true,
+      flags: true,
+      bodyStructure: true,
+      source: true,
+    } as const;
+
+    async function* resilientFetch() {
+      try {
+        yield* client.fetch(fetchRange, fetchOpts);
+      } catch (rangeErr) {
+        console.warn(
+          `[sync] ${mailboxPath}: range fetch ${fetchRange} failed, falling back to 1:*`,
+          rangeErr,
+        );
+        fetchRange = "1:*";
+        yield* client.fetch("1:*", fetchOpts);
+      }
+    }
 
     try {
-      for await (const msg of client.fetch(fetchRange, {
-        uid: true,
-        envelope: true,
-        internalDate: true,
-        flags: true,
-        bodyStructure: true,
-        source: true,
-      })) {
+      for await (const msg of resilientFetch()) {
         const msgUid = Number(msg.uid);
         if (!batchSet.has(msgUid)) {
           continue;
