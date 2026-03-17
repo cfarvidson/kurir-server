@@ -105,10 +105,7 @@ async function syncAndNotify() {
             log,
           );
 
-          totalNew += result.results.reduce(
-            (sum, r) => sum + r.newMessages,
-            0,
-          );
+          totalNew += result.results.reduce((sum, r) => sum + r.newMessages, 0);
         } catch (err) {
           await releaseSyncLock(conn.id, String(err));
         }
@@ -144,7 +141,7 @@ async function syncAndNotify() {
             pushToUser(user.id, {
               title: m.fromName || m.fromAddress,
               body: m.subject || "(no subject)",
-              url: `/imbox/${m.threadId || m.id}`,
+              url: `/imbox/${m.id}`,
               tag: m.threadId || m.id,
             }).catch((err) => console.error("[bg-sync] push error:", err));
           }

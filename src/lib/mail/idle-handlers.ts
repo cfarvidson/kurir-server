@@ -47,12 +47,12 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
         key,
         setTimeout(() => {
           conn.debounceTimers.delete(key);
-          handleNewMessages(connectionId, userId, folderId, client).catch((err) =>
-            console.error("[idle] handleNewMessages error:", err)
+          handleNewMessages(connectionId, userId, folderId, client).catch(
+            (err) => console.error("[idle] handleNewMessages error:", err),
           );
-        }, 200)
+        }, 200),
       );
-    })
+    }),
   );
 
   // --- expunge: message permanently removed ---
@@ -61,18 +61,29 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
     safeAsync(async (data: { seq?: number; uid?: number }) => {
       if (!data.uid) return; // should not happen with qresync
       await handleExpunge(userId, folderId, data.uid);
-    })
+    }),
   );
 
   // --- flags: flag change on existing message ---
   client.on(
     "flags",
     safeAsync(
-      async (data: { seq?: number; uid?: number; flags?: Set<string>; modseq?: bigint }) => {
+      async (data: {
+        seq?: number;
+        uid?: number;
+        flags?: Set<string>;
+        modseq?: bigint;
+      }) => {
         if (!data.uid || !data.flags) return;
-        await handleFlagChange(userId, folderId, data.uid, data.flags, data.modseq);
-      }
-    )
+        await handleFlagChange(
+          userId,
+          folderId,
+          data.uid,
+          data.flags,
+          data.modseq,
+        );
+      },
+    ),
   );
 }
 
@@ -84,10 +95,12 @@ async function handleNewMessages(
   connectionId: string,
   userId: string,
   folderId: string,
-  client: ImapFlow
+  client: ImapFlow,
 ): Promise<void> {
   // Skip if full sync is running for this connection
-  const syncState = await db.syncState.findUnique({ where: { emailConnectionId: connectionId } });
+  const syncState = await db.syncState.findUnique({
+    where: { emailConnectionId: connectionId },
+  });
   if (syncState?.isSyncing) return;
 
   // Find highest UID we already have for this folder
@@ -137,11 +150,21 @@ async function handleNewMessages(
       if (exists) continue;
 
       const { processMessage } = await import("./sync-service");
-      const userEmails = [emailConn?.email, emailConn?.sendAsEmail, ...(emailConn?.aliases ?? [])].filter(Boolean) as string[];
-      const message = await processMessage(msg, userId, connectionId, folderId, {
-        isInbox: true,
-        userEmails,
-      });
+      const userEmails = [
+        emailConn?.email,
+        emailConn?.sendAsEmail,
+        ...(emailConn?.aliases ?? []),
+      ].filter(Boolean) as string[];
+      const message = await processMessage(
+        msg,
+        userId,
+        connectionId,
+        folderId,
+        {
+          isInbox: true,
+          userEmails,
+        },
+      );
       count++;
 
       // Collect Imbox messages for push notifications
@@ -154,7 +177,9 @@ async function handleNewMessages(
   }
 
   if (count > 0) {
-    console.log(`[idle] ${count} new message(s) for connection ${connectionId}`);
+    console.log(
+      `[idle] ${count} new message(s) for connection ${connectionId}`,
+    );
     emitToUser(userId, { type: "new-messages", data: { folderId, count } });
   }
 
@@ -170,7 +195,7 @@ async function handleNewMessages(
       pushToUser(userId, {
         title: m.fromName || m.fromAddress,
         body: m.subject || "(no subject)",
-        url: `/imbox/${m.threadId || m.id}`,
+        url: `/imbox/${m.id}`,
         tag: m.threadId || m.id,
       }).catch((err) => console.error("[push] error:", err));
     }
@@ -183,7 +208,7 @@ async function handleNewMessages(
 async function handleExpunge(
   userId: string,
   folderId: string,
-  uid: number
+  uid: number,
 ): Promise<void> {
   if (isEcho(userId, folderId, uid)) return;
 
@@ -202,7 +227,10 @@ async function handleExpunge(
   });
 
   console.log(`[idle] Message expunged: uid=${uid} folder=${folderId}`);
-  emitToUser(userId, { type: "message-deleted", data: { messageId: message.id } });
+  emitToUser(userId, {
+    type: "message-deleted",
+    data: { messageId: message.id },
+  });
 }
 
 /**
@@ -213,13 +241,20 @@ async function handleFlagChange(
   folderId: string,
   uid: number,
   flags: Set<string>,
-  modseq?: bigint
+  modseq?: bigint,
 ): Promise<void> {
   if (isEcho(userId, folderId, uid)) return;
 
   const message = await db.message.findFirst({
     where: { folderId, uid },
-    select: { id: true, isRead: true, isFlagged: true, isAnswered: true, isDeleted: true, isDraft: true },
+    select: {
+      id: true,
+      isRead: true,
+      isFlagged: true,
+      isAnswered: true,
+      isDeleted: true,
+      isDraft: true,
+    },
   });
   if (!message) return;
 
@@ -268,7 +303,7 @@ async function handleFlagChange(
 export async function catchUpAfterReconnect(
   client: ImapFlow,
   connectionId: string,
-  folderId: string
+  folderId: string,
 ): Promise<void> {
   const folder = await db.folder.findUnique({
     where: { id: folderId },
@@ -290,13 +325,20 @@ export async function catchUpAfterReconnect(
     for await (const msg of client.fetch(
       "1:*",
       { flags: true },
-      { uid: true, changedSince: folder.highestModSeq }
+      { uid: true, changedSince: folder.highestModSeq },
     )) {
       if (!msg.uid || !msg.flags) continue;
 
       const dbMsg = await db.message.findFirst({
         where: { folderId, uid: msg.uid },
-        select: { id: true, isRead: true, isFlagged: true, isAnswered: true, isDeleted: true, isDraft: true },
+        select: {
+          id: true,
+          isRead: true,
+          isFlagged: true,
+          isAnswered: true,
+          isDeleted: true,
+          isDraft: true,
+        },
       });
       if (!dbMsg) continue;
 
@@ -337,6 +379,8 @@ export async function catchUpAfterReconnect(
   }
 
   if (changeCount > 0) {
-    console.log(`[idle] Catch-up: ${changeCount} flag changes for connection ${connectionId}`);
+    console.log(
+      `[idle] Catch-up: ${changeCount} flag changes for connection ${connectionId}`,
+    );
   }
 }

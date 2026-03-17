@@ -72,7 +72,11 @@ async function claimSyncLock(emailConnectionId: string): Promise<boolean> {
   return claimed.count > 0;
 }
 
-async function releaseSyncLock(emailConnectionId: string, error?: string, log?: string) {
+async function releaseSyncLock(
+  emailConnectionId: string,
+  error?: string,
+  log?: string,
+) {
   await db.syncState.updateMany({
     where: { emailConnectionId },
     data: {
@@ -126,7 +130,10 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
     if (!conn) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 },
+      );
     }
     connectionIds = [connectionIdParam];
   } else {
@@ -139,7 +146,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (connectionIds.length === 0) {
-    return NextResponse.json({ error: "No email connections found" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No email connections found" },
+      { status: 400 },
+    );
   }
 
   // Run sync for each connection, collecting results
@@ -156,8 +166,11 @@ export async function POST(request: NextRequest) {
     if (!locked) {
       if (shouldResync) {
         return NextResponse.json(
-          { error: "Sync already in progress. Wait for it to finish, then retry resync." },
-          { status: 409 }
+          {
+            error:
+              "Sync already in progress. Wait for it to finish, then retry resync.",
+          },
+          { status: 409 },
         );
       }
       allResults.push({
@@ -182,14 +195,28 @@ export async function POST(request: NextRequest) {
       const log = buildSyncLog(result.results);
       if (!result.success) {
         await releaseSyncLock(connectionId, result.error, log);
-        allResults.push({ connectionId, success: false, results: result.results, error: result.error });
+        allResults.push({
+          connectionId,
+          success: false,
+          results: result.results,
+          error: result.error,
+        });
       } else {
         await releaseSyncLock(connectionId, undefined, log);
-        allResults.push({ connectionId, success: true, results: result.results });
+        allResults.push({
+          connectionId,
+          success: true,
+          results: result.results,
+        });
       }
     } catch (err) {
       await releaseSyncLock(connectionId, String(err));
-      allResults.push({ connectionId, success: false, results: [], error: String(err) });
+      allResults.push({
+        connectionId,
+        success: false,
+        results: [],
+        error: String(err),
+      });
     }
   }
 
@@ -198,11 +225,15 @@ export async function POST(request: NextRequest) {
   // Send push notifications for new Imbox messages found during this sync
   const totalNew = allResults.reduce((sum, r) => {
     const results = r.results as SyncResult[];
-    return sum + (results?.reduce?.((s, sr) => s + (sr.newMessages || 0), 0) ?? 0);
+    return (
+      sum + (results?.reduce?.((s, sr) => s + (sr.newMessages || 0), 0) ?? 0)
+    );
   }, 0);
 
   if (totalNew > 0) {
-    console.log(`[push] Sync found ${totalNew} new messages, checking for Imbox messages...`);
+    console.log(
+      `[push] Sync found ${totalNew} new messages, checking for Imbox messages...`,
+    );
 
     // Find Imbox messages created in the last 2 minutes (this sync window)
     const recentImbox = await db.message.findMany({
@@ -233,11 +264,13 @@ export async function POST(request: NextRequest) {
       }
 
       for (const m of byThread.values()) {
-        console.log(`[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`);
+        console.log(
+          `[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`,
+        );
         pushToUser(userId, {
           title: m.fromName || m.fromAddress,
           body: m.subject || "(no subject)",
-          url: `/imbox/${m.threadId || m.id}`,
+          url: `/imbox/${m.id}`,
           tag: m.threadId || m.id,
         }).catch((err) => console.error("[push] sync error:", err));
       }
