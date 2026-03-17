@@ -97,10 +97,7 @@ export function MessageRow({
     : `${basePath}/${message.id}`;
   const hasThread = (message.threadCount ?? 0) > 1;
 
-  const handleArchive = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Optimistically remove row, then run action, then refresh from server
+  const doArchive = () => {
     onArchived?.(message.id);
     startTransition(async () => {
       await archiveConversation(message.id);
@@ -108,14 +105,24 @@ export function MessageRow({
     });
   };
 
-  const handleUnarchive = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const doUnarchive = () => {
     onArchived?.(message.id);
     startTransition(async () => {
       await unarchiveConversation(message.id);
       router.refresh();
     });
+  };
+
+  const handleArchive = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    doArchive();
+  };
+
+  const handleUnarchive = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    doUnarchive();
   };
 
   const handleSnooze = (until: Date) => {
@@ -126,25 +133,16 @@ export function MessageRow({
     });
   };
 
-  const handleSwipeArchive = () => {
-    onArchived?.(message.id);
-    startTransition(async () => {
-      await archiveConversation(message.id);
-      router.refresh();
-    });
-  };
-
-  const handleSwipeUnarchive = () => {
-    onArchived?.(message.id);
-    startTransition(async () => {
-      await unarchiveConversation(message.id);
-      router.refresh();
-    });
-  };
-
-  const handleSwipeLeft = () => {
-    setSnoozeOpen(true);
-  };
+  // Swipe config — derived from action props
+  const swipeRightAction = showArchiveAction
+    ? doArchive
+    : showUnarchiveAction
+      ? doUnarchive
+      : undefined;
+  const swipeRightIcon = showUnarchiveAction
+    ? <ArchiveRestore className="h-5 w-5" />
+    : undefined;
+  const swipeRightColor = showUnarchiveAction ? "bg-blue-500" : undefined;
 
   const handleClick = (e: React.MouseEvent) => {
     if (isDragging.current) {
@@ -292,8 +290,8 @@ export function MessageRow({
         </div>
       )}
 
-      {/* Controlled SnoozePicker for swipe-left on mobile */}
-      {showSnoozeAction && !isSelectionMode && (
+      {/* Controlled SnoozePicker for swipe-left on mobile — lazy-mounted */}
+      {showSnoozeAction && !isSelectionMode && snoozeOpen && (
         <SnoozePicker
           onSnooze={handleSnooze}
           isPending={isPending}
@@ -306,17 +304,6 @@ export function MessageRow({
       )}
     </>
   );
-
-  // Determine swipe callbacks based on action props
-  const swipeRightAction = showArchiveAction
-    ? handleSwipeArchive
-    : showUnarchiveAction
-      ? handleSwipeUnarchive
-      : undefined;
-  const swipeRightIcon = showUnarchiveAction
-    ? <ArchiveRestore className="h-5 w-5" />
-    : undefined;
-  const swipeRightColor = showUnarchiveAction ? "bg-blue-500" : undefined;
 
   // In selection mode, render as div without swipe (swipe disabled)
   if (isSelectionMode) {
@@ -338,7 +325,7 @@ export function MessageRow({
   return (
     <SwipeableRow
       onSwipeRight={swipeRightAction}
-      onSwipeLeft={showSnoozeAction ? handleSwipeLeft : undefined}
+      onSwipeLeft={showSnoozeAction ? () => setSnoozeOpen(true) : undefined}
       swipeRightIcon={swipeRightIcon}
       swipeRightColor={swipeRightColor}
       disabled={isPending}

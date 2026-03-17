@@ -180,8 +180,8 @@ export function InfiniteMessageList({
     return (
       <motion.div
         key={message.id}
-        exit={{ opacity: 0, height: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
       >
         <MessageRow
           message={message}

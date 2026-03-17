@@ -68,11 +68,13 @@ export function SwipeableRow({
 
     if (
       onSwipeRight &&
+      info.offset.x > 0 &&
       (info.offset.x > threshold || info.velocity.x > velocityThreshold)
     ) {
       onSwipeRight();
     } else if (
       onSwipeLeft &&
+      info.offset.x < 0 &&
       (info.offset.x < -threshold || info.velocity.x < -velocityThreshold)
     ) {
       onSwipeLeft();
