@@ -1,215 +1,231 @@
 "use client";
 
-import {
-  useRef,
-  useState,
-  useCallback,
-  useEffect,
-  useTransition,
-} from "react";
+import { useRef, useEffect, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
 
-const THRESHOLD = 60;
-const MAX_PULL = 120;
+const THRESHOLD = 64;
+const MAX_PULL = 128;
 const DIRECTION_LOCK_DISTANCE = 10;
 
+/**
+ * Native-feeling pull-to-refresh for iOS PWA standalone mode.
+ *
+ * All gesture animation is done via direct DOM manipulation (no React
+ * state during touch) for 60fps. Only the refreshing/done states use
+ * React state to trigger the RSC refresh via useTransition.
+ */
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const spinnerRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Refs for touch tracking (avoid re-renders during gesture)
-  const touchStartY = useRef(0);
-  const touchStartX = useRef(0);
-  const isPulling = useRef(false);
-  const directionLocked = useRef<"vertical" | "horizontal" | null>(null);
-  const pullDistanceRef = useRef(0);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // All mutable gesture state lives in a single ref object — no React re-renders.
+  const state = useRef({
+    startY: 0,
+    startX: 0,
+    pulling: false,
+    refreshing: false,
+    direction: null as "vertical" | "horizontal" | null,
+    distance: 0,
+  });
 
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => timersRef.current.forEach(clearTimeout);
+  const applyTransform = useCallback((distance: number, animate: boolean) => {
+    const content = contentRef.current;
+    const spinner = spinnerRef.current;
+    if (!content || !spinner) return;
+
+    const transition = animate ? "transform 0.3s cubic-bezier(0.2, 0, 0, 1)" : "none";
+    content.style.transition = transition;
+    content.style.transform = `translate3d(0, ${distance}px, 0)`;
+
+    spinner.style.transition = transition;
+    spinner.style.transform = `translate3d(0, ${distance - 40}px, 0)`;
+    spinner.style.opacity = String(Math.min(distance / THRESHOLD, 1));
+
+    const svg = spinner.querySelector("svg");
+    if (svg) {
+      // Rotate proportionally during drag, spin continuously while refreshing
+      if (!state.current.refreshing) {
+        svg.style.transform = `rotate(${(distance / MAX_PULL) * 360}deg)`;
+        svg.classList.remove("ptr-spinning");
+      }
+    }
   }, []);
 
-  // Dismiss spinner when RSC render settles
-  useEffect(() => {
-    if (isRefreshing && !isPending) {
-      setIsTransitioning(true);
-      pullDistanceRef.current = 0;
-      setPullDistance(0);
-      const id = setTimeout(() => {
-        setIsRefreshing(false);
-        setIsTransitioning(false);
-      }, 300);
-      timersRef.current.push(id);
-    }
-  }, [isRefreshing, isPending]);
+  // The scroll container is <main>, the direct parent of our wrapper div
+  const getScrollParent = useCallback(() => {
+    return wrapperRef.current?.parentElement ?? null;
+  }, []);
 
-  const handleTouchStart = useCallback(
-    (e: TouchEvent) => {
-      if (isRefreshing) return;
-      // The scroll container is the <main> parent
-      const scrollParent = containerRef.current?.parentElement;
+  // Start refreshing — called once on release past threshold
+  const doRefresh = useCallback(() => {
+    const s = state.current;
+    s.refreshing = true;
+    s.distance = THRESHOLD;
+    applyTransform(THRESHOLD, true);
+
+    const svg = spinnerRef.current?.querySelector("svg");
+    if (svg) {
+      svg.style.transform = "";
+      svg.classList.add("ptr-spinning");
+    }
+
+    startTransition(() => {
+      router.refresh();
+    });
+  }, [applyTransform, router, startTransition]);
+
+  // Reset to resting position
+  const reset = useCallback((animate: boolean) => {
+    const s = state.current;
+    s.distance = 0;
+    s.pulling = false;
+    s.direction = null;
+    applyTransform(0, animate);
+
+    if (animate) {
+      // Clean up after animation
+      setTimeout(() => {
+        s.refreshing = false;
+        const svg = spinnerRef.current?.querySelector("svg");
+        if (svg) svg.classList.remove("ptr-spinning");
+      }, 300);
+    } else {
+      s.refreshing = false;
+    }
+  }, [applyTransform]);
+
+  // Dismiss when RSC render settles
+  useEffect(() => {
+    if (state.current.refreshing && !isPending) {
+      reset(true);
+    }
+  }, [isPending, reset]);
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    function onTouchStart(e: TouchEvent) {
+      const s = state.current;
+      if (s.refreshing) return;
+
+      const scrollParent = getScrollParent();
       if (!scrollParent || scrollParent.scrollTop > 0) return;
 
-      touchStartY.current = e.touches[0].clientY;
-      touchStartX.current = e.touches[0].clientX;
-      isPulling.current = true;
-      directionLocked.current = null;
-      setIsTransitioning(false);
-    },
-    [isRefreshing],
-  );
+      s.startY = e.touches[0].clientY;
+      s.startX = e.touches[0].clientX;
+      s.pulling = true;
+      s.direction = null;
 
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!isPulling.current || isRefreshing) return;
+      // Remove transition so drag follows finger immediately
+      const content = contentRef.current;
+      const spinner = spinnerRef.current;
+      if (content) content.style.transition = "none";
+      if (spinner) spinner.style.transition = "none";
+    }
 
-      const deltaY = e.touches[0].clientY - touchStartY.current;
-      const deltaX = e.touches[0].clientX - touchStartX.current;
+    function onTouchMove(e: TouchEvent) {
+      const s = state.current;
+      if (!s.pulling || s.refreshing) return;
 
-      // Direction lock: decide once whether this is vertical or horizontal
-      if (directionLocked.current === null) {
-        const totalMovement = Math.abs(deltaX) + Math.abs(deltaY);
-        if (totalMovement > DIRECTION_LOCK_DISTANCE) {
-          directionLocked.current =
-            Math.abs(deltaY) > Math.abs(deltaX) ? "vertical" : "horizontal";
+      const dy = e.touches[0].clientY - s.startY;
+      const dx = e.touches[0].clientX - s.startX;
+
+      // Direction lock
+      if (s.direction === null) {
+        const total = Math.abs(dx) + Math.abs(dy);
+        if (total > DIRECTION_LOCK_DISTANCE) {
+          s.direction = Math.abs(dy) > Math.abs(dx) ? "vertical" : "horizontal";
         }
       }
 
-      // If locked horizontal, abort — let SwipeableRow handle it
-      if (directionLocked.current === "horizontal") {
-        isPulling.current = false;
-        directionLocked.current = null;
-        pullDistanceRef.current = 0;
-        setPullDistance(0);
+      if (s.direction === "horizontal") {
+        s.pulling = false;
+        s.direction = null;
+        applyTransform(0, false);
         return;
       }
 
-      // Only pull down, not up
-      if (deltaY <= 0) {
-        pullDistanceRef.current = 0;
-        setPullDistance(0);
+      if (dy <= 0) {
+        applyTransform(0, false);
         return;
       }
 
-      // Check scroll position again (user might have scrolled during touch)
-      const scrollParent = containerRef.current?.parentElement;
+      // Re-check scroll position
+      const scrollParent = getScrollParent();
       if (scrollParent && scrollParent.scrollTop > 0) {
-        isPulling.current = false;
-        pullDistanceRef.current = 0;
-        setPullDistance(0);
+        s.pulling = false;
+        applyTransform(0, false);
         return;
       }
 
-      // Dampen the pull with diminishing returns
-      const dampened = Math.min(deltaY * 0.5, MAX_PULL);
-      pullDistanceRef.current = dampened;
-      setPullDistance(dampened);
+      // Exponential dampening — feels like rubber band
+      const ratio = Math.min(dy / (MAX_PULL * 2.5), 1);
+      const dampened = MAX_PULL * (1 - Math.pow(1 - ratio, 3));
+      s.distance = dampened;
+      applyTransform(dampened, false);
 
-      // Prevent native scroll while pulling
       if (dampened > 0) {
         e.preventDefault();
       }
-    },
-    [isRefreshing],
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isPulling.current) return;
-    isPulling.current = false;
-    directionLocked.current = null;
-
-    const distance = pullDistanceRef.current;
-
-    if (distance >= THRESHOLD && !isRefreshing) {
-      setIsRefreshing(true);
-      setIsTransitioning(true);
-      pullDistanceRef.current = THRESHOLD;
-      setPullDistance(THRESHOLD);
-
-      // Trigger refresh inside a transition so isPending tracks completion
-      startTransition(() => {
-        router.refresh();
-      });
-    } else {
-      setIsTransitioning(true);
-      pullDistanceRef.current = 0;
-      setPullDistance(0);
-      const id = setTimeout(() => setIsTransitioning(false), 300);
-      timersRef.current.push(id);
     }
-  }, [isRefreshing, router, startTransition]);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    function onTouchEnd() {
+      const s = state.current;
+      if (!s.pulling) return;
+      s.pulling = false;
+      s.direction = null;
 
-    // Use { passive: false } on touchmove so we can preventDefault
-    container.addEventListener("touchstart", handleTouchStart, {
-      passive: true,
-    });
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    });
-    container.addEventListener("touchend", handleTouchEnd, { passive: true });
+      if (s.distance >= THRESHOLD) {
+        doRefresh();
+      } else {
+        reset(true);
+      }
+    }
+
+    wrapper.addEventListener("touchstart", onTouchStart, { passive: true });
+    wrapper.addEventListener("touchmove", onTouchMove, { passive: false });
+    wrapper.addEventListener("touchend", onTouchEnd, { passive: true });
 
     return () => {
-      container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove);
-      container.removeEventListener("touchend", handleTouchEnd);
+      wrapper.removeEventListener("touchstart", onTouchStart);
+      wrapper.removeEventListener("touchmove", onTouchMove);
+      wrapper.removeEventListener("touchend", onTouchEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
-
-  const isPastThreshold = pullDistance >= THRESHOLD;
-  const spinnerOpacity = Math.min(pullDistance / THRESHOLD, 1);
-  const spinnerScale = 0.5 + Math.min(pullDistance / THRESHOLD, 1) * 0.5;
+  }, [applyTransform, doRefresh, getScrollParent, reset]);
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* Pull indicator */}
+    <div ref={wrapperRef} className="relative">
+      {/* Spinner — sits above content, translated into view */}
       <div
-        className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-center overflow-hidden"
-        style={{
-          height: `${pullDistance}px`,
-          transition: isTransitioning ? "height 0.3s ease-out" : "none",
-        }}
+        ref={spinnerRef}
+        className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-center"
+        style={{ opacity: 0, transform: "translate3d(0, -40px, 0)" }}
       >
-        <div
-          style={{
-            opacity: spinnerOpacity,
-            transform: `scale(${spinnerScale})`,
-            transition: isTransitioning
-              ? "opacity 0.3s ease-out, transform 0.3s ease-out"
-              : "none",
-          }}
+        <svg
+          className="h-6 w-6 text-muted-foreground"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <RefreshCw
-            className={`h-6 w-6 text-muted-foreground ${
-              isRefreshing || isPastThreshold ? "animate-spin" : ""
-            }`}
-            style={{
-              transform: isRefreshing
-                ? undefined
-                : `rotate(${(pullDistance / MAX_PULL) * 360}deg)`,
-            }}
-          />
-        </div>
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+          <path d="M16 16h5v5" />
+        </svg>
       </div>
 
-      {/* Content pushed down by pull distance */}
-      <div
-        style={{
-          transform: `translate3d(0, ${pullDistance}px, 0)`,
-          transition: isTransitioning ? "transform 0.3s ease-out" : "none",
-        }}
-      >
-        {children}
-      </div>
+      {/* Content — translated down during pull */}
+      <div ref={contentRef}>{children}</div>
     </div>
   );
 }
