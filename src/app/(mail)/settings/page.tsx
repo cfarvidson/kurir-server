@@ -12,6 +12,7 @@ import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 
 async function getUserStats(userId: string, excludedEmails: string[]) {
   const [
@@ -236,6 +237,14 @@ export default async function SettingsPage() {
 
             <div className="mt-4">
               <ConnectionsList connections={connections} />
+            </div>
+          </section>
+
+          {/* Notifications */}
+          <section>
+            <h2 className="text-lg font-medium">Notifications</h2>
+            <div className="mt-4 rounded-lg border bg-card p-4">
+              <NotificationSettings />
             </div>
           </section>
 

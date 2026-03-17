@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import { db } from "@/lib/db";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
+import { pushToUser } from "./push-sender";
 import type { EmailConnectionConn } from "./connection-manager";
 
 /**
@@ -100,6 +101,13 @@ async function handleNewMessages(
   // Fetch new messages (uid > lastUid)
   const fetchRange = `${lastUid + 1}:*`;
   let count = 0;
+  const newImboxMessages: Array<{
+    fromName: string | null;
+    fromAddress: string;
+    subject: string | null;
+    threadId: string | null;
+    id: string;
+  }> = [];
 
   // Look up the email for this connection (for auto-approve logic)
   const emailConn = await db.emailConnection.findUnique({
@@ -127,11 +135,16 @@ async function handleNewMessages(
 
       const { processMessage } = await import("./sync-service");
       const userEmails = [emailConn?.email, emailConn?.sendAsEmail, ...(emailConn?.aliases ?? [])].filter(Boolean) as string[];
-      await processMessage(msg, userId, connectionId, folderId, {
+      const message = await processMessage(msg, userId, connectionId, folderId, {
         isInbox: true,
         userEmails,
       });
       count++;
+
+      // Collect Imbox messages for push notifications
+      if (message?.isInImbox) {
+        newImboxMessages.push(message);
+      }
     }
   } catch (err) {
     console.error("[idle] fetch new messages error:", err);
@@ -140,6 +153,24 @@ async function handleNewMessages(
   if (count > 0) {
     console.log(`[idle] ${count} new message(s) for connection ${connectionId}`);
     emitToUser(userId, { type: "new-messages", data: { folderId, count } });
+  }
+
+  // Send push notifications for new Imbox messages (fire-and-forget)
+  if (newImboxMessages.length > 0) {
+    // Dedupe by threadId — only latest message per thread
+    const byThread = new Map<string, (typeof newImboxMessages)[0]>();
+    for (const m of newImboxMessages) {
+      byThread.set(m.threadId || m.id, m);
+    }
+
+    for (const m of byThread.values()) {
+      pushToUser(userId, {
+        title: m.fromName || m.fromAddress,
+        body: m.subject || "(no subject)",
+        url: `/imbox/${m.threadId || m.id}`,
+        tag: m.threadId || m.id,
+      }).catch((err) => console.error("[push] error:", err));
+    }
   }
 }
 

@@ -33,6 +33,7 @@ model User {
   senders          Sender[]
   folders          Folder[]
   sessions         Session[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Passkey {
@@ -330,6 +331,26 @@ model Attachment {
 model SystemSettings {
   id             String  @id @default("singleton")
   signupsEnabled Boolean @default(true)
+}
+
+// ============================================
+// PUSH NOTIFICATIONS
+// ============================================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Web Push subscription data
+  endpoint String @unique // Push service URL (always https://)
+  p256dh   String // Public key for payload encryption (base64url)
+  auth     String // Auth secret (base64url)
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ============================================

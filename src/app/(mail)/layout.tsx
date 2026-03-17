@@ -40,13 +40,6 @@ const getImboxUnreadCount = unstable_cache(
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
-const getSnoozedCount = unstable_cache(
-  async (userId: string) =>
-    db.message.count({ where: { userId, isSnoozed: true } }),
-  ["snoozed-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
 export default async function MailLayout({
   children,
 }: {
@@ -60,10 +53,9 @@ export default async function MailLayout({
 
   const userEmails = await getUserEmails(session.user.id);
 
-  const [screenerCount, imboxUnreadCount, snoozedCount] = await Promise.all([
+  const [screenerCount, imboxUnreadCount] = await Promise.all([
     getScreenerCount(session.user.id, userEmails),
     getImboxUnreadCount(session.user.id),
-    getSnoozedCount(session.user.id),
   ]);
 
   // Start IDLE for all email connections (no-op if already connected)
@@ -75,12 +67,10 @@ export default async function MailLayout({
         <Sidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
-          snoozedCount={snoozedCount}
         />
         <MobileSidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
-          snoozedCount={snoozedCount}
         />
         <main className="flex-1 overflow-auto">{children}</main>
         <AutoSync />

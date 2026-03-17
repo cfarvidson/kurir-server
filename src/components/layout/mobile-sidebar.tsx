@@ -13,10 +13,9 @@ import { navigation } from "./navigation";
 interface MobileSidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
-  snoozedCount?: number;
 }
 
-export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: MobileSidebarProps) {
+export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: MobileSidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -34,12 +33,11 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozed
   // Reset deltas when server props change
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount, snoozedCount]);
+  }, [screenerCount, imboxUnreadCount]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
-    snoozed: Math.max(0, snoozedCount + (deltas.snoozed ?? 0)),
   };
 
   // Hide hamburger on detail/sub-pages that have their own back button

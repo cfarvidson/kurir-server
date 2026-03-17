@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { MessageList } from "@/components/mail/message-list";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
+import { PushNotificationBanner } from "@/components/mail/push-notification-banner";
 import { searchMessages } from "@/lib/mail/search";
 import { getMessages } from "@/lib/mail/messages";
 
@@ -28,6 +29,9 @@ export default async function ImboxPage({
         <h1 className="text-xl font-semibold md:text-2xl">Imbox</h1>
         <SearchInput />
       </div>
+
+      {/* Push notification discovery banner */}
+      <PushNotificationBanner />
 
       {/* Content */}
       <div className="flex-1 overflow-auto">

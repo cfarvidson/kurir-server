@@ -13,7 +13,6 @@ import { navigation } from "./navigation";
 interface SidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
-  snoozedCount?: number;
 }
 
 /**
@@ -26,7 +25,7 @@ export function badgeUpdate(key: string, delta: number) {
   );
 }
 
-export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount = 0 }: SidebarProps) {
+export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
 
@@ -43,12 +42,11 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0, snoozedCount 
   // Reset deltas when server props change (router.refresh() completed)
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount, snoozedCount]);
+  }, [screenerCount, imboxUnreadCount]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
-    snoozed: Math.max(0, snoozedCount + (deltas.snoozed ?? 0)),
   };
 
   return (
