@@ -31,6 +31,8 @@ builder:
   arch: amd64
   dockerfile: ./Dockerfile
   context: .
+  args:
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: BPaSrHVytY_NJEq5tdKs9COC0bXzovmSn0Wl8VbeAMrYZIGY6Iy2y8F4bc9sGjA5B_Vd9VDO6e0zKXyCOvXX2sg
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
