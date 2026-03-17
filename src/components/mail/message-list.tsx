@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
@@ -9,6 +9,7 @@ import { Archive, ArchiveRestore, AlarmClock, Clock, Check, Loader2, Paperclip, 
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
+import { SwipeableRow } from "@/components/mail/swipeable-row";
 
 export interface MessageItem {
   id: string;
@@ -86,6 +87,8 @@ export function MessageRow({
   onToggleSelect?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const isDragging = useRef(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const q = searchParams.get("q");
@@ -123,7 +126,31 @@ export function MessageRow({
     });
   };
 
+  const handleSwipeArchive = () => {
+    onArchived?.(message.id);
+    startTransition(async () => {
+      await archiveConversation(message.id);
+      router.refresh();
+    });
+  };
+
+  const handleSwipeUnarchive = () => {
+    onArchived?.(message.id);
+    startTransition(async () => {
+      await unarchiveConversation(message.id);
+      router.refresh();
+    });
+  };
+
+  const handleSwipeLeft = () => {
+    setSnoozeOpen(true);
+  };
+
   const handleClick = (e: React.MouseEvent) => {
+    if (isDragging.current) {
+      e.preventDefault();
+      return;
+    }
     // Shift-click enters/toggles selection
     if (e.shiftKey && onToggleSelect) {
       e.preventDefault();
@@ -213,10 +240,10 @@ export function MessageRow({
         )}
       </div>
 
-      {/* Hover action buttons (hidden in selection mode) */}
+      {/* Hover action buttons — hidden on mobile (swipe replaces them), hover-reveal on desktop */}
       {(showArchiveAction || showUnarchiveAction || showSnoozeAction) && !isSelectionMode && (
         <div
-          className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
+          className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -264,10 +291,34 @@ export function MessageRow({
           )}
         </div>
       )}
+
+      {/* Controlled SnoozePicker for swipe-left on mobile */}
+      {showSnoozeAction && !isSelectionMode && (
+        <SnoozePicker
+          onSnooze={handleSnooze}
+          isPending={isPending}
+          side="bottom"
+          align="center"
+          open={snoozeOpen}
+          onOpenChange={setSnoozeOpen}
+          trigger={<span className="sr-only">Snooze</span>}
+        />
+      )}
     </>
   );
 
-  // In selection mode, render as div instead of Link to prevent navigation
+  // Determine swipe callbacks based on action props
+  const swipeRightAction = showArchiveAction
+    ? handleSwipeArchive
+    : showUnarchiveAction
+      ? handleSwipeUnarchive
+      : undefined;
+  const swipeRightIcon = showUnarchiveAction
+    ? <ArchiveRestore className="h-5 w-5" />
+    : undefined;
+  const swipeRightColor = showUnarchiveAction ? "bg-blue-500" : undefined;
+
+  // In selection mode, render as div without swipe (swipe disabled)
   if (isSelectionMode) {
     return (
       <div
@@ -285,16 +336,28 @@ export function MessageRow({
   }
 
   return (
-    <Link
-      href={href}
-      onClick={handleClick}
-      className={cn(
-        "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
-        !message.isRead && "bg-primary/5",
-        isPending && "opacity-50 pointer-events-none"
-      )}
+    <SwipeableRow
+      onSwipeRight={swipeRightAction}
+      onSwipeLeft={showSnoozeAction ? handleSwipeLeft : undefined}
+      swipeRightIcon={swipeRightIcon}
+      swipeRightColor={swipeRightColor}
+      disabled={isPending}
     >
-      {rowContent}
-    </Link>
+      <Link
+        href={href}
+        onClick={handleClick}
+        onDragStart={() => { isDragging.current = true; }}
+        onDragEnd={() => {
+          requestAnimationFrame(() => { isDragging.current = false; });
+        }}
+        className={cn(
+          "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
+          !message.isRead && "bg-primary/5",
+          isPending && "opacity-50 pointer-events-none"
+        )}
+      >
+        {rowContent}
+      </Link>
+    </SwipeableRow>
   );
 }

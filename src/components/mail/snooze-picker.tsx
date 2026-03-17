@@ -113,6 +113,8 @@ interface SnoozPickerProps {
   trigger: React.ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom" | "left" | "right";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function SnoozePicker({
@@ -122,11 +124,19 @@ export function SnoozePicker({
   trigger,
   align = "end",
   side,
+  open,
+  onOpenChange,
 }: SnoozPickerProps) {
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
+  const handleOpenChange = (o: boolean) => {
+    setInternalOpen(o);
+    onOpenChange?.(o);
+    if (!o) setShowCustom(false);
+  };
   const [showCustom, setShowCustom] = useState(false);
   const [customDate, setCustomDate] = useState(todayStr);
   const [customTime, setCustomTime] = useState("08:00");
@@ -135,8 +145,7 @@ export function SnoozePicker({
   const options = getSnoozeOptions(now, timezone);
 
   const handleSnooze = (until: Date) => {
-    setOpen(false);
-    setShowCustom(false);
+    handleOpenChange(false);
     onSnooze(until);
   };
 
@@ -151,11 +160,8 @@ export function SnoozePicker({
 
   return (
     <Popover
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (!o) setShowCustom(false);
-      }}
+      open={isOpen}
+      onOpenChange={handleOpenChange}
     >
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent

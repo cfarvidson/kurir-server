@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { Loader2, CheckSquare } from "lucide-react";
@@ -177,19 +178,24 @@ export function InfiniteMessageList({
   const renderRow = (message: MessageItem) => {
     const threadKey = message.threadId || message.id;
     return (
-      <MessageRow
+      <motion.div
         key={message.id}
-        message={message}
-        basePath={basePath}
-        showArchiveAction={showArchiveAction}
-        showUnarchiveAction={showUnarchiveAction}
-        showSnoozeAction={showSnoozeAction}
-        showSnoozedUntil={showSnoozedUntil}
-        onArchived={handleArchived}
-        isSelectionMode={isSelectionMode}
-        isSelected={selectedIds.has(threadKey)}
-        onToggleSelect={() => toggleSelection(threadKey)}
-      />
+        exit={{ opacity: 0, height: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
+        <MessageRow
+          message={message}
+          basePath={basePath}
+          showArchiveAction={showArchiveAction}
+          showUnarchiveAction={showUnarchiveAction}
+          showSnoozeAction={showSnoozeAction}
+          showSnoozedUntil={showSnoozedUntil}
+          onArchived={handleArchived}
+          isSelectionMode={isSelectionMode}
+          isSelected={selectedIds.has(threadKey)}
+          onToggleSelect={() => toggleSelection(threadKey)}
+        />
+      </motion.div>
     );
   };
 
@@ -228,9 +234,9 @@ export function InfiniteMessageList({
                 New For You
               </h2>
             </div>
-            <div>
+            <AnimatePresence mode="popLayout">
               {newMessages.map(renderRow)}
-            </div>
+            </AnimatePresence>
           </section>
         )}
 
@@ -241,9 +247,9 @@ export function InfiniteMessageList({
                 Previously Seen
               </h2>
             </div>
-            <div>
+            <AnimatePresence mode="popLayout">
               {seenMessages.map(renderRow)}
-            </div>
+            </AnimatePresence>
           </section>
         )}
 
@@ -267,7 +273,9 @@ export function InfiniteMessageList({
   return (
     <div>
       {selectionToggle}
-      {threads.map(renderRow)}
+      <AnimatePresence mode="popLayout">
+        {threads.map(renderRow)}
+      </AnimatePresence>
       <ScrollSentinel
         ref={sentinelRef}
         isFetchingNextPage={isFetchingNextPage}

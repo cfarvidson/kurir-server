@@ -92,6 +92,7 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
       showSnoozeAction
       showSnoozedUntil
       showSelectionToggle
+      showArchiveAction={true}
     />
   );
 }
