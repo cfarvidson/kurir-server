@@ -116,14 +116,17 @@ async function handleNewMessages(
   });
 
   try {
-    for await (const msg of client.fetch(fetchRange, {
-      uid: true,
-      envelope: true,
-      internalDate: true,
-      flags: true,
-      bodyStructure: true,
-      source: true,
-    })) {
+    for await (const msg of client.fetch(
+      fetchRange,
+      {
+        envelope: true,
+        internalDate: true,
+        flags: true,
+        bodyStructure: true,
+        source: true,
+      },
+      { uid: true },
+    )) {
       if (msg.uid <= lastUid) continue; // range may include lastUid
 
       // Check if we already have this message
@@ -286,8 +289,8 @@ export async function catchUpAfterReconnect(
   try {
     for await (const msg of client.fetch(
       "1:*",
-      { uid: true, flags: true },
-      { changedSince: folder.highestModSeq }
+      { flags: true },
+      { uid: true, changedSince: folder.highestModSeq }
     )) {
       if (!msg.uid || !msg.flags) continue;
 
