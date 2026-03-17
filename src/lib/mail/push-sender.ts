@@ -11,7 +11,9 @@ if (vapidConfigured) {
     process.env.VAPID_PRIVATE_KEY!,
   );
 } else {
-  console.warn("[push] VAPID keys not configured — push notifications disabled");
+  console.warn(
+    "[push] VAPID keys not configured — push notifications disabled",
+  );
 }
 
 interface PushPayload {
@@ -34,10 +36,13 @@ export async function pushToUser(userId: string, payload: PushPayload) {
   if (subscriptions.length === 0) return;
 
   const body = JSON.stringify(payload);
+  // topic must be max 32 chars, URL-safe (no angle brackets from Message-IDs)
+  const safeTopic = payload.tag?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+
   const options = {
     TTL: 3600,
     urgency: "high" as const,
-    topic: payload.tag,
+    ...(safeTopic ? { topic: safeTopic } : {}),
   };
 
   const results = await Promise.allSettled(
