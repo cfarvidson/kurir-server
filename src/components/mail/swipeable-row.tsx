@@ -19,6 +19,7 @@ interface SwipeableRowProps {
   swipeLeftIcon?: React.ReactNode;
   swipeLeftColor?: string;
   disabled?: boolean;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 export function SwipeableRow({
@@ -30,6 +31,7 @@ export function SwipeableRow({
   swipeLeftIcon,
   swipeLeftColor = "bg-amber-500",
   disabled,
+  onDragStateChange,
 }: SwipeableRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
@@ -51,10 +53,15 @@ export function SwipeableRow({
     return <>{children}</>;
   }
 
+  function handleDragStart() {
+    onDragStateChange?.(true);
+  }
+
   function handleDragEnd(
     _event: MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo,
   ) {
+    requestAnimationFrame(() => onDragStateChange?.(false));
     const width = rowRef.current?.offsetWidth ?? 375;
     const threshold = width * 0.4;
     const velocityThreshold = 500;
@@ -109,6 +116,7 @@ export function SwipeableRow({
         dragConstraints={dragConstraints}
         dragElastic={0.15}
         dragMomentum={false}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         className="relative z-10 bg-background"
       >

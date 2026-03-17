@@ -342,14 +342,11 @@ export function MessageRow({
       swipeRightIcon={swipeRightIcon}
       swipeRightColor={swipeRightColor}
       disabled={isPending}
+      onDragStateChange={(dragging) => { isDragging.current = dragging; }}
     >
       <Link
         href={href}
         onClick={handleClick}
-        onDragStart={() => { isDragging.current = true; }}
-        onDragEnd={() => {
-          requestAnimationFrame(() => { isDragging.current = false; });
-        }}
         className={cn(
           "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           !message.isRead && "bg-primary/5",
