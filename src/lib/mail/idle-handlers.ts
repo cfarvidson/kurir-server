@@ -155,9 +155,12 @@ async function handleExpunge(
 
   const message = await db.message.findFirst({
     where: { folderId, uid },
-    select: { id: true },
+    select: { id: true, isArchived: true },
   });
   if (!message) return;
+
+  // Don't mark archived messages as deleted (they were IMAP-moved, not deleted)
+  if (message.isArchived) return;
 
   await db.message.update({
     where: { id: message.id },

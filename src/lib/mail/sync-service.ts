@@ -425,6 +425,8 @@ export async function processMessage(
 
   // Only categorize inbox messages; sent/other folders skip categorization
   const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
+  const isRejectedInbox =
+    isInbox && !isArchived && sender.status === "REJECTED";
   const isInImbox =
     isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
   const isInFeed =
@@ -433,6 +435,9 @@ export async function processMessage(
     isInbox &&
     sender.status === "APPROVED" &&
     sender.category === "PAPER_TRAIL";
+
+  // Auto-archive messages from rejected senders
+  const finalIsArchived = isArchived || isRejectedInbox;
 
   // Check for attachments
   const hasAttachments = parsed.attachments && parsed.attachments.length > 0;
@@ -574,7 +579,7 @@ export async function processMessage(
       isInImbox,
       isInFeed,
       isInPaperTrail,
-      isArchived,
+      isArchived: finalIsArchived,
       folderId,
       userId,
       emailConnectionId,

@@ -57,7 +57,7 @@ function categoryToPath(category: string | null | undefined): string {
   }
 }
 
-async function moveToArchiveViaImap(
+export async function moveToArchiveViaImap(
   userId: string,
   connectionId: string,
   folderId: string,
@@ -79,13 +79,15 @@ async function moveToArchiveViaImap(
     if (archiveBox) {
       const lock = await client.getMailboxLock("INBOX");
       try {
-        for (const uid of uids) {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < uids.length; i += BATCH_SIZE) {
+          const chunk = uids.slice(i, i + BATCH_SIZE);
           try {
-            await client.messageMove(String(uid), archiveBox.path, {
+            await client.messageMove(chunk, archiveBox.path, {
               uid: true,
             });
           } catch {
-            // Message may already be moved or deleted
+            // Batch may partially fail; messages may already be moved
           }
         }
       } finally {
@@ -95,7 +97,7 @@ async function moveToArchiveViaImap(
   });
 }
 
-async function moveToInboxViaImap(
+export async function moveToInboxViaImap(
   userId: string,
   connectionId: string,
   folderId: string,
@@ -117,11 +119,13 @@ async function moveToInboxViaImap(
     if (archiveBox) {
       const lock = await client.getMailboxLock(archiveBox.path);
       try {
-        for (const uid of uids) {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < uids.length; i += BATCH_SIZE) {
+          const chunk = uids.slice(i, i + BATCH_SIZE);
           try {
-            await client.messageMove(String(uid), "INBOX", { uid: true });
+            await client.messageMove(chunk, "INBOX", { uid: true });
           } catch {
-            // Message may already be moved or deleted
+            // Batch may partially fail; messages may already be moved
           }
         }
       } finally {

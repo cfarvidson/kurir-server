@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToArchiveViaImap } from "@/actions/archive";
 import { SenderCategory } from "@prisma/client";
 
 export async function approveSender(senderId: string, category: SenderCategory) {
@@ -56,17 +58,40 @@ export async function rejectSender(senderId: string) {
     throw new Error("Unauthorized");
   }
 
-  // Verify ownership
+  const userId = session.user.id;
+
+  // Verify ownership + get emailConnectionId for IMAP move
   const sender = await db.sender.findUnique({
     where: { id: senderId },
-    select: { userId: true },
+    select: { userId: true, emailConnectionId: true },
   });
 
-  if (!sender || sender.userId !== session.user.id) {
+  if (!sender || sender.userId !== userId) {
     throw new Error("Sender not found");
   }
 
-  // Update sender status - messages stay hidden
+  // Fetch inbox UIDs for IMAP move (parallelize independent queries)
+  const [inboxMessages, inboxFolder] = await Promise.all([
+    db.message.findMany({
+      where: { senderId, isArchived: false, uid: { gt: 0 } },
+      select: { uid: true, folderId: true },
+    }),
+    db.folder.findFirst({
+      where: {
+        emailConnectionId: sender.emailConnectionId,
+        specialUse: "inbox",
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  const inboxUids = inboxFolder
+    ? inboxMessages
+        .filter((m) => m.folderId === inboxFolder.id)
+        .map((m) => m.uid)
+    : [];
+
+  // Reject sender + archive messages (instead of limbo)
   await db.$transaction([
     db.sender.update({
       where: { id: senderId },
@@ -75,7 +100,6 @@ export async function rejectSender(senderId: string) {
         decidedAt: new Date(),
       },
     }),
-    // Remove non-archived messages from screener but don't show them anywhere
     db.message.updateMany({
       where: { senderId, isArchived: false },
       data: {
@@ -83,15 +107,33 @@ export async function rejectSender(senderId: string) {
         isInImbox: false,
         isInFeed: false,
         isInPaperTrail: false,
+        isArchived: true,
+        isSnoozed: false,
+        snoozedUntil: null,
       },
     }),
   ]);
 
   revalidateTag("sidebar-counts");
   revalidatePath("/screener");
+  revalidatePath("/archive");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
+
+  // Defer IMAP move to after response
+  if (inboxUids.length > 0 && inboxFolder) {
+    after(() =>
+      moveToArchiveViaImap(
+        userId,
+        sender.emailConnectionId,
+        inboxFolder.id,
+        inboxUids
+      ).catch((err) =>
+        console.error("IMAP archive move (reject) failed:", err)
+      )
+    );
+  }
 }
 
 export async function skipSender(senderId: string) {
