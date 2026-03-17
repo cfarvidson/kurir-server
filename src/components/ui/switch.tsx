@@ -21,8 +21,8 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           checked ? "bg-primary" : "bg-input",
           className,
         )}
-        onClick={() => onCheckedChange?.(!checked)}
         {...props}
+        onClick={() => onCheckedChange?.(!checked)}
       >
         <span
           className={cn(

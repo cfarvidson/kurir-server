@@ -12,7 +12,7 @@ interface AdminPanelProps {
   users: {
     id: string;
     displayName: string | null;
-    role: string;
+    role: "ADMIN" | "USER";
     createdAt: string;
     emailConnectionCount: number;
   }[];
@@ -26,9 +26,16 @@ export function AdminPanel({
   const [isToggling, startToggle] = useTransition();
   const [, startUpdate] = useTransition();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <>
+      {error && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Registration toggle */}
       <section>
         <h2 className="text-lg font-medium">Registration</h2>
@@ -44,8 +51,15 @@ export function AdminPanel({
               checked={signupsEnabled}
               disabled={isToggling}
               onCheckedChange={(checked) => {
+                setError(null);
                 startToggle(async () => {
-                  await toggleSignups(checked);
+                  try {
+                    await toggleSignups(checked);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "Failed to update",
+                    );
+                  }
                 });
               }}
             />
@@ -105,10 +119,20 @@ export function AdminPanel({
                   disabled={isCurrentUser || updatingUserId === user.id}
                   onClick={() => {
                     const newRole = isAdmin ? "USER" : "ADMIN";
+                    setError(null);
                     setUpdatingUserId(user.id);
                     startUpdate(async () => {
-                      await updateUserRole(user.id, newRole);
-                      setUpdatingUserId(null);
+                      try {
+                        await updateUserRole(user.id, newRole);
+                      } catch (err) {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to update role",
+                        );
+                      } finally {
+                        setUpdatingUserId(null);
+                      }
                     });
                   }}
                 >
