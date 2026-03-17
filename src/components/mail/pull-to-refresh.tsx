@@ -198,7 +198,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   }, [applyTransform, doRefresh, getScrollParent, reset]);
 
   return (
-    <div ref={wrapperRef} className="relative min-h-full">
+    <div ref={wrapperRef} className="relative h-full">
       {/* Spinner — sits above content, translated into view */}
       <div
         ref={spinnerRef}
@@ -225,7 +225,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Content — translated down during pull, min-h-full so empty states can vertically center */}
-      <div ref={contentRef} className="min-h-full">
+      <div ref={contentRef} className="h-full">
         {children}
       </div>
     </div>
