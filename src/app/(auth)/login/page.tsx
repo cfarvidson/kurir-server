@@ -133,9 +133,7 @@ export default function LoginPage() {
       >
         <Card>
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              <KurirLogo className="h-8 w-8" />
-            </div>
+            <KurirLogo className="mx-auto mb-2 h-16 w-16" />
             <CardTitle className="text-2xl">Welcome back</CardTitle>
             <CardDescription>
               Sign in to Kurir with your passkey.

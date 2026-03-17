@@ -94,24 +94,54 @@ export async function POST(req: NextRequest) {
     return response;
   }
 
-  // New user registration — create User + Passkey in a transaction
-  const user = await db.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        passkeys: {
-          create: {
-            credentialId: credential.id,
-            publicKey: isoBase64URL.fromBuffer(Buffer.from(credential.publicKey)),
-            counter: BigInt(credential.counter),
-            deviceType: credentialDeviceType,
-            backedUp: credentialBackedUp,
-            transports: credential.transports ?? [],
+  // New user registration — create User + Passkey in a serializable transaction
+  let user;
+  try {
+    user = await db.$transaction(
+      async (tx) => {
+        // Check if signups are enabled (skip for addPasskey which is handled above)
+        const settings = await tx.systemSettings.findUnique({
+          where: { id: "singleton" },
+        });
+        if (settings && !settings.signupsEnabled) {
+          throw new Error("SIGNUPS_DISABLED");
+        }
+
+        // First user becomes ADMIN, all others are USER
+        const userCount = await tx.user.count();
+        const role = userCount === 0 ? "ADMIN" : "USER";
+
+        const newUser = await tx.user.create({
+          data: {
+            role,
+            passkeys: {
+              create: {
+                credentialId: credential.id,
+                publicKey: isoBase64URL.fromBuffer(
+                  Buffer.from(credential.publicKey),
+                ),
+                counter: BigInt(credential.counter),
+                deviceType: credentialDeviceType,
+                backedUp: credentialBackedUp,
+                transports: credential.transports ?? [],
+              },
+            },
           },
-        },
+        });
+
+        return newUser;
       },
-    });
-    return newUser;
-  });
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    if (err instanceof Error && err.message === "SIGNUPS_DISABLED") {
+      return NextResponse.json(
+        { error: "Registration is currently closed" },
+        { status: 403 },
+      );
+    }
+    throw err;
+  }
 
   // Issue a NextAuth JWT session so the user is immediately logged in
   const secret = process.env.NEXTAUTH_SECRET;
@@ -126,7 +156,7 @@ export async function POST(req: NextRequest) {
 
   // NextAuth v5 uses the cookie name as the salt for JWT encryption
   const token = await encode({
-    token: { id: user.id },
+    token: { id: user.id, role: user.role },
     secret,
     salt: cookieName,
     maxAge: 30 * 24 * 60 * 60,

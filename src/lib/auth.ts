@@ -8,6 +8,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [],
 });
 
+/** Returns authenticated session or throws Unauthorized. */
+export async function requireAuth() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return session;
+}
+
+/** Returns authenticated admin session or throws Forbidden. Verifies role from DB. */
+export async function requireAdmin() {
+  const session = await requireAuth();
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (user?.role !== "ADMIN") throw new Error("Forbidden");
+  return session;
+}
+
 // Helper to get current user with DB data
 export async function getCurrentUser() {
   const session = await auth();

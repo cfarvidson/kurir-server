@@ -49,7 +49,18 @@ export async function POST(req: NextRequest) {
     userName = "user";
     userDisplayName = "";
   } else {
-    // New user registration — generate a temporary user ID
+    // New user registration — check if signups are enabled
+    const settings = await db.systemSettings.findUnique({
+      where: { id: "singleton" },
+    });
+    if (settings && !settings.signupsEnabled) {
+      return NextResponse.json(
+        { error: "Registration is currently closed" },
+        { status: 403 },
+      );
+    }
+
+    // Generate a temporary user ID
     const body = await req.json().catch(() => ({}));
     const displayName: string | undefined = body?.displayName;
 
