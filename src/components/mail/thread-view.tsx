@@ -146,11 +146,13 @@ function MessageBubble({
   message,
   isFromCurrentUser,
   isCollapsed: initialCollapsed,
+  isFirst,
   isLast,
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
   isCollapsed: boolean;
+  isFirst: boolean;
   isLast: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -176,16 +178,21 @@ function MessageBubble({
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="group relative"
     >
-      {/* Connector line */}
+      {/* Connector line — desktop only */}
       {!isLast && (
-        <div className="absolute left-[17px] top-11 bottom-0 w-px bg-border/40 md:left-5 md:top-12" />
+        <div className="absolute left-5 top-12 bottom-0 hidden w-px bg-border/40 md:block" />
       )}
 
-      <div className="flex gap-2.5 md:gap-3">
-        {/* Avatar */}
+      {/* Mobile divider between messages */}
+      {!isFirst && (
+        <div className="mb-2 border-t border-border/30 md:hidden" />
+      )}
+
+      <div className="flex gap-0 md:gap-3">
+        {/* Avatar — desktop only */}
         <div
           className={cn(
-            "relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background md:h-10 md:w-10 md:text-sm",
+            "relative z-10 hidden shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background md:flex md:h-10 md:w-10 md:text-sm",
             avatarColor
           )}
         >
@@ -193,7 +200,7 @@ function MessageBubble({
         </div>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 pb-6 md:pb-8">
+        <div className="min-w-0 flex-1 pb-4 md:pb-8">
           {/* Header — always visible */}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -238,7 +245,7 @@ function MessageBubble({
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                <div className="mt-1 rounded-lg border border-border/50 bg-card px-4 py-4 shadow-sm">
+                <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-sm md:px-4 md:py-4">
                   {/* Recipients + actions */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="text-xs text-muted-foreground">
@@ -349,6 +356,7 @@ export function ThreadView({ messages, currentUserEmail }: ThreadViewProps) {
           message={message}
           isFromCurrentUser={message.fromAddress === currentUserEmail}
           isCollapsed={i < messages.length - 1}
+          isFirst={i === 0}
           isLast={i === messages.length - 1}
         />
       ))}

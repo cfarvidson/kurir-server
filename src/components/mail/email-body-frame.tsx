@@ -20,33 +20,57 @@ interface EmailBodyFrameProps {
  *
  * Auto-resizes to fit content via ResizeObserver on the iframe's body.
  * Falls back to max-height + scroll for very tall emails.
+ *
+ * On mobile, wide emails (e.g. 600px newsletters on a 375px screen) are
+ * scaled down via transform:scale() so they fit without horizontal scroll.
  */
 export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(200);
+  const [scale, setScale] = useState(1);
   const [mounted, setMounted] = useState(false);
 
-  // Only render on the client — DOMPurify needs a DOM and srcdoc must match
-  // between server and client to avoid hydration mismatches.
   useEffect(() => setMounted(true), []);
 
   const srcdoc = mounted ? buildSrcdoc(html, collapseQuotes) : "";
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe || !mounted) return;
+    const wrapper = wrapperRef.current;
+    if (!iframe || !wrapper || !mounted) return;
 
     let observer: ResizeObserver | null = null;
+
+    function measure() {
+      const body = iframe?.contentDocument?.body;
+      if (!body || !wrapper) return;
+
+      const contentHeight = body.scrollHeight;
+      const contentWidth = body.scrollWidth;
+      const containerWidth = wrapper.offsetWidth;
+
+      // Scale down wide emails to fit the container
+      let scaleFactor = 1;
+      if (contentWidth > containerWidth) {
+        scaleFactor = containerWidth / contentWidth;
+        // Cap minimum scale — below 0.5x text becomes illegible
+        scaleFactor = Math.max(scaleFactor, 0.5);
+        // Skip near-1.0 transforms to avoid sub-pixel artifacts
+        if (scaleFactor > 0.95) scaleFactor = 1;
+      }
+
+      setScale(scaleFactor);
+      setHeight(contentHeight);
+    }
 
     function onLoad() {
       const body = iframe?.contentDocument?.body;
       if (!body) return;
 
-      setHeight(body.scrollHeight);
+      measure();
 
-      observer = new ResizeObserver(() => {
-        if (body) setHeight(body.scrollHeight);
-      });
+      observer = new ResizeObserver(() => measure());
       observer.observe(body);
     }
 
@@ -60,17 +84,31 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
 
   if (!mounted) return null;
 
+  const cappedHeight = Math.min(height, 2000);
+  const visualHeight = cappedHeight * scale;
+
   return (
-    <iframe
-      ref={iframeRef}
-      srcDoc={srcdoc}
-      sandbox="allow-same-origin"
-      referrerPolicy="no-referrer"
-      title="Email content"
-      aria-label="Email body"
-      style={{ height: Math.min(height, 2000) }}
-      className="block w-full overflow-auto rounded border-0 bg-white"
-    />
+    <div
+      ref={wrapperRef}
+      className="overflow-hidden"
+      style={{ height: visualHeight }}
+    >
+      <iframe
+        ref={iframeRef}
+        srcDoc={srcdoc}
+        sandbox="allow-same-origin"
+        referrerPolicy="no-referrer"
+        title="Email content"
+        aria-label="Email body"
+        style={{
+          height: cappedHeight,
+          width: scale < 1 ? `${100 / scale}%` : "100%",
+          transform: scale < 1 ? `scale(${scale})` : undefined,
+          transformOrigin: "top left",
+        }}
+        className="block border-0 bg-white"
+      />
+    </div>
   );
 }
 
@@ -94,11 +132,12 @@ const BASE_STYLES = `
     word-break: break-word;
     overflow-wrap: break-word;
   }
-  body { padding: 0 4px; max-width: 100%; overflow-x: hidden; }
+  body { padding: 0 4px; max-width: 100%; }
   img { max-width: 100%; height: auto; }
   a { color: #2563eb; }
   pre, code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
-  table { max-width: 100%; }
+  table { max-width: 100% !important; }
+  table[width] { width: 100% !important; }
   blockquote {
     margin: 8px 0 8px 16px;
     padding-left: 12px;

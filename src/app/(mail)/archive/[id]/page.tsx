@@ -99,10 +99,10 @@ export default async function ArchiveMessagePage({
 
       {/* Thread */}
       <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{subject}</h1>
+        <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
+          <h1 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">{subject}</h1>
 
-          <div className="mt-6 md:mt-8">
+          <div className="mt-3 md:mt-6">
             <ThreadPageContent
               initialMessages={messages}
               currentUserEmail={currentUserEmail}
