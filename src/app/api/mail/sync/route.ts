@@ -196,17 +196,20 @@ export async function POST(request: NextRequest) {
   const wokenSnoozes = await wakeExpiredSnoozes(userId);
 
   // Send push notifications for new Imbox messages found during this sync
-  const hasNewMessages = allResults.some((r) =>
-    (r.results as SyncResult[]).some?.((sr) => sr.newMessages > 0),
-  );
+  const totalNew = allResults.reduce((sum, r) => {
+    const results = r.results as SyncResult[];
+    return sum + (results?.reduce?.((s, sr) => s + (sr.newMessages || 0), 0) ?? 0);
+  }, 0);
 
-  if (hasNewMessages) {
-    // Find Imbox messages created in the last 60 seconds (this sync window)
+  if (totalNew > 0) {
+    console.log(`[push] Sync found ${totalNew} new messages, checking for Imbox messages...`);
+
+    // Find Imbox messages created in the last 2 minutes (this sync window)
     const recentImbox = await db.message.findMany({
       where: {
         userId,
         isInImbox: true,
-        createdAt: { gte: new Date(Date.now() - 60_000) },
+        createdAt: { gte: new Date(Date.now() - 120_000) },
       },
       select: {
         id: true,
@@ -219,6 +222,8 @@ export async function POST(request: NextRequest) {
       take: 10,
     });
 
+    console.log(`[push] Found ${recentImbox.length} recent Imbox messages`);
+
     if (recentImbox.length > 0) {
       // Dedupe by thread
       const byThread = new Map<string, (typeof recentImbox)[0]>();
@@ -228,6 +233,7 @@ export async function POST(request: NextRequest) {
       }
 
       for (const m of byThread.values()) {
+        console.log(`[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`);
         pushToUser(userId, {
           title: m.fromName || m.fromAddress,
           body: m.subject || "(no subject)",
