@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import RegisterForm from "@/components/auth/register-form";
+
+export const dynamic = "force-dynamic";
 import {
   Card,
   CardContent,
