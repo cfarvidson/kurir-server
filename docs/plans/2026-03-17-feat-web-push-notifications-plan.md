@@ -488,30 +488,30 @@ Remove `badgeKey: "snoozed"` from the Snoozed nav item (line 25).
 
 ### Functional
 
-- [ ] New Imbox messages trigger push notifications on subscribed devices
-- [ ] Notifications show sender name as title, subject as body
-- [ ] Clicking a notification opens the correct thread in the Imbox
-- [ ] Multiple replies in the same thread collapse into one notification (via `tag` + thread dedup)
-- [ ] Only Imbox messages generate push notifications (not Feed, Paper Trail, Screener)
-- [ ] Users can subscribe/unsubscribe from push notifications
-- [ ] Users can manage notifications in Settings
-- [ ] Discovery banner appears in Imbox for users who haven't enabled notifications
-- [ ] Banner can be permanently dismissed (localStorage)
-- [ ] iOS users see "Add to Home Screen" instructions instead of direct enable
-- [ ] PWA manifest enables "Add to Home Screen" on iOS and Android
-- [ ] Expired/invalid push subscriptions are auto-cleaned on 404/410 errors
-- [ ] Snoozed badge is removed from sidebar navigation
+- [x] New Imbox messages trigger push notifications on subscribed devices
+- [x] Notifications show sender name as title, subject as body
+- [x] Clicking a notification opens the correct thread in the Imbox
+- [x] Multiple replies in the same thread collapse into one notification (via `tag` + thread dedup)
+- [x] Only Imbox messages generate push notifications (not Feed, Paper Trail, Screener)
+- [x] Users can subscribe/unsubscribe from push notifications
+- [x] Users can manage notifications in Settings
+- [x] Discovery banner appears in Imbox for users who haven't enabled notifications
+- [x] Banner can be permanently dismissed (localStorage)
+- [x] iOS users see "Add to Home Screen" instructions instead of direct enable
+- [x] PWA manifest enables "Add to Home Screen" on iOS and Android
+- [x] Expired/invalid push subscriptions are auto-cleaned on 404/410 errors
+- [x] Snoozed badge is removed from sidebar navigation
 
 ### Non-Functional
 
-- [ ] Service worker is push-only — no fetch event listener, no caching
-- [ ] Push sending is fire-and-forget — never blocks IDLE processing
-- [ ] Middleware allows `/sw.js` without authentication
-- [ ] VAPID keys stored as environment variables (public key client-accessible)
-- [ ] `sw.js` served with `Cache-Control: no-cache` and CSP headers
-- [ ] `web-push` in `serverExternalPackages` (uses Node.js crypto)
-- [ ] Push endpoint URLs validated as `https://`
-- [ ] `urgency: 'high'` for immediate delivery on mobile
+- [x] Service worker is push-only — no fetch event listener, no caching
+- [x] Push sending is fire-and-forget — never blocks IDLE processing
+- [x] Middleware allows `/sw.js` without authentication
+- [x] VAPID keys stored as environment variables (public key client-accessible)
+- [x] `sw.js` served with `Cache-Control: no-cache` and CSP headers
+- [x] `web-push` in `serverExternalPackages` (uses Node.js crypto)
+- [x] Push endpoint URLs validated as `https://`
+- [x] `urgency: 'high'` for immediate delivery on mobile
 
 ## Files to Create
 

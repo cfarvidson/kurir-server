@@ -46,7 +46,7 @@ export function usePushNotifications() {
     });
 
     const json = sub.toJSON();
-    await fetch("/api/push/subscribe", {
+    const res = await fetch("/api/push/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -55,6 +55,11 @@ export function usePushNotifications() {
         auth: json.keys!.auth,
       }),
     });
+
+    if (!res.ok) {
+      await sub.unsubscribe();
+      throw new Error("Failed to save push subscription");
+    }
 
     setPermission(Notification.permission);
     setIsSubscribed(true);
@@ -75,4 +80,13 @@ export function usePushNotifications() {
   }, []);
 
   return { isSupported, permission, isSubscribed, subscribe, unsubscribe };
+}
+
+export function isIosNonPwa(): boolean {
+  if (typeof window === "undefined") return false;
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone =
+    "standalone" in navigator &&
+    (navigator as { standalone?: boolean }).standalone;
+  return isIos && !isStandalone;
 }

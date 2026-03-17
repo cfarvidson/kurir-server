@@ -5,8 +5,8 @@ import { z } from "zod";
 
 const subscribeSchema = z.object({
   endpoint: z.string().url().startsWith("https://"),
-  p256dh: z.string().min(1),
-  auth: z.string().min(1),
+  p256dh: z.string().min(1).max(128),
+  auth: z.string().min(1).max(48),
 });
 
 const unsubscribeSchema = z.object({

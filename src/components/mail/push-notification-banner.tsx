@@ -2,17 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Bell, X } from "lucide-react";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
+import {
+  usePushNotifications,
+  isIosNonPwa,
+} from "@/hooks/use-push-notifications";
 
 const DISMISSED_KEY = "kurir:push-banner-dismissed";
-
-function isIosNonPwa(): boolean {
-  if (typeof window === "undefined") return false;
-  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const isStandalone =
-    "standalone" in navigator && (navigator as { standalone?: boolean }).standalone;
-  return isIos && !isStandalone;
-}
 
 export function PushNotificationBanner() {
   const { isSupported, permission, isSubscribed, subscribe } =

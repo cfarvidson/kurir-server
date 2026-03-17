@@ -1,11 +1,18 @@
 import webpush from "web-push";
 import { db } from "@/lib/db";
 
-webpush.setVapidDetails(
-  "mailto:admin@kurir.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+const vapidConfigured =
+  !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && !!process.env.VAPID_PRIVATE_KEY;
+
+if (vapidConfigured) {
+  webpush.setVapidDetails(
+    "mailto:admin@kurir.app",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+} else {
+  console.warn("[push] VAPID keys not configured — push notifications disabled");
+}
 
 interface PushPayload {
   title: string;
@@ -15,6 +22,8 @@ interface PushPayload {
 }
 
 export async function pushToUser(userId: string, payload: PushPayload) {
+  if (!vapidConfigured) return;
+
   const subscriptions = await db.pushSubscription.findMany({
     where: { userId },
     select: { id: true, endpoint: true, p256dh: true, auth: true },
