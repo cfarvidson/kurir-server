@@ -115,6 +115,7 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
       showSections={true}
       showArchiveAction={true}
       showSnoozeAction={true}
+      showSelectionToggle={true}
     />
   );
 }

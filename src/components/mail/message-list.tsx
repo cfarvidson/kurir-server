@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useCallback, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { Archive, ArchiveRestore, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
@@ -46,19 +47,37 @@ export function MessageList({
   showSnoozeAction = false,
   showSnoozedUntil = false,
 }: MessageListProps) {
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  const handleArchived = useCallback((messageId?: string) => {
+    if (messageId) {
+      setHiddenIds((prev) => new Set(prev).add(messageId));
+    }
+  }, []);
+
+  const visibleMessages = messages.filter((m) => !hiddenIds.has(m.id));
+
   return (
     <div>
-      {messages.map((message) => (
-        <MessageRow
-          key={message.id}
-          message={message}
-          basePath={basePath}
-          showArchiveAction={showArchiveAction}
-          showUnarchiveAction={showUnarchiveAction}
-          showSnoozeAction={showSnoozeAction}
-          showSnoozedUntil={showSnoozedUntil}
-        />
-      ))}
+      <AnimatePresence mode="popLayout">
+        {visibleMessages.map((message) => (
+          <motion.div
+            key={message.id}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <MessageRow
+              message={message}
+              basePath={basePath}
+              showArchiveAction={showArchiveAction}
+              showUnarchiveAction={showUnarchiveAction}
+              showSnoozeAction={showSnoozeAction}
+              showSnoozedUntil={showSnoozedUntil}
+              onArchived={handleArchived}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -100,7 +119,7 @@ export function MessageRow({
   const doArchive = () => {
     onArchived?.(message.id);
     startTransition(async () => {
-      await archiveConversation(message.id);
+      await archiveConversation(message.id, basePath);
       router.refresh();
     });
   };

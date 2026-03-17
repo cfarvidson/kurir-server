@@ -12,9 +12,10 @@ import { SnoozePicker } from "@/components/mail/snooze-picker";
 interface SelectionActionBarProps {
   selectedMessageIds: string[];
   onComplete: () => void;
-  onQueryInvalidate: () => void;
+  onQueryInvalidate: (messageIds?: string | string[]) => void;
   showSnoozeAction?: boolean;
   showUnarchiveAction?: boolean;
+  sourcePath?: string;
 }
 
 export function SelectionActionBar({
@@ -23,6 +24,7 @@ export function SelectionActionBar({
   onQueryInvalidate,
   showSnoozeAction = false,
   showUnarchiveAction = false,
+  sourcePath,
 }: SelectionActionBarProps) {
   const [isPending, startTransition] = useTransition();
   const count = selectedMessageIds.length;
@@ -30,26 +32,29 @@ export function SelectionActionBar({
   if (count === 0) return null;
 
   const handleArchive = () => {
+    const idsToArchive = [...selectedMessageIds];
     startTransition(async () => {
-      await archiveConversations(selectedMessageIds);
+      await archiveConversations(idsToArchive, sourcePath);
+      onQueryInvalidate(idsToArchive);
       onComplete();
-      onQueryInvalidate();
     });
   };
 
   const handleUnarchive = () => {
+    const idsToUnarchive = [...selectedMessageIds];
     startTransition(async () => {
-      await unarchiveConversations(selectedMessageIds);
+      await unarchiveConversations(idsToUnarchive);
+      onQueryInvalidate(idsToUnarchive);
       onComplete();
-      onQueryInvalidate();
     });
   };
 
   const handleSnooze = (until: Date) => {
+    const idsToSnooze = [...selectedMessageIds];
     startTransition(async () => {
-      await snoozeConversations(selectedMessageIds, until);
+      await snoozeConversations(idsToSnooze, until);
+      onQueryInvalidate(idsToSnooze);
       onComplete();
-      onQueryInvalidate();
     });
   };
 

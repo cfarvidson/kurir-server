@@ -135,7 +135,7 @@ export async function moveToInboxViaImap(
   });
 }
 
-export async function archiveConversation(messageId: string) {
+export async function archiveConversation(messageId: string, sourcePath?: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -187,6 +187,7 @@ export async function archiveConversation(messageId: string) {
 
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
+  if (sourcePath) revalidatePath(sourcePath);
 
   // Defer IMAP to after response
   if (inboxMessageUids.length > 0 && inboxFolder) {
@@ -201,7 +202,7 @@ export async function archiveConversation(messageId: string) {
   }
 }
 
-export async function archiveConversations(messageIds: string[]) {
+export async function archiveConversations(messageIds: string[], sourcePath?: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -280,6 +281,7 @@ export async function archiveConversations(messageIds: string[]) {
 
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
+  if (sourcePath) revalidatePath(sourcePath);
 
   // Defer IMAP to after response
   if (imapWork.length > 0) {

@@ -138,31 +138,38 @@ export function InfiniteMessageList({
   }, [data]);
 
   const handleArchived = useCallback(
-    (messageId?: string) => {
-      if (messageId) {
-        // Optimistically remove from cache — do NOT refetch yet
-        const allMessages = data?.pages.flatMap((p) => p.messages) ?? [];
-        const target = allMessages.find((m) => m.id === messageId);
-        const threadKey = target?.threadId || messageId;
+    (messageIds?: string | string[]) => {
+      const ids = Array.isArray(messageIds)
+        ? messageIds
+        : messageIds
+          ? [messageIds]
+          : [];
+      if (ids.length === 0) return;
 
-        queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
-          ["messages", category],
-          (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page) => ({
-                ...page,
-                messages: page.messages.filter(
-                  (m) => (m.threadId || m.id) !== threadKey,
-                ),
-              })),
-            };
-          },
-        );
-      }
-      // Don't invalidate here — the server action hasn't completed yet.
-      // The MessageRow's startTransition will refresh after the action finishes.
+      // Optimistically remove from cache — do NOT refetch yet
+      const allMessages = data?.pages.flatMap((p) => p.messages) ?? [];
+      const threadKeys = new Set(
+        ids.map((id) => {
+          const target = allMessages.find((m) => m.id === id);
+          return target?.threadId || id;
+        }),
+      );
+
+      queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
+        ["messages", category],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.filter(
+                (m) => !threadKeys.has(m.threadId || m.id),
+              ),
+            })),
+          };
+        },
+      );
     },
     [queryClient, category, data],
   );
@@ -265,6 +272,7 @@ export function InfiniteMessageList({
           onQueryInvalidate={handleArchived}
           showSnoozeAction={showSnoozeAction}
           showUnarchiveAction={showUnarchiveAction}
+          sourcePath={basePath}
         />
       </div>
     );
@@ -285,7 +293,9 @@ export function InfiniteMessageList({
         selectedMessageIds={selectedMessageIds}
         onComplete={clearSelection}
         onQueryInvalidate={handleArchived}
+        showSnoozeAction={showSnoozeAction}
         showUnarchiveAction={showUnarchiveAction}
+        sourcePath={basePath}
       />
     </div>
   );
