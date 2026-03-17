@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
+import { pushToUser } from "@/lib/mail/push-sender";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -193,6 +194,49 @@ export async function POST(request: NextRequest) {
   }
 
   const wokenSnoozes = await wakeExpiredSnoozes(userId);
+
+  // Send push notifications for new Imbox messages found during this sync
+  const hasNewMessages = allResults.some((r) =>
+    (r.results as SyncResult[]).some?.((sr) => sr.newMessages > 0),
+  );
+
+  if (hasNewMessages) {
+    // Find Imbox messages created in the last 60 seconds (this sync window)
+    const recentImbox = await db.message.findMany({
+      where: {
+        userId,
+        isInImbox: true,
+        createdAt: { gte: new Date(Date.now() - 60_000) },
+      },
+      select: {
+        id: true,
+        fromName: true,
+        fromAddress: true,
+        subject: true,
+        threadId: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    if (recentImbox.length > 0) {
+      // Dedupe by thread
+      const byThread = new Map<string, (typeof recentImbox)[0]>();
+      for (const m of recentImbox) {
+        const key = m.threadId || m.id;
+        if (!byThread.has(key)) byThread.set(key, m);
+      }
+
+      for (const m of byThread.values()) {
+        pushToUser(userId, {
+          title: m.fromName || m.fromAddress,
+          body: m.subject || "(no subject)",
+          url: `/imbox/${m.threadId || m.id}`,
+          tag: m.threadId || m.id,
+        }).catch((err) => console.error("[push] sync error:", err));
+      }
+    }
+  }
 
   return NextResponse.json({
     success: true,
