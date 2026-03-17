@@ -115,7 +115,12 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       const scrollParent = getScrollParent();
       if (!scrollParent || scrollParent.scrollTop > 0) return;
 
-      s.startY = e.touches[0].clientY;
+      // Only activate when touching the header area (top 80px of scroll container)
+      const rect = scrollParent.getBoundingClientRect();
+      const touchY = e.touches[0].clientY;
+      if (touchY - rect.top > 80) return;
+
+      s.startY = touchY;
       s.startX = e.touches[0].clientX;
       s.pulling = true;
       s.direction = null;
