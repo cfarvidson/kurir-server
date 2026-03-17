@@ -105,7 +105,10 @@ async function syncAndNotify() {
             log,
           );
 
-          totalNew += result.results.reduce((sum, r) => sum + r.newMessages, 0);
+          // Only count INBOX new messages for push (not Sent/Archive)
+          totalNew += result.results
+            .filter((r) => r.folderPath === "INBOX")
+            .reduce((sum, r) => sum + r.newMessages, 0);
         } catch (err) {
           await releaseSyncLock(conn.id, String(err));
         }

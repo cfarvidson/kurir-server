@@ -23,16 +23,24 @@ interface PushPayload {
   tag?: string;
 }
 
+// Dedup: track recently notified message URLs to prevent IDLE + bg-sync double-push
+const recentlyNotified = new Set<string>();
+const DEDUP_TTL_MS = 120_000; // 2 minutes
+
 export async function pushToUser(userId: string, payload: PushPayload) {
-  console.log(`[push] pushToUser called, vapidConfigured=${vapidConfigured}`);
   if (!vapidConfigured) return;
+
+  // Dedup by URL (contains the message ID)
+  const dedupeKey = `${userId}:${payload.url}`;
+  if (recentlyNotified.has(dedupeKey)) return;
+  recentlyNotified.add(dedupeKey);
+  setTimeout(() => recentlyNotified.delete(dedupeKey), DEDUP_TTL_MS);
 
   const subscriptions = await db.pushSubscription.findMany({
     where: { userId },
     select: { id: true, endpoint: true, p256dh: true, auth: true },
   });
 
-  console.log(`[push] Found ${subscriptions.length} subscriptions for user`);
   if (subscriptions.length === 0) return;
 
   const body = JSON.stringify(payload);
@@ -70,9 +78,11 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected");
-  console.log(
-    `[push] Results: ${sent} sent, ${failed.length} failed out of ${subscriptions.length}`,
-  );
+  if (sent > 0) {
+    console.log(
+      `[push] Sent ${sent}/${subscriptions.length} for "${payload.title}"`,
+    );
+  }
   for (const f of failed) {
     if (f.status === "rejected") {
       console.error(`[push] Failure:`, f.reason?.message || f.reason);
