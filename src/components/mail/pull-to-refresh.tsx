@@ -204,7 +204,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       {/* Content pushed down by pull distance */}
       <div
         style={{
-          transform: `translateY(${pullDistance}px)`,
+          transform: `translate3d(0, ${pullDistance}px, 0)`,
           transition: isTransitioning ? "transform 0.3s ease-out" : "none",
         }}
       >

@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+
   :root {
     --background: 30 20% 99%;
     --foreground: 25 15% 8%;
