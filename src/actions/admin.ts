@@ -32,7 +32,7 @@ export async function updateUserRole(
         const adminCount = await tx.user.count({
           where: { role: "ADMIN", NOT: { id: targetUserId } },
         });
-        if (adminCount < 1) {
+        if (adminCount === 0) {
           throw new Error("Cannot remove the last admin");
         }
       }

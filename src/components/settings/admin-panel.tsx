@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toggleSignups, updateUserRole } from "@/actions/admin";
@@ -24,7 +24,8 @@ export function AdminPanel({
   users,
 }: AdminPanelProps) {
   const [isToggling, startToggle] = useTransition();
-  const [isUpdating, startUpdate] = useTransition();
+  const [, startUpdate] = useTransition();
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   return (
     <>
@@ -101,15 +102,17 @@ export function AdminPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={isCurrentUser || isUpdating}
+                  disabled={isCurrentUser || updatingUserId === user.id}
                   onClick={() => {
                     const newRole = isAdmin ? "USER" : "ADMIN";
+                    setUpdatingUserId(user.id);
                     startUpdate(async () => {
                       await updateUserRole(user.id, newRole);
+                      setUpdatingUserId(null);
                     });
                   }}
                 >
-                  {isUpdating ? (
+                  {updatingUserId === user.id ? (
                     <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                   ) : null}
                   {isAdmin ? "Remove admin" : "Make admin"}

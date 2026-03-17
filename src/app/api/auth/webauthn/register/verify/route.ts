@@ -129,13 +129,6 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Upsert SystemSettings singleton (ensures it exists)
-        await tx.systemSettings.upsert({
-          where: { id: "singleton" },
-          create: { id: "singleton", signupsEnabled: true },
-          update: {},
-        });
-
         return newUser;
       },
       { isolationLevel: "Serializable" },
