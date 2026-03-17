@@ -15,7 +15,9 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/imbox";
+  const rawUrl = event.notification.data?.url || "/imbox";
+  // Only allow relative paths — prevent open redirect via crafted payloads
+  const url = rawUrl.startsWith("/") ? rawUrl : "/imbox";
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
@@ -26,6 +28,6 @@ self.addEventListener("notificationclick", (event) => {
           }
         }
         return clients.openWindow(url);
-      })
+      }),
   );
 });
