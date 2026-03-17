@@ -1,6 +1,6 @@
 #!/bin/sh
 # Post-deploy: push schema + ensure search vector exists
 echo "Running post-deploy migrations..."
-kamal app exec "npx prisma db push --skip-generate" || true
+kamal app exec "npx prisma db push --skip-generate --accept-data-loss" || true
 kamal app exec "npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/search_vector.sql" || true
 echo "Post-deploy migrations complete."
