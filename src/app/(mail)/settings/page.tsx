@@ -5,7 +5,7 @@ import { ImportButton } from "@/components/mail/import-button";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
-import { PlusCircle } from "lucide-react";
+import { ChevronRight, PlusCircle, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
@@ -166,6 +166,27 @@ export default async function SettingsPage() {
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <div className="mx-auto max-w-2xl space-y-6 md:space-y-8">
+
+          {/* Admin link (admins only) */}
+          {session.user.role === "ADMIN" && (
+            <section>
+              <Link
+                href="/settings/admin"
+                className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Admin settings</p>
+                    <p className="text-xs text-muted-foreground">
+                      Manage users and registration
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            </section>
+          )}
 
           {/* Account section */}
           <section>

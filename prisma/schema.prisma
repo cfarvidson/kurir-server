@@ -11,6 +11,11 @@ datasource db {
 // USER & AUTHENTICATION
 // ============================================
 
+enum Role {
+  ADMIN
+  USER
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -19,6 +24,7 @@ model User {
   // Identity (no email/IMAP fields -- those are on EmailConnection)
   displayName String?
   timezone    String  @default("UTC")
+  role        Role    @default(USER)
 
   // Relations
   passkeys         Passkey[]
@@ -315,6 +321,15 @@ model Attachment {
 
   @@index([messageId])
   @@index([contentId])
+}
+
+// ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+model SystemSettings {
+  id             String  @id @default("singleton")
+  signupsEnabled Boolean @default(true)
 }
 
 // ============================================

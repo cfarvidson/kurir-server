@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   // NextAuth v5 uses the cookie name as the salt for JWT encryption
   const token = await encode({
-    token: { id: passkey.userId },
+    token: { id: passkey.userId, role: passkey.user.role },
     secret,
     salt: cookieName,
     maxAge: 30 * 24 * 60 * 60,
