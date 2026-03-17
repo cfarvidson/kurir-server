@@ -84,8 +84,7 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
 
   if (!mounted) return null;
 
-  const cappedHeight = Math.min(height, 2000);
-  const visualHeight = cappedHeight * scale;
+  const visualHeight = height * scale;
 
   return (
     <div
@@ -101,7 +100,7 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
         title="Email content"
         aria-label="Email body"
         style={{
-          height: cappedHeight,
+          height,
           width: scale < 1 ? `${100 / scale}%` : "100%",
           transform: scale < 1 ? `scale(${scale})` : undefined,
           transformOrigin: "top left",
