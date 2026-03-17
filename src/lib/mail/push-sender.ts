@@ -22,6 +22,7 @@ interface PushPayload {
 }
 
 export async function pushToUser(userId: string, payload: PushPayload) {
+  console.log(`[push] pushToUser called, vapidConfigured=${vapidConfigured}`);
   if (!vapidConfigured) return;
 
   const subscriptions = await db.pushSubscription.findMany({
@@ -29,6 +30,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
     select: { id: true, endpoint: true, p256dh: true, auth: true },
   });
 
+  console.log(`[push] Found ${subscriptions.length} subscriptions for user`);
   if (subscriptions.length === 0) return;
 
   const body = JSON.stringify(payload);
@@ -62,9 +64,13 @@ export async function pushToUser(userId: string, payload: PushPayload) {
   );
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
-  if (sent > 0) {
-    console.log(
-      `[push] Sent ${sent}/${subscriptions.length} notifications to user ${userId}`,
-    );
+  const failed = results.filter((r) => r.status === "rejected");
+  console.log(
+    `[push] Results: ${sent} sent, ${failed.length} failed out of ${subscriptions.length}`,
+  );
+  for (const f of failed) {
+    if (f.status === "rejected") {
+      console.error(`[push] Failure:`, f.reason?.message || f.reason);
+    }
   }
 }
