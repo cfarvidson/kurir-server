@@ -51,17 +51,17 @@ export function AutoSync() {
     routerRef.current = router;
   });
 
-  // Immediate sync when tab regains focus
+  // Refresh UI when tab regains focus (pick up background sync changes)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        queryClient.invalidateQueries({ queryKey: ["mail-sync"] });
+        routerRef.current.refresh();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, [queryClient]);
+  }, []);
 
   // SSE: realtime updates from IDLE
   useEffect(() => {
@@ -88,21 +88,20 @@ export function AutoSync() {
     }
   }, [importing, queryClient]);
 
+  // Only poll the sync API during import (not during normal operation)
   const { data } = useQuery<SyncResponse>({
     queryKey: ["mail-sync"],
     queryFn: async () => {
-      const url = importing
-        ? "/api/mail/sync?batchSize=200"
-        : "/api/mail/sync";
+      const url = "/api/mail/sync?batchSize=200";
       const res = await fetch(url, { method: "POST" });
       if (!res.ok) throw new Error("Sync failed");
       return res.json();
     },
-    refetchInterval: importing ? 2_000 : 30_000,
-    refetchIntervalInBackground: false,
+    refetchInterval: importing ? 2_000 : false,
+    enabled: importing,
   });
 
-  // Handle sync results — only update progress when we get real data
+  // Handle import progress
   const prevDataRef = useRef<SyncResponse | null>(null);
   useEffect(() => {
     if (!data || data === prevDataRef.current) return;
@@ -111,44 +110,35 @@ export function AutoSync() {
     const flat: SyncResultData[] =
       data.results?.flatMap((cr) => cr.results ?? []) ?? [];
 
-    if (importing) {
-      // Another sync holds the lock — wait for it to clear
-      if (data.locked) {
-        setLockHeld(true);
-        return;
-      }
-      setLockHeld(false);
+    if (!importing) return;
 
-      const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
-      if (total > 0) {
-        const synced = flat.reduce((s, r) => s + r.totalCached, 0);
-        const remaining = flat.reduce((s, r) => s + r.remaining, 0);
-        setProgress({ synced, total, remaining });
-
-        if (remaining === 0) {
-          router.refresh();
-          if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-          dismissTimerRef.current = setTimeout(() => {
-            setImporting(false);
-            setProgress(null);
-          }, 2_000);
-          return;
-        }
-        router.refresh();
-      }
-      // When total === 0 (empty results but no lock), keep current progress
+    // Another sync holds the lock — wait for it to clear
+    if (data.locked) {
+      setLockHeld(true);
       return;
     }
+    setLockHeld(false);
 
-    // Normal sync: refresh when new messages arrive
-    const hasNew = flat.some((r) => r.newMessages > 0);
-    const hasWoken = (data.wokenSnoozes ?? 0) > 0;
-    if (hasNew || hasWoken) {
+    const total = flat.reduce((s, r) => s + r.totalOnServer, 0);
+    if (total > 0) {
+      const synced = flat.reduce((s, r) => s + r.totalCached, 0);
+      const remaining = flat.reduce((s, r) => s + r.remaining, 0);
+      setProgress({ synced, total, remaining });
+
+      if (remaining === 0) {
+        router.refresh();
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = setTimeout(() => {
+          setImporting(false);
+          setProgress(null);
+        }, 2_000);
+        return;
+      }
       router.refresh();
     }
   }, [data, router, importing]);
 
-  // Progress bar
+  // Progress bar (only visible during import)
   if (!importing) return null;
 
   if (lockHeld) {

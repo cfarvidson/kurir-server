@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
-import { connectionManager } from "@/lib/mail/connection-manager";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 async function getUserEmails(userId: string): Promise<string[]> {
@@ -57,9 +56,6 @@ export default async function MailLayout({
     getScreenerCount(session.user.id, userEmails),
     getImboxUnreadCount(session.user.id),
   ]);
-
-  // Start IDLE for all email connections (no-op if already connected)
-  connectionManager.startAllForUser(session.user.id).catch(console.error);
 
   return (
     <Providers>
