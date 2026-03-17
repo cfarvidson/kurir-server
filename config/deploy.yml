@@ -39,10 +39,12 @@ env:
     WEBAUTHN_RP_NAME: Kurir
     WEBAUTHN_RP_ID: kurir-app-1.banded-beta.ts.net
     NEXTAUTH_URL: https://kurir-app-1.banded-beta.ts.net
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: BPaSrHVytY_NJEq5tdKs9COC0bXzovmSn0Wl8VbeAMrYZIGY6Iy2y8F4bc9sGjA5B_Vd9VDO6e0zKXyCOvXX2sg
   secret:
     - DATABASE_URL
     - NEXTAUTH_SECRET
     - ENCRYPTION_KEY
+    - VAPID_PRIVATE_KEY
 
 # Use accessory services (secrets come from .kamal/secrets).
 accessories:
