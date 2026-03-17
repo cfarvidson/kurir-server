@@ -10,6 +10,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Kurir - Email for Humans",
   description: "A calm, focused email experience inspired by Hey.com",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "32x32" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport = {
