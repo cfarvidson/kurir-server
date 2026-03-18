@@ -15,6 +15,7 @@ servers:
 proxy:
   ssl: false
   app_port: 3000
+  response_timeout: 120
   healthcheck:
     path: /api/up
 
