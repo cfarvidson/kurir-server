@@ -108,7 +108,7 @@ export function ReplyComposer({
   };
 
   const handleSend = () => {
-    if (!body.trim() || sendingRef.current) return;
+    if (!body.trim() || sendingRef.current || scheduling) return;
     sendingRef.current = true;
 
     const sentBody = body.trim();
