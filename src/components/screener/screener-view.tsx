@@ -67,11 +67,18 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   const handleReject = async (senderId: string) => {
     setProcessingId(senderId);
+    const prevSenders = senders;
     setSenders((prev) => prev.filter((s) => s.id !== senderId));
     badgeUpdate("screener", -1);
 
     startTransition(async () => {
-      await rejectSender(senderId);
+      try {
+        await rejectSender(senderId);
+      } catch {
+        // Revert optimistic update on failure
+        setSenders(prevSenders);
+        badgeUpdate("screener", 1);
+      }
       setProcessingId(null);
       router.refresh();
     });

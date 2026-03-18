@@ -12,14 +12,23 @@ async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user] = await Promise.all([
     db.emailConnection.findFirst({
       where: { id: connectionId, userId },
-      select: { email: true },
+      select: { email: true, sendAsEmail: true, aliases: true },
     }),
     db.user.findUnique({
       where: { id: userId },
       select: { timezone: true },
     }),
   ]);
-  return { email: conn?.email || "", timezone: user?.timezone || "UTC" };
+  const allEmails = new Set(
+    [conn?.email, conn?.sendAsEmail, ...(conn?.aliases ?? [])]
+      .filter(Boolean)
+      .map((e) => e!.trim().toLowerCase()),
+  );
+  return {
+    email: conn?.email || "",
+    allEmails,
+    timezone: user?.timezone || "UTC",
+  };
 }
 
 interface ThreadDetailViewProps {
@@ -68,6 +77,7 @@ export async function ThreadDetailView({
     targetMessage.emailConnectionId,
   );
   const currentUserEmail = userInfo.email;
+  const userEmails = userInfo.allEmails;
 
   // Push \Seen to IMAP for messages just marked read (fire-and-forget)
   if (markedRead.length > 0) {
@@ -82,9 +92,10 @@ export async function ThreadDetailView({
   const lastMessage = messages[messages.length - 1];
 
   // For reply address: find the last message from someone else (not yourself)
+  // Check all user emails (email, sendAsEmail, aliases) to avoid replying to self
   const lastIncoming = [...messages]
     .reverse()
-    .find((m) => m.fromAddress !== currentUserEmail);
+    .find((m) => !userEmails.has(m.fromAddress.toLowerCase()));
 
   let replyToAddress: string;
   let replyToName: string;
@@ -106,12 +117,17 @@ export async function ThreadDetailView({
     });
     replyToName = recipientSender?.displayName || recipientEmail;
   } else {
-    const replyTarget = lastMessage;
-    replyToAddress = replyTarget.replyTo || replyTarget.fromAddress;
-    replyToName =
-      replyTarget.sender?.displayName ||
-      replyTarget.fromName ||
-      replyTarget.fromAddress;
+    // All messages are from the user — reply to the last recipient
+    const recipientEmail =
+      lastMessage.toAddresses.find((a) => !userEmails.has(a.toLowerCase())) ||
+      lastMessage.toAddresses[0] ||
+      lastMessage.fromAddress;
+    replyToAddress = recipientEmail;
+    const recipientSender = await db.sender.findFirst({
+      where: { userId: session.user.id, email: recipientEmail },
+      select: { displayName: true },
+    });
+    replyToName = recipientSender?.displayName || recipientEmail;
   }
 
   return (
