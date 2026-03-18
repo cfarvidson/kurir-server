@@ -655,7 +655,7 @@ export async function processMessage(
       encoding:
         (att as unknown as { contentTransferEncoding?: string })
           .contentTransferEncoding || null,
-      content: att.content || null,
+      content: att.content ? Buffer.from(att.content) : null,
     }));
 
     await db.attachment.createMany({
