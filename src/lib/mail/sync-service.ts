@@ -634,7 +634,14 @@ export async function processMessage(
       contentType: att.contentType || "application/octet-stream",
       size: att.size || 0,
       contentId: att.cid || null,
-      partId: structureParts[index]?.partId ?? String(index + 1),
+      partId:
+        structureParts.find(
+          (sp) =>
+            sp.type === (att.contentType || "application/octet-stream").toLowerCase() &&
+            sp.filename === (att.filename || ""),
+        )?.partId ??
+        structureParts[index]?.partId ??
+        String(index + 1),
       encoding:
         (att as unknown as { contentTransferEncoding?: string })
           .contentTransferEncoding || null,

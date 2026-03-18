@@ -90,19 +90,12 @@ export function sanitizeEmailHtml(
     a.setAttribute("rel", "noopener noreferrer");
   });
 
-  // 2. Filter dangerous img src — allow only http/https/cid.
-  //    DOMPurify strips data: URIs by default but we double-check here.
+  // 2. Filter dangerous img src and rewrite external images to proxy.
   doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") ?? "";
     if (src && !/^(https?:|cid:)/i.test(src)) {
       img.removeAttribute("src");
-    }
-  });
-
-  // 3. Rewrite external images to proxy (blocks tracking pixels).
-  doc.querySelectorAll("img").forEach((img) => {
-    const src = img.getAttribute("src") ?? "";
-    if (/^https?:/i.test(src)) {
+    } else if (/^https?:/i.test(src)) {
       img.setAttribute(
         "src",
         `/api/proxy/image?url=${encodeURIComponent(src)}`,

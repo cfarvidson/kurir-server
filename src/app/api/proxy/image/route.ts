@@ -40,6 +40,8 @@ function isBlockedHostname(hostname: string): boolean {
   return false;
 }
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
 function proxyImageResponse(response: Response): NextResponse {
   if (!response.ok || !response.body) {
     return transparentPixelResponse();
@@ -54,6 +56,15 @@ function proxyImageResponse(response: Response): NextResponse {
 
   // Only proxy image content types
   if (!contentType.startsWith("image/")) {
+    return transparentPixelResponse();
+  }
+
+  // Block oversized responses
+  const contentLength = parseInt(
+    response.headers.get("content-length") || "0",
+    10,
+  );
+  if (contentLength > MAX_IMAGE_SIZE) {
     return transparentPixelResponse();
   }
 
@@ -108,7 +119,7 @@ export async function GET(req: NextRequest) {
         const redirectResponse = await fetch(redirectUrl.href, {
           signal: AbortSignal.timeout(10_000),
           headers: { "User-Agent": "KurirMail/1.0 ImageProxy" },
-          redirect: "manual",
+          redirect: "follow",
         });
         return proxyImageResponse(redirectResponse);
       } catch {
