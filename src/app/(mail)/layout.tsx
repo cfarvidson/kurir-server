@@ -29,7 +29,10 @@ async function getUserEmails(userId: string): Promise<string[]> {
 const getScreenerCount = unstable_cache(
   async (userId: string, excludedEmails: string[]) =>
     db.sender.count({
-      where: visiblePendingSenderWhere(userId, excludedEmails.length > 0 ? excludedEmails : null),
+      where: visiblePendingSenderWhere(
+        userId,
+        excludedEmails.length > 0 ? excludedEmails : null,
+      ),
     }),
   ["screener-count"],
   { tags: ["sidebar-counts"], revalidate: 30 },
@@ -87,12 +90,17 @@ export default async function MailLayout({
         <AutoSync />
         <KeyboardShortcuts />
         <Toaster
-          position="top-right"
+          position="bottom-right"
           expand={false}
           visibleToasts={4}
           toastOptions={{
-            className: "border border-border bg-card text-card-foreground shadow-lg",
-            style: { "--toast-bg": "hsl(var(--card))", "--toast-border": "hsl(var(--border))", "--toast-text": "hsl(var(--card-foreground))" } as React.CSSProperties,
+            className:
+              "border border-border bg-card text-card-foreground shadow-lg",
+            style: {
+              "--toast-bg": "hsl(var(--card))",
+              "--toast-border": "hsl(var(--border))",
+              "--toast-text": "hsl(var(--card-foreground))",
+            } as React.CSSProperties,
           }}
         />
       </div>
