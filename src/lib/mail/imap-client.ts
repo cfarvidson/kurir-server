@@ -1,4 +1,4 @@
-import { ImapFlow } from "imapflow";
+import { ImapFlow, type ListResponse } from "imapflow";
 import { getConnectionCredentials } from "@/lib/auth";
 
 /**
@@ -11,7 +11,10 @@ export async function withImapConnection<T>(
   fn: (client: ImapFlow) => Promise<T>
 ): Promise<T | null> {
   const credentials = await getConnectionCredentials(connectionId);
-  if (!credentials) return null;
+  if (!credentials) {
+    console.warn("[imap] No credentials found for connection:", connectionId);
+    return null;
+  }
 
   const client = new ImapFlow({
     host: credentials.imap.host,
@@ -37,4 +40,20 @@ export async function withImapConnection<T>(
       // Ignore logout errors
     }
   }
+}
+
+/**
+ * Find the archive mailbox from a list of IMAP mailboxes.
+ * Prefers \Archive or "archive" path, falls back to \All.
+ */
+export function findArchiveMailbox(
+  mailboxes: ListResponse[],
+): ListResponse | undefined {
+  return (
+    mailboxes.find(
+      (mb) =>
+        mb.specialUse === "\\Archive" ||
+        mb.path.toLowerCase() === "archive",
+    ) ?? mailboxes.find((mb) => mb.specialUse === "\\All")
+  );
 }

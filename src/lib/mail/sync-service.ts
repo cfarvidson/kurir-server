@@ -2,6 +2,8 @@ import { ImapFlow, FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
 import { getConnectionCredentials } from "@/lib/auth";
+import { suppressEcho } from "@/lib/mail/flag-push";
+import { findArchiveMailbox } from "@/lib/mail/imap-client";
 
 export interface SyncResult {
   folderId: string;
@@ -685,12 +687,11 @@ async function moveRejectedToArchive(
 
   if (stale.length === 0) return;
 
-  const archiveBox =
-    mailboxes.find(
-      (mb) =>
-        mb.specialUse === "\\Archive" ||
-        mb.path.toLowerCase() === "archive",
-    ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+  console.log(
+    `[sync] moveRejectedToArchive: ${stale.length} message(s) to move`,
+  );
+
+  const archiveBox = findArchiveMailbox(mailboxes);
 
   if (!archiveBox) {
     console.warn(
@@ -709,6 +710,10 @@ async function moveRejectedToArchive(
     const BATCH = 100;
     for (let i = 0; i < uids.length; i += BATCH) {
       const chunk = uids.slice(i, i + BATCH);
+      // Register echo suppression per-batch to keep TTL tight
+      for (const uid of chunk) {
+        suppressEcho(userId, inboxFolderId, uid);
+      }
       try {
         await client.messageMove(chunk, archiveBox.path, { uid: true });
       } catch (err) {
@@ -724,7 +729,7 @@ async function moveRejectedToArchive(
   // (Previously set uid=-1, but updateMany with a fixed uid violated
   // the @@unique([folderId, uid]) constraint when multiple messages moved.)
   await db.message.deleteMany({
-    where: { id: { in: stale.map((m) => m.id) } },
+    where: { id: { in: stale.map((m) => m.id) }, isArchived: true },
   });
 }
 

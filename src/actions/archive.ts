@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { withImapConnection } from "@/lib/mail/imap-client";
+import { withImapConnection, findArchiveMailbox } from "@/lib/mail/imap-client";
 import { suppressEcho } from "@/lib/mail/flag-push";
 
 /**
@@ -67,14 +67,9 @@ export async function moveToArchiveViaImap(
     suppressEcho(userId, folderId, uid);
   }
 
-  await withImapConnection(connectionId, async (client) => {
+  const result = await withImapConnection(connectionId, async (client) => {
     const mailboxes = await client.list();
-    const archiveBox =
-      mailboxes.find(
-        (mb) =>
-          mb.specialUse === "\\Archive" ||
-          mb.path.toLowerCase() === "archive"
-      ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+    const archiveBox = findArchiveMailbox(mailboxes);
 
     if (archiveBox) {
       console.log(
@@ -105,6 +100,12 @@ export async function moveToArchiveViaImap(
       );
     }
   });
+
+  if (result === null) {
+    console.warn(
+      `[imap] moveToArchiveViaImap failed: IMAP connection returned null for ${uids.length} message(s)`,
+    );
+  }
 }
 
 export async function moveToInboxViaImap(
@@ -119,12 +120,7 @@ export async function moveToInboxViaImap(
 
   await withImapConnection(connectionId, async (client) => {
     const mailboxes = await client.list();
-    const archiveBox =
-      mailboxes.find(
-        (mb) =>
-          mb.specialUse === "\\Archive" ||
-          mb.path.toLowerCase() === "archive"
-      ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+    const archiveBox = findArchiveMailbox(mailboxes);
 
     if (archiveBox) {
       const lock = await client.getMailboxLock(archiveBox.path);

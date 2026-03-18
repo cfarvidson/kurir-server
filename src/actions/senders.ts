@@ -127,6 +127,7 @@ export async function rejectSender(senderId: string) {
       `[reject] Moving ${inboxUids.length} message(s) to IMAP archive for sender ${senderId}`,
     );
     after(async () => {
+      console.log("[reject] after() callback fired for sender", senderId);
       try {
         await moveToArchiveViaImap(
           userId,
