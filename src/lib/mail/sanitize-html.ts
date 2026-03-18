@@ -99,7 +99,18 @@ export function sanitizeEmailHtml(
     }
   });
 
-  // 3. Optionally collapse quotes.
+  // 3. Rewrite external images to proxy (blocks tracking pixels).
+  doc.querySelectorAll("img").forEach((img) => {
+    const src = img.getAttribute("src") ?? "";
+    if (/^https?:/i.test(src)) {
+      img.setAttribute(
+        "src",
+        `/api/proxy/image?url=${encodeURIComponent(src)}`,
+      );
+    }
+  });
+
+  // 4. Optionally collapse quotes.
   if (options.collapseQuotes) {
     // Standard blockquotes.
     doc.querySelectorAll("blockquote").forEach((el) => el.remove());

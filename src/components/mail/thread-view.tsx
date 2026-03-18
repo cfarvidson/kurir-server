@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, Download, MoreHorizontal, Paperclip, Printer } from "lucide-react";
+import { Archive, ChevronDown, MoreHorizontal, Paperclip, Printer } from "lucide-react";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 
@@ -88,58 +88,6 @@ function printEmail(message: ThreadMessage) {
   win.document.write(buildEmailHtml(message));
   win.document.close();
   win.addEventListener("load", () => win.print());
-}
-
-async function downloadPdf(message: ThreadMessage) {
-  const html = buildEmailHtml(message);
-  const filename =
-    (message.subject || "email")
-      .replace(/[^a-zA-Z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .slice(0, 60) + ".pdf";
-
-  // Render in a hidden iframe (no flickering window, fully rendered content)
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText =
-    "position:fixed;left:0;top:0;width:800px;height:100vh;opacity:0;pointer-events:none;z-index:-1";
-  document.body.appendChild(iframe);
-
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    return;
-  }
-
-  iframeDoc.open();
-  iframeDoc.write(html);
-  iframeDoc.close();
-
-  // Wait for content to fully render (images, fonts, layout)
-  await new Promise((resolve) => {
-    iframe.addEventListener("load", resolve);
-    setTimeout(resolve, 1000);
-  });
-
-  try {
-    const html2pdf = (await import("html2pdf.js")).default;
-
-    await html2pdf()
-      .set({
-        margin: [8, 8, 8, 8],
-        filename,
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          width: 780,
-          windowWidth: 780,
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(iframeDoc.body)
-      .save();
-  } finally {
-    document.body.removeChild(iframe);
-  }
 }
 
 function MessageBubble({
@@ -255,16 +203,6 @@ function MessageBubble({
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadPdf(message);
-                        }}
-                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                        title="Download email"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

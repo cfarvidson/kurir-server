@@ -5,6 +5,36 @@ import { getConnectionCredentials } from "@/lib/auth";
 import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
 
+/**
+ * Walk the IMAP bodyStructure tree to extract attachment part IDs.
+ * These MIME part IDs (e.g. "1.2", "2") are what ImapFlow.download() expects.
+ */
+function extractAttachmentParts(
+  node: any,
+  path: string = "",
+): Array<{ partId: string; type: string; filename: string; size: number }> {
+  if (node.childNodes) {
+    return node.childNodes.flatMap((child: any, i: number) => {
+      const childPath = path ? `${path}.${i + 1}` : String(i + 1);
+      return extractAttachmentParts(child, childPath);
+    });
+  }
+  const disposition = node.disposition?.toLowerCase?.() ?? "";
+  const filename =
+    node.dispositionParameters?.filename || node.parameters?.name || "";
+  if (disposition === "attachment" || (filename && disposition !== "inline")) {
+    return [
+      {
+        partId: path || "1",
+        type: `${node.type || ""}/${node.subtype || ""}`.toLowerCase(),
+        filename,
+        size: node.size || 0,
+      },
+    ];
+  }
+  return [];
+}
+
 export interface SyncResult {
   folderId: string;
   folderPath: string;
@@ -592,15 +622,19 @@ export async function processMessage(
     },
   });
 
-  // Store attachments metadata
+  // Store attachments metadata with correct MIME part IDs from bodyStructure
   if (parsed.attachments && parsed.attachments.length > 0) {
+    const structureParts = msg.bodyStructure
+      ? extractAttachmentParts(msg.bodyStructure)
+      : [];
+
     const attachmentData = parsed.attachments.map((att, index) => ({
       messageId: message.id,
       filename: att.filename || `attachment-${index}`,
       contentType: att.contentType || "application/octet-stream",
       size: att.size || 0,
       contentId: att.cid || null,
-      partId: String(index + 1),
+      partId: structureParts[index]?.partId ?? String(index + 1),
       encoding:
         (att as unknown as { contentTransferEncoding?: string })
           .contentTransferEncoding || null,

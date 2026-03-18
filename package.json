@@ -31,7 +31,6 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.3.1",
     "framer-motion": "^11.15.0",
-    "html2pdf.js": "^0.14.0",
     "imapflow": "^1.0.171",
     "lucide-react": "^0.469.0",
     "mailparser": "^3.7.2",

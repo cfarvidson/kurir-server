@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { simpleParser } from "mailparser";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { withImapConnection } from "@/lib/mail/imap-client";
@@ -35,26 +34,28 @@ export async function GET(
   }
 
   const { message } = attachment;
-  const partIndex = parseInt(attachment.partId, 10) - 1;
 
-  // Fetch the message source from IMAP and extract the attachment
-  const content = await withImapConnection(message.emailConnectionId, async (client) => {
-    const mailbox = await client.getMailboxLock(message.folder.path);
-    try {
-      // Fetch full source for this specific UID
-      const fetched = await client.fetchOne(String(message.uid), { source: true }, { uid: true });
-      const source = fetched && "source" in fetched ? fetched.source : null;
-      if (!source) return null;
-
-      const parsed = await simpleParser(source);
-      const att = parsed.attachments?.[partIndex];
-      if (!att) return null;
-
-      return att.content;
-    } finally {
-      mailbox.release();
+  // Download only the specific MIME part via ImapFlow — no full source fetch needed
+  const content = await withImapConnection(
+    message.emailConnectionId,
+    async (client) => {
+      const mailbox = await client.getMailboxLock(message.folder.path);
+      try {
+        const { content: stream } = await client.download(
+          String(message.uid),
+          attachment.partId,
+          { uid: true }
+        );
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) {
+          chunks.push(chunk as Buffer);
+        }
+        return Buffer.concat(chunks);
+      } finally {
+        mailbox.release();
+      }
     }
-  });
+  );
 
   if (!content) {
     return NextResponse.json(

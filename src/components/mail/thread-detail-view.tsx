@@ -151,7 +151,7 @@ export async function ThreadDetailView({
     <div className="flex h-full flex-col">
       {markedRead.length > 0 && <SidebarRefresh />}
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur-sm md:px-6">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm md:px-6">
         <Link
           href={returnPath}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -168,13 +168,15 @@ export async function ThreadDetailView({
             {messages.length}
           </span>
         )}
-        {actions({
-          messageId,
-          returnPath,
-          timezone: userInfo.timezone,
-          followUpAt: targetMessage.followUpAt,
-          isFollowUp: targetMessage.isFollowUp,
-        })}
+        <div className="flex flex-shrink-0 items-center gap-1">
+          {actions({
+            messageId,
+            returnPath,
+            timezone: userInfo.timezone,
+            followUpAt: targetMessage.followUpAt,
+            isFollowUp: targetMessage.isFollowUp,
+          })}
+        </div>
       </div>
 
       {/* Thread + optional contact sidebar */}

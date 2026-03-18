@@ -82,7 +82,7 @@ export default async function MailLayout({
 
   return (
     <Providers>
-      <div className="flex h-screen">
+      <div className="flex h-screen h-dvh">
         <Sidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
@@ -95,7 +95,7 @@ export default async function MailLayout({
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
         />
-        <main className="flex-1 overflow-auto overscroll-y-contain">
+        <main className="flex-1 overflow-auto overscroll-y-contain pb-[env(safe-area-inset-bottom)]">
           <PullToRefresh>{children}</PullToRefresh>
         </main>
         <AutoSync />
