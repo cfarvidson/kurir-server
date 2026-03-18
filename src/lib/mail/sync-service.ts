@@ -22,11 +22,18 @@ function extractAttachmentParts(
   const disposition = node.disposition?.toLowerCase?.() ?? "";
   const filename =
     node.dispositionParameters?.filename || node.parameters?.name || "";
-  if (disposition === "attachment" || (filename && disposition !== "inline")) {
+  const type = `${node.type || ""}/${node.subtype || ""}`.toLowerCase();
+  // Include all non-text parts: attachments, inline images, etc.
+  // This must match what simpleParser puts in parsed.attachments
+  if (
+    disposition === "attachment" ||
+    filename ||
+    (disposition === "inline" && !type.startsWith("text/"))
+  ) {
     return [
       {
         partId: path || "1",
-        type: `${node.type || ""}/${node.subtype || ""}`.toLowerCase(),
+        type,
         filename,
         size: node.size || 0,
       },
