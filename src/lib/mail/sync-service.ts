@@ -646,7 +646,8 @@ export async function processMessage(
       partId:
         structureParts.find(
           (sp) =>
-            sp.type === (att.contentType || "application/octet-stream").toLowerCase() &&
+            sp.type ===
+              (att.contentType || "application/octet-stream").toLowerCase() &&
             sp.filename === (att.filename || ""),
         )?.partId ??
         structureParts[index]?.partId ??
@@ -654,6 +655,7 @@ export async function processMessage(
       encoding:
         (att as unknown as { contentTransferEncoding?: string })
           .contentTransferEncoding || null,
+      content: att.content || null,
     }));
 
     await db.attachment.createMany({
