@@ -325,6 +325,9 @@ model Attachment {
   partId   String // e.g., "1.2", "2"
   encoding String? // e.g., "base64", "quoted-printable"
 
+  // Cached content (populated on first download)
+  content Bytes?
+
   // Message relation
   messageId String
   message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)

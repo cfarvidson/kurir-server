@@ -33,6 +33,15 @@ function findAttachmentParts(
   return [];
 }
 
+function responseHeaders(attachment: { contentType: string; filename: string; size: number }) {
+  return {
+    "Content-Type": attachment.contentType || "application/octet-stream",
+    "Content-Disposition": `attachment; filename="${encodeURIComponent(attachment.filename)}"`,
+    ...(attachment.size ? { "Content-Length": String(attachment.size) } : {}),
+    "Cache-Control": "private, max-age=86400",
+  };
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -62,6 +71,14 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Serve from cache if available
+  if (attachment.content) {
+    return new NextResponse(attachment.content, {
+      headers: responseHeaders(attachment),
+    });
+  }
+
+  // Otherwise fetch from IMAP, cache, and serve
   const { message } = attachment;
 
   const credentials = await getConnectionCredentials(message.emailConnectionId);
@@ -109,13 +126,14 @@ export async function GET(
       { uid: true },
     );
 
+    let correctedPartId: string | null = null;
+
     // If stored partId returns nothing, try to find the correct part via bodyStructure
     if (!imapStream) {
       console.warn(
         `[attachments] partId=${attachment.partId} returned no content for uid=${message.uid}, attempting bodyStructure lookup`,
       );
 
-      let correctedPartId: string | null = null;
       for await (const msg of client.fetch(
         String(message.uid),
         { bodyStructure: true },
@@ -145,16 +163,6 @@ export async function GET(
           correctedPartId,
           { uid: true },
         ));
-
-        // Update the DB so future downloads work directly
-        if (imapStream) {
-          db.attachment
-            .update({
-              where: { id: attachment.id },
-              data: { partId: correctedPartId },
-            })
-            .catch(() => {});
-        }
       }
     }
 
@@ -170,32 +178,31 @@ export async function GET(
       );
     }
 
-    // Stream the IMAP download directly to the response
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of imapStream) {
-            controller.enqueue(new Uint8Array(chunk as Buffer));
-          }
-          controller.close();
-        } catch (err) {
-          console.error("[attachments] Stream error:", err);
-          controller.error(err);
-        } finally {
-          mailbox.release();
-          await client.logout().catch(() => {});
-        }
-      },
-    });
+    // Buffer the content so we can cache it
+    const chunks: Buffer[] = [];
+    for await (const chunk of imapStream) {
+      chunks.push(Buffer.from(chunk as Buffer));
+    }
+    const content = Buffer.concat(chunks);
 
-    return new NextResponse(readable, {
+    mailbox.release();
+    await client.logout().catch(() => {});
+
+    // Cache content (and fix partId if corrected) in the background
+    db.attachment
+      .update({
+        where: { id: attachment.id },
+        data: {
+          content,
+          ...(correctedPartId ? { partId: correctedPartId } : {}),
+        },
+      })
+      .catch(() => {});
+
+    return new NextResponse(content, {
       headers: {
-        "Content-Type": attachment.contentType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(attachment.filename)}"`,
-        ...(attachment.size
-          ? { "Content-Length": String(attachment.size) }
-          : {}),
-        "Cache-Control": "private, max-age=3600",
+        ...responseHeaders(attachment),
+        "Content-Length": String(content.length),
       },
     });
   } catch (err) {
