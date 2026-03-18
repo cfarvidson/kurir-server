@@ -114,10 +114,11 @@ export async function GET(
       );
 
       let correctedPartId: string | null = null;
-      for await (const msg of client.fetch(String(message.uid), {
-        uid: true,
-        bodyStructure: true,
-      })) {
+      for await (const msg of client.fetch(
+        String(message.uid),
+        { bodyStructure: true },
+        { uid: true },
+      )) {
         if (msg.bodyStructure) {
           const parts = findAttachmentParts(msg.bodyStructure);
           const match =
