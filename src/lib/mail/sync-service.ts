@@ -22,7 +22,9 @@ function extractAttachmentParts(
   const disposition = node.disposition?.toLowerCase?.() ?? "";
   const filename =
     node.dispositionParameters?.filename || node.parameters?.name || "";
-  const type = `${node.type || ""}/${node.subtype || ""}`.toLowerCase();
+  const type = node.subtype
+    ? `${node.type}/${node.subtype}`.toLowerCase()
+    : (node.type || "").toLowerCase();
   // Include all non-text parts: attachments, inline images, etc.
   // This must match what simpleParser puts in parsed.attachments
   if (

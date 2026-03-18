@@ -20,7 +20,9 @@ function findAttachmentParts(
   const disposition = node.disposition?.toLowerCase?.() ?? "";
   const filename =
     node.dispositionParameters?.filename || node.parameters?.name || "";
-  const type = `${node.type || ""}/${node.subtype || ""}`.toLowerCase();
+  const type = node.subtype
+    ? `${node.type}/${node.subtype}`.toLowerCase()
+    : (node.type || "").toLowerCase();
   if (
     disposition === "attachment" ||
     filename ||
@@ -120,16 +122,7 @@ export async function GET(
         { uid: true },
       )) {
         if (msg.bodyStructure) {
-          console.log(
-            `[attachments] bodyStructure: ${JSON.stringify(msg.bodyStructure)}`,
-          );
           const parts = findAttachmentParts(msg.bodyStructure);
-          console.log(
-            `[attachments] extracted parts: ${JSON.stringify(parts)}`,
-          );
-          console.log(
-            `[attachments] looking for type=${attachment.contentType.toLowerCase()} filename=${attachment.filename}`,
-          );
           const match =
             parts.find(
               (p) =>
