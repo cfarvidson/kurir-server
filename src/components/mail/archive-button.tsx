@@ -26,14 +26,14 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
     <button
       onClick={handleArchive}
       disabled={isPending}
-      className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+      className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 md:px-3"
     >
       {isPending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
         <Archive className="h-3.5 w-3.5" />
       )}
-      Archive
+      <span className="hidden md:inline">Archive</span>
     </button>
   );
 }

@@ -94,14 +94,14 @@ export function FollowUpButton({
         <PopoverTrigger asChild>
           <button
             disabled={isPending}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900"
+            className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900 md:px-3"
           >
             {isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Bell className="h-3.5 w-3.5" />
             )}
-            Follow Up
+            <span className="hidden md:inline">Follow Up</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-0">
@@ -151,7 +151,7 @@ export function FollowUpButton({
           <button
             disabled={isPending}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:opacity-50",
+              "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm transition-colors disabled:opacity-50 md:px-3",
               "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100",
               "dark:border-amber-700 dark:bg-amber-950 dark:text-amber-400 dark:hover:bg-amber-900",
             )}
@@ -162,7 +162,7 @@ export function FollowUpButton({
             ) : (
               <Bell className="h-3.5 w-3.5" />
             )}
-            {formatRelativeDate(new Date(followUpAt))}
+            <span className="hidden md:inline">{formatRelativeDate(new Date(followUpAt))}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-0">
@@ -215,14 +215,14 @@ export function FollowUpButton({
       trigger={
         <button
           disabled={isPending}
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 md:px-3"
         >
           {isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Bell className="h-3.5 w-3.5" />
           )}
-          Follow Up
+          <span className="hidden md:inline">Follow Up</span>
         </button>
       }
     />
