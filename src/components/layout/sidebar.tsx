@@ -63,7 +63,10 @@ export function Sidebar({ screenerCount = 0, imboxUnreadCount = 0 }: SidebarProp
         <Button asChild className="w-full gap-2">
           <Link href="/compose">
             <PenSquare className="h-4 w-4" />
-            Compose
+            <span className="flex-1">Compose</span>
+            <kbd className="rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
+              c
+            </kbd>
           </Link>
         </Button>
       </div>
