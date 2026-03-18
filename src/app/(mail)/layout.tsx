@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { AutoSync } from "@/components/mail/auto-sync";
 import { PullToRefresh } from "@/components/mail/pull-to-refresh";
+import { KeyboardShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { Providers } from "@/components/providers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -73,6 +74,7 @@ export default async function MailLayout({
           <PullToRefresh>{children}</PullToRefresh>
         </main>
         <AutoSync />
+        <KeyboardShortcuts />
       </div>
     </Providers>
   );

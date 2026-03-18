@@ -29,6 +29,26 @@ export function SearchInput() {
     };
   }, []);
 
+  // Listen for global "/" shortcut to focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (
+        el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.tagName === "SELECT" ||
+        el.isContentEditable
+      )
+        return;
+      if (e.key === "/") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const updateUrl = useCallback(
     (query: string) => {
       isTypingRef.current = false;
@@ -65,6 +85,8 @@ export function SearchInput() {
     }
   };
 
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <div className="relative flex items-center">
       <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
@@ -75,15 +97,23 @@ export function SearchInput() {
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         className="h-9 w-40 rounded-md border border-input bg-transparent py-1 pl-8 pr-8 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:w-56"
       />
-      {value && (
+      {value ? (
         <button
           onClick={handleClear}
           className="absolute right-2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
+      ) : (
+        !isFocused && (
+          <kbd className="pointer-events-none absolute right-2.5 hidden select-none rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-block">
+            /
+          </kbd>
+        )
       )}
     </div>
   );

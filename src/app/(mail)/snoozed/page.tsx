@@ -1,10 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { MessageList } from "@/components/mail/message-list";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
-import { searchMessages } from "@/lib/mail/search";
+import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
 import { Clock } from "lucide-react";
 
@@ -33,37 +32,25 @@ export default async function SnoozedPage({
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {isSearching ? (
-          <SearchResults userId={session.user.id} q={q!} />
+          <SearchResults
+            userId={session.user.id}
+            query={q!}
+            categoryFilter={Prisma.sql`AND "isSnoozed" = true`}
+            basePath="/snoozed"
+            showSnoozeAction
+            showSnoozedUntil
+            emptyIcon={
+              <div className="rounded-full bg-muted p-4">
+                <Clock className="h-8 w-8 text-muted-foreground" />
+              </div>
+            }
+          />
         ) : (
           <PaginatedSnoozed userId={session.user.id} />
         )}
       </div>
     </div>
   );
-}
-
-async function SearchResults({ userId, q }: { userId: string; q: string }) {
-  const messages = await searchMessages(
-    userId,
-    q,
-    Prisma.sql`AND "isSnoozed" = true`
-  );
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-4">
-          <Clock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="mt-4 text-lg font-medium">No results found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          No messages match &quot;{q}&quot;
-        </p>
-      </div>
-    );
-  }
-
-  return <MessageList messages={messages} basePath="/snoozed" showSnoozedUntil showSnoozeAction />;
 }
 
 async function PaginatedSnoozed({ userId }: { userId: string }) {

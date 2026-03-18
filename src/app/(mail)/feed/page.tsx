@@ -1,10 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { MessageList } from "@/components/mail/message-list";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
-import { searchMessages } from "@/lib/mail/search";
+import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
 
 export default async function FeedPage({
@@ -30,49 +29,37 @@ export default async function FeedPage({
 
       <div className="flex-1 overflow-auto">
         {isSearching ? (
-          <SearchResults userId={session.user.id} q={q!} />
+          <SearchResults
+            userId={session.user.id}
+            query={q!}
+            categoryFilter={Prisma.sql`AND "isInFeed" = true`}
+            basePath="/feed"
+            showArchiveAction
+            showSnoozeAction
+            emptyIcon={
+              <div className="rounded-full bg-blue-100 p-4">
+                <svg
+                  className="h-8 w-8 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+                  />
+                </svg>
+              </div>
+            }
+          />
         ) : (
           <PaginatedFeed userId={session.user.id} />
         )}
       </div>
     </div>
   );
-}
-
-async function SearchResults({ userId, q }: { userId: string; q: string }) {
-  const messages = await searchMessages(
-    userId,
-    q,
-    Prisma.sql`AND "isInFeed" = true`
-  );
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-blue-100 p-4">
-          <svg
-            className="h-8 w-8 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-            />
-          </svg>
-        </div>
-        <h2 className="mt-4 text-lg font-medium">No results found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          No messages match &quot;{q}&quot;
-        </p>
-      </div>
-    );
-  }
-
-  return <MessageList showArchiveAction showSnoozeAction messages={messages} basePath="/feed" />;
 }
 
 async function PaginatedFeed({ userId }: { userId: string }) {
