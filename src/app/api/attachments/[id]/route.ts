@@ -120,7 +120,16 @@ export async function GET(
         { uid: true },
       )) {
         if (msg.bodyStructure) {
+          console.log(
+            `[attachments] bodyStructure: ${JSON.stringify(msg.bodyStructure)}`,
+          );
           const parts = findAttachmentParts(msg.bodyStructure);
+          console.log(
+            `[attachments] extracted parts: ${JSON.stringify(parts)}`,
+          );
+          console.log(
+            `[attachments] looking for type=${attachment.contentType.toLowerCase()} filename=${attachment.filename}`,
+          );
           const match =
             parts.find(
               (p) =>
