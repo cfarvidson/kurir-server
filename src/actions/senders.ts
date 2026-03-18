@@ -123,15 +123,27 @@ export async function rejectSender(senderId: string) {
 
   // Defer IMAP move to after response
   if (inboxUids.length > 0 && inboxFolder) {
-    after(() =>
-      moveToArchiveViaImap(
-        userId,
-        sender.emailConnectionId,
-        inboxFolder.id,
-        inboxUids
-      ).catch((err) =>
-        console.error("IMAP archive move (reject) failed:", err)
-      )
+    console.log(
+      `[reject] Moving ${inboxUids.length} message(s) to IMAP archive for sender ${senderId}`,
+    );
+    after(async () => {
+      try {
+        await moveToArchiveViaImap(
+          userId,
+          sender.emailConnectionId,
+          inboxFolder.id,
+          inboxUids,
+        );
+        console.log(
+          `[reject] IMAP archive move complete for sender ${senderId}`,
+        );
+      } catch (err) {
+        console.error("IMAP archive move (reject) failed:", err);
+      }
+    });
+  } else {
+    console.log(
+      `[reject] No IMAP move needed for sender ${senderId} (${inboxUids.length} UIDs, inboxFolder=${!!inboxFolder})`,
     );
   }
 }

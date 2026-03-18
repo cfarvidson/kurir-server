@@ -77,6 +77,9 @@ export async function moveToArchiveViaImap(
       ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
 
     if (archiveBox) {
+      console.log(
+        `[imap] Moving ${uids.length} message(s) to ${archiveBox.path}`,
+      );
       const lock = await client.getMailboxLock("INBOX");
       try {
         const BATCH_SIZE = 100;
@@ -86,13 +89,20 @@ export async function moveToArchiveViaImap(
             await client.messageMove(chunk, archiveBox.path, {
               uid: true,
             });
-          } catch {
-            // Batch may partially fail; messages may already be moved
+          } catch (err) {
+            console.error(
+              `[imap] Failed to move UIDs ${chunk.join(",")}:`,
+              err,
+            );
           }
         }
       } finally {
         lock.release();
       }
+    } else {
+      console.warn(
+        `[imap] No archive folder found. Available: ${mailboxes.map((mb) => `${mb.path} (${mb.specialUse || "no special use"})`).join(", ")}`,
+      );
     }
   });
 }
