@@ -15,6 +15,7 @@ interface SidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
   scheduledCount?: number;
+  followUpCount?: number;
 }
 
 /**
@@ -31,6 +32,7 @@ export function Sidebar({
   screenerCount = 0,
   imboxUnreadCount = 0,
   scheduledCount = 0,
+  followUpCount = 0,
 }: SidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
@@ -48,12 +50,13 @@ export function Sidebar({
   // Reset deltas when server props change (router.refresh() completed)
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount, scheduledCount]);
+  }, [screenerCount, imboxUnreadCount, scheduledCount, followUpCount]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
     scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
+    followUp: Math.max(0, followUpCount + (deltas.followUp ?? 0)),
   };
 
   return (
@@ -99,7 +102,14 @@ export function Sidebar({
               <item.icon className="h-5 w-5" />
               <span className="flex-1">{item.name}</span>
               {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                <span
+                  className={cn(
+                    "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+                    item.badgeKey === "followUp"
+                      ? "bg-amber-500 text-white dark:bg-amber-600"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
                   {badgeCounts[item.badgeKey] > 99
                     ? "99+"
                     : badgeCounts[item.badgeKey]}

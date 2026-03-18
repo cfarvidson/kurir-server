@@ -52,6 +52,13 @@ const getScheduledCount = unstable_cache(
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
+const getFollowUpCount = unstable_cache(
+  async (userId: string) =>
+    db.message.count({ where: { userId, isFollowUp: true } }),
+  ["follow-up-count"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
 export default async function MailLayout({
   children,
 }: {
@@ -65,11 +72,13 @@ export default async function MailLayout({
 
   const userEmails = await getUserEmails(session.user.id);
 
-  const [screenerCount, imboxUnreadCount, scheduledCount] = await Promise.all([
-    getScreenerCount(session.user.id, userEmails),
-    getImboxUnreadCount(session.user.id),
-    getScheduledCount(session.user.id),
-  ]);
+  const [screenerCount, imboxUnreadCount, scheduledCount, followUpCount] =
+    await Promise.all([
+      getScreenerCount(session.user.id, userEmails),
+      getImboxUnreadCount(session.user.id),
+      getScheduledCount(session.user.id),
+      getFollowUpCount(session.user.id),
+    ]);
 
   return (
     <Providers>
@@ -78,11 +87,13 @@ export default async function MailLayout({
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
           scheduledCount={scheduledCount}
+          followUpCount={followUpCount}
         />
         <MobileSidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
           scheduledCount={scheduledCount}
+          followUpCount={followUpCount}
         />
         <main className="flex-1 overflow-auto overscroll-y-contain">
           <PullToRefresh>{children}</PullToRefresh>

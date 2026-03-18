@@ -16,7 +16,7 @@ interface PageData {
 interface InfiniteMessageListProps {
   initialMessages: MessageItem[];
   initialCursor: string | null;
-  category: "imbox" | "feed" | "paper-trail" | "archive" | "snoozed";
+  category: "imbox" | "feed" | "paper-trail" | "archive" | "snoozed" | "follow-up";
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;

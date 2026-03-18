@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bell,
   Clock,
   CalendarClock,
   Inbox,
@@ -15,7 +16,7 @@ export interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
-  badgeKey?: "imbox" | "screener" | "scheduled";
+  badgeKey?: "imbox" | "screener" | "scheduled" | "followUp";
 }
 
 export const navigation: NavItem[] = [
@@ -24,6 +25,7 @@ export const navigation: NavItem[] = [
   { name: "The Feed", href: "/feed", icon: Newspaper },
   { name: "Paper Trail", href: "/paper-trail", icon: Receipt },
   { name: "Snoozed", href: "/snoozed", icon: Clock },
+  { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
   { name: "Scheduled", href: "/scheduled", icon: CalendarClock, badgeKey: "scheduled" },
   { name: "Sent", href: "/sent", icon: Send },
   { name: "Archive", href: "/archive", icon: Archive },

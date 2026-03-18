@@ -1,6 +1,7 @@
 import { ThreadDetailView } from "@/components/mail/thread-detail-view";
 import { ArchiveButton } from "@/components/mail/archive-button";
 import { SnoozeButton } from "@/components/mail/snooze-button";
+import { FollowUpButton } from "@/components/mail/follow-up-button";
 import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 
 export default async function FeedDetailPage({
@@ -19,11 +20,16 @@ export default async function FeedDetailPage({
       categoryLabel="The Feed"
       returnPath="/feed"
       searchQuery={q}
-      actions={({ messageId, returnPath, timezone }) => (
+      actions={({ messageId, returnPath, timezone, followUpAt, isFollowUp }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}
             returnPath={returnPath}
+          />
+          <FollowUpButton
+            messageId={messageId}
+            followUpAt={followUpAt}
+            isFollowUp={isFollowUp}
           />
           <SnoozeButton
             messageId={messageId}

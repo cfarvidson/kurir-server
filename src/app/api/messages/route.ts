@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { getMessages } from "@/lib/mail/messages";
 
 const querySchema = z.object({
-  category: z.enum(["imbox", "feed", "paper-trail", "archive", "snoozed"]),
+  category: z.enum(["imbox", "feed", "paper-trail", "archive", "snoozed", "follow-up"]),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

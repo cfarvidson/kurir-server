@@ -611,6 +611,25 @@ export async function processMessage(
     });
   }
 
+  // Auto-cancel/clear follow-up reminders when an incoming reply arrives
+  if (isInbox && threadId && userEmails && !userEmails.includes(fromAddress)) {
+    await db.message.updateMany({
+      where: {
+        userId,
+        threadId,
+        OR: [
+          { followUpAt: { not: null } },
+          { isFollowUp: true },
+        ],
+      },
+      data: {
+        followUpAt: null,
+        followUpSetAt: null,
+        isFollowUp: false,
+      },
+    });
+  }
+
   return message;
 }
 

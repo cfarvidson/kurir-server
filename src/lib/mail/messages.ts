@@ -7,6 +7,7 @@ const CATEGORY_FILTERS = {
   "paper-trail": { isInPaperTrail: true, isSnoozed: false },
   archive: { isArchived: true },
   snoozed: { isSnoozed: true },
+  "follow-up": { isFollowUp: true },
 } as const;
 
 export const MESSAGE_SELECT = {
@@ -21,6 +22,8 @@ export const MESSAGE_SELECT = {
   hasAttachments: true,
   threadId: true,
   snoozedUntil: true,
+  followUpAt: true,
+  isFollowUp: true,
   sender: { select: { displayName: true, email: true } },
 } as const;
 

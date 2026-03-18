@@ -7,6 +7,7 @@ import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
+import { ContactSidebar } from "@/components/mail/contact-sidebar";
 
 async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user] = await Promise.all([
@@ -40,6 +41,8 @@ interface ThreadDetailViewProps {
     messageId: string;
     returnPath: string;
     timezone: string;
+    followUpAt: Date | null;
+    isFollowUp: boolean;
   }) => React.ReactNode;
   isSentView?: boolean;
 }
@@ -130,6 +133,20 @@ export async function ThreadDetailView({
     replyToName = recipientSender?.displayName || recipientEmail;
   }
 
+  // Determine contact email for sidebar
+  // For incoming threads: use the original sender (first message from someone else)
+  // For sent-only threads: use the primary recipient
+  const firstExternalMessage = messages.find(
+    (m) => !userEmails.has(m.fromAddress.toLowerCase()),
+  );
+  const contactEmail = firstExternalMessage
+    ? firstExternalMessage.fromAddress.toLowerCase()
+    : messages[0].toAddresses.find(
+          (a) => !userEmails.has(a.toLowerCase()),
+        )?.toLowerCase() ||
+      messages[0].toAddresses[0]?.toLowerCase() ||
+      null;
+
   return (
     <div className="flex h-full flex-col">
       {markedRead.length > 0 && <SidebarRefresh />}
@@ -151,31 +168,45 @@ export async function ThreadDetailView({
             {messages.length}
           </span>
         )}
-        {actions({ messageId, returnPath, timezone: userInfo.timezone })}
+        {actions({
+          messageId,
+          returnPath,
+          timezone: userInfo.timezone,
+          followUpAt: targetMessage.followUpAt,
+          isFollowUp: targetMessage.isFollowUp,
+        })}
       </div>
 
-      {/* Thread */}
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
-          <h1 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
-            {subject}
-          </h1>
+      {/* Thread + optional contact sidebar */}
+      <div className="flex min-h-0 flex-1">
+        <div className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
+            <h1 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
+              {subject}
+            </h1>
 
-          <div className="mt-3 md:mt-6">
-            <ThreadPageContent
-              initialMessages={messages}
-              currentUserEmail={currentUserEmail}
-              replyToMessageId={lastMessage.id}
-              replyToAddress={replyToAddress}
-              replyToName={replyToName}
-              subject={subject}
-              emailConnectionId={targetMessage.emailConnectionId}
-              rfcMessageId={lastMessage.messageId ?? undefined}
-              references={lastMessage.references}
-              userTimezone={userInfo.timezone}
-            />
+            <div className="mt-3 md:mt-6">
+              <ThreadPageContent
+                initialMessages={messages}
+                currentUserEmail={currentUserEmail}
+                replyToMessageId={lastMessage.id}
+                replyToAddress={replyToAddress}
+                replyToName={replyToName}
+                subject={subject}
+                emailConnectionId={targetMessage.emailConnectionId}
+                rfcMessageId={lastMessage.messageId ?? undefined}
+                references={lastMessage.references}
+                userTimezone={userInfo.timezone}
+              />
+            </div>
           </div>
         </div>
+        {contactEmail && (
+          <ContactSidebar
+            userId={session.user.id}
+            contactEmail={contactEmail}
+          />
+        )}
       </div>
     </div>
   );

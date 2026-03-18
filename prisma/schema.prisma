@@ -271,6 +271,11 @@ model Message {
   isSnoozed    Boolean   @default(false)
   snoozedUntil DateTime?
 
+  // Follow-up reminders
+  followUpAt    DateTime? // Deadline for follow-up reminder
+  followUpSetAt DateTime? // When the reminder was set (for auto-cancel comparison)
+  isFollowUp    Boolean   @default(false) // True when reminder has fired
+
   // Relations
   folderId String
   folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
@@ -295,6 +300,8 @@ model Message {
   @@index([userId, isInPaperTrail])
   @@index([userId, isArchived])
   @@index([userId, isSnoozed, snoozedUntil])
+  @@index([userId, isFollowUp])
+  @@index([userId, followUpAt])
   @@index([userId, receivedAt(sort: Desc)])
   @@index([userId, uid])
   @@index([userId, inReplyTo])
