@@ -120,10 +120,13 @@ export function MobileSidebar({
                 <Link
                   href="/compose"
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="group flex w-full items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <PenSquare className="h-4 w-4" />
-                  Compose
+                  <span className="flex-1">Compose</span>
+                  <span className="font-mono text-xs text-primary-foreground/0 transition-opacity duration-200 group-hover:text-primary-foreground/40">
+                    c
+                  </span>
                 </Link>
               </div>
 
