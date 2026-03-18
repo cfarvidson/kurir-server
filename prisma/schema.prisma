@@ -401,7 +401,6 @@ model ScheduledMessage {
 
   // Retry tracking
   attempts         Int       @default(0)
-  maxAttempts      Int       @default(5)
   nextRetryAt      DateTime? // null until first failure
   sendingStartedAt DateTime? // For stale-lock recovery (> 5min = stuck)
   smtpMessageId    String?   // Recorded after send for idempotency
@@ -409,8 +408,6 @@ model ScheduledMessage {
 
   // Email content (encrypted at rest via crypto.ts)
   to       String
-  cc       String?
-  bcc      String?
   subject  String  @default("")
   textBody String  @default("")
   htmlBody String?

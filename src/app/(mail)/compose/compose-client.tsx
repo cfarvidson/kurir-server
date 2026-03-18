@@ -180,8 +180,6 @@ export function ComposeClientPage({
 
     const pendingSend = {
       id: sendId,
-      type: "compose" as const,
-      payload,
       createdAt: Date.now(),
       delayMs: UNDO_DELAY_MS,
     };

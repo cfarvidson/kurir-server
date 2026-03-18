@@ -87,8 +87,6 @@ export function ReplyComposer({
     enqueue(
       {
         id: sendId,
-        type: "reply",
-        payload: { messageId, body: sentBody, to: sentTo },
         createdAt: Date.now(),
         delayMs: UNDO_DELAY_MS,
       },

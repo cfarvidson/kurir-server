@@ -159,8 +159,8 @@ async function processSingleMessage(
 
     // Notify connected clients
     emitToUser(msg.userId, {
-      type: "new-messages",
-      data: { folderId: "sent", count: 1 },
+      type: "scheduled-sent",
+      data: { scheduledMessageId: msg.id },
     });
   } catch (err) {
     const attempts = msg.attempts + 1;
@@ -176,6 +176,11 @@ async function processSingleMessage(
           error: sanitizedError,
           sendingStartedAt: null,
         },
+      });
+
+      emitToUser(msg.userId, {
+        type: "scheduled-failed",
+        data: { scheduledMessageId: msg.id, error: sanitizedError },
       });
     } else {
       // Transient failure: schedule retry with exponential backoff
