@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
 const shortcuts = [
@@ -70,8 +70,19 @@ export function showShortcuts() {
   window.dispatchEvent(new CustomEvent("show-keyboard-shortcuts"));
 }
 
+const LISTING_PATHS = new Set([
+  "/imbox",
+  "/feed",
+  "/paper-trail",
+  "/screener",
+  "/archive",
+  "/sent",
+  "/snoozed",
+]);
+
 export function KeyboardShortcuts() {
   const router = useRouter();
+  const pathname = usePathname();
   const [showHelp, setShowHelp] = useState(false);
 
   const handleClose = useCallback(() => setShowHelp(false), []);
@@ -96,8 +107,10 @@ export function KeyboardShortcuts() {
 
       switch (e.key) {
         case "c":
-          e.preventDefault();
-          router.push("/compose");
+          if (LISTING_PATHS.has(pathname)) {
+            e.preventDefault();
+            router.push("/compose");
+          }
           break;
         case "?":
           e.preventDefault();
