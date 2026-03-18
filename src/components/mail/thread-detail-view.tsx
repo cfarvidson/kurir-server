@@ -168,6 +168,11 @@ export async function ThreadDetailView({
               replyToMessageId={lastMessage.id}
               replyToAddress={replyToAddress}
               replyToName={replyToName}
+              subject={subject}
+              emailConnectionId={targetMessage.emailConnectionId}
+              rfcMessageId={lastMessage.messageId ?? undefined}
+              references={lastMessage.references}
+              userTimezone={userInfo.timezone}
             />
           </div>
         </div>

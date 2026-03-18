@@ -4,10 +4,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
-import { Send, CornerDownLeft, X } from "lucide-react";
+import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
+import { createScheduledMessage } from "@/actions/scheduled-messages";
 import { toast } from "sonner";
 
 const UNDO_DELAY_MS = 5000;
@@ -17,6 +19,11 @@ interface ReplyComposerProps {
   replyToAddress: string;
   replyToName: string;
   onSent?: (body: string) => void;
+  subject: string;
+  emailConnectionId: string;
+  rfcMessageId?: string;
+  references: string[];
+  userTimezone: string;
 }
 
 export function ReplyComposer({
@@ -24,6 +31,11 @@ export function ReplyComposer({
   replyToAddress,
   replyToName,
   onSent,
+  subject,
+  emailConnectionId,
+  rfcMessageId,
+  references,
+  userTimezone,
 }: ReplyComposerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [body, setBody] = useState("");
@@ -33,6 +45,7 @@ export function ReplyComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
+  const [scheduling, setScheduling] = useState(false);
   const { enqueue, cancel } = usePendingSendStore();
   // Keep a ref to the pending send ID so undo can restore state
   const pendingSendIdRef = useRef<string | null>(null);
@@ -64,6 +77,35 @@ export function ReplyComposer({
     setError(null);
     sendingRef.current = false;
   }, [cancel]);
+
+  const handleScheduleSend = async (scheduledFor: Date) => {
+    if (!body.trim() || scheduling) return;
+    setScheduling(true);
+    try {
+      const replySubject = subject.startsWith("Re:") ? subject : `Re: ${subject}`;
+      const refsString = [
+        ...references,
+        ...(rfcMessageId && !references.includes(rfcMessageId) ? [rfcMessageId] : []),
+      ].join(" ");
+
+      await createScheduledMessage({
+        to: to.trim(),
+        subject: replySubject,
+        textBody: body.trim(),
+        scheduledFor: scheduledFor.toISOString(),
+        emailConnectionId,
+        inReplyToMessageId: rfcMessageId,
+        references: refsString || undefined,
+      });
+      toast.success("Reply scheduled");
+      setBody("");
+      setIsOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to schedule");
+    } finally {
+      setScheduling(false);
+    }
+  };
 
   const handleSend = () => {
     if (!body.trim() || sendingRef.current) return;
@@ -271,15 +313,33 @@ export function ReplyComposer({
                   : "Ctrl"}
                 +Enter to send
               </span>
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={!body.trim()}
-                className="gap-1.5"
-              >
-                <Send className="h-3.5 w-3.5" />
-                Send
-              </Button>
+              <div className="flex items-center gap-1">
+                <SchedulePicker
+                  onSchedule={handleScheduleSend}
+                  userTimezone={userTimezone}
+                  isPending={scheduling}
+                  side="top"
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="px-2"
+                      disabled={!body.trim() || scheduling}
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" />
+                    </Button>
+                  }
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSend}
+                  disabled={!body.trim() || scheduling}
+                  className="gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Send
+                </Button>
+              </div>
             </div>
           </motion.div>
         )}

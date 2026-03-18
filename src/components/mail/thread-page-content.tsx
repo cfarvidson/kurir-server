@@ -36,6 +36,11 @@ interface ThreadPageContentProps {
   replyToMessageId: string;
   replyToAddress: string;
   replyToName: string;
+  subject: string;
+  emailConnectionId: string;
+  rfcMessageId?: string;
+  references: string[];
+  userTimezone: string;
 }
 
 export function ThreadPageContent({
@@ -44,6 +49,11 @@ export function ThreadPageContent({
   replyToMessageId,
   replyToAddress,
   replyToName,
+  subject,
+  emailConnectionId,
+  rfcMessageId,
+  references,
+  userTimezone,
 }: ThreadPageContentProps) {
   const [messages, setMessages] = useState(initialMessages);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -89,6 +99,11 @@ export function ThreadPageContent({
           replyToAddress={replyToAddress}
           replyToName={replyToName}
           onSent={handleReplySent}
+          subject={subject}
+          emailConnectionId={emailConnectionId}
+          rfcMessageId={rfcMessageId}
+          references={references}
+          userTimezone={userTimezone}
         />
       </div>
     </>
