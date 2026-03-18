@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Menu, X, Settings, PenSquare, LogOut } from "lucide-react";
+import { Menu, X, Settings, PenSquare, LogOut, Keyboard } from "lucide-react";
+import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { navigation } from "./navigation";
 
@@ -168,6 +169,19 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: Mobil
                   <Settings className="h-5 w-5" />
                   Settings
                 </Link>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    showShortcuts();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Keyboard className="h-5 w-5" />
+                  <span className="flex-1 text-left">Shortcuts</span>
+                  <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    ?
+                  </kbd>
+                </button>
                 <button
                   onClick={() => signOut({ callbackUrl: "/login" })}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

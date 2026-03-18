@@ -65,11 +65,23 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Dispatch from anywhere to open the shortcuts dialog. */
+export function showShortcuts() {
+  window.dispatchEvent(new CustomEvent("show-keyboard-shortcuts"));
+}
+
 export function KeyboardShortcuts() {
   const router = useRouter();
   const [showHelp, setShowHelp] = useState(false);
 
   const handleClose = useCallback(() => setShowHelp(false), []);
+
+  // Listen for programmatic open (e.g. from sidebar button)
+  useEffect(() => {
+    const handler = () => setShowHelp(true);
+    window.addEventListener("show-keyboard-shortcuts", handler);
+    return () => window.removeEventListener("show-keyboard-shortcuts", handler);
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
