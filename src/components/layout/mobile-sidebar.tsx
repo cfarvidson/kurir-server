@@ -16,7 +16,10 @@ interface MobileSidebarProps {
   imboxUnreadCount?: number;
 }
 
-export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: MobileSidebarProps) {
+export function MobileSidebar({
+  screenerCount = 0,
+  imboxUnreadCount = 0,
+}: MobileSidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -117,13 +120,10 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: Mobil
                 <Link
                   href="/compose"
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <PenSquare className="h-4 w-4" />
-                  <span className="flex-1">Compose</span>
-                  <kbd className="rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-primary-foreground/70">
-                    c
-                  </kbd>
+                  Compose
                 </Link>
               </div>
 
@@ -142,14 +142,16 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: Mobil
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
                         isActive
                           ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="flex-1">{item.name}</span>
                       {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
                         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-                          {badgeCounts[item.badgeKey] > 99 ? "99+" : badgeCounts[item.badgeKey]}
+                          {badgeCounts[item.badgeKey] > 99
+                            ? "99+"
+                            : badgeCounts[item.badgeKey]}
                         </span>
                       )}
                     </Link>
@@ -166,7 +168,7 @@ export function MobileSidebar({ screenerCount = 0, imboxUnreadCount = 0 }: Mobil
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
                     pathname === "/settings"
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <Settings className="h-5 w-5" />
