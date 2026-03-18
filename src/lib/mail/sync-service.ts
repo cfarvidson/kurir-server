@@ -302,8 +302,11 @@ async function syncMailbox(
             rangeMatched++;
 
             try {
-              // For All Mail: skip messages already synced from another folder
-              if (specialUse === "all" && msg.envelope?.messageId) {
+              // For All Mail / Archive: skip messages already synced from another folder
+              if (
+                (specialUse === "all" || specialUse === "archive") &&
+                msg.envelope?.messageId
+              ) {
                 const existing = await db.message.findFirst({
                   where: { userId, messageId: msg.envelope.messageId },
                   select: { id: true },
@@ -659,6 +662,72 @@ async function repairThreadIds(userId: string) {
 }
 
 /**
+ * After sync, move any rejected-sender messages still sitting in the
+ * IMAP inbox to the archive folder. Updates DB uid to -1 so the next
+ * archive-folder sync reconciles them with correct UID + folderId.
+ */
+async function moveRejectedToArchive(
+  client: ImapFlow,
+  mailboxes: Awaited<ReturnType<ImapFlow["list"]>>,
+  userId: string,
+  inboxFolderId: string,
+) {
+  const stale = await db.message.findMany({
+    where: {
+      userId,
+      folderId: inboxFolderId,
+      isArchived: true,
+      uid: { gt: 0 },
+      sender: { status: "REJECTED" },
+    },
+    select: { id: true, uid: true },
+  });
+
+  if (stale.length === 0) return;
+
+  const archiveBox =
+    mailboxes.find(
+      (mb) =>
+        mb.specialUse === "\\Archive" ||
+        mb.path.toLowerCase() === "archive",
+    ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
+
+  if (!archiveBox) {
+    console.warn(
+      `[sync] Cannot move ${stale.length} rejected-sender message(s): no archive folder`,
+    );
+    return;
+  }
+
+  console.log(
+    `[sync] Moving ${stale.length} rejected-sender message(s) from INBOX → ${archiveBox.path}`,
+  );
+
+  const lock = await client.getMailboxLock("INBOX");
+  try {
+    const uids = stale.map((m) => m.uid);
+    const BATCH = 100;
+    for (let i = 0; i < uids.length; i += BATCH) {
+      const chunk = uids.slice(i, i + BATCH);
+      try {
+        await client.messageMove(chunk, archiveBox.path, { uid: true });
+      } catch (err) {
+        console.error(`[sync] Failed to move UIDs ${chunk.join(",")}:`, err);
+      }
+    }
+  } finally {
+    lock.release();
+  }
+
+  // Mark moved messages with uid=-1 so the archive-folder sync
+  // reconciles them via the messageId dedup path
+  await db.message.updateMany({
+    where: { id: { in: stale.map((m) => m.id) } },
+    data: { uid: -1 },
+  });
+}
+
+/**
  * Perform a full sync for a single email connection
  */
 export async function syncEmailConnection(
@@ -789,6 +858,17 @@ export async function syncEmailConnection(
     const hasRemaining = results.some((r) => r.remaining > 0);
     if (!hasRemaining) {
       await repairThreadIds(userId);
+    }
+
+    // Move rejected-sender messages out of IMAP inbox
+    const inboxResult = results.find((r) => r.folderPath === "INBOX");
+    if (inboxResult?.folderId) {
+      await moveRejectedToArchive(
+        client,
+        mailboxes,
+        userId,
+        inboxResult.folderId,
+      );
     }
 
     return { success: true, results };
