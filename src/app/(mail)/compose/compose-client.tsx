@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FromPicker, type FromConnection } from "@/components/mail/from-picker";
-import { Send, X, Loader2, BookUser } from "lucide-react";
+import { Send, X, Loader2, BookUser, ChevronDown, Calendar } from "lucide-react";
+import { usePendingSendStore } from "@/stores/pending-send-store";
+import { showUndoSendToast } from "@/components/mail/undo-send-toast";
+import { useBeforeUnload } from "@/hooks/use-before-unload";
+import { toast } from "sonner";
+
+const UNDO_DELAY_MS = 5000;
 
 interface ContactSuggestion {
   id: string;
@@ -79,7 +85,6 @@ export function ComposeClientPage({
       connections[0]?.id ??
       ""
   );
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -88,8 +93,14 @@ export function ComposeClientPage({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [isTyping, setIsTyping] = useState(false);
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const scheduleMenuRef = useRef<HTMLDivElement>(null);
   const searchQuery = isTyping ? to : "";
   const { results, loading } = useContactSearch(searchQuery);
+
+  const { enqueue, cancel, pendingSends } = usePendingSendStore();
+  const hasPending = Object.keys(pendingSends).length > 0;
+  useBeforeUnload(hasPending);
 
   const selectContact = useCallback((contact: ContactSuggestion) => {
     setTo(contact.email);
@@ -137,24 +148,53 @@ export function ComposeClientPage({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleSend = async () => {
+  // Close schedule menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        scheduleMenuRef.current &&
+        !scheduleMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowScheduleMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSend = () => {
     if (!to.trim()) {
       setError("Please enter a recipient");
       return;
     }
 
-    setSending(true);
     setError(null);
 
-    try {
+    const sendId = `send_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const payload = {
+      to: to.trim(),
+      subject,
+      body,
+      fromConnectionId: connections.length > 1 ? fromConnectionId : undefined,
+    };
+
+    const pendingSend = {
+      id: sendId,
+      type: "compose" as const,
+      payload,
+      createdAt: Date.now(),
+      delayMs: UNDO_DELAY_MS,
+    };
+
+    const onExpire = async () => {
       const response = await fetch("/api/mail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to,
-          subject,
-          text: body,
-          fromConnectionId: connections.length > 1 ? fromConnectionId : undefined,
+          to: payload.to,
+          subject: payload.subject,
+          text: payload.body,
+          fromConnectionId: payload.fromConnectionId,
         }),
       });
 
@@ -162,14 +202,33 @@ export function ComposeClientPage({
         const data = await response.json();
         throw new Error(data.error || "Failed to send email");
       }
+    };
 
-      router.push("/sent");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
-      setSending(false);
-    }
+    const onSuccess = () => {
+      toast.success("Message sent");
+    };
+
+    const onError = (error: string) => {
+      toast.error(error);
+    };
+
+    enqueue(pendingSend, onExpire, onSuccess, onError);
+
+    showUndoSendToast(
+      sendId,
+      payload.to,
+      UNDO_DELAY_MS,
+      () => {
+        cancel(sendId);
+        toast.success("Send cancelled");
+      },
+      () => {
+        // Toast countdown finished visually — no action needed,
+        // the store timer handles the actual send.
+      },
+    );
+
+    router.push("/imbox");
   };
 
   const hasSuggestions = showSuggestions && isTyping && (results.length > 0 || loading);
@@ -189,14 +248,40 @@ export function ComposeClientPage({
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Cancel</span>
           </Button>
-          <Button size="sm" onClick={handleSend} disabled={sending}>
-            {sending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
+          <div className="relative" ref={scheduleMenuRef}>
+            <div className="flex">
+              <Button
+                size="sm"
+                onClick={handleSend}
+                className="rounded-r-none"
+              >
+                <Send className="h-4 w-4" />
+                Send
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                onClick={() => setShowScheduleMenu((prev) => !prev)}
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {showScheduleMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-md border bg-popover p-1 shadow-md">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => {
+                    setShowScheduleMenu(false);
+                    toast.info("Schedule send coming soon");
+                  }}
+                >
+                  <Calendar className="h-4 w-4" />
+                  Schedule Send
+                </button>
+              </div>
             )}
-            Send
-          </Button>
+          </div>
         </div>
       </div>
 

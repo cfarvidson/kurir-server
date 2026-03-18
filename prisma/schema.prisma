@@ -27,13 +27,14 @@ model User {
   role        Role    @default(USER)
 
   // Relations
-  passkeys         Passkey[]
-  emailConnections EmailConnection[]
-  messages         Message[]
-  senders          Sender[]
-  folders          Folder[]
-  sessions         Session[]
+  passkeys          Passkey[]
+  emailConnections  EmailConnection[]
+  messages          Message[]
+  senders           Sender[]
+  folders           Folder[]
+  sessions          Session[]
   pushSubscriptions PushSubscription[]
+  scheduledMessages ScheduledMessage[]
 }
 
 model Passkey {
@@ -93,10 +94,11 @@ model EmailConnection {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Relations -- data scoped to this connection
-  messages  Message[]
-  senders   Sender[]
-  folders   Folder[]
-  syncState SyncState?
+  messages          Message[]
+  senders           Sender[]
+  folders           Folder[]
+  syncState         SyncState?
+  scheduledMessages ScheduledMessage[]
 
   @@unique([userId, email])
   @@index([userId])
@@ -374,4 +376,56 @@ model SyncState {
   lastSyncLog   String?
 
   @@index([emailConnectionId])
+}
+
+// ============================================
+// SCHEDULED MESSAGES (Send Later)
+// ============================================
+
+enum ScheduledMessageStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model ScheduledMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Scheduling
+  scheduledFor DateTime // Always UTC
+  status       ScheduledMessageStatus @default(PENDING)
+
+  // Retry tracking
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(5)
+  nextRetryAt      DateTime? // null until first failure
+  sendingStartedAt DateTime? // For stale-lock recovery (> 5min = stuck)
+  smtpMessageId    String?   // Recorded after send for idempotency
+  error            String?   // Sanitized error message
+
+  // Email content (encrypted at rest via crypto.ts)
+  to       String
+  cc       String?
+  bcc      String?
+  subject  String  @default("")
+  textBody String  @default("")
+  htmlBody String?
+
+  // Reply context (null for new compose)
+  inReplyToMessageId String?
+  references         String?
+
+  // Ownership
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
 }

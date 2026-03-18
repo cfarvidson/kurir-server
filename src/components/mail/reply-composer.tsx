@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
-import { Send, Loader2, CornerDownLeft, X } from "lucide-react";
+import { Send, CornerDownLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePendingSendStore } from "@/stores/pending-send-store";
+import { showUndoSendToast } from "@/components/mail/undo-send-toast";
+import { toast } from "sonner";
+
+const UNDO_DELAY_MS = 5000;
 
 interface ReplyComposerProps {
   messageId: string;
@@ -25,11 +30,14 @@ export function ReplyComposer({
   const [to, setTo] = useState(replyToAddress);
   const [isEditingTo, setIsEditingTo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const [sent, setSent] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
+  const { enqueue, cancel } = usePendingSendStore();
+  // Keep a ref to the pending send ID so undo can restore state
+  const pendingSendIdRef = useRef<string | null>(null);
+  const savedBodyRef = useRef("");
+  const savedToRef = useRef("");
 
   useEffect(() => {
     if (!isEditingTo) setTo(replyToAddress);
@@ -43,29 +51,73 @@ export function ReplyComposer({
     }
   };
 
+  const handleUndo = useCallback(() => {
+    const sendId = pendingSendIdRef.current;
+    if (sendId) {
+      cancel(sendId);
+      pendingSendIdRef.current = null;
+    }
+    // Restore body and reopen the composer
+    setBody(savedBodyRef.current);
+    setTo(savedToRef.current);
+    setIsOpen(true);
+    setError(null);
+    sendingRef.current = false;
+  }, [cancel]);
+
   const handleSend = () => {
-    if (!body.trim() || isPending || sendingRef.current) return;
+    if (!body.trim() || sendingRef.current) return;
     sendingRef.current = true;
 
     const sentBody = body.trim();
+    const sentTo = to;
     setError(null);
-    startTransition(async () => {
-      try {
-        await replyToMessage(messageId, sentBody, to);
+
+    // Save state for undo restoration
+    savedBodyRef.current = sentBody;
+    savedToRef.current = sentTo;
+
+    const sendId = `reply-${messageId}-${Date.now()}`;
+    pendingSendIdRef.current = sendId;
+
+    // Collapse composer immediately
+    setBody("");
+    setIsOpen(false);
+
+    enqueue(
+      {
+        id: sendId,
+        type: "reply",
+        payload: { messageId, body: sentBody, to: sentTo },
+        createdAt: Date.now(),
+        delayMs: UNDO_DELAY_MS,
+      },
+      // onExpire: actually send the reply
+      async () => {
+        await replyToMessage(messageId, sentBody, sentTo);
         onSent?.(sentBody);
-        setSent(true);
-        setBody("");
-        setTimeout(() => {
-          setSent(false);
-          setIsOpen(false);
-          sendingRef.current = false;
-        }, 1500);
-      } catch (err) {
+      },
+      // onSuccess
+      () => {
+        pendingSendIdRef.current = null;
         sendingRef.current = false;
-        setError(
-          err instanceof Error ? err.message : "Failed to send reply"
-        );
-      }
+        toast.success("Reply sent");
+      },
+      // onError
+      (errorMessage) => {
+        pendingSendIdRef.current = null;
+        sendingRef.current = false;
+        // Restore body and reopen composer on failure
+        setBody(savedBodyRef.current);
+        setTo(savedToRef.current);
+        setIsOpen(true);
+        setError(errorMessage);
+        toast.error(errorMessage);
+      },
+    );
+
+    showUndoSendToast(sendId, sentTo, UNDO_DELAY_MS, handleUndo, () => {
+      // onComplete (countdown finished) — toast dismisses itself
     });
   };
 
@@ -83,30 +135,7 @@ export function ReplyComposer({
 
   return (
     <div className="relative">
-      {sent ? (
-        <motion.div
-          key="sent"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
-          className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-4 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          Reply sent
-        </motion.div>
-      ) : !isOpen ? (
+      {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
           className={cn(
@@ -223,7 +252,7 @@ export function ReplyComposer({
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Write your reply..."
-                disabled={isPending}
+                disabled={sendingRef.current}
                 className={cn(
                   "block w-full resize-none bg-transparent px-4 py-3 text-sm",
                   "placeholder:text-muted-foreground/50",
@@ -247,14 +276,10 @@ export function ReplyComposer({
               <Button
                 size="sm"
                 onClick={handleSend}
-                disabled={!body.trim() || isPending}
+                disabled={!body.trim()}
                 className="gap-1.5"
               >
-                {isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
+                <Send className="h-3.5 w-3.5" />
                 Send
               </Button>
             </div>

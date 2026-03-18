@@ -4,6 +4,7 @@ import { AutoSync } from "@/components/mail/auto-sync";
 import { PullToRefresh } from "@/components/mail/pull-to-refresh";
 import { KeyboardShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { Providers } from "@/components/providers";
+import { Toaster } from "sonner";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -41,6 +42,13 @@ const getImboxUnreadCount = unstable_cache(
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
+const getScheduledCount = unstable_cache(
+  async (userId: string) =>
+    db.scheduledMessage.count({ where: { userId, status: "PENDING" } }),
+  ["scheduled-count"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
 export default async function MailLayout({
   children,
 }: {
@@ -54,9 +62,10 @@ export default async function MailLayout({
 
   const userEmails = await getUserEmails(session.user.id);
 
-  const [screenerCount, imboxUnreadCount] = await Promise.all([
+  const [screenerCount, imboxUnreadCount, scheduledCount] = await Promise.all([
     getScreenerCount(session.user.id, userEmails),
     getImboxUnreadCount(session.user.id),
+    getScheduledCount(session.user.id),
   ]);
 
   return (
@@ -65,16 +74,19 @@ export default async function MailLayout({
         <Sidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
+          scheduledCount={scheduledCount}
         />
         <MobileSidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
+          scheduledCount={scheduledCount}
         />
         <main className="flex-1 overflow-auto overscroll-y-contain">
           <PullToRefresh>{children}</PullToRefresh>
         </main>
         <AutoSync />
         <KeyboardShortcuts />
+        <Toaster position="bottom-left" expand={false} richColors visibleToasts={4} />
       </div>
     </Providers>
   );

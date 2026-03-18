@@ -1,0 +1,98 @@
+"use client";
+
+import { create } from "zustand";
+
+export interface ComposePayload {
+  to: string;
+  subject: string;
+  body: string;
+  html?: string;
+  fromConnectionId?: string;
+}
+
+export interface ReplyPayload {
+  messageId: string;
+  body: string;
+  to?: string;
+}
+
+export interface PendingSend {
+  id: string;
+  type: "compose" | "reply";
+  payload: ComposePayload | ReplyPayload;
+  createdAt: number;
+  delayMs: number;
+}
+
+interface PendingSendStore {
+  pendingSends: Record<string, PendingSend>;
+  timers: Record<string, ReturnType<typeof setTimeout>>;
+
+  enqueue: (
+    send: PendingSend,
+    onExpire: () => Promise<void>,
+    onSuccess: () => void,
+    onError: (error: string) => void,
+  ) => void;
+  cancel: (id: string) => PendingSend | undefined;
+  sendNow: (id: string) => void;
+  complete: (id: string) => void;
+}
+
+export const usePendingSendStore = create<PendingSendStore>()((set, get) => ({
+  pendingSends: {},
+  timers: {},
+
+  enqueue: (send, onExpire, onSuccess, onError) => {
+    const timer = setTimeout(async () => {
+      try {
+        await onExpire();
+        get().complete(send.id);
+        onSuccess();
+      } catch (err) {
+        get().complete(send.id);
+        onError(err instanceof Error ? err.message : "Failed to send");
+      }
+    }, send.delayMs);
+
+    set((state) => ({
+      pendingSends: { ...state.pendingSends, [send.id]: send },
+      timers: { ...state.timers, [send.id]: timer },
+    }));
+  },
+
+  cancel: (id) => {
+    const send = get().pendingSends[id];
+    const timer = get().timers[id];
+    if (timer) clearTimeout(timer);
+    set((state) => {
+      const { [id]: _send, ...restSends } = state.pendingSends;
+      const { [id]: _timer, ...restTimers } = state.timers;
+      return { pendingSends: restSends, timers: restTimers };
+    });
+    return send;
+  },
+
+  sendNow: (id) => {
+    const timer = get().timers[id];
+    if (timer) {
+      clearTimeout(timer);
+      // The timer callback won't fire, so we need to trigger the send manually.
+      // This is handled by the caller who calls sendNow and then invokes the send.
+    }
+    set((state) => {
+      const { [id]: _timer, ...restTimers } = state.timers;
+      return { timers: restTimers };
+    });
+  },
+
+  complete: (id) => {
+    const timer = get().timers[id];
+    if (timer) clearTimeout(timer);
+    set((state) => {
+      const { [id]: _send, ...restSends } = state.pendingSends;
+      const { [id]: _timer, ...restTimers } = state.timers;
+      return { pendingSends: restSends, timers: restTimers };
+    });
+  },
+}));
