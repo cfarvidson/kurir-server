@@ -22,7 +22,7 @@ function UndoSendToastContent({
   const circumference = 2 * Math.PI * 14;
 
   return (
-    <div className="flex w-full items-center gap-3">
+    <div className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-card-foreground shadow-lg">
       <div className="relative h-8 w-8 shrink-0">
         <svg className="-rotate-90 h-8 w-8" viewBox="0 0 32 32">
           <circle
@@ -54,14 +54,14 @@ function UndoSendToastContent({
 
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">Sending...</p>
-        <p className="text-muted-foreground truncate text-xs">
+        <p className="truncate text-xs text-muted-foreground">
           To {recipientEmail}
         </p>
       </div>
 
       <button
         onClick={onUndo}
-        className="text-primary hover:bg-primary/20 bg-primary/10 shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+        className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         Undo
       </button>
@@ -95,6 +95,7 @@ export function showUndoSendToast(
     {
       duration: delayMs + 1000,
       id: sendId,
+      unstyled: true,
     },
   );
 }

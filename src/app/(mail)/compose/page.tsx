@@ -1,5 +1,6 @@
 import { auth, getUserEmailConnections } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
 import { ComposeClientPage } from "./compose-client";
 
 export default async function ComposePage() {
@@ -9,7 +10,13 @@ export default async function ComposePage() {
     redirect("/login");
   }
 
-  const connections = await getUserEmailConnections(session.user.id);
+  const [connections, user] = await Promise.all([
+    getUserEmailConnections(session.user.id),
+    db.user.findUnique({
+      where: { id: session.user.id },
+      select: { timezone: true },
+    }),
+  ]);
 
   const fromConnections = connections.map((c) => ({
     id: c.id,
@@ -18,5 +25,10 @@ export default async function ComposePage() {
     isDefault: c.isDefault,
   }));
 
-  return <ComposeClientPage connections={fromConnections} />;
+  return (
+    <ComposeClientPage
+      connections={fromConnections}
+      userTimezone={user?.timezone ?? "UTC"}
+    />
+  );
 }

@@ -86,7 +86,15 @@ export default async function MailLayout({
         </main>
         <AutoSync />
         <KeyboardShortcuts />
-        <Toaster position="bottom-left" expand={false} richColors visibleToasts={4} />
+        <Toaster
+          position="top-right"
+          expand={false}
+          visibleToasts={4}
+          toastOptions={{
+            className: "border border-border bg-card text-card-foreground shadow-lg",
+            style: { "--toast-bg": "hsl(var(--card))", "--toast-border": "hsl(var(--border))", "--toast-text": "hsl(var(--card-foreground))" } as React.CSSProperties,
+          }}
+        />
       </div>
     </Providers>
   );

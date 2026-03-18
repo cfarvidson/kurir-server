@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FromPicker, type FromConnection } from "@/components/mail/from-picker";
-import { Send, X, Loader2, BookUser, ChevronDown, Calendar } from "lucide-react";
+import { Send, X, Loader2, BookUser, CalendarClock } from "lucide-react";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
+import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { useBeforeUnload } from "@/hooks/use-before-unload";
+import { createScheduledMessage } from "@/actions/scheduled-messages";
 import { toast } from "sonner";
 
 const UNDO_DELAY_MS = 5000;
@@ -68,11 +70,14 @@ interface ComposeClientPageProps {
   connections: FromConnection[];
   /** The connection ID to pre-select (e.g. from reply context) */
   defaultConnectionId?: string;
+  /** User's IANA timezone for the schedule picker */
+  userTimezone?: string;
 }
 
 export function ComposeClientPage({
   connections,
   defaultConnectionId,
+  userTimezone = "UTC",
 }: ComposeClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -93,8 +98,7 @@ export function ComposeClientPage({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [isTyping, setIsTyping] = useState(false);
-  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
-  const scheduleMenuRef = useRef<HTMLDivElement>(null);
+  const [scheduling, setScheduling] = useState(false);
   const searchQuery = isTyping ? to : "";
   const { results, loading } = useContactSearch(searchQuery);
 
@@ -148,19 +152,28 @@ export function ComposeClientPage({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close schedule menu on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        scheduleMenuRef.current &&
-        !scheduleMenuRef.current.contains(e.target as Node)
-      ) {
-        setShowScheduleMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  const handleScheduleSend = async (scheduledFor: Date) => {
+    if (!to.trim()) {
+      setError("Please enter a recipient");
+      return;
+    }
+    setScheduling(true);
+    try {
+      await createScheduledMessage({
+        to: to.trim(),
+        subject,
+        textBody: body,
+        scheduledFor: scheduledFor.toISOString(),
+        emailConnectionId: fromConnectionId,
+      });
+      toast.success("Message scheduled");
+      router.push("/scheduled");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to schedule");
+    } finally {
+      setScheduling(false);
+    }
+  };
 
   const handleSend = () => {
     if (!to.trim()) {
@@ -246,39 +259,29 @@ export function ComposeClientPage({
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Cancel</span>
           </Button>
-          <div className="relative" ref={scheduleMenuRef}>
-            <div className="flex">
-              <Button
-                size="sm"
-                onClick={handleSend}
-                className="rounded-r-none"
-              >
-                <Send className="h-4 w-4" />
-                Send
-              </Button>
-              <Button
-                size="sm"
-                className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
-                onClick={() => setShowScheduleMenu((prev) => !prev)}
-              >
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            {showScheduleMenu && (
-              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-md border bg-popover p-1 shadow-md">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => {
-                    setShowScheduleMenu(false);
-                    toast.info("Schedule send coming soon");
-                  }}
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              onClick={handleSend}
+            >
+              <Send className="h-4 w-4" />
+              Send
+            </Button>
+            <SchedulePicker
+              onSchedule={handleScheduleSend}
+              userTimezone={userTimezone}
+              isPending={scheduling}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="px-2"
+                  disabled={scheduling}
                 >
-                  <Calendar className="h-4 w-4" />
-                  Schedule Send
-                </button>
-              </div>
-            )}
+                  <CalendarClock className="h-4 w-4" />
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
