@@ -719,11 +719,12 @@ async function moveRejectedToArchive(
     lock.release();
   }
 
-  // Mark moved messages with uid=-1 so the archive-folder sync
-  // reconciles them via the messageId dedup path
-  await db.message.updateMany({
+  // Delete moved messages — the archive-folder sync will recreate them
+  // with the correct folderId and UID via the messageId dedup path.
+  // (Previously set uid=-1, but updateMany with a fixed uid violated
+  // the @@unique([folderId, uid]) constraint when multiple messages moved.)
+  await db.message.deleteMany({
     where: { id: { in: stale.map((m) => m.id) } },
-    data: { uid: -1 },
   });
 }
 
