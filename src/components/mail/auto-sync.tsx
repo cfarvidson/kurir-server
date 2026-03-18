@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface SyncResultData {
   newMessages: number;
@@ -70,6 +71,17 @@ export function AutoSync() {
     es.addEventListener("new-messages", handleEvent);
     es.addEventListener("flags-changed", handleEvent);
     es.addEventListener("message-deleted", handleEvent);
+
+    es.addEventListener("scheduled-sent", () => {
+      toast.success("Scheduled message sent");
+      routerRef.current.refresh();
+    });
+    es.addEventListener("scheduled-failed", (e) => {
+      const data = JSON.parse((e as MessageEvent).data);
+      toast.error("Scheduled send failed: " + data.error);
+      routerRef.current.refresh();
+    });
+
     es.onerror = () => console.warn("[sse] reconnecting...");
     return () => es.close();
   }, []);

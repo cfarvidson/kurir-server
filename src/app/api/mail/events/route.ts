@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
         try {
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         } catch {
-          // Stream closed
+          // Stream closed — clean up subscriber and stop heartbeat
+          clearInterval(heartbeat);
+          subscribers.delete(send);
+          if (subscribers.size === 0) sseSubscribers.delete(userId);
         }
       }, 30_000);
 

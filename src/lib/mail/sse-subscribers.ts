@@ -3,7 +3,9 @@
 export type MailEvent =
   | { type: "new-messages"; data: { folderId: string; count: number } }
   | { type: "flags-changed"; data: { messageId: string; flags: Record<string, boolean> } }
-  | { type: "message-deleted"; data: { messageId: string } };
+  | { type: "message-deleted"; data: { messageId: string } }
+  | { type: "scheduled-sent"; data: { scheduledMessageId: string } }
+  | { type: "scheduled-failed"; data: { scheduledMessageId: string; error: string } };
 
 type EventCallback = (event: MailEvent) => void;
 

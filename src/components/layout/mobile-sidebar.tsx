@@ -14,11 +14,13 @@ import { navigation } from "./navigation";
 interface MobileSidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
+  scheduledCount?: number;
 }
 
 export function MobileSidebar({
   screenerCount = 0,
   imboxUnreadCount = 0,
+  scheduledCount = 0,
 }: MobileSidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
@@ -37,11 +39,12 @@ export function MobileSidebar({
   // Reset deltas when server props change
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount]);
+  }, [screenerCount, imboxUnreadCount, scheduledCount]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
+    scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
   };
 
   // Hide hamburger on detail/sub-pages that have their own back button
@@ -133,6 +136,13 @@ export function MobileSidebar({
               {/* Navigation */}
               <nav className="flex-1 space-y-0.5 overflow-auto px-3">
                 {navigation.map((item) => {
+                  // Hide Scheduled when there are no pending scheduled messages
+                  if (
+                    item.badgeKey === "scheduled" &&
+                    badgeCounts.scheduled === 0
+                  )
+                    return null;
+
                   const isActive =
                     pathname === item.href ||
                     (item.href !== "/" && pathname.startsWith(item.href));

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "./sync-service";
 import { pushToUser } from "./push-sender";
 import { connectionManager } from "./connection-manager";
+import { sendDueScheduledMessages } from "./scheduled-send";
 
 const SYNC_INTERVAL_MS = 60_000; // 1 minute
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
@@ -74,6 +75,13 @@ async function wakeExpiredSnoozes(userId: string): Promise<number> {
 
 async function syncAndNotify() {
   try {
+    // Send any due scheduled messages before IMAP sync
+    try {
+      await sendDueScheduledMessages();
+    } catch (err) {
+      console.error("[bg-sync] scheduled-send error:", err);
+    }
+
     // Get all users with email connections
     const users = await db.user.findMany({
       select: {
