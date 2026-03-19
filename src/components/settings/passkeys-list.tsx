@@ -83,6 +83,15 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
     });
   };
 
+  const handleRename = async (id: string, name: string) => {
+    await fetch(`/api/auth/webauthn/passkeys/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    router.refresh();
+  };
+
   return (
     <div className="space-y-2">
       {error && (
@@ -94,6 +103,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
           key={pk.id}
           passkey={pk}
           onDelete={handleDelete}
+          onRename={handleRename}
           isOnly={passkeys.length === 1}
         />
       ))}

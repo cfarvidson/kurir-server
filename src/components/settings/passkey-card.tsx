@@ -1,14 +1,16 @@
 "use client";
 
-/**
- * PasskeyCard — shows one registered passkey in the settings page.
- * Displays device name, creation date, and allows deletion.
- */
-
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Fingerprint, Trash2, Loader2, Monitor, Smartphone } from "lucide-react";
+import {
+  Fingerprint,
+  Trash2,
+  Loader2,
+  Monitor,
+  Smartphone,
+  Pencil,
+} from "lucide-react";
 
 export interface PasskeyInfo {
   id: string;
@@ -21,19 +23,57 @@ export interface PasskeyInfo {
 interface PasskeyCardProps {
   passkey: PasskeyInfo;
   onDelete: (id: string) => Promise<void>;
-  /** Prevent deleting if this is the only passkey */
+  onRename: (id: string, name: string) => Promise<void>;
   isOnly: boolean;
 }
 
-export function PasskeyCard({ passkey, onDelete, isOnly }: PasskeyCardProps) {
+export function PasskeyCard({
+  passkey,
+  onDelete,
+  onRename,
+  isOnly,
+}: PasskeyCardProps) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(passkey.friendlyName);
   const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
 
   const handleDelete = () => {
     startTransition(async () => {
       await onDelete(passkey.id);
       setShowConfirm(false);
     });
+  };
+
+  const handleRenameSubmit = () => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === passkey.friendlyName) {
+      setIsEditing(false);
+      setEditName(passkey.friendlyName);
+      return;
+    }
+    startTransition(async () => {
+      await onRename(passkey.id, trimmed);
+      setIsEditing(false);
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleRenameSubmit();
+    } else if (e.key === "Escape") {
+      setIsEditing(false);
+      setEditName(passkey.friendlyName);
+    }
   };
 
   const DeviceIcon =
@@ -46,10 +86,40 @@ export function PasskeyCard({ passkey, onDelete, isOnly }: PasskeyCardProps) {
           <Fingerprint className="h-4 w-4 text-primary" />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <DeviceIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            <p className="text-sm font-medium">{passkey.friendlyName}</p>
+            {isEditing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleRenameSubmit}
+                  maxLength={100}
+                  className="h-6 w-40 rounded border bg-background px-1.5 text-sm font-medium outline-none focus:ring-1 focus:ring-ring"
+                  disabled={isPending}
+                />
+                {isPending && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditName(passkey.friendlyName);
+                  setIsEditing(true);
+                }}
+                className="group/rename flex items-center gap-1 text-sm font-medium"
+                title="Rename passkey"
+              >
+                {passkey.friendlyName}
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover/rename:opacity-100" />
+              </button>
+            )}
             {passkey.backedUp && (
               <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                 Synced
@@ -85,7 +155,7 @@ export function PasskeyCard({ passkey, onDelete, isOnly }: PasskeyCardProps) {
             className="overflow-hidden"
           >
             <div className="border-t bg-destructive/5 px-4 py-3">
-              <p className="text-sm text-destructive font-medium">
+              <p className="text-sm font-medium text-destructive">
                 Remove &ldquo;{passkey.friendlyName}&rdquo;?
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
