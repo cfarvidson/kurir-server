@@ -32,7 +32,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Connection not found" }, { status: 404 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const parsed = updateConnectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

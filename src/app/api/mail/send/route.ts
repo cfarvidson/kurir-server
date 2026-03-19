@@ -22,7 +22,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const parsed = sendSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    credentials = await getConnectionCredentials(fromConnectionId);
+    credentials = await getConnectionCredentials(fromConnectionId, session.user.id);
     resolvedConnectionId = fromConnectionId;
   } else {
     const defaultCreds = await getDefaultConnectionCredentials(session.user.id);

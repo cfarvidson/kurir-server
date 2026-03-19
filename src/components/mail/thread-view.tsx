@@ -55,26 +55,40 @@ function getInitialColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildEmailHtml(message: ThreadMessage) {
-  const senderName =
-    message.sender?.displayName || message.fromName || message.fromAddress;
+  const senderName = escapeHtml(
+    message.sender?.displayName || message.fromName || message.fromAddress,
+  );
+  const subject = escapeHtml(message.subject || "(no subject)");
+  const fromAddress = escapeHtml(message.fromAddress);
+  const toAddresses = escapeHtml(message.toAddresses.join(", "));
+  const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
   const date = new Date(
     message.sentAt || message.receivedAt,
   ).toLocaleString();
-  const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${message.textBody || ""}</pre>`;
+  const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${message.subject || "(no subject)"}</title>
+<html><head><meta charset="utf-8"><title>${subject}</title>
 <style>
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   @media print { body { padding: 0; } }
 </style></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:800px;margin:0 auto;padding:16px;color:#1a1a1a;font-size:14px">
 <div style="margin-bottom:20px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px">
-  <div style="font-size:15px;font-weight:600;margin:0 0 8px;color:#111827">${message.subject || "(no subject)"}</div>
+  <div style="font-size:15px;font-weight:600;margin:0 0 8px;color:#111827">${subject}</div>
   <div style="font-size:11px;color:#6b7280;line-height:1.7">
-    <strong style="color:#374151">From:</strong> ${senderName} &lt;${message.fromAddress}&gt;<br>
-    <strong style="color:#374151">To:</strong> ${message.toAddresses.join(", ")}${message.ccAddresses.length > 0 ? `<br><strong style="color:#374151">Cc:</strong> ${message.ccAddresses.join(", ")}` : ""}<br>
+    <strong style="color:#374151">From:</strong> ${senderName} &lt;${fromAddress}&gt;<br>
+    <strong style="color:#374151">To:</strong> ${toAddresses}${message.ccAddresses.length > 0 ? `<br><strong style="color:#374151">Cc:</strong> ${ccAddresses}` : ""}<br>
     <strong style="color:#374151">Date:</strong> ${date}
   </div>
 </div>

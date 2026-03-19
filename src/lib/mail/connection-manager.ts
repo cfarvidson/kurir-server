@@ -22,6 +22,7 @@ const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 m
 class ConnectionManager {
   // Keyed by emailConnectionId
   private connections = new Map<string, EmailConnectionConn>();
+  private pendingReconnects = new Map<string, NodeJS.Timeout>();
   private stopping = false;
 
   async startConnection(connectionId: string): Promise<void> {
@@ -82,7 +83,6 @@ class ConnectionManager {
       await client.connect();
       const lock = await client.getMailboxLock("INBOX");
       conn.lock = lock;
-      conn.reconnectAttempt = 0;
 
       // Import and register IDLE event handlers
       const { registerIdleHandlers, catchUpAfterReconnect } = await import("./idle-handlers");
@@ -92,6 +92,8 @@ class ConnectionManager {
       if (conn.reconnectAttempt > 0) {
         await catchUpAfterReconnect(client, connectionId, conn.folderId);
       }
+
+      conn.reconnectAttempt = 0;
 
       client.on("close", () => {
         if (!this.stopping) {
@@ -123,6 +125,7 @@ class ConnectionManager {
     console.log(`[idle] Reconnecting connection ${connectionId} in ${delay}ms (attempt ${attempt + 1})`);
 
     const timer = setTimeout(async () => {
+      this.pendingReconnects.delete(connectionId);
       const nextAttempt = attempt + 1;
       await this.startConnection(connectionId);
       const newConn = this.connections.get(connectionId);
@@ -131,10 +134,9 @@ class ConnectionManager {
       }
     }, delay);
 
-    // Track timer so stopConnection can clear it
-    if (conn) {
-      conn.reconnectTimer = timer;
-    }
+    // Track timer on a separate map so it can be cancelled even if the
+    // connection object was already removed from this.connections.
+    this.pendingReconnects.set(connectionId, timer);
   }
 
   private cleanupConnection(conn: EmailConnectionConn) {
@@ -158,6 +160,13 @@ class ConnectionManager {
   }
 
   async stopConnection(connectionId: string): Promise<void> {
+    // Cancel any pending reconnect timer (may exist even without a connection)
+    const pendingTimer = this.pendingReconnects.get(connectionId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.pendingReconnects.delete(connectionId);
+    }
+
     const conn = this.connections.get(connectionId);
     if (!conn) return;
 
@@ -173,6 +182,13 @@ class ConnectionManager {
 
   async stopAll(): Promise<void> {
     this.stopping = true;
+
+    // Cancel all pending reconnect timers
+    for (const [id, timer] of this.pendingReconnects) {
+      clearTimeout(timer);
+      this.pendingReconnects.delete(id);
+    }
+
     const promises = Array.from(this.connections.keys()).map((id) =>
       this.stopConnection(id)
     );

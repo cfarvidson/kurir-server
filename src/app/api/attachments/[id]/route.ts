@@ -81,7 +81,10 @@ export async function GET(
   // Otherwise fetch from IMAP, cache, and serve
   const { message } = attachment;
 
-  const credentials = await getConnectionCredentials(message.emailConnectionId);
+  const credentials = await getConnectionCredentials(
+    message.emailConnectionId,
+    session.user.id,
+  );
   if (!credentials) {
     return NextResponse.json(
       { error: "Connection not found" },

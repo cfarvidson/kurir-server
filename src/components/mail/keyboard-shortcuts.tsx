@@ -120,7 +120,7 @@ export function KeyboardShortcuts() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [router]);
+  }, [router, pathname]);
 
   if (!showHelp) return null;
 

@@ -30,7 +30,10 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
   }
 
   // Use the connection that received the message to reply from
-  const credentials = await getConnectionCredentials(message.emailConnectionId);
+  const credentials = await getConnectionCredentials(
+    message.emailConnectionId,
+    session.user.id,
+  );
   if (!credentials) {
     throw new Error("Email credentials not found");
   }

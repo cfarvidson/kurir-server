@@ -51,10 +51,14 @@ export async function getEmailConnection(connectionId: string, userId: string) {
   });
 }
 
-// Helper to get decrypted credentials for a specific email connection
-export async function getConnectionCredentials(connectionId: string) {
-  const conn = await db.emailConnection.findUnique({
-    where: { id: connectionId },
+// Helper to get decrypted credentials for a specific email connection.
+// Pass userId to enforce ownership (recommended for user-facing code paths).
+export async function getConnectionCredentials(
+  connectionId: string,
+  userId?: string,
+) {
+  const conn = await db.emailConnection.findFirst({
+    where: { id: connectionId, ...(userId ? { userId } : {}) },
     select: {
       email: true,
       encryptedPassword: true,

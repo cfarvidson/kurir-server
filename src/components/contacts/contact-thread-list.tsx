@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { getThreadRoute } from "@/lib/mail/contact-context";
 import { Paperclip, MessageSquare } from "lucide-react";
 
 interface Conversation {
@@ -15,6 +16,10 @@ interface Conversation {
   isRead: boolean;
   hasAttachments: boolean;
   threadCount: number;
+  isInImbox: boolean;
+  isInFeed: boolean;
+  isInPaperTrail: boolean;
+  isArchived: boolean;
   sender?: {
     displayName: string | null;
     email: string;
@@ -37,7 +42,7 @@ export function ContactThreadList({ conversations, contactName }: ContactThreadL
         return (
           <Link
             key={msg.id}
-            href={`/imbox/${msg.id}`}
+            href={`${getThreadRoute(msg)}/${msg.id}`}
             className={cn(
               "flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
               !msg.isRead && "bg-primary/5"

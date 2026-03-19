@@ -55,11 +55,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const handleApprove = async (senderId: string, category: Category = "IMBOX") => {
     setProcessingId(senderId);
     setShowCategoryPicker(null);
+    const prevSenders = senders;
     setSenders((prev) => prev.filter((s) => s.id !== senderId));
     badgeUpdate("screener", -1);
 
     startTransition(async () => {
-      await approveSender(senderId, category);
+      try {
+        await approveSender(senderId, category);
+      } catch {
+        setSenders(prevSenders);
+        badgeUpdate("screener", 1);
+      }
       setProcessingId(null);
       router.refresh();
     });
@@ -86,11 +92,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   const handleSkip = async (senderId: string) => {
     setProcessingId(senderId);
+    const prevSenders = senders;
     setSenders((prev) => prev.filter((s) => s.id !== senderId));
     badgeUpdate("screener", -1);
 
     startTransition(async () => {
-      await skipSender(senderId);
+      try {
+        await skipSender(senderId);
+      } catch {
+        setSenders(prevSenders);
+        badgeUpdate("screener", 1);
+      }
       setProcessingId(null);
       router.refresh();
     });
