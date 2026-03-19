@@ -13,6 +13,34 @@ import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
+import { Database } from "lucide-react";
+
+interface StorageRow {
+  name: string;
+  total: string;
+  data: string;
+  indexes: string;
+}
+
+async function getStorageStats() {
+  const [dbSize] = await db.$queryRaw<[{ size: string }]>`
+    SELECT pg_size_pretty(pg_database_size(current_database())) AS size
+  `;
+
+  const tables = await db.$queryRaw<StorageRow[]>`
+    SELECT
+      c.relname AS name,
+      pg_size_pretty(pg_total_relation_size(c.oid)) AS total,
+      pg_size_pretty(pg_relation_size(c.oid)) AS data,
+      pg_size_pretty(pg_indexes_size(c.oid)) AS indexes
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r'
+    ORDER BY pg_total_relation_size(c.oid) DESC
+  `;
+
+  return { totalSize: dbSize.size, tables };
+}
 
 async function getUserStats(userId: string, excludedEmails: string[]) {
   const [
@@ -124,7 +152,10 @@ export default async function SettingsPage() {
         .map((e) => e!.trim().toLowerCase()),
     ),
   ];
-  const stats = await getUserStats(userId, excludedEmails);
+  const [stats, storage] = await Promise.all([
+    getUserStats(userId, excludedEmails),
+    session.user.role === "ADMIN" ? getStorageStats() : null,
+  ]);
 
   // Shape connections for the client component (dates must be strings)
   const connections: EmailConnection[] = rawConnections.map((c) => ({
@@ -282,6 +313,51 @@ export default async function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* Storage (admin only) */}
+          {storage && (
+            <section>
+              <h2 className="text-lg font-medium">Storage</h2>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
+                  <Database className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="text-2xl font-bold">{storage.totalSize}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Database size
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-card divide-y">
+                  <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="flex-1">Table</span>
+                    <span className="w-20 text-right">Total</span>
+                    <span className="w-20 text-right">Data</span>
+                    <span className="w-20 text-right">Indexes</span>
+                  </div>
+                  {storage.tables.map((t) => (
+                    <div
+                      key={t.name}
+                      className="flex items-center gap-3 px-4 py-2"
+                    >
+                      <span className="flex-1 truncate text-sm font-medium">
+                        {t.name}
+                      </span>
+                      <span className="w-20 text-right text-sm tabular-nums">
+                        {t.total}
+                      </span>
+                      <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                        {t.data}
+                      </span>
+                      <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                        {t.indexes}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Synced folders */}
           {stats.folders.length > 0 && (
