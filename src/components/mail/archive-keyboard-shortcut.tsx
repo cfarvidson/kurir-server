@@ -26,7 +26,6 @@ export function ArchiveKeyboardShortcut({
         await archiveConversation(messageId, returnPath);
       }
       router.push(returnPath);
-      router.refresh();
     });
   }, [messageId, returnPath, action, router, startTransition]);
 

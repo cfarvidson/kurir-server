@@ -193,7 +193,10 @@ export async function archiveConversation(messageId: string, sourcePath?: string
 
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
-  if (sourcePath) revalidatePath(sourcePath);
+  if (sourcePath) {
+    const basePath = sourcePath.split("?")[0];
+    revalidatePath(basePath);
+  }
 
   // Defer IMAP to after response
   if (inboxMessageUids.length > 0 && inboxFolder) {
@@ -287,7 +290,10 @@ export async function archiveConversations(messageIds: string[], sourcePath?: st
 
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
-  if (sourcePath) revalidatePath(sourcePath);
+  if (sourcePath) {
+    const basePath = sourcePath.split("?")[0];
+    revalidatePath(basePath);
+  }
 
   // Defer IMAP to after response
   if (imapWork.length > 0) {
