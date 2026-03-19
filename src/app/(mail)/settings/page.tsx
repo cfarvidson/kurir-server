@@ -5,15 +5,18 @@ import { ImportButton } from "@/components/mail/import-button";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
-import { ChevronRight, PlusCircle, Shield } from "lucide-react";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
+import { ChevronRight, PlusCircle, Shield, Database } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
-import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
+import {
+  WipeButton,
+  WipeMailButton,
+} from "@/components/settings/wipe-button";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
-import { Database } from "lucide-react";
 
 interface StorageRow {
   name: string;
@@ -66,7 +69,6 @@ async function getUserStats(userId: string, excludedEmails: string[]) {
     db.message.count({ where: { userId, isArchived: true } }),
   ]);
 
-  // Get folder-level sync debug info
   const folders = await db.folder.findMany({
     where: { userId },
     select: {
@@ -99,6 +101,7 @@ export default async function SettingsPage() {
   }
 
   const userId = session.user.id;
+  const isAdmin = session.user.role === "ADMIN";
 
   const [user, rawConnections, rawPasskeys] = await Promise.all([
     db.user.findUnique({
@@ -154,10 +157,9 @@ export default async function SettingsPage() {
   ];
   const [stats, storage] = await Promise.all([
     getUserStats(userId, excludedEmails),
-    session.user.role === "ADMIN" ? getStorageStats() : null,
+    isAdmin ? getStorageStats() : null,
   ]);
 
-  // Shape connections for the client component (dates must be strings)
   const connections: EmailConnection[] = rawConnections.map((c) => ({
     id: c.id,
     email: c.email,
@@ -180,7 +182,6 @@ export default async function SettingsPage() {
     lastSyncLog: c.syncState?.lastSyncLog ?? null,
   }));
 
-  // Shape passkeys for the client component
   const passkeys: PasskeyInfo[] = rawPasskeys.map((pk) => ({
     id: pk.id,
     friendlyName: pk.friendlyName ?? "Unknown device",
@@ -188,6 +189,296 @@ export default async function SettingsPage() {
     deviceType: pk.deviceType as "singleDevice" | "multiDevice",
     backedUp: pk.backedUp,
   }));
+
+  /* ── Tab content ─────────────────────────────────────────────── */
+
+  const accountContent = (
+    <div className="space-y-6 md:space-y-8">
+      {/* Profile */}
+      <section>
+        <h2 className="text-lg font-medium">Profile</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <dl className="space-y-3">
+            {user?.displayName && (
+              <div className="flex justify-between">
+                <dt className="text-sm text-muted-foreground">Display name</dt>
+                <dd className="text-sm font-medium">{user.displayName}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-sm text-muted-foreground">Account created</dt>
+              <dd className="text-sm font-medium">
+                {user?.createdAt.toLocaleDateString()}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      {/* Passkeys */}
+      <section>
+        <h2 className="text-lg font-medium">Passkeys</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <div className="mb-3">
+            <p className="text-xs text-muted-foreground">
+              {passkeys.length === 0
+                ? "No passkeys registered"
+                : `${passkeys.length} passkey${passkeys.length !== 1 ? "s" : ""} registered`}
+            </p>
+          </div>
+          <PasskeysList passkeys={passkeys} />
+        </div>
+      </section>
+
+      {/* Notifications */}
+      <section>
+        <h2 className="text-lg font-medium">Notifications</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <NotificationSettings />
+        </div>
+      </section>
+    </div>
+  );
+
+  const mailContent = (
+    <div className="space-y-6 md:space-y-8">
+      {/* Email connections */}
+      <section>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Email connections</h2>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-sm"
+          >
+            <Link href="/setup?mode=add" aria-label="Add another email account">
+              <PlusCircle className="h-4 w-4" />
+              Add account
+            </Link>
+          </Button>
+        </div>
+        <div className="mt-4">
+          <ConnectionsList connections={connections} />
+        </div>
+      </section>
+
+      {/* Synced folders */}
+      {stats.folders.length > 0 && (
+        <section>
+          <h2 className="text-lg font-medium">Synced folders</h2>
+          <div className="mt-4 divide-y rounded-lg border bg-card">
+            {stats.folders.map((f) => (
+              <div
+                key={f.path}
+                className="flex items-center justify-between px-4 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{f.path}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {f.specialUse || "\u2014"}
+                    {f.lastSyncedAt && (
+                      <>
+                        {" "}
+                        &middot; synced{" "}
+                        {new Date(f.lastSyncedAt).toLocaleString()}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="text-sm font-medium tabular-nums">
+                  {f._count.messages.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Import */}
+      <section>
+        <h2 className="text-lg font-medium">Import</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">
+            Import all messages from your IMAP accounts. Progress will appear at
+            the bottom of the screen.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Resync erases all cached mail and sender decisions, then re-imports
+            from IMAP. All senders return to the Screener.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ImportButton />
+            <ImportButton mode="resync" />
+          </div>
+        </div>
+      </section>
+
+      {/* Screener */}
+      <section>
+        <h2 className="text-lg font-medium">Screener</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">
+            Auto-approve pending senders whose most recent message is older than
+            90 days. They go to the Imbox so you only need to manually screen
+            recent senders.
+          </p>
+          <div className="mt-4">
+            <ScreenRecentButton />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const systemContent = (
+    <div className="space-y-6 md:space-y-8">
+      {/* Admin link */}
+      {isAdmin && (
+        <section>
+          <Link
+            href="/settings/admin"
+            className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+          >
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium">Admin settings</p>
+                <p className="text-xs text-muted-foreground">
+                  Manage users and registration
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+        </section>
+      )}
+
+      {/* Statistics */}
+      <section>
+        <h2 className="text-lg font-medium">Statistics</h2>
+        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.messageCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Total synced</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.senderCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Senders</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.imboxCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Imbox</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.feedCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Feed</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.paperTrailCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Paper Trail</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.archivedCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">Archived</div>
+          </div>
+          <div className="rounded-lg border bg-card p-4 text-center">
+            <div className="text-2xl font-bold">
+              {stats.pendingCount.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Pending screening
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Storage (admin only) */}
+      {storage && (
+        <section>
+          <h2 className="text-lg font-medium">Storage</h2>
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
+              <Database className="h-5 w-5 text-primary" />
+              <div>
+                <div className="text-2xl font-bold">{storage.totalSize}</div>
+                <div className="text-sm text-muted-foreground">
+                  Database size
+                </div>
+              </div>
+            </div>
+            <div className="divide-y rounded-lg border bg-card">
+              <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="flex-1">Table</span>
+                <span className="w-20 text-right">Total</span>
+                <span className="w-20 text-right">Data</span>
+                <span className="w-20 text-right">Indexes</span>
+              </div>
+              {storage.tables.map((t) => (
+                <div
+                  key={t.name}
+                  className="flex items-center gap-3 px-4 py-2"
+                >
+                  <span className="flex-1 truncate text-sm font-medium">
+                    {t.name}
+                  </span>
+                  <span className="w-20 text-right text-sm tabular-nums">
+                    {t.total}
+                  </span>
+                  <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                    {t.data}
+                  </span>
+                  <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                    {t.indexes}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Danger zone */}
+      <section>
+        <h2 className="text-lg font-medium text-destructive">Danger zone</h2>
+        <div className="mt-4 space-y-4">
+          <div className="rounded-lg border border-destructive/30 bg-card p-4">
+            <p className="text-sm font-medium">Clear all messages</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Delete all messages, senders, and folders. Your email connections
+              are kept — just re-import afterwards.
+            </p>
+            <div className="mt-3">
+              <WipeMailButton />
+            </div>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-card p-4">
+            <p className="text-sm font-medium">Wipe everything</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Delete all email connections, messages, senders, and folders. Your
+              account and passkeys are kept. You will be redirected to set up a
+              new connection.
+            </p>
+            <div className="mt-3">
+              <WipeButton />
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -197,256 +488,12 @@ export default async function SettingsPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="mx-auto max-w-2xl space-y-6 md:space-y-8">
-
-          {/* Admin link (admins only) */}
-          {session.user.role === "ADMIN" && (
-            <section>
-              <Link
-                href="/settings/admin"
-                className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">Admin settings</p>
-                    <p className="text-xs text-muted-foreground">
-                      Manage users and registration
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            </section>
-          )}
-
-          {/* Account section */}
-          <section>
-            <h2 className="text-lg font-medium">Account</h2>
-            <div className="mt-4 rounded-lg border bg-card p-4">
-              <dl className="space-y-3">
-                {user?.displayName && (
-                  <div className="flex justify-between">
-                    <dt className="text-sm text-muted-foreground">Display name</dt>
-                    <dd className="text-sm font-medium">{user.displayName}</dd>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <dt className="text-sm text-muted-foreground">Account created</dt>
-                  <dd className="text-sm font-medium">
-                    {user?.createdAt.toLocaleDateString()}
-                  </dd>
-                </div>
-              </dl>
-
-              {/* Passkeys sub-section */}
-              <div className="mt-4 border-t pt-4">
-                <div className="mb-3">
-                  <p className="text-sm font-medium">Passkeys</p>
-                  <p className="text-xs text-muted-foreground">
-                    {passkeys.length === 0
-                      ? "No passkeys registered"
-                      : `${passkeys.length} passkey${passkeys.length !== 1 ? "s" : ""} registered`}
-                  </p>
-                </div>
-                <PasskeysList passkeys={passkeys} />
-              </div>
-            </div>
-          </section>
-
-          {/* Email connections section */}
-          <section>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Email connections</h2>
-              <Button asChild variant="ghost" size="sm" className="gap-1.5 text-sm">
-                <Link href="/setup?mode=add" aria-label="Add another email account">
-                  <PlusCircle className="h-4 w-4" />
-                  Add account
-                </Link>
-              </Button>
-            </div>
-
-            <div className="mt-4">
-              <ConnectionsList connections={connections} />
-            </div>
-          </section>
-
-          {/* Notifications */}
-          <section>
-            <h2 className="text-lg font-medium">Notifications</h2>
-            <div className="mt-4 rounded-lg border bg-card p-4">
-              <NotificationSettings />
-            </div>
-          </section>
-
-          {/* Stats */}
-          <section>
-            <h2 className="text-lg font-medium">Statistics</h2>
-            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.messageCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Total synced</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.senderCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Senders</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.imboxCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Imbox</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.feedCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Feed</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.paperTrailCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Paper Trail</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.archivedCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Archived</div>
-              </div>
-              <div className="rounded-lg border bg-card p-4 text-center">
-                <div className="text-2xl font-bold">{stats.pendingCount.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Pending screening</div>
-              </div>
-            </div>
-          </section>
-
-          {/* Storage (admin only) */}
-          {storage && (
-            <section>
-              <h2 className="text-lg font-medium">Storage</h2>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
-                  <Database className="h-5 w-5 text-primary" />
-                  <div>
-                    <div className="text-2xl font-bold">{storage.totalSize}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Database size
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-lg border bg-card divide-y">
-                  <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className="flex-1">Table</span>
-                    <span className="w-20 text-right">Total</span>
-                    <span className="w-20 text-right">Data</span>
-                    <span className="w-20 text-right">Indexes</span>
-                  </div>
-                  {storage.tables.map((t) => (
-                    <div
-                      key={t.name}
-                      className="flex items-center gap-3 px-4 py-2"
-                    >
-                      <span className="flex-1 truncate text-sm font-medium">
-                        {t.name}
-                      </span>
-                      <span className="w-20 text-right text-sm tabular-nums">
-                        {t.total}
-                      </span>
-                      <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
-                        {t.data}
-                      </span>
-                      <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
-                        {t.indexes}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Synced folders */}
-          {stats.folders.length > 0 && (
-            <section>
-              <h2 className="text-lg font-medium">Synced folders</h2>
-              <div className="mt-4 rounded-lg border bg-card divide-y">
-                {stats.folders.map((f) => (
-                  <div key={f.path} className="flex items-center justify-between px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{f.path}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {f.specialUse || "—"}
-                        {f.lastSyncedAt && (
-                          <> · synced {new Date(f.lastSyncedAt).toLocaleString()}</>
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-sm font-medium tabular-nums">
-                      {f._count.messages.toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Import */}
-          <section>
-            <h2 className="text-lg font-medium">Import</h2>
-            <div className="mt-4 rounded-lg border bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                Import all messages from your IMAP accounts. Progress will appear
-                at the bottom of the screen.
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Resync erases all cached mail and sender decisions, then
-                re-imports from IMAP. All senders return to the Screener.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <ImportButton />
-                <ImportButton mode="resync" />
-              </div>
-            </div>
-          </section>
-
-          {/* Screener */}
-          <section>
-            <h2 className="text-lg font-medium">Screener</h2>
-            <div className="mt-4 rounded-lg border bg-card p-4">
-              <p className="text-sm text-muted-foreground">
-                Auto-approve pending senders whose most recent message is
-                older than 90 days. They go to the Imbox so you only need
-                to manually screen recent senders.
-              </p>
-              <div className="mt-4">
-                <ScreenRecentButton />
-              </div>
-            </div>
-          </section>
-
-          {/* Danger zone */}
-          <section>
-            <h2 className="text-lg font-medium text-destructive">
-              Danger zone
-            </h2>
-            <div className="mt-4 space-y-4">
-              <div className="rounded-lg border border-destructive/30 bg-card p-4">
-                <p className="text-sm font-medium">Clear all messages</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Delete all messages, senders, and folders. Your email
-                  connections are kept — just re-import afterwards.
-                </p>
-                <div className="mt-3">
-                  <WipeMailButton />
-                </div>
-              </div>
-              <div className="rounded-lg border border-destructive/30 bg-card p-4">
-                <p className="text-sm font-medium">Wipe everything</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Delete all email connections, messages, senders, and folders.
-                  Your account and passkeys are kept. You will be redirected to
-                  set up a new connection.
-                </p>
-                <div className="mt-3">
-                  <WipeButton />
-                </div>
-              </div>
-            </div>
-          </section>
+        <div className="mx-auto max-w-2xl">
+          <SettingsTabs
+            accountContent={accountContent}
+            mailContent={mailContent}
+            systemContent={systemContent}
+          />
         </div>
       </div>
     </div>
