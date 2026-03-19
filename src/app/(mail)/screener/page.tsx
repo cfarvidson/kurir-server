@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerView } from "@/components/screener/screener-view";
 import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
+import { SkippedSenderList } from "@/components/screener/skipped-sender-list";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 async function getPendingSenders(userId: string, excludedEmails?: string[]) {
@@ -23,6 +24,31 @@ async function getPendingSenders(userId: string, excludedEmails?: string[]) {
       _count: {
         select: { messages: true },
       },
+    },
+  });
+}
+
+async function getSkippedSenders(userId: string, excludedEmails?: string[]) {
+  return db.sender.findMany({
+    where: {
+      userId,
+      status: "PENDING",
+      skippedUntil: { gt: new Date() },
+      ...(excludedEmails?.length
+        ? { NOT: { email: { in: excludedEmails } } }
+        : {}),
+      messages: {
+        some: { isArchived: false },
+      },
+    },
+    orderBy: { skippedUntil: "asc" },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      domain: true,
+      skippedUntil: true,
+      _count: { select: { messages: true } },
     },
   });
 }
@@ -70,8 +96,9 @@ export default async function ScreenerPage() {
     ),
   ];
 
-  const [pendingSenders, screenedSenders] = await Promise.all([
+  const [pendingSenders, skippedSenders, screenedSenders] = await Promise.all([
     getPendingSenders(session.user.id, userEmails),
+    getSkippedSenders(session.user.id, userEmails),
     getScreenedSenders(session.user.id, userEmails),
   ]);
 
@@ -89,7 +116,7 @@ export default async function ScreenerPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {pendingSenders.length === 0 && screenedSenders.length === 0 ? (
+        {pendingSenders.length === 0 && skippedSenders.length === 0 && screenedSenders.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="rounded-full bg-green-100 p-4">
               <svg
@@ -115,6 +142,9 @@ export default async function ScreenerPage() {
           <>
             {pendingSenders.length > 0 && (
               <ScreenerView senders={pendingSenders} />
+            )}
+            {skippedSenders.length > 0 && (
+              <SkippedSenderList senders={skippedSenders} />
             )}
             {screenedSenders.length > 0 && (
               <ScreenedSenderList senders={screenedSenders} />

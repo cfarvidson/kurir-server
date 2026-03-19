@@ -174,6 +174,30 @@ export async function skipSender(senderId: string) {
   revalidatePath("/screener");
 }
 
+export async function unskipSender(senderId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { userId: true },
+  });
+
+  if (!sender || sender.userId !== session.user.id) {
+    throw new Error("Sender not found");
+  }
+
+  await db.sender.update({
+    where: { id: senderId },
+    data: { skippedUntil: null },
+  });
+
+  revalidateTag("sidebar-counts");
+  revalidatePath("/screener");
+}
+
 /**
  * Auto-approve all PENDING senders whose most recent message is older
  * than `days` days. Approved into IMBOX by default. Returns the count
