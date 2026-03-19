@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Archive, ChevronDown, MoreHorizontal, Paperclip, Printer } from "lucide-react";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
+import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 
 interface ThreadMessage {
   id: string;
@@ -75,7 +76,9 @@ function buildEmailHtml(message: ThreadMessage) {
   const date = new Date(
     message.sentAt || message.receivedAt,
   ).toLocaleString();
-  const body = message.htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
+  const body = message.htmlBody
+    ? sanitizeEmailHtml(message.htmlBody)
+    : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${subject}</title>

@@ -35,6 +35,10 @@ function revalidateFollowUpPaths() {
 }
 
 export async function setFollowUp(messageId: string, until: Date) {
+  if (until <= new Date()) {
+    throw new Error("Follow-up date must be in the future");
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -75,6 +79,10 @@ export async function dismissFollowUp(messageId: string) {
 }
 
 export async function extendFollowUp(messageId: string, until: Date) {
+  if (until <= new Date()) {
+    throw new Error("Follow-up date must be in the future");
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");

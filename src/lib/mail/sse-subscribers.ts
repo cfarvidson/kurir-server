@@ -15,6 +15,10 @@ export function emitToUser(userId: string, event: MailEvent): void {
   const subscribers = sseSubscribers.get(userId);
   if (!subscribers) return;
   for (const cb of subscribers) {
-    cb(event);
+    try {
+      cb(event);
+    } catch (err) {
+      console.error("[sse] Subscriber callback error:", err);
+    }
   }
 }

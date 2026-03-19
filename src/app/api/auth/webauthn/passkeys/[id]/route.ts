@@ -30,16 +30,21 @@ export async function DELETE(
     return NextResponse.json({ error: "Passkey not found" }, { status: 404 });
   }
 
-  // Enforce minimum-1 guard: don't allow deleting the last passkey
-  const passkeyCount = await db.passkey.count({ where: { userId } });
-  if (passkeyCount <= 1) {
+  // Atomically enforce minimum-1 guard and delete
+  const deleted = await db.$transaction(async (tx) => {
+    const passkeyCount = await tx.passkey.count({ where: { userId } });
+    if (passkeyCount <= 1) {
+      return null;
+    }
+    return tx.passkey.delete({ where: { id } });
+  });
+
+  if (!deleted) {
     return NextResponse.json(
       { error: "Cannot delete the last passkey. You would lose access to your account." },
       { status: 409 }
     );
   }
-
-  await db.passkey.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

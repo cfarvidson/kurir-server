@@ -3,7 +3,7 @@
  * Tests are written against the new API contract (post-redesign).
  *
  * Key helpers to test:
- * - getConnectionCredentials(connectionId) -- decrypts and returns creds
+ * - getConnectionCredentialsInternal(connectionId) -- decrypts and returns creds (no ownership check)
  * - getDefaultConnectionCredentials(userId) -- falls back correctly
  * - getUserEmailConnections(userId) -- ordering (default first)
  * - getEmailConnection(connectionId, userId) -- ownership check
@@ -46,7 +46,7 @@ vi.mock("@/lib/auth.config", () => ({
   },
 }));
 
-describe("getConnectionCredentials", () => {
+describe("getConnectionCredentialsInternal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -55,7 +55,7 @@ describe("getConnectionCredentials", () => {
     const { db } = await import("@/lib/db");
     const encryptedPassword = encrypt("app-password-123");
 
-    vi.mocked(db.emailConnection.findUnique).mockResolvedValue({
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue({
       email: "user@gmail.com",
       encryptedPassword,
       imapHost: "imap.gmail.com",
@@ -64,8 +64,8 @@ describe("getConnectionCredentials", () => {
       smtpPort: 587,
     } as any);
 
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    const result = await getConnectionCredentials("conn-1");
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    const result = await getConnectionCredentialsInternal("conn-1");
 
     expect(result).not.toBeNull();
     expect(result!.email).toBe("user@gmail.com");
@@ -78,21 +78,21 @@ describe("getConnectionCredentials", () => {
 
   it("returns null when connection does not exist", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.findUnique).mockResolvedValue(null);
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue(null);
 
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    const result = await getConnectionCredentials("non-existent");
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    const result = await getConnectionCredentialsInternal("non-existent");
     expect(result).toBeNull();
   });
 
   it("queries by connectionId", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.findUnique).mockResolvedValue(null);
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue(null);
 
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    await getConnectionCredentials("my-conn-id");
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    await getConnectionCredentialsInternal("my-conn-id");
 
-    expect(db.emailConnection.findUnique).toHaveBeenCalledWith(
+    expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "my-conn-id" } })
     );
   });

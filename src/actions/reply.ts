@@ -7,6 +7,10 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
 export async function replyToMessage(messageId: string, body: string, to?: string) {
+  if (body.length > 1_000_000) {
+    throw new Error("Message body too large");
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");

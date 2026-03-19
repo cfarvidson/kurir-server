@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
 
 /** Generate a unique negative UID for locally-created messages (must fit INT4: max 2,147,483,647). */
+let tempUidCounter = Math.floor(Date.now() / 1000) % 1_000_000_000;
 export function generateTempUid(): number {
-  return -(Math.floor(Math.random() * 2_000_000_000) + 1);
+  tempUidCounter += 1;
+  if (tempUidCounter > 2_000_000_000) tempUidCounter = 1;
+  return -tempUidCounter;
 }
 
 /** Find the Sent folder for an email connection, falling back to any folder. */

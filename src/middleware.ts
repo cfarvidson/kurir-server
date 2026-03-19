@@ -33,6 +33,11 @@ export default auth((req) => {
     return redirect(req, "/imbox");
   }
 
+  // Return 401 JSON for unauthenticated API requests (instead of redirect)
+  if (!isLoggedIn && req.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // Redirect non-logged-in users to login
   if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
     return redirect(req, "/login");

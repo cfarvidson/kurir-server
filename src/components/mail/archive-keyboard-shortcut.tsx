@@ -15,7 +15,7 @@ export function ArchiveKeyboardShortcut({
   returnPath,
   action = "archive",
 }: ArchiveKeyboardShortcutProps) {
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const handleAction = useCallback(() => {
@@ -35,11 +35,11 @@ export function ArchiveKeyboardShortcut({
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") return;
       if (el.isContentEditable) return;
-      if (e.key === "e") handleAction();
+      if (e.key === "e" && !isPending) handleAction();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleAction]);
+  }, [handleAction, isPending]);
 
   return null;
 }

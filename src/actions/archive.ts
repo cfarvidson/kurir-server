@@ -149,7 +149,7 @@ export async function archiveConversation(messageId: string, sourcePath?: string
 
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    select: { id: true, threadId: true, emailConnectionId: true },
+    select: { id: true, threadId: true, emailConnectionId: true, uid: true, folderId: true },
   });
 
   if (!message) throw new Error("Message not found");
@@ -161,7 +161,7 @@ export async function archiveConversation(messageId: string, sourcePath?: string
         where: { userId, threadId: message.threadId },
         select: { id: true, uid: true, folderId: true },
       })
-    : [{ id: message.id, uid: 0, folderId: "" }];
+    : [{ id: message.id, uid: message.uid, folderId: message.folderId }];
 
   const inboxFolder = await db.folder.findFirst({
     where: { emailConnectionId: connectionId, specialUse: "inbox" },
@@ -313,6 +313,8 @@ export async function unarchiveConversation(messageId: string) {
       id: true,
       threadId: true,
       emailConnectionId: true,
+      uid: true,
+      folderId: true,
       sender: { select: { category: true } },
     },
   });
@@ -333,7 +335,7 @@ export async function unarchiveConversation(messageId: string) {
         where: { userId, threadId: message.threadId },
         select: { id: true, uid: true, folderId: true },
       })
-    : [{ id: message.id, uid: 0, folderId: "" }];
+    : [{ id: message.id, uid: message.uid, folderId: message.folderId }];
 
   const archiveFolder = await db.folder.findFirst({
     where: {
@@ -442,6 +444,9 @@ export async function unarchiveConversations(messageIds: string[]) {
 
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
+  revalidatePath("/imbox");
+  revalidatePath("/feed");
+  revalidatePath("/paper-trail");
 
   // Pre-compute IMAP work per connection
   const byConnection = new Map<string, typeof threadMessages>();

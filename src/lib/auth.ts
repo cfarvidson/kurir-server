@@ -51,9 +51,20 @@ export async function getEmailConnection(connectionId: string, userId: string) {
   });
 }
 
-// Helper to get decrypted credentials for a specific email connection.
-// Pass userId to enforce ownership (recommended for user-facing code paths).
+// Get decrypted credentials — internal use only (no ownership check).
+export async function getConnectionCredentialsInternal(connectionId: string) {
+  return getConnectionCredentialsQuery(connectionId);
+}
+
+// Get decrypted credentials with ownership verification.
 export async function getConnectionCredentials(
+  connectionId: string,
+  userId: string,
+) {
+  return getConnectionCredentialsQuery(connectionId, userId);
+}
+
+async function getConnectionCredentialsQuery(
   connectionId: string,
   userId?: string,
 ) {

@@ -1,5 +1,5 @@
 import { ImapFlow, type ListResponse } from "imapflow";
-import { getConnectionCredentials } from "@/lib/auth";
+import { getConnectionCredentialsInternal } from "@/lib/auth";
 
 /**
  * Runs a callback with an authenticated ImapFlow connection.
@@ -10,7 +10,7 @@ export async function withImapConnection<T>(
   connectionId: string,
   fn: (client: ImapFlow) => Promise<T>
 ): Promise<T | null> {
-  const credentials = await getConnectionCredentials(connectionId);
+  const credentials = await getConnectionCredentialsInternal(connectionId);
   if (!credentials) {
     console.warn("[imap] No credentials found for connection:", connectionId);
     return null;

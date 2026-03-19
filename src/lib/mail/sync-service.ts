@@ -1,7 +1,7 @@
 import { ImapFlow, FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
-import { getConnectionCredentials } from "@/lib/auth";
+import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
 
@@ -815,7 +815,7 @@ export async function syncEmailConnection(
   results: SyncResult[];
   error?: string;
 }> {
-  const credentials = await getConnectionCredentials(emailConnectionId);
+  const credentials = await getConnectionCredentialsInternal(emailConnectionId);
 
   if (!credentials) {
     return {

@@ -10,8 +10,10 @@ function getKey(): Buffer {
   if (!secret) {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
-  // Derive a key from the secret using scrypt
-  return scryptSync(secret, "kurir-salt", KEY_LENGTH);
+  // Derive a key from the secret using scrypt.
+  // ENCRYPTION_SALT can be set per-deployment for stronger isolation.
+  const salt = process.env.ENCRYPTION_SALT || "kurir-salt";
+  return scryptSync(secret, salt, KEY_LENGTH);
 }
 
 /**

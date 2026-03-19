@@ -20,10 +20,11 @@ export interface MessageSearchResult {
  */
 function buildPrefixQuery(input: string): string {
   const words = input
-    .replace(/[^\w\s]/g, " ")
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g, " ")
     .trim()
     .split(/\s+/)
-    .filter((w) => w.length > 0);
+    .filter((w) => w.length > 0)
+    .slice(0, 20);
   if (words.length === 0) return "";
   return words.map((w) => `${w}:*`).join(" & ");
 }

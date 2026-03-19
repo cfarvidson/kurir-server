@@ -24,5 +24,7 @@ export async function verifyImapCredentials(
   } catch (error) {
     console.error("IMAP verification failed:", error);
     return false;
+  } finally {
+    try { client.close(); } catch {}
   }
 }

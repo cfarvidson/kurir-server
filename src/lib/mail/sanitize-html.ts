@@ -22,8 +22,7 @@ const ALLOWED_TAGS = [
   "address", "cite", "abbr", "time",
   "dl", "dt", "dd",
   "section", "article", "header", "footer", "main", "aside", "nav",
-  // Allow <style> for newsletter CSS (scoped inside sandboxed iframe)
-  "style",
+  // <style> blocks removed: CSS url() can bypass image proxy for tracking.
   // Allow <center> for legacy email layouts
   "center",
 ];

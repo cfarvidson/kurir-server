@@ -1,5 +1,5 @@
 import { ImapFlow, MailboxLockObject } from "imapflow";
-import { getConnectionCredentials } from "@/lib/auth";
+import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Single-process constraint: ConnectionManager, sseSubscribers, and echo
@@ -28,7 +28,7 @@ class ConnectionManager {
   async startConnection(connectionId: string): Promise<void> {
     if (this.connections.has(connectionId) || this.stopping) return;
 
-    const credentials = await getConnectionCredentials(connectionId);
+    const credentials = await getConnectionCredentialsInternal(connectionId);
     if (!credentials) {
       console.error("[idle] No credentials for connection", connectionId);
       return;

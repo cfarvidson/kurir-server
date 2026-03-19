@@ -49,20 +49,25 @@ export async function PATCH(
   const { password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
     parsed.data;
 
-  // If password changed, re-verify IMAP before storing
-  if (password) {
+  // Re-verify IMAP when password, host, or port changes
+  const hostOrPortChanged =
+    (imapHost !== undefined && imapHost !== connection.imapHost) ||
+    (imapPort !== undefined && imapPort !== connection.imapPort);
+  if (password || hostOrPortChanged) {
     const effectiveImapHost = imapHost ?? connection.imapHost;
     const effectiveImapPort = imapPort ?? connection.imapPort;
     const { verifyImapCredentials } = await import("@/lib/mail/imap-verify");
+    const { decrypt: decryptPassword } = await import("@/lib/crypto");
+    const effectivePassword = password || decryptPassword(connection.encryptedPassword);
     const isValid = await verifyImapCredentials(
       connection.email,
-      password,
+      effectivePassword,
       effectiveImapHost,
       effectiveImapPort
     );
     if (!isValid) {
       return NextResponse.json(
-        { error: "Could not connect to IMAP server with the new password." },
+        { error: "Could not connect to IMAP server with the provided settings." },
         { status: 422 }
       );
     }
@@ -113,29 +118,37 @@ export async function DELETE(
 
   const userId = session.user.id;
 
-  // Prevent deleting the last connection
-  const count = await db.emailConnection.count({ where: { userId } });
-  if (count <= 1) {
-    return NextResponse.json(
-      { error: "Cannot remove your only email connection." },
-      { status: 409 }
-    );
-  }
+  // Atomically check count, delete, and promote next default
+  try {
+    await db.$transaction(async (tx) => {
+      const count = await tx.emailConnection.count({ where: { userId } });
+      if (count <= 1) {
+        throw new Error("LAST_CONNECTION");
+      }
 
-  await db.emailConnection.delete({ where: { id } });
+      await tx.emailConnection.delete({ where: { id } });
 
-  // If this was the default, promote the oldest remaining connection
-  if (connection.isDefault) {
-    const next = await db.emailConnection.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "asc" },
+      if (connection.isDefault) {
+        const next = await tx.emailConnection.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "asc" },
+        });
+        if (next) {
+          await tx.emailConnection.update({
+            where: { id: next.id },
+            data: { isDefault: true },
+          });
+        }
+      }
     });
-    if (next) {
-      await db.emailConnection.update({
-        where: { id: next.id },
-        data: { isDefault: true },
-      });
+  } catch (err) {
+    if (err instanceof Error && err.message === "LAST_CONNECTION") {
+      return NextResponse.json(
+        { error: "Cannot remove your only email connection." },
+        { status: 409 }
+      );
     }
+    throw err;
   }
 
   return NextResponse.json({ success: true });

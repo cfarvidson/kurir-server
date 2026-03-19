@@ -35,10 +35,19 @@ export async function POST(request: Request) {
 
   const { endpoint, p256dh, auth: authKey } = parsed.data;
 
+  // Check if endpoint belongs to a different user
+  const existing = await db.pushSubscription.findUnique({
+    where: { endpoint },
+    select: { userId: true },
+  });
+  if (existing && existing.userId !== session.user.id) {
+    return NextResponse.json({ error: "Endpoint already registered" }, { status: 409 });
+  }
+
   await db.pushSubscription.upsert({
     where: { endpoint },
     create: { endpoint, p256dh, auth: authKey, userId: session.user.id },
-    update: { p256dh, auth: authKey, userId: session.user.id },
+    update: { p256dh, auth: authKey },
   });
 
   return NextResponse.json({ success: true });

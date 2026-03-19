@@ -261,6 +261,7 @@ export async function changeSenderCategory(
     db.message.updateMany({
       where: { senderId, isArchived: false },
       data: {
+        isInScreener: false,
         isInImbox: category === "IMBOX",
         isInFeed: category === "FEED",
         isInPaperTrail: category === "PAPER_TRAIL",

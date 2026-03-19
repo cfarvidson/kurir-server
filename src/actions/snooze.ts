@@ -5,6 +5,10 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function snoozeConversation(messageId: string, until: Date) {
+  if (until <= new Date()) {
+    throw new Error("Snooze date must be in the future");
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -95,6 +99,10 @@ export async function unsnoozeConversation(messageId: string) {
 }
 
 export async function snoozeConversations(messageIds: string[], until: Date) {
+  if (until <= new Date()) {
+    throw new Error("Snooze date must be in the future");
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
