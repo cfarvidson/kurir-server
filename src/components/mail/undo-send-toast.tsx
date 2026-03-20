@@ -19,35 +19,35 @@ function UndoSendToastContent({
 }: UndoSendToastProps) {
   const { remaining, progress } = useCountdown(delayMs, onComplete);
   const seconds = Math.ceil(remaining / 1000);
-  const circumference = 2 * Math.PI * 14;
+  const circumference = 2 * Math.PI * 15;
 
   return (
-    <div className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-card-foreground shadow-lg">
-      <div className="relative h-8 w-8 shrink-0">
-        <svg className="-rotate-90 h-8 w-8" viewBox="0 0 32 32">
+    <div className="flex w-[360px] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-lg">
+      <div className="relative h-9 w-9 shrink-0">
+        <svg className="-rotate-90 h-9 w-9" viewBox="0 0 36 36">
           <circle
-            cx="16"
-            cy="16"
-            r="14"
+            cx="18"
+            cy="18"
+            r="15"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
-            className="text-muted-foreground/20"
+            strokeWidth="2.5"
+            className="text-muted-foreground/15"
           />
           <circle
-            cx="16"
-            cy="16"
-            r="14"
+            cx="18"
+            cy="18"
+            r="15"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeDasharray={circumference}
             strokeDashoffset={circumference * progress}
             strokeLinecap="round"
             className="text-primary transition-[stroke-dashoffset] duration-100"
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums">
           {seconds}
         </span>
       </div>
@@ -61,7 +61,7 @@ function UndoSendToastContent({
 
       <button
         onClick={onUndo}
-        className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        className="shrink-0 rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         Undo
       </button>
