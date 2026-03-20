@@ -196,6 +196,7 @@ export async function ThreadDetailView({
               <ThreadPageContent
                 initialMessages={messages}
                 currentUserEmail={currentUserEmail}
+                userEmails={[...userEmails]}
                 replyToMessageId={lastMessage.id}
                 replyToAddress={replyToAddress}
                 replyToName={replyToName}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
 
@@ -33,6 +33,7 @@ interface ThreadMessage {
 interface ThreadPageContentProps {
   initialMessages: ThreadMessage[];
   currentUserEmail: string;
+  userEmails: string[];
   replyToMessageId: string;
   replyToAddress: string;
   replyToName: string;
@@ -46,6 +47,7 @@ interface ThreadPageContentProps {
 export function ThreadPageContent({
   initialMessages,
   currentUserEmail,
+  userEmails,
   replyToMessageId,
   replyToAddress,
   replyToName,
@@ -55,6 +57,10 @@ export function ThreadPageContent({
   references,
   userTimezone,
 }: ThreadPageContentProps) {
+  const userEmailSet = useMemo(
+    () => new Set(userEmails.map((e) => e.toLowerCase())),
+    [userEmails],
+  );
   const [messages, setMessages] = useState(initialMessages);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +97,7 @@ export function ThreadPageContent({
 
   return (
     <>
-      <ThreadView messages={messages} currentUserEmail={currentUserEmail} />
+      <ThreadView messages={messages} currentUserEmail={currentUserEmail} userEmails={userEmailSet} />
 
       <div className="mt-6 pb-8" ref={bottomRef}>
         <ReplyComposer

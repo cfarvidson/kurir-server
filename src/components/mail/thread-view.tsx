@@ -38,6 +38,7 @@ interface ThreadMessage {
 interface ThreadViewProps {
   messages: ThreadMessage[];
   currentUserEmail: string;
+  userEmails?: Set<string>;
 }
 
 function getInitialColor(name: string): string {
@@ -302,14 +303,15 @@ function MessageBubble({
   );
 }
 
-export function ThreadView({ messages, currentUserEmail }: ThreadViewProps) {
+export function ThreadView({ messages, currentUserEmail, userEmails }: ThreadViewProps) {
+  const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
   return (
     <div className="space-y-0">
       {messages.map((message, i) => (
         <MessageBubble
           key={message.id}
           message={message}
-          isFromCurrentUser={message.fromAddress === currentUserEmail}
+          isFromCurrentUser={emailSet.has(message.fromAddress.toLowerCase())}
           isCollapsed={i < messages.length - 1}
           isFirst={i === 0}
           isLast={i === messages.length - 1}
