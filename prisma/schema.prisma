@@ -142,7 +142,7 @@ model Sender {
 
   // Status and categorization
   status   SenderStatus   @default(PENDING)
-  category SenderCategory @default(IMBOX)
+  category SenderCategory?
 
   // Decision metadata
   decidedAt    DateTime? // When approved/rejected

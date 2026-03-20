@@ -19,7 +19,7 @@ interface Contact {
   email: string;
   displayName: string | null;
   domain: string;
-  category: "IMBOX" | "FEED" | "PAPER_TRAIL";
+  category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null;
   messageCount: number;
   decidedAt: Date | null;
 }
@@ -56,7 +56,7 @@ function getInitialColor(str: string): string {
 
 function ContactCard({ contact }: { contact: Contact }) {
   const name = contact.displayName || contact.email.split("@")[0];
-  const cat = categoryConfig[contact.category];
+  const cat = categoryConfig[contact.category ?? "IMBOX"];
   const CatIcon = cat.icon;
 
   return (

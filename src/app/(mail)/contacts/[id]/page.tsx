@@ -83,7 +83,7 @@ export default async function ContactDetailPage({
 
   const conversations = await getConversations(session.user.id, contact.email);
   const name = contact.displayName || contact.email.split("@")[0];
-  const cat = categoryConfig[contact.category];
+  const cat = categoryConfig[contact.category ?? "IMBOX"];
   const CatIcon = cat.icon;
 
   return (

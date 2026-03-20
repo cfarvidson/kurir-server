@@ -24,7 +24,7 @@ interface ScreenedSender {
   displayName: string | null;
   domain: string;
   status: SenderStatus;
-  category: SenderCategory;
+  category: SenderCategory | null;
   decidedAt: Date | null;
   _count: { messages: number };
 }
@@ -91,7 +91,7 @@ export function ScreenedSenderList({
           </div>
           {approved.map((sender) => {
             const isProcessing = processingId === sender.id;
-            const config = CATEGORY_CONFIG[sender.category];
+            const config = CATEGORY_CONFIG[sender.category ?? "IMBOX"];
             const Icon = config.icon;
 
             return (

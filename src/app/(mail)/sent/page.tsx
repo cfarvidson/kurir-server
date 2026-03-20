@@ -30,7 +30,7 @@ const categoryConfig = {
 
 function ContactResultRow({ contact }: { contact: ContactSearchResult }) {
   const name = contact.displayName || contact.email.split("@")[0];
-  const cat = categoryConfig[contact.category];
+  const cat = categoryConfig[contact.category ?? "IMBOX"];
   const CatIcon = cat.icon;
 
   return (
