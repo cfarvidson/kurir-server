@@ -2,7 +2,7 @@
 
 import { auth, getConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createLocalSentMessage } from "@/lib/mail/persist-sent";
+import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
 import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
@@ -87,6 +87,18 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     toAddresses: [replyTo],
     text: body,
   });
+
+  // Append to IMAP Sent folder (fire-and-forget)
+  appendToImapSent({
+    emailConnectionId: message.emailConnectionId,
+    messageId: info.messageId || null,
+    inReplyTo: message.messageId || null,
+    references,
+    subject,
+    fromAddress,
+    toAddresses: [replyTo],
+    text: body,
+  }).catch(console.error);
 
   await db.message.update({
     where: { id: messageId },

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
-import { createLocalSentMessage } from "./persist-sent";
+import { createLocalSentMessage, appendToImapSent } from "./persist-sent";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -156,6 +156,19 @@ async function processSingleMessage(
       text: textBody,
       html: htmlBody,
     });
+
+    // Append to IMAP Sent folder (fire-and-forget)
+    appendToImapSent({
+      emailConnectionId: msg.emailConnectionId,
+      messageId: result.messageId || null,
+      inReplyTo: msg.inReplyToMessageId || null,
+      references: refList,
+      subject: msg.subject,
+      fromAddress,
+      toAddresses: [msg.to],
+      text: textBody,
+      html: htmlBody,
+    }).catch(console.error);
 
     // Notify connected clients
     emitToUser(msg.userId, {

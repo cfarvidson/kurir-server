@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, getConnectionCredentials, getDefaultConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createLocalSentMessage } from "@/lib/mail/persist-sent";
+import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -135,6 +135,19 @@ export async function POST(request: Request) {
       text,
       html,
     });
+
+    // Append to IMAP Sent folder (fire-and-forget)
+    appendToImapSent({
+      emailConnectionId: resolvedConnectionId,
+      messageId: result.messageId || null,
+      inReplyTo: inReplyTo || null,
+      references: references || [],
+      subject,
+      fromAddress,
+      toAddresses: [to],
+      text,
+      html,
+    }).catch(console.error);
 
     return NextResponse.json({
       success: true,
