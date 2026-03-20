@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerView } from "@/components/screener/screener-view";
+import { ScreenerHintBanner } from "@/components/screener/screener-hint-banner";
 import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
 import { SkippedSenderList } from "@/components/screener/skipped-sender-list";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
@@ -113,6 +114,9 @@ export default async function ScreenerPage() {
           </div>
         )}
       </div>
+
+      {/* Keyboard hint banner (desktop only, first visit) */}
+      {pendingSenders.length > 0 && <ScreenerHintBanner />}
 
       {/* Content */}
       <div className="flex-1 overflow-auto">

@@ -102,6 +102,16 @@ export function sanitizeEmailHtml(
     }
   });
 
+  // 3. Strip CSS url() from inline style attributes to prevent tracking pixels
+  //    and SSRF via background-image, list-style-image, content, cursor, etc.
+  doc.querySelectorAll("[style]").forEach((el) => {
+    const style = el.getAttribute("style") ?? "";
+    const cleaned = style.replace(/url\s*\([^)]*\)/gi, "none");
+    if (cleaned !== style) {
+      el.setAttribute("style", cleaned);
+    }
+  });
+
   // 4. Optionally collapse quotes.
   if (options.collapseQuotes) {
     // Standard blockquotes.

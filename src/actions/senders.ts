@@ -174,6 +174,60 @@ export async function skipSender(senderId: string) {
   revalidatePath("/screener");
 }
 
+/**
+ * Undo a screen-in or screen-out action by reverting the sender to PENDING
+ * and moving their messages back into the screener.
+ */
+export async function undoScreenAction(senderId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { userId: true, status: true },
+  });
+
+  if (!sender || sender.userId !== session.user.id) {
+    throw new Error("Sender not found");
+  }
+
+  if (sender.status === "PENDING") {
+    return; // Already pending, nothing to undo
+  }
+
+  await db.$transaction([
+    db.sender.update({
+      where: { id: senderId },
+      data: {
+        status: "PENDING",
+        category: null,
+        decidedAt: null,
+      },
+    }),
+    // Restore all messages from this sender back to screener
+    // (handles both approved messages and rejected/archived ones)
+    db.message.updateMany({
+      where: { senderId },
+      data: {
+        isArchived: false,
+        isInScreener: true,
+        isInImbox: false,
+        isInFeed: false,
+        isInPaperTrail: false,
+      },
+    }),
+  ]);
+
+  revalidateTag("sidebar-counts");
+  revalidatePath("/screener");
+  revalidatePath("/imbox");
+  revalidatePath("/feed");
+  revalidatePath("/paper-trail");
+  revalidatePath("/archive");
+}
+
 export async function unskipSender(senderId: string) {
   const session = await auth();
   if (!session?.user?.id) {

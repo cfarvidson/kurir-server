@@ -227,6 +227,77 @@ describe("sanitizeEmailHtml", () => {
     });
   });
 
+  describe("css url() stripping in inline styles", () => {
+    it("strips background-image: url(...) from inline styles", () => {
+      const result = sanitizeEmailHtml(
+        '<p style="background-image: url(https://tracker.evil.com/pixel.gif);">Text</p>'
+      );
+      expect(result).not.toContain("url(");
+      expect(result).toContain("Text");
+    });
+
+    it("strips list-style-image: url(...) from inline styles", () => {
+      const result = sanitizeEmailHtml(
+        '<ul><li style="list-style-image: url(https://tracker.example.com/img.png)">Item</li></ul>'
+      );
+      expect(result).not.toContain("url(");
+      expect(result).toContain("Item");
+    });
+
+    it("strips content: url(...) from inline styles", () => {
+      const result = sanitizeEmailHtml(
+        '<span style="content: url(https://example.com/icon.png)">text</span>'
+      );
+      expect(result).not.toContain("url(");
+    });
+
+    it("strips cursor: url(...) from inline styles", () => {
+      const result = sanitizeEmailHtml(
+        '<div style="cursor: url(https://example.com/cursor.cur), auto;">Content</div>'
+      );
+      expect(result).not.toContain("url(");
+      expect(result).toContain("Content");
+    });
+
+    it("preserves non-url() style properties alongside stripped url() ones", () => {
+      const result = sanitizeEmailHtml(
+        '<p style="color: red; background-image: url(https://tracker.com/px); font-size: 14px;">Text</p>'
+      );
+      expect(result).not.toContain("url(");
+      expect(result).toContain("color: red");
+      expect(result).toContain("font-size: 14px");
+      expect(result).toContain("Text");
+    });
+
+    it("preserves styles with no url() at all", () => {
+      const result = sanitizeEmailHtml(
+        '<p style="color: blue; font-weight: bold; margin: 0 auto;">Content</p>'
+      );
+      expect(result).toContain("color: blue");
+      expect(result).toContain("font-weight: bold");
+      expect(result).toContain("margin: 0 auto");
+    });
+
+    it("strips url() regardless of quoting style in CSS", () => {
+      const withDoubleQuotes = sanitizeEmailHtml(
+        `<p style='background-image: url("https://tracker.com/img.gif");'>Text</p>`
+      );
+      const withSingleQuotes = sanitizeEmailHtml(
+        `<p style="background-image: url('https://tracker.com/img.gif');">Text</p>`
+      );
+      expect(withDoubleQuotes).not.toContain("url(");
+      expect(withSingleQuotes).not.toContain("url(");
+    });
+
+    it("strips url() with data: URI", () => {
+      const result = sanitizeEmailHtml(
+        '<div style="background: url(data:image/gif;base64,R0lGOD=)">Content</div>'
+      );
+      expect(result).not.toContain("url(");
+      expect(result).toContain("Content");
+    });
+  });
+
   describe("collapseQuotes option", () => {
     it("preserves blockquotes by default", () => {
       const result = sanitizeEmailHtml("<blockquote><p>Quoted text</p></blockquote>");

@@ -50,6 +50,17 @@ const navigationShortcuts: ShortcutEntry[] = [
   { keys: ["g", "n"], description: "Screener", mode: "sequence" },
 ];
 
+const screenerShortcuts: ShortcutEntry[] = [
+  { keys: ["y"], description: "Screen in" },
+  { keys: ["n"], description: "Screen out" },
+  { keys: ["h"], description: "Skip (snooze)" },
+  { keys: ["1"], description: "Categorize → Imbox" },
+  { keys: ["2"], description: "Categorize → Feed" },
+  { keys: ["3"], description: "Categorize → Paper Trail" },
+  { keys: ["Space"], description: "Toggle email preview" },
+  { keys: ["Esc"], description: "Close preview / picker" },
+];
+
 const sharedShortcuts: ShortcutEntry[] = [
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
@@ -148,6 +159,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           {/* Left column */}
           <div className="space-y-4">
             <ShortcutGroup title="List view" shortcuts={listShortcuts} />
+            <ShortcutGroup title="Screener" shortcuts={screenerShortcuts} />
             <ShortcutGroup title="Thread view" shortcuts={threadShortcuts} />
           </div>
 
