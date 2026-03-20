@@ -22,7 +22,7 @@ function UndoSendToastContent({
   const circumference = 2 * Math.PI * 15;
 
   return (
-    <div className="flex w-[360px] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-lg">
+    <div className="flex w-[360px] items-center gap-3 px-4 py-3">
       <div className="relative h-9 w-9 shrink-0">
         <svg className="-rotate-90 h-9 w-9" viewBox="0 0 36 36">
           <circle
