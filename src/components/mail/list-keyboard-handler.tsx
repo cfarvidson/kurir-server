@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { keyboardState } from "@/lib/keyboard-state";
 import { archiveConversation } from "@/actions/archive";
 import { toggleReadStatus } from "@/actions/read-status";
 import type { MessageItem } from "@/components/mail/message-list";
@@ -52,6 +53,7 @@ export function ListKeyboardHandler({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
+      if (keyboardState.gSequenceActive) return;
 
       const msg = getFocusedMessage();
 

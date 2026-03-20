@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { X } from "lucide-react";
+import { keyboardState } from "@/lib/keyboard-state";
 
 interface ShortcutEntry {
   keys: string[];
@@ -219,6 +220,7 @@ export function KeyboardShortcuts() {
       // Handle second key of g+X sequence
       if (gPressedRef.current) {
         gPressedRef.current = false;
+        keyboardState.gSequenceActive = false;
         if (gTimerRef.current) {
           clearTimeout(gTimerRef.current);
           gTimerRef.current = null;
@@ -236,8 +238,10 @@ export function KeyboardShortcuts() {
           // Start go-to sequence
           e.preventDefault();
           gPressedRef.current = true;
+          keyboardState.gSequenceActive = true;
           gTimerRef.current = setTimeout(() => {
             gPressedRef.current = false;
+            keyboardState.gSequenceActive = false;
           }, GOTO_TIMEOUT);
           break;
 

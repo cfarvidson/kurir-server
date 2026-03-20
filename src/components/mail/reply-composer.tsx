@@ -46,6 +46,7 @@ export function ReplyComposer({
   const toInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const [scheduling, setScheduling] = useState(false);
+  const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const { enqueue, cancel } = usePendingSendStore();
   // Keep a ref to the pending send ID so undo can restore state
   const pendingSendIdRef = useRef<string | null>(null);
@@ -174,7 +175,11 @@ export function ReplyComposer({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleSend();
+      if (e.shiftKey) {
+        setSchedulePickerOpen(true);
+      } else {
+        handleSend();
+      }
     }
     if (e.key === "Escape") {
       if (!body.trim()) {
@@ -328,6 +333,8 @@ export function ReplyComposer({
                   onSchedule={handleScheduleSend}
                   userTimezone={userTimezone}
                   isPending={scheduling}
+                  open={schedulePickerOpen}
+                  onOpenChange={setSchedulePickerOpen}
                   side="top"
                   trigger={
                     <Button

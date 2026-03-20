@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { keyboardState } from "@/lib/keyboard-state";
 
 interface ThreadKeyboardHandlerProps {
   messageId: string;
@@ -31,6 +32,7 @@ export function ThreadKeyboardHandler({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
+      if (keyboardState.gSequenceActive) return;
 
       switch (e.key) {
         case "r": {

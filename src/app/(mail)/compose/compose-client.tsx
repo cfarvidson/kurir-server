@@ -242,6 +242,23 @@ export function ComposeClientPage({
     router.push("/imbox");
   };
 
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+
+  const handleBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        setScheduleOpen(true);
+      } else {
+        handleSend();
+      }
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      router.back();
+    }
+  };
+
   const hasSuggestions = showSuggestions && isTyping && (results.length > 0 || loading);
   const hasMultipleConnections = connections.length > 1;
 
@@ -271,6 +288,8 @@ export function ComposeClientPage({
               onSchedule={handleScheduleSend}
               userTimezone={userTimezone}
               isPending={scheduling}
+              open={scheduleOpen}
+              onOpenChange={setScheduleOpen}
               trigger={
                 <Button
                   size="sm"
@@ -397,6 +416,7 @@ export function ComposeClientPage({
               placeholder="Write your message..."
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              onKeyDown={handleBodyKeyDown}
             />
           </div>
         </div>
