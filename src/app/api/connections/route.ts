@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, getUserEmailConnections } from "@/lib/auth";
+import { getUserEmailConnections, auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
@@ -34,10 +34,11 @@ export async function GET() {
 
 // POST /api/connections — add a new email connection
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
   let body;
   try {
@@ -54,9 +55,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
-    parsed.data;
-  const userId = session.user.id;
+    const { email, password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
+      parsed.data;
+    const userId = session.user.id;
 
   // Verify IMAP credentials before saving
   const { verifyImapCredentials } = await import("@/lib/mail/imap-verify");
@@ -107,7 +108,10 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  const { encryptedPassword: _, ...safe } = connection;
+    const { encryptedPassword: _, ...safe } = connection;
 
-  return NextResponse.json({ connection: safe }, { status: 201 });
+    return NextResponse.json({ connection: safe }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
