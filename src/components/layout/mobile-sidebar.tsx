@@ -78,6 +78,7 @@ export function MobileSidebar({
       {!isSubPage && (
         <button
           onClick={() => setOpen(true)}
+          data-mobile-hamburger
           className="fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-muted"
           aria-label="Open navigation"
         >

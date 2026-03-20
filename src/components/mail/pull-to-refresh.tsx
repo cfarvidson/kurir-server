@@ -44,6 +44,13 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     spinner.style.transform = `translate3d(0, ${distance - 40}px, 0)`;
     spinner.style.opacity = String(Math.min(distance / THRESHOLD, 1));
 
+    // Move the mobile hamburger button with the content
+    const hamburger = document.querySelector<HTMLElement>("[data-mobile-hamburger]");
+    if (hamburger) {
+      hamburger.style.transition = transition;
+      hamburger.style.transform = `translate3d(0, ${distance}px, 0)`;
+    }
+
     const svg = spinner.querySelector("svg");
     if (svg) {
       // Rotate proportionally during drag, spin continuously while refreshing
