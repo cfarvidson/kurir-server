@@ -56,6 +56,16 @@ export function ReplyComposer({
     if (!isEditingTo) setTo(replyToAddress);
   }, [replyToAddress, isEditingTo]);
 
+  // Listen for keyboard shortcut "r" to focus/open the reply composer
+  useEffect(() => {
+    const handler = () => {
+      setIsOpen(true);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    };
+    window.addEventListener("keyboard-reply", handler);
+    return () => window.removeEventListener("keyboard-reply", handler);
+  }, []);
+
   const autoResize = () => {
     const el = textareaRef.current;
     if (el) {

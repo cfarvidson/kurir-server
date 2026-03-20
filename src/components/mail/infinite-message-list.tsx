@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
+import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
+import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
@@ -41,6 +43,7 @@ export function InfiniteMessageList({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { focusedIndex, registerList } = useKeyboardNavigationStore();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -137,6 +140,12 @@ export function InfiniteMessageList({
     });
   }, [data]);
 
+  // Register thread list in navigation store for j/k in thread detail view
+  useEffect(() => {
+    const ids = threads.map((m) => m.id);
+    registerList(ids, basePath);
+  }, [threads, basePath, registerList]);
+
   const handleArchived = useCallback(
     (messageIds?: string | string[]) => {
       const ids = Array.isArray(messageIds)
@@ -184,6 +193,7 @@ export function InfiniteMessageList({
 
   const renderRow = (message: MessageItem) => {
     const threadKey = message.threadId || message.id;
+    const globalIndex = threads.indexOf(message);
     return (
       <motion.div
         key={message.id}
@@ -201,6 +211,7 @@ export function InfiniteMessageList({
           isSelectionMode={isSelectionMode}
           isSelected={selectedIds.has(threadKey)}
           onToggleSelect={() => toggleSelection(threadKey)}
+          isFocused={globalIndex === focusedIndex}
         />
       </motion.div>
     );
@@ -226,12 +237,23 @@ export function InfiniteMessageList({
     </div>
   );
 
+  const keyboardHandler = (
+    <ListKeyboardHandler
+      threads={threads}
+      basePath={basePath}
+      onArchived={handleArchived}
+      onToggleSelect={toggleSelection}
+      showSnoozeAction={showSnoozeAction}
+    />
+  );
+
   if (showSections) {
     const newMessages = threads.filter((m) => !m.isRead);
     const seenMessages = threads.filter((m) => m.isRead);
 
     return (
       <div className="divide-y">
+        {keyboardHandler}
         {selectionToggle}
 
         {newMessages.length > 0 && (
@@ -280,6 +302,7 @@ export function InfiniteMessageList({
 
   return (
     <div>
+      {keyboardHandler}
       {selectionToggle}
       <AnimatePresence mode="popLayout">
         {threads.map(renderRow)}

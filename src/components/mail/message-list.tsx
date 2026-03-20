@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useTransition } from "react";
+import { useRef, useState, useCallback, useTransition, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -93,6 +93,7 @@ export function MessageRow({
   isSelectionMode,
   isSelected,
   onToggleSelect,
+  isFocused,
 }: {
   message: MessageItem;
   basePath: string;
@@ -104,6 +105,7 @@ export function MessageRow({
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  isFocused?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -115,6 +117,18 @@ export function MessageRow({
     ? `${basePath}/${message.id}?q=${encodeURIComponent(q)}`
     : `${basePath}/${message.id}`;
   const hasThread = (message.threadCount ?? 0) > 1;
+
+  // Listen for keyboard-triggered snooze
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.messageId === message.id) {
+        setSnoozeOpen(true);
+      }
+    };
+    window.addEventListener("keyboard-snooze", handler);
+    return () => window.removeEventListener("keyboard-snooze", handler);
+  }, [message.id]);
 
   const doArchive = () => {
     onArchived?.(message.id);
@@ -324,16 +338,20 @@ export function MessageRow({
     </>
   );
 
+  const focusRing = isFocused && "ring-2 ring-inset ring-primary/40";
+
   // In selection mode, render as div without swipe (swipe disabled)
   if (isSelectionMode) {
     return (
       <div
         onClick={handleClick}
+        data-keyboard-focused={isFocused || undefined}
         className={cn(
           "group relative flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           !message.isRead && "bg-primary/5",
           isSelected && "bg-primary/10",
-          isPending && "opacity-50 pointer-events-none"
+          isPending && "opacity-50 pointer-events-none",
+          focusRing,
         )}
       >
         {rowContent}
@@ -353,10 +371,12 @@ export function MessageRow({
       <Link
         href={href}
         onClick={handleClick}
+        data-keyboard-focused={isFocused || undefined}
         className={cn(
           "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           !message.isRead && "bg-primary/5",
-          isPending && "opacity-50 pointer-events-none"
+          isPending && "opacity-50 pointer-events-none",
+          focusRing,
         )}
       >
         {rowContent}

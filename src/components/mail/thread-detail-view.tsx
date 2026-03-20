@@ -8,6 +8,7 @@ import { getThreadMessages } from "@/lib/mail/threads";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 import { ContactSidebar } from "@/components/mail/contact-sidebar";
+import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 
 async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user] = await Promise.all([
@@ -149,6 +150,10 @@ export async function ThreadDetailView({
 
   return (
     <div className="flex h-full flex-col">
+      <ThreadKeyboardHandler
+        messageId={messageId}
+        returnPath={returnPath}
+      />
       {markedRead.length > 0 && <SidebarRefresh />}
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm md:px-6">
