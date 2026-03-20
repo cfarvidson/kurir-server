@@ -24,6 +24,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/mail/persist-sent", () => ({
   createLocalSentMessage: vi.fn().mockResolvedValue({ id: "sent-1" }),
+  appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockSendMail = vi.fn().mockResolvedValue({ messageId: "<sent@example.com>" });
@@ -141,7 +142,7 @@ describe("POST /api/mail/send", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
-    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-work");
+    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-work", "user-1");
 
     // Should send from the work account
     expect(mockSendMail).toHaveBeenCalledWith(

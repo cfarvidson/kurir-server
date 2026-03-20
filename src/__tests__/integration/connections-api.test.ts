@@ -28,6 +28,7 @@ vi.mock("@/lib/db", () => ({
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -361,7 +362,18 @@ describe("DELETE /api/connections/[id]", () => {
     } as any);
 
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.count).mockResolvedValue(1); // only one connection
+    // Transaction throws LAST_CONNECTION when count <= 1
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        emailConnection: {
+          count: vi.fn().mockResolvedValue(1),
+          delete: vi.fn(),
+          findFirst: vi.fn(),
+          update: vi.fn(),
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
@@ -381,13 +393,19 @@ describe("DELETE /api/connections/[id]", () => {
       userId: "user-1",
     } as any);
 
+    const mockUpdate = vi.fn().mockResolvedValue({} as any);
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.count).mockResolvedValue(2); // two connections
-    vi.mocked(db.emailConnection.delete).mockResolvedValue({} as any);
-    vi.mocked(db.emailConnection.findFirst).mockResolvedValue({
-      id: "conn-2",
-    } as any);
-    vi.mocked(db.emailConnection.update).mockResolvedValue({} as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        emailConnection: {
+          count: vi.fn().mockResolvedValue(2),
+          delete: vi.fn().mockResolvedValue({}),
+          findFirst: vi.fn().mockResolvedValue({ id: "conn-2" }),
+          update: mockUpdate,
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
@@ -395,7 +413,7 @@ describe("DELETE /api/connections/[id]", () => {
 
     expect(response.status).toBe(200);
     // Should have promoted the next connection
-    expect(db.emailConnection.update).toHaveBeenCalledWith({
+    expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "conn-2" },
       data: { isDefault: true },
     });
@@ -410,9 +428,19 @@ describe("DELETE /api/connections/[id]", () => {
       userId: "user-1",
     } as any);
 
+    const mockUpdate = vi.fn();
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.count).mockResolvedValue(2);
-    vi.mocked(db.emailConnection.delete).mockResolvedValue({} as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        emailConnection: {
+          count: vi.fn().mockResolvedValue(2),
+          delete: vi.fn().mockResolvedValue({}),
+          findFirst: vi.fn(),
+          update: mockUpdate,
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
@@ -420,6 +448,6 @@ describe("DELETE /api/connections/[id]", () => {
 
     expect(response.status).toBe(200);
     // Should NOT have called update (no promotion needed)
-    expect(db.emailConnection.update).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

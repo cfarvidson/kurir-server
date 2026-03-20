@@ -40,6 +40,7 @@ vi.mock("@/lib/db", () => ({
     },
     $transaction: vi.fn(),
     user: { create: vi.fn() },
+    systemSettings: { findUnique: vi.fn() },
   },
 }));
 
@@ -184,6 +185,8 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findMany).mockResolvedValue([]);
+    // New user flow checks systemSettings for signup gating
+    vi.mocked(db.systemSettings.findUnique).mockResolvedValue(null);
 
     const { POST } = await import(
       "@/app/api/auth/webauthn/register/options/route"

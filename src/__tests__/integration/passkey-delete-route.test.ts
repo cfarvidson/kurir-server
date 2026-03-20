@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
       count: vi.fn(),
       delete: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -115,7 +116,16 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue({ id: "pk-1" } as any);
-    vi.mocked(db.passkey.count).mockResolvedValue(1); // only one passkey
+    // Transaction callback receives a tx where count returns 1 (last passkey)
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        passkey: {
+          count: vi.fn().mockResolvedValue(1),
+          delete: vi.fn(),
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import(
       "@/app/api/auth/webauthn/passkeys/[id]/route"
@@ -135,7 +145,16 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue({ id: "pk-1" } as any);
-    vi.mocked(db.passkey.count).mockResolvedValue(1);
+    const mockDelete = vi.fn();
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        passkey: {
+          count: vi.fn().mockResolvedValue(1),
+          delete: mockDelete,
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import(
       "@/app/api/auth/webauthn/passkeys/[id]/route"
@@ -144,7 +163,7 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       params: Promise.resolve({ id: "pk-1" }),
     });
 
-    expect(db.passkey.delete).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 
   it("deletes passkey and returns 200 when user has multiple passkeys", async () => {
@@ -153,8 +172,15 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue({ id: "pk-2" } as any);
-    vi.mocked(db.passkey.count).mockResolvedValue(2); // two passkeys
-    vi.mocked(db.passkey.delete).mockResolvedValue({} as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        passkey: {
+          count: vi.fn().mockResolvedValue(2),
+          delete: vi.fn().mockResolvedValue({} as any),
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import(
       "@/app/api/auth/webauthn/passkeys/[id]/route"
@@ -174,8 +200,16 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue({ id: "pk-old" } as any);
-    vi.mocked(db.passkey.count).mockResolvedValue(3);
-    vi.mocked(db.passkey.delete).mockResolvedValue({} as any);
+    const mockDelete = vi.fn().mockResolvedValue({} as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        passkey: {
+          count: vi.fn().mockResolvedValue(3),
+          delete: mockDelete,
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import(
       "@/app/api/auth/webauthn/passkeys/[id]/route"
@@ -184,7 +218,7 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       params: Promise.resolve({ id: "pk-old" }),
     });
 
-    expect(db.passkey.delete).toHaveBeenCalledWith({
+    expect(mockDelete).toHaveBeenCalledWith({
       where: { id: "pk-old" },
     });
   });
@@ -195,8 +229,16 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue({ id: "pk-2" } as any);
-    vi.mocked(db.passkey.count).mockResolvedValue(2);
-    vi.mocked(db.passkey.delete).mockResolvedValue({} as any);
+    const mockDelete = vi.fn().mockResolvedValue({} as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        passkey: {
+          count: vi.fn().mockResolvedValue(2),
+          delete: mockDelete,
+        },
+      };
+      return fn(tx);
+    });
 
     const { DELETE } = await import(
       "@/app/api/auth/webauthn/passkeys/[id]/route"
@@ -207,6 +249,6 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
     // Should succeed, leaving user with 1 passkey
     expect(response.status).toBe(200);
-    expect(db.passkey.delete).toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalled();
   });
 });

@@ -23,8 +23,9 @@ vi.mock("@simplewebauthn/server/helpers", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     $transaction: vi.fn(),
-    user: { create: vi.fn() },
+    user: { create: vi.fn(), count: vi.fn() },
     passkey: { create: vi.fn() },
+    systemSettings: { findUnique: vi.fn() },
   },
 }));
 
@@ -37,10 +38,14 @@ vi.mock("@/lib/webauthn-challenge-store", () => ({
   consumeChallenge: vi.fn(),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(),
+}));
+
 // NextRequest requires a special cookies property with a .get() method
-function makeNextRequest(body: unknown, sessionKey?: string): any {
-  const cookieValue = sessionKey ? `wa_reg_session=${sessionKey}` : "";
+function makeNextRequest(body: unknown, sessionKey?: string, query = ""): any {
   const request = {
+    url: `http://localhost/api/auth/webauthn/register/verify${query}`,
     cookies: {
       get: (name: string) => {
         if (name === "wa_reg_session" && sessionKey) {
@@ -145,9 +150,18 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     } as any);
 
     const { db } = await import("@/lib/db");
-    const mockUser = { id: "new-user-id" };
-    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => fn(db));
-    vi.mocked(db.user.create).mockResolvedValue(mockUser as any);
+    const mockUser = { id: "new-user-id", role: "ADMIN" };
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        systemSettings: { findUnique: vi.fn().mockResolvedValue(null) },
+        user: {
+          count: vi.fn().mockResolvedValue(0),
+          create: vi.fn().mockResolvedValue(mockUser),
+        },
+        passkey: { create: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
 
     const { POST } = await import(
       "@/app/api/auth/webauthn/register/verify/route"
@@ -180,8 +194,17 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     } as any);
 
     const { db } = await import("@/lib/db");
-    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => fn(db));
-    vi.mocked(db.user.create).mockResolvedValue({ id: "new-user-id" } as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        systemSettings: { findUnique: vi.fn().mockResolvedValue(null) },
+        user: {
+          count: vi.fn().mockResolvedValue(0),
+          create: vi.fn().mockResolvedValue({ id: "new-user-id", role: "ADMIN" }),
+        },
+        passkey: { create: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
 
     const { POST } = await import(
       "@/app/api/auth/webauthn/register/verify/route"
@@ -213,8 +236,17 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     } as any);
 
     const { db } = await import("@/lib/db");
-    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => fn(db));
-    vi.mocked(db.user.create).mockResolvedValue({ id: "u1" } as any);
+    vi.mocked(db.$transaction).mockImplementation(async (fn: any) => {
+      const tx = {
+        systemSettings: { findUnique: vi.fn().mockResolvedValue(null) },
+        user: {
+          count: vi.fn().mockResolvedValue(0),
+          create: vi.fn().mockResolvedValue({ id: "u1", role: "ADMIN" }),
+        },
+        passkey: { create: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
 
     const { POST } = await import(
       "@/app/api/auth/webauthn/register/verify/route"

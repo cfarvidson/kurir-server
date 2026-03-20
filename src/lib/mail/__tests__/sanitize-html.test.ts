@@ -154,14 +154,16 @@ describe("sanitizeEmailHtml", () => {
   });
 
   describe("image src filtering", () => {
-    it("allows https image sources", () => {
+    it("allows https image sources (proxied)", () => {
       const result = sanitizeEmailHtml('<img src="https://example.com/image.png" />');
-      expect(result).toContain('src="https://example.com/image.png"');
+      expect(result).toContain("/api/proxy/image?url=");
+      expect(result).toContain(encodeURIComponent("https://example.com/image.png"));
     });
 
-    it("allows http image sources", () => {
+    it("allows http image sources (proxied)", () => {
       const result = sanitizeEmailHtml('<img src="http://example.com/image.png" />');
-      expect(result).toContain('src="http://example.com/image.png"');
+      expect(result).toContain("/api/proxy/image?url=");
+      expect(result).toContain(encodeURIComponent("http://example.com/image.png"));
     });
 
     it("allows cid: image sources (inline attachments)", () => {

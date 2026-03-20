@@ -21,6 +21,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/mail/persist-sent", () => ({
   createLocalSentMessage: vi.fn().mockResolvedValue({ id: "sent-1" }),
+  appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next/cache", () => ({
@@ -90,10 +91,8 @@ describe("replyToMessage", () => {
     const { replyToMessage } = await import("@/actions/reply");
     await replyToMessage("msg-1", "My reply");
 
-    // Should call getConnectionCredentials with the connection from the message
-    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-work");
-    // Should NOT be called with userId
-    expect(getConnectionCredentials).not.toHaveBeenCalledWith("user-1");
+    // Should call getConnectionCredentials with the connection from the message and user id
+    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-work", "user-1");
   });
 
   it("throws when credentials not found", async () => {

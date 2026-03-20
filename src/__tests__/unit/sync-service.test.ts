@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
-  getConnectionCredentials: vi.fn(),
+  getConnectionCredentialsInternal: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -60,14 +60,22 @@ vi.mock("mailparser", () => ({
   simpleParser: vi.fn(),
 }));
 
+vi.mock("@/lib/mail/flag-push", () => ({
+  suppressEcho: vi.fn(),
+}));
+
+vi.mock("@/lib/mail/imap-client", () => ({
+  findArchiveMailbox: vi.fn(),
+}));
+
 describe("syncEmailConnection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns error when connection credentials not found", async () => {
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    vi.mocked(getConnectionCredentials).mockResolvedValue(null);
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue(null);
 
     const { syncEmailConnection } = await import("@/lib/mail/sync-service");
     const result = await syncEmailConnection("non-existent-conn");
@@ -77,8 +85,8 @@ describe("syncEmailConnection", () => {
   });
 
   it("returns error when email connection record not found", async () => {
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    vi.mocked(getConnectionCredentials).mockResolvedValue({
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue({
       email: "me@example.com",
       sendAsEmail: null,
       aliases: [],
@@ -97,23 +105,23 @@ describe("syncEmailConnection", () => {
     expect(result.error).toContain("Email connection not found");
   });
 
-  it("calls getConnectionCredentials with the connectionId (not userId)", async () => {
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    vi.mocked(getConnectionCredentials).mockResolvedValue(null);
+  it("calls getConnectionCredentialsInternal with the connectionId (not userId)", async () => {
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue(null);
 
     const { syncEmailConnection } = await import("@/lib/mail/sync-service");
     await syncEmailConnection("conn-abc-123");
 
-    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-abc-123");
+    expect(getConnectionCredentialsInternal).toHaveBeenCalledWith("conn-abc-123");
     // Importantly: NOT called with userId
-    expect(getConnectionCredentials).not.toHaveBeenCalledWith(
+    expect(getConnectionCredentialsInternal).not.toHaveBeenCalledWith(
       expect.not.stringMatching("conn-abc-123")
     );
   });
 
   it("looks up emailConnection to get userId", async () => {
-    const { getConnectionCredentials } = await import("@/lib/auth");
-    vi.mocked(getConnectionCredentials).mockResolvedValue({
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue({
       email: "me@gmail.com",
       sendAsEmail: null,
       aliases: [],
