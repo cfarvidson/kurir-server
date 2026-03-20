@@ -130,8 +130,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setSenders(initialSenders);
-  }, [initialSenders]);
+    if (!isPending) {
+      setSenders(initialSenders);
+    }
+  }, [initialSenders, isPending]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(
     null,
@@ -145,6 +147,9 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   // Track last interaction mode for focus management
   const lastInteractionRef = useRef<"keyboard" | "mouse">("mouse");
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const bodyCacheRef = useRef(bodyCache);
+  bodyCacheRef.current = bodyCache;
 
   const currentSender = senders[0];
   const latestMessage = currentSender?.messages[0];
@@ -154,29 +159,36 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   // Reset preview when card changes
   useEffect(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setIsPreviewOpen(false);
     setPreviewLoading(false);
     setPreviewError(false);
   }, [currentSender?.id]);
 
-  const fetchBody = useCallback(
-    async (messageId: string) => {
-      if (bodyCache[messageId]) return;
-      setPreviewLoading(true);
-      setPreviewError(false);
-      try {
-        const res = await fetch(`/api/mail/message/${messageId}/body`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = (await res.json()) as BodyCache;
-        setBodyCache((prev) => ({ ...prev, [messageId]: data }));
-      } catch {
-        setPreviewError(true);
-      } finally {
-        setPreviewLoading(false);
-      }
-    },
-    [bodyCache],
-  );
+  const fetchBody = useCallback(async (messageId: string) => {
+    if (bodyCacheRef.current[messageId]) return;
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setPreviewLoading(true);
+    setPreviewError(false);
+    try {
+      const res = await fetch(`/api/mail/message/${messageId}/body`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = (await res.json()) as BodyCache;
+      setBodyCache((prev) => ({ ...prev, [messageId]: data }));
+      setPreviewLoading(false);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setPreviewError(true);
+      setPreviewLoading(false);
+    }
+  }, []);
 
   const togglePreview = useCallback(() => {
     if (!latestMessage) return;
@@ -184,11 +196,11 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
       setIsPreviewOpen(false);
     } else {
       setIsPreviewOpen(true);
-      if (!bodyCache[latestMessage.id]) {
+      if (!bodyCacheRef.current[latestMessage.id]) {
         fetchBody(latestMessage.id);
       }
     }
-  }, [isPreviewOpen, latestMessage, bodyCache, fetchBody]);
+  }, [isPreviewOpen, latestMessage, fetchBody]);
 
   const showUndoToast = useCallback(
     (
@@ -257,7 +269,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
       }
-      setProcessingId(null);
+      setProcessingId((prev) => (prev === senderId ? null : prev));
       router.refresh();
     });
   };
@@ -281,7 +293,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
       }
-      setProcessingId(null);
+      setProcessingId((prev) => (prev === senderId ? null : prev));
       router.refresh();
     });
   };
@@ -299,7 +311,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
       }
-      setProcessingId(null);
+      setProcessingId((prev) => (prev === senderId ? null : prev));
       router.refresh();
     });
   };
