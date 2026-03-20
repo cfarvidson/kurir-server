@@ -64,6 +64,10 @@ export async function createScheduledMessage(
     ? encrypt(parsed.htmlBody)
     : null;
 
+  // Add 1–14 minutes of jitter so scheduled sends don't land exactly on the hour
+  const jitterMs = (1 + Math.random() * 13) * 60_000;
+  const jitteredTime = new Date(parsed.scheduledFor.getTime() + jitterMs);
+
   const record = await db.scheduledMessage.create({
     data: {
       userId,
@@ -72,7 +76,7 @@ export async function createScheduledMessage(
       subject: parsed.subject,
       textBody: encryptedTextBody,
       htmlBody: encryptedHtmlBody,
-      scheduledFor: parsed.scheduledFor,
+      scheduledFor: jitteredTime,
       inReplyToMessageId: parsed.inReplyToMessageId ?? null,
       references: parsed.references ?? null,
     },
@@ -133,7 +137,10 @@ export async function editScheduledMessage(
   if (parsed.subject !== undefined) updateData.subject = parsed.subject;
   if (parsed.textBody !== undefined) updateData.textBody = encrypt(parsed.textBody);
   if (parsed.htmlBody !== undefined) updateData.htmlBody = encrypt(parsed.htmlBody);
-  if (parsed.scheduledFor !== undefined) updateData.scheduledFor = parsed.scheduledFor;
+  if (parsed.scheduledFor !== undefined) {
+    const jitterMs = (1 + Math.random() * 13) * 60_000;
+    updateData.scheduledFor = new Date(parsed.scheduledFor.getTime() + jitterMs);
+  }
   if (parsed.emailConnectionId !== undefined)
     updateData.emailConnectionId = parsed.emailConnectionId;
   if (parsed.inReplyToMessageId !== undefined)
