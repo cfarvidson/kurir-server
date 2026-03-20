@@ -20,7 +20,7 @@ export interface MessageSearchResult {
  */
 function buildPrefixQuery(input: string): string {
   const words = input
-    .replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .trim()
     .split(/\s+/)
     .filter((w) => w.length > 0)

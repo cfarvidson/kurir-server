@@ -471,17 +471,26 @@ export async function processMessage(
   const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
   const isRejectedInbox =
     isInbox && !isArchived && sender.status === "REJECTED";
-  const isInImbox =
-    isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
-  const isInFeed =
-    isInbox && sender.status === "APPROVED" && sender.category === "FEED";
-  const isInPaperTrail =
-    isInbox &&
-    sender.status === "APPROVED" &&
-    sender.category === "PAPER_TRAIL";
 
   // Auto-archive messages from rejected senders
   const finalIsArchived = isArchived || isRejectedInbox;
+
+  // Category flags must be false for archived messages
+  const isInImbox =
+    isInbox &&
+    !finalIsArchived &&
+    sender.status === "APPROVED" &&
+    sender.category === "IMBOX";
+  const isInFeed =
+    isInbox &&
+    !finalIsArchived &&
+    sender.status === "APPROVED" &&
+    sender.category === "FEED";
+  const isInPaperTrail =
+    isInbox &&
+    !finalIsArchived &&
+    sender.status === "APPROVED" &&
+    sender.category === "PAPER_TRAIL";
 
   // Check for attachments
   const hasAttachments = parsed.attachments && parsed.attachments.length > 0;

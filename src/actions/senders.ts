@@ -186,7 +186,7 @@ export async function undoScreenAction(senderId: string) {
 
   const sender = await db.sender.findUnique({
     where: { id: senderId },
-    select: { userId: true, status: true },
+    select: { userId: true, status: true, emailConnectionId: true },
   });
 
   if (!sender || sender.userId !== session.user.id) {
@@ -197,6 +197,12 @@ export async function undoScreenAction(senderId: string) {
     return; // Already pending, nothing to undo
   }
 
+  // Only restore inbox messages back to screener (not sent/all-mail messages)
+  const inboxFolder = await db.folder.findFirst({
+    where: { emailConnectionId: sender.emailConnectionId, specialUse: "inbox" },
+    select: { id: true },
+  });
+
   await db.$transaction([
     db.sender.update({
       where: { id: senderId },
@@ -206,10 +212,12 @@ export async function undoScreenAction(senderId: string) {
         decidedAt: null,
       },
     }),
-    // Restore all messages from this sender back to screener
-    // (handles both approved messages and rejected/archived ones)
+    // Restore only inbox-folder messages from this sender back to screener
     db.message.updateMany({
-      where: { senderId },
+      where: {
+        senderId,
+        ...(inboxFolder ? { folderId: inboxFolder.id } : {}),
+      },
       data: {
         isArchived: false,
         isInScreener: true,

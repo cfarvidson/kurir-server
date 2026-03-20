@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
+import { checkExpiredFollowUps } from "@/lib/mail/background-sync";
 import { pushToUser } from "@/lib/mail/push-sender";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
@@ -223,6 +224,12 @@ export async function POST(request: NextRequest) {
   }
 
   const wokenSnoozes = await wakeExpiredSnoozes(userId);
+  const firedFollowUps = await checkExpiredFollowUps(userId);
+
+  if (firedFollowUps > 0) {
+    revalidateTag("sidebar-counts");
+    revalidatePath("/follow-up");
+  }
 
   // Send push notifications for new Imbox messages found during this sync
   const totalNew = allResults.reduce((sum, r) => {

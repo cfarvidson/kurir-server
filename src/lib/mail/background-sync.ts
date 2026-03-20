@@ -57,7 +57,7 @@ function buildSyncLog(results: SyncResult[]): string {
     .join("\n");
 }
 
-async function checkExpiredFollowUps(userId: string): Promise<number> {
+export async function checkExpiredFollowUps(userId: string): Promise<number> {
   // Get all user emails to exclude their own replies from the "reply arrived" check
   const connections = await db.emailConnection.findMany({
     where: { userId },
