@@ -1,7 +1,7 @@
 export function KurirLogo({ className }: { className?: string }) {
   return (
     <img
-      src="/logo.svg"
+      src="/logo.png"
       alt="Kurir"
       className={className}
       draggable={false}
