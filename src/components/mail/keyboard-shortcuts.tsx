@@ -7,6 +7,8 @@ import { X } from "lucide-react";
 interface ShortcutEntry {
   keys: string[];
   description: string;
+  /** "combo" = press together (Shift+U), "sequence" = press in order (g then i) */
+  mode?: "combo" | "sequence";
 }
 
 const listShortcuts: ShortcutEntry[] = [
@@ -16,36 +18,78 @@ const listShortcuts: ShortcutEntry[] = [
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
   { keys: ["x"], description: "Select / deselect" },
-  { keys: ["Shift", "U"], description: "Toggle read / unread" },
+  { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["/"], description: "Search" },
   { keys: ["c"], description: "Compose" },
 ];
 
 const threadShortcuts: ShortcutEntry[] = [
   { keys: ["r"], description: "Reply" },
-  { keys: ["e"], description: "Archive" },
-  { keys: ["s"], description: "Snooze" },
   { keys: ["j"], description: "Next thread" },
   { keys: ["k"], description: "Previous thread" },
-  { keys: ["Shift", "U"], description: "Toggle read / unread" },
   { keys: ["Esc"], description: "Back to list" },
 ];
 
 const composeShortcuts: ShortcutEntry[] = [
-  { keys: ["Cmd", "Enter"], description: "Send" },
-  { keys: ["Cmd", "Shift", "Enter"], description: "Schedule send" },
+  { keys: ["Cmd", "Enter"], description: "Send", mode: "combo" },
+  {
+    keys: ["Cmd", "Shift", "Enter"],
+    description: "Schedule send",
+    mode: "combo",
+  },
   { keys: ["Esc"], description: "Close" },
 ];
 
 const navigationShortcuts: ShortcutEntry[] = [
-  { keys: ["g", "i"], description: "Go to Imbox" },
-  { keys: ["g", "f"], description: "Go to Feed" },
-  { keys: ["g", "p"], description: "Go to Paper Trail" },
-  { keys: ["g", "s"], description: "Go to Sent" },
-  { keys: ["g", "a"], description: "Go to Archive" },
-  { keys: ["g", "n"], description: "Go to Screener" },
+  { keys: ["g", "i"], description: "Imbox", mode: "sequence" },
+  { keys: ["g", "f"], description: "Feed", mode: "sequence" },
+  { keys: ["g", "p"], description: "Paper Trail", mode: "sequence" },
+  { keys: ["g", "s"], description: "Sent", mode: "sequence" },
+  { keys: ["g", "a"], description: "Archive", mode: "sequence" },
+  { keys: ["g", "n"], description: "Screener", mode: "sequence" },
+];
+
+const sharedShortcuts: ShortcutEntry[] = [
+  { keys: ["e"], description: "Archive" },
+  { keys: ["s"], description: "Snooze" },
+  { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["?"], description: "Keyboard shortcuts" },
 ];
+
+function Keys({ keys, mode }: { keys: string[]; mode?: "combo" | "sequence" }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {keys.map((key, i) => (
+        <span key={i} className="inline-flex items-center gap-0.5">
+          <kbd className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[5px] border border-border/80 bg-muted/60 px-1.5 font-mono text-[11px] font-medium leading-none text-foreground shadow-[0_1px_0_0_hsl(var(--border))]">
+            {key}
+          </kbd>
+          {i < keys.length - 1 &&
+            (mode === "sequence" ? (
+              <span className="px-0.5 text-[10px] text-muted-foreground/40">
+                ›
+              </span>
+            ) : (
+              <span className="px-0.5 text-[10px] text-muted-foreground/40">
+                +
+              </span>
+            ))}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ShortcutRow({ entry }: { entry: ShortcutEntry }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-[3px]">
+      <span className="text-[13px] text-muted-foreground">
+        {entry.description}
+      </span>
+      <Keys keys={entry.keys} mode={entry.mode} />
+    </div>
+  );
+}
 
 function ShortcutGroup({
   title,
@@ -56,31 +100,12 @@ function ShortcutGroup({
 }) {
   return (
     <div>
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50">
         {title}
       </h3>
-      <div className="space-y-1">
-        {shortcuts.map(({ keys, description }) => (
-          <div
-            key={description}
-            className="flex items-center justify-between py-0.5"
-          >
-            <span className="text-sm text-muted-foreground">{description}</span>
-            <div className="flex gap-1">
-              {keys.map((key, i) => (
-                <span key={i} className="flex items-center gap-0.5">
-                  <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-foreground">
-                    {key}
-                  </kbd>
-                  {i < keys.length - 1 && (
-                    <span className="text-[10px] text-muted-foreground/50">
-                      +
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          </div>
+      <div>
+        {shortcuts.map((entry) => (
+          <ShortcutRow key={entry.description} entry={entry} />
         ))}
       </div>
     </div>
@@ -99,25 +124,38 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
 
       {/* Dialog */}
-      <div className="relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border bg-card p-6 shadow-lg">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Keyboard shortcuts</h2>
+      <div className="relative w-full max-w-[580px] rounded-xl border bg-card shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-5 py-3.5">
+          <h2 className="text-[15px] font-semibold">Keyboard shortcuts</h2>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-4 space-y-5">
-          <ShortcutGroup title="List view" shortcuts={listShortcuts} />
-          <ShortcutGroup title="Thread view" shortcuts={threadShortcuts} />
-          <ShortcutGroup title="Compose" shortcuts={composeShortcuts} />
-          <ShortcutGroup title="Navigation" shortcuts={navigationShortcuts} />
+        {/* Body — two-column grid */}
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5 px-5 py-4">
+          {/* Left column */}
+          <div className="space-y-4">
+            <ShortcutGroup title="List view" shortcuts={listShortcuts} />
+            <ShortcutGroup title="Thread view" shortcuts={threadShortcuts} />
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-4">
+            <ShortcutGroup title="Go to" shortcuts={navigationShortcuts} />
+            <ShortcutGroup title="Compose" shortcuts={composeShortcuts} />
+            <ShortcutGroup title="Anywhere" shortcuts={sharedShortcuts} />
+          </div>
         </div>
       </div>
     </div>
