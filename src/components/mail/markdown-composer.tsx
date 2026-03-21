@@ -56,6 +56,9 @@ export function MarkdownComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+  // Keep a ref to the latest value so async callbacks don't capture stale closures
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   // Auto-resize textarea
   const autoResize = useCallback(() => {
@@ -74,13 +77,14 @@ export function MarkdownComposer({
   const insertAtCursor = useCallback(
     (text: string) => {
       const el = textareaRef.current;
+      const current = valueRef.current;
       if (!el) {
-        onChange(value + text);
+        onChange(current + text);
         return;
       }
       const start = el.selectionStart;
       const end = el.selectionEnd;
-      const newValue = value.slice(0, start) + text + value.slice(end);
+      const newValue = current.slice(0, start) + text + current.slice(end);
       onChange(newValue);
 
       // Restore cursor position after the inserted text
@@ -89,15 +93,15 @@ export function MarkdownComposer({
         el.focus();
       });
     },
-    [value, onChange],
+    [onChange],
   );
 
   // Replace a placeholder string in the value
   const replacePlaceholder = useCallback(
     (placeholder: string, replacement: string) => {
-      onChange(value.replace(placeholder, replacement));
+      onChange(valueRef.current.replace(placeholder, replacement));
     },
-    [value, onChange],
+    [onChange],
   );
 
   const handleFileUpload = useCallback(
