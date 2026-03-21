@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { AdminPanel } from "@/components/settings/admin-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
 import { SystemPanel } from "@/components/admin/system-panel";
+import { UserConnectionsPanel } from "@/components/admin/user-connections-panel";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -24,6 +25,26 @@ export default async function AdminSettingsPage() {
         role: true,
         createdAt: true,
         _count: { select: { emailConnections: true } },
+        emailConnections: {
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            imapHost: true,
+            smtpHost: true,
+            isDefault: true,
+            createdAt: true,
+            syncState: {
+              select: {
+                isSyncing: true,
+                syncError: true,
+                lastFullSync: true,
+                lastSyncLog: true,
+              },
+            },
+          },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        },
       },
     }),
     db.systemSettings.upsert({
@@ -79,6 +100,24 @@ export default async function AdminSettingsPage() {
               ...i,
               expiresAt: i.expiresAt.toISOString(),
               createdAt: i.createdAt.toISOString(),
+            }))}
+          />
+
+          <UserConnectionsPanel
+            users={users.map((u) => ({
+              id: u.id,
+              displayName: u.displayName,
+              connections: u.emailConnections.map((c) => ({
+                ...c,
+                createdAt: c.createdAt.toISOString(),
+                syncState: c.syncState
+                  ? {
+                      ...c.syncState,
+                      lastFullSync:
+                        c.syncState.lastFullSync?.toISOString() ?? null,
+                    }
+                  : null,
+              })),
             }))}
           />
 
