@@ -36,6 +36,7 @@ model User {
   pushSubscriptions PushSubscription[]
   scheduledMessages ScheduledMessage[]
   invitesCreated    Invite[]
+  attachments       Attachment[]
 }
 
 model Passkey {
@@ -322,19 +323,24 @@ model Attachment {
   size        Int // Size in bytes
   contentId   String? // For inline attachments (CID)
 
-  // IMAP part reference (for lazy loading)
-  partId   String // e.g., "1.2", "2"
+  // IMAP part reference (null for user uploads)
+  partId   String? // e.g., "1.2", "2"
   encoding String? // e.g., "base64", "quoted-printable"
 
-  // Cached content (populated on first download)
+  // Content (populated immediately for uploads, lazy for IMAP)
   content Bytes?
 
-  // Message relation
-  messageId String
-  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  // Message relation (null for uploaded-but-unsent attachments)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  // Upload ownership (null for IMAP-synced attachments)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
   @@index([contentId])
+  @@index([userId, messageId])
 }
 
 // ============================================
@@ -442,6 +448,9 @@ model ScheduledMessage {
   // Reply context (null for new compose)
   inReplyToMessageId String?
   references         String?
+
+  // Attachment IDs (references Attachment table, linked at send time)
+  attachmentIds String[] @default([])
 
   // Ownership
   userId            String

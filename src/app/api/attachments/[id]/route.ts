@@ -33,13 +33,33 @@ function findAttachmentParts(
   return [];
 }
 
-function responseHeaders(attachment: { contentType: string; filename: string; size: number }) {
+function isImageType(contentType: string): boolean {
+  return contentType.startsWith("image/");
+}
+
+function responseHeaders(attachment: {
+  contentType: string;
+  filename: string;
+  size: number;
+}) {
+  const disposition = isImageType(attachment.contentType) ? "inline" : "attachment";
   return {
     "Content-Type": attachment.contentType || "application/octet-stream",
-    "Content-Disposition": `attachment; filename="${encodeURIComponent(attachment.filename)}"`,
+    "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.filename)}"`,
     ...(attachment.size ? { "Content-Length": String(attachment.size) } : {}),
     "Cache-Control": "private, max-age=86400",
   };
+}
+
+/** Check if the current user owns this attachment (via message or direct upload). */
+function isOwner(
+  attachment: {
+    userId: string | null;
+    message: { userId: string } | null;
+  },
+  userId: string,
+): boolean {
+  return attachment.userId === userId || attachment.message?.userId === userId;
 }
 
 export async function GET(
@@ -67,15 +87,23 @@ export async function GET(
     },
   });
 
-  if (!attachment || attachment.message.userId !== session.user.id) {
+  if (!attachment || !isOwner(attachment, session.user.id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Serve from cache if available
+  // Serve from cache/upload if content is available
   if (attachment.content) {
     return new NextResponse(attachment.content, {
       headers: responseHeaders(attachment),
     });
+  }
+
+  // User-uploaded attachments should always have content
+  if (!attachment.partId || !attachment.message) {
+    return NextResponse.json(
+      { error: "Attachment content not available" },
+      { status: 404 },
+    );
   }
 
   // Otherwise fetch from IMAP, cache, and serve
@@ -217,4 +245,37 @@ export async function GET(
       { status: 502 },
     );
   }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const attachment = await db.attachment.findUnique({
+    where: { id },
+    select: { userId: true, messageId: true },
+  });
+
+  if (!attachment || attachment.userId !== session.user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Only allow deleting unlinked (unsent) uploads
+  if (attachment.messageId) {
+    return NextResponse.json(
+      { error: "Cannot delete an attachment that has been sent" },
+      { status: 400 },
+    );
+  }
+
+  await db.attachment.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
 }

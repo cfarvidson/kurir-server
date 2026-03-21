@@ -117,6 +117,16 @@ export async function rateLimitConnections(
 }
 
 /**
+ * Rate limit attachment uploads.
+ * 30 per minute per user.
+ */
+export async function rateLimitUploads(
+  userId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`upload:${userId}`, 30, 60);
+}
+
+/**
  * Rate limit registration attempts.
  * 3 per 10 minutes per IP.
  */
