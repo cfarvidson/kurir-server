@@ -111,7 +111,9 @@ export function sanitizeEmailHtml(
   // 3. Filter dangerous img src, rewrite CID to attachment URLs, proxy external images.
   doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") ?? "";
-    if (src && !/^(https?:|cid:)/i.test(src)) {
+    if (src.startsWith("/api/attachments/")) {
+      // Internal attachment URLs — allow as-is (used by sent messages)
+    } else if (src && !/^(https?:|cid:)/i.test(src)) {
       img.removeAttribute("src");
     } else if (/^cid:/i.test(src)) {
       const cid = src.replace(/^cid:/i, "").toLowerCase();
