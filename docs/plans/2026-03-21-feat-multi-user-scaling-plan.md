@@ -398,7 +398,7 @@ Modified files:
 - [x] Admin can create invite links for new users
 - [x] Invites expire after 7 days, are single-use, and bypass signupsEnabled
 - [x] Admin dashboard shows: users, invites, sync queue, connections, system stats, settings
-- [ ] Admin can manage connections for other users (add/delete/trigger sync)
+- [x] Admin can manage connections for other users (add/delete/trigger sync)
 - [x] `GET /api/health` returns sync queue, connections, memory, Redis status (admin-only)
 - [x] Rate limiting: 120 req/min per user, 1 sync/30s, 3 registrations/10min per IP
 - [x] 429 responses include `Retry-After` header
