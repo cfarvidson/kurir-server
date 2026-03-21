@@ -33,7 +33,7 @@ interface ThreadMessage {
     id: string;
     filename: string;
     size: number;
-    contentId?: string | null;
+    contentId: string | null;
   }[];
 }
 
