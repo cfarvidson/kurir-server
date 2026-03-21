@@ -106,6 +106,12 @@ export function AutoSync() {
     queryFn: async () => {
       const url = "/api/mail/sync?batchSize=200";
       const res = await fetch(url, { method: "POST" });
+      if (res.status === 429) {
+        // Rate limited — back off and retry after the suggested delay
+        const retryAfter = parseInt(res.headers.get("Retry-After") || "30", 10);
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        return null;
+      }
       if (!res.ok) throw new Error("Sync failed");
       return res.json();
     },

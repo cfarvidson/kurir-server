@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 import { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
 import { pushToUser } from "@/lib/mail/push-sender";
+import { rateLimitSync, tooManyRequests } from "@/lib/rate-limit";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -114,6 +115,10 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = session.user.id;
+
+  // Rate limit: 1 manual sync per 30 seconds
+  const rl = await rateLimitSync(userId);
+  if (!rl.allowed) return tooManyRequests(rl.retryAfter);
 
   const { searchParams } = new URL(request.url);
   const batchSizeParam = searchParams.get("batchSize");

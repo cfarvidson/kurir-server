@@ -35,6 +35,7 @@ model User {
   sessions          Session[]
   pushSubscriptions PushSubscription[]
   scheduledMessages ScheduledMessage[]
+  invitesCreated    Invite[]
 }
 
 model Passkey {
@@ -341,8 +342,26 @@ model Attachment {
 // ============================================
 
 model SystemSettings {
-  id             String  @id @default("singleton")
-  signupsEnabled Boolean @default(true)
+  id                           String  @id @default("singleton")
+  signupsEnabled               Boolean @default(true)
+  selfServiceAccountManagement Boolean @default(true)
+}
+
+// ============================================
+// INVITES
+// ============================================
+
+model Invite {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  displayName String
+  emailHint   String?
+  createdBy   String
+  creator     User      @relation(fields: [createdBy], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedBy      String?
+  createdAt   DateTime  @default(now())
 }
 
 // ============================================

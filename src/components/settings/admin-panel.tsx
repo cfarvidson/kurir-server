@@ -3,12 +3,17 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { toggleSignups, updateUserRole } from "@/actions/admin";
+import {
+  toggleSignups,
+  toggleSelfServiceAccountManagement,
+  updateUserRole,
+} from "@/actions/admin";
 import { Loader2, ShieldCheck, User } from "lucide-react";
 
 interface AdminPanelProps {
   currentUserId: string;
   signupsEnabled: boolean;
+  selfServiceAccountManagement: boolean;
   users: {
     id: string;
     displayName: string | null;
@@ -21,6 +26,7 @@ interface AdminPanelProps {
 export function AdminPanel({
   currentUserId,
   signupsEnabled,
+  selfServiceAccountManagement,
   users,
 }: AdminPanelProps) {
   const [isToggling, startToggle] = useTransition();
@@ -55,6 +61,39 @@ export function AdminPanel({
                 startToggle(async () => {
                   try {
                     await toggleSignups(checked);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "Failed to update",
+                    );
+                  }
+                });
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Self-service account management toggle */}
+      <section>
+        <h2 className="text-lg font-medium">Account Management</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">
+                Self-service account management
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Allow users to add, edit, and remove their own email connections
+              </p>
+            </div>
+            <Switch
+              checked={selfServiceAccountManagement}
+              disabled={isToggling}
+              onCheckedChange={(checked) => {
+                setError(null);
+                startToggle(async () => {
+                  try {
+                    await toggleSelfServiceAccountManagement(checked);
                   } catch (err) {
                     setError(
                       err instanceof Error ? err.message : "Failed to update",

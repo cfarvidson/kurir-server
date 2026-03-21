@@ -12,12 +12,34 @@ import {
 import Link from "next/link";
 import { ShieldOff } from "lucide-react";
 
-export default async function RegisterPage() {
+interface RegisterPageProps {
+  searchParams: Promise<{ invite?: string }>;
+}
+
+export default async function RegisterPage({
+  searchParams,
+}: RegisterPageProps) {
+  const { invite: inviteToken } = await searchParams;
+
+  // Check for valid invite token
+  let invite: { displayName: string; token: string } | null = null;
+  if (inviteToken) {
+    const found = await db.invite.findUnique({
+      where: { token: inviteToken },
+      select: { displayName: true, token: true, usedAt: true, expiresAt: true },
+    });
+    if (found && !found.usedAt && found.expiresAt > new Date()) {
+      invite = { displayName: found.displayName, token: found.token };
+    }
+  }
+
+  // Allow registration if: signups enabled OR valid invite
   const settings = await db.systemSettings.findUnique({
     where: { id: "singleton" },
   });
+  const signupsEnabled = !settings || settings.signupsEnabled;
 
-  if (settings && !settings.signupsEnabled) {
+  if (!signupsEnabled && !invite) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
         <div className="w-full max-w-md">
@@ -48,5 +70,10 @@ export default async function RegisterPage() {
     );
   }
 
-  return <RegisterForm />;
+  return (
+    <RegisterForm
+      inviteToken={invite?.token}
+      inviteDisplayName={invite?.displayName}
+    />
+  );
 }

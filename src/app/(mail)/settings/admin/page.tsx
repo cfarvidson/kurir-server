@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AdminPanel } from "@/components/settings/admin-panel";
+import { InvitesPanel } from "@/components/admin/invites-panel";
+import { SystemPanel } from "@/components/admin/system-panel";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -13,7 +15,7 @@ export default async function AdminSettingsPage() {
     redirect("/settings");
   }
 
-  const [users, settings] = await Promise.all([
+  const [users, settings, invites] = await Promise.all([
     db.user.findMany({
       orderBy: { createdAt: "asc" },
       select: {
@@ -28,6 +30,18 @@ export default async function AdminSettingsPage() {
       where: { id: "singleton" },
       create: {},
       update: {},
+    }),
+    db.invite.findMany({
+      where: { usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        token: true,
+        displayName: true,
+        emailHint: true,
+        expiresAt: true,
+        createdAt: true,
+      },
     }),
   ]);
 
@@ -48,6 +62,9 @@ export default async function AdminSettingsPage() {
           <AdminPanel
             currentUserId={session.user.id}
             signupsEnabled={settings.signupsEnabled}
+            selfServiceAccountManagement={
+              settings.selfServiceAccountManagement
+            }
             users={users.map((u) => ({
               id: u.id,
               displayName: u.displayName,
@@ -56,6 +73,16 @@ export default async function AdminSettingsPage() {
               emailConnectionCount: u._count.emailConnections,
             }))}
           />
+
+          <InvitesPanel
+            invites={invites.map((i) => ({
+              ...i,
+              expiresAt: i.expiresAt.toISOString(),
+              createdAt: i.createdAt.toISOString(),
+            }))}
+          />
+
+          <SystemPanel />
         </div>
       </div>
     </div>

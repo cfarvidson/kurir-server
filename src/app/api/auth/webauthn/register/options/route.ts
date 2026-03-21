@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { setChallenge } from "@/lib/webauthn-challenge-store";
 import { randomBytes } from "crypto";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
+import { rateLimitRegistration, tooManyRequests } from "@/lib/rate-limit";
 
 const RP_NAME = process.env.WEBAUTHN_RP_NAME ?? "Kurir";
 const RP_ID = process.env.WEBAUTHN_RP_ID ?? "localhost";
@@ -49,15 +50,33 @@ export async function POST(req: NextRequest) {
     userName = "user";
     userDisplayName = "";
   } else {
-    // New user registration — check if signups are enabled
-    const settings = await db.systemSettings.findUnique({
-      where: { id: "singleton" },
-    });
-    if (settings && !settings.signupsEnabled) {
-      return NextResponse.json(
-        { error: "Registration is currently closed" },
-        { status: 403 },
-      );
+    // Rate limit registration: 3 per 10 minutes per IP
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const rl = await rateLimitRegistration(ip);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfter);
+
+    // Check for invite token (bypasses signups check)
+    const inviteToken = url.searchParams.get("invite");
+    let hasValidInvite = false;
+    if (inviteToken) {
+      const invite = await db.invite.findUnique({
+        where: { token: inviteToken },
+        select: { usedAt: true, expiresAt: true },
+      });
+      hasValidInvite = !!invite && !invite.usedAt && invite.expiresAt > new Date();
+    }
+
+    // New user registration — check if signups are enabled (skip with valid invite)
+    if (!hasValidInvite) {
+      const settings = await db.systemSettings.findUnique({
+        where: { id: "singleton" },
+      });
+      if (settings && !settings.signupsEnabled) {
+        return NextResponse.json(
+          { error: "Registration is currently closed" },
+          { status: 403 },
+        );
+      }
     }
 
     // Generate a temporary user ID

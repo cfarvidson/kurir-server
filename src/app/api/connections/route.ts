@@ -3,6 +3,7 @@ import { getUserEmailConnections, auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
+import { rateLimitConnections, tooManyRequests } from "@/lib/rate-limit";
 
 const createConnectionSchema = z.object({
   email: z.string().email(),
@@ -39,6 +40,24 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+  // Rate limit: 5 connection operations per minute
+  const rl = await rateLimitConnections(session.user.id);
+  if (!rl.allowed) return tooManyRequests(rl.retryAfter);
+
+  // Check self-service account management toggle (except for first connection)
+  const [settings, existingConnCount] = await Promise.all([
+    db.systemSettings.findUnique({ where: { id: "singleton" } }),
+    db.emailConnection.count({ where: { userId: session.user.id } }),
+  ]);
+  const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
+  const isAdmin = session.user.role === "ADMIN";
+  if (!selfServiceEnabled && !isAdmin && existingConnCount > 0) {
+    return NextResponse.json(
+      { error: "Account management is disabled. Contact your admin." },
+      { status: 403 },
+    );
+  }
 
   let body;
   try {

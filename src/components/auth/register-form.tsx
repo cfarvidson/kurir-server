@@ -25,10 +25,18 @@ import { KurirLogo } from "@/components/logo";
 
 type Step = "intro" | "name" | "passkey" | "done";
 
-export default function RegisterForm() {
+interface RegisterFormProps {
+  inviteToken?: string;
+  inviteDisplayName?: string;
+}
+
+export default function RegisterForm({
+  inviteToken,
+  inviteDisplayName,
+}: RegisterFormProps = {}) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("intro");
-  const [displayName, setDisplayName] = useState("");
+  const [step, setStep] = useState<Step>(inviteDisplayName ? "name" : "intro");
+  const [displayName, setDisplayName] = useState(inviteDisplayName || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +52,10 @@ export default function RegisterForm() {
 
     try {
       // 1. Get registration options from server
-      const optionsRes = await fetch("/api/auth/webauthn/register/options", {
+      const optionsUrl = inviteToken
+        ? `/api/auth/webauthn/register/options?invite=${encodeURIComponent(inviteToken)}`
+        : "/api/auth/webauthn/register/options";
+      const optionsRes = await fetch(optionsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: displayName.trim() }),
@@ -64,7 +75,10 @@ export default function RegisterForm() {
       const credential = await startRegistration({ optionsJSON: options });
 
       // 3. Verify with server — send the credential directly as the body
-      const verifyRes = await fetch("/api/auth/webauthn/register/verify", {
+      const verifyUrl = inviteToken
+        ? `/api/auth/webauthn/register/verify?invite=${encodeURIComponent(inviteToken)}`
+        : "/api/auth/webauthn/register/verify";
+      const verifyRes = await fetch(verifyUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credential),

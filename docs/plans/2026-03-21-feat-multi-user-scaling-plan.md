@@ -385,24 +385,24 @@ Modified files:
 
 ### Functional Requirements
 
-- [ ] Redis runs alongside Postgres in both dev (Docker Compose) and prod (Kamal)
-- [ ] Background sync uses BullMQ with per-connection jobs, concurrency limit of 5
-- [ ] Active users (SSE connected) get higher sync priority
-- [ ] IDLE connections capped at 25, with LRU eviction for inactive users
-- [ ] Prisma connection pool is 15
-- [ ] Attachments >10MB are not stored during sync (lazy-download only)
-- [ ] Attachment content is nullified after 30 days (except inline images)
-- [ ] Expired attachments lazy-download from IMAP on demand
-- [ ] Admin can toggle self-service account management
-- [ ] Users can always add their first connection regardless of toggle
-- [ ] Admin can create invite links for new users
-- [ ] Invites expire after 7 days, are single-use, and bypass signupsEnabled
-- [ ] Admin dashboard shows: users, invites, sync queue, connections, system stats, settings
+- [x] Redis runs alongside Postgres in both dev (Docker Compose) and prod (Kamal)
+- [x] Background sync uses BullMQ with per-connection jobs, concurrency limit of 5
+- [x] Active users (SSE connected) get higher sync priority
+- [x] IDLE connections capped at 25, with LRU eviction for inactive users
+- [x] Prisma connection pool is 15
+- [x] Attachments >10MB are not stored during sync (lazy-download only)
+- [x] Attachment content is nullified after 30 days (except inline images)
+- [x] Expired attachments lazy-download from IMAP on demand
+- [x] Admin can toggle self-service account management
+- [x] Users can always add their first connection regardless of toggle
+- [x] Admin can create invite links for new users
+- [x] Invites expire after 7 days, are single-use, and bypass signupsEnabled
+- [x] Admin dashboard shows: users, invites, sync queue, connections, system stats, settings
 - [ ] Admin can manage connections for other users (add/delete/trigger sync)
-- [ ] `GET /api/health` returns sync queue, connections, memory, Redis status (admin-only)
-- [ ] Rate limiting: 120 req/min per user, 1 sync/30s, 3 registrations/10min per IP
-- [ ] 429 responses include `Retry-After` header
-- [ ] `auto-sync.tsx` handles 429 gracefully
+- [x] `GET /api/health` returns sync queue, connections, memory, Redis status (admin-only)
+- [x] Rate limiting: 120 req/min per user, 1 sync/30s, 3 registrations/10min per IP
+- [x] 429 responses include `Retry-After` header
+- [x] `auto-sync.tsx` handles 429 gracefully
 
 ### Non-Functional Requirements
 

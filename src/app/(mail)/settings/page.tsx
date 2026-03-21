@@ -103,7 +103,7 @@ export default async function SettingsPage() {
   const userId = session.user.id;
   const isAdmin = session.user.role === "ADMIN";
 
-  const [user, rawConnections, rawPasskeys] = await Promise.all([
+  const [user, rawConnections, rawPasskeys, systemSettings] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: {
@@ -145,7 +145,11 @@ export default async function SettingsPage() {
         backedUp: true,
       },
     }),
+    db.systemSettings.findUnique({ where: { id: "singleton" } }),
   ]);
+
+  const canManageConnections =
+    isAdmin || (systemSettings?.selfServiceAccountManagement ?? true);
 
   const excludedEmails = [
     ...new Set(
@@ -246,17 +250,22 @@ export default async function SettingsPage() {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Email connections</h2>
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-sm"
-          >
-            <Link href="/setup?mode=add" aria-label="Add another email account">
-              <PlusCircle className="h-4 w-4" />
-              Add account
-            </Link>
-          </Button>
+          {canManageConnections && (
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-sm"
+            >
+              <Link
+                href="/setup?mode=add"
+                aria-label="Add another email account"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Add account
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="mt-4">
           <ConnectionsList connections={connections} />

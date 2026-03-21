@@ -14,6 +14,16 @@ export async function toggleSignups(enabled: boolean) {
   revalidatePath("/settings/admin");
 }
 
+export async function toggleSelfServiceAccountManagement(enabled: boolean) {
+  await requireAdmin();
+  await db.systemSettings.upsert({
+    where: { id: "singleton" },
+    create: { selfServiceAccountManagement: enabled },
+    update: { selfServiceAccountManagement: enabled },
+  });
+  revalidatePath("/settings/admin");
+}
+
 export async function updateUserRole(
   targetUserId: string,
   newRole: "ADMIN" | "USER",

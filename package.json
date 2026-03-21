@@ -34,6 +34,7 @@
     "dompurify": "^3.3.1",
     "framer-motion": "^11.15.0",
     "imapflow": "^1.0.171",
+    "ioredis": "^5.10.1",
     "lucide-react": "^0.469.0",
     "mailparser": "^3.7.2",
     "next": "^15.1.0",

@@ -4,6 +4,20 @@ import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
 
+async function checkSelfService(userRole: string): Promise<NextResponse | null> {
+  const settings = await db.systemSettings.findUnique({
+    where: { id: "singleton" },
+  });
+  const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
+  if (!selfServiceEnabled && userRole !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Account management is disabled. Contact your admin." },
+      { status: 403 },
+    );
+  }
+  return null;
+}
+
 const updateConnectionSchema = z.object({
   password: z.string().min(1).optional(),
   imapHost: z.string().min(1).optional(),
@@ -25,6 +39,9 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const blocked = await checkSelfService(session.user.role ?? "USER");
+  if (blocked) return blocked;
 
   const { id } = await params;
   const connection = await getEmailConnection(id, session.user.id);
@@ -109,6 +126,9 @@ export async function DELETE(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const blockedDel = await checkSelfService(session.user.role ?? "USER");
+  if (blockedDel) return blockedDel;
 
   const { id } = await params;
   const connection = await getEmailConnection(id, session.user.id);

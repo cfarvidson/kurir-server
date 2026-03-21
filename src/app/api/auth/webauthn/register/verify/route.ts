@@ -94,17 +94,33 @@ export async function POST(req: NextRequest) {
     return response;
   }
 
+  // Check for invite token
+  const inviteToken = url.searchParams.get("invite");
+
   // New user registration — create User + Passkey in a serializable transaction
   let user;
   try {
     user = await db.$transaction(
       async (tx) => {
-        // Check if signups are enabled (skip for addPasskey which is handled above)
-        const settings = await tx.systemSettings.findUnique({
-          where: { id: "singleton" },
-        });
-        if (settings && !settings.signupsEnabled) {
-          throw new Error("SIGNUPS_DISABLED");
+        // Validate invite if provided
+        let invite = null;
+        if (inviteToken) {
+          invite = await tx.invite.findUnique({
+            where: { token: inviteToken },
+          });
+          if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
+            throw new Error("INVITE_INVALID");
+          }
+        }
+
+        // Check if signups are enabled (skip if valid invite)
+        if (!invite) {
+          const settings = await tx.systemSettings.findUnique({
+            where: { id: "singleton" },
+          });
+          if (settings && !settings.signupsEnabled) {
+            throw new Error("SIGNUPS_DISABLED");
+          }
         }
 
         // First user becomes ADMIN, all others are USER
@@ -114,6 +130,7 @@ export async function POST(req: NextRequest) {
         const newUser = await tx.user.create({
           data: {
             role,
+            displayName: invite?.displayName || null,
             passkeys: {
               create: {
                 credentialId: credential.id,
@@ -129,6 +146,14 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        // Consume the invite
+        if (invite) {
+          await tx.invite.update({
+            where: { id: invite.id },
+            data: { usedAt: new Date(), usedBy: newUser.id },
+          });
+        }
+
         return newUser;
       },
       { isolationLevel: "Serializable" },
@@ -137,6 +162,12 @@ export async function POST(req: NextRequest) {
     if (err instanceof Error && err.message === "SIGNUPS_DISABLED") {
       return NextResponse.json(
         { error: "Registration is currently closed" },
+        { status: 403 },
+      );
+    }
+    if (err instanceof Error && err.message === "INVITE_INVALID") {
+      return NextResponse.json(
+        { error: "Invalid or expired invite" },
         { status: 403 },
       );
     }
