@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
+import { sanitizeEmailHtml, type CidAttachment } from "@/lib/mail/sanitize-html";
 
 interface EmailBodyFrameProps {
   html: string;
   /** When true, blockquote / gmail_quote elements are stripped before rendering. */
   collapseQuotes?: boolean;
+  /** Message attachments for CID→URL rewriting */
+  attachments?: CidAttachment[];
 }
 
 /**
@@ -24,7 +26,7 @@ interface EmailBodyFrameProps {
  * On mobile, wide emails (e.g. 600px newsletters on a 375px screen) are
  * scaled down via transform:scale() so they fit without horizontal scroll.
  */
-export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
+export function EmailBodyFrame({ html, collapseQuotes, attachments }: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(200);
@@ -33,7 +35,7 @@ export function EmailBodyFrame({ html, collapseQuotes }: EmailBodyFrameProps) {
 
   useEffect(() => setMounted(true), []);
 
-  const srcdoc = mounted ? buildSrcdoc(html, collapseQuotes) : "";
+  const srcdoc = mounted ? buildSrcdoc(html, collapseQuotes, attachments) : "";
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -157,8 +159,12 @@ const BASE_STYLES = `
   }
 `;
 
-function buildSrcdoc(html: string, collapseQuotes?: boolean): string {
-  const sanitized = sanitizeEmailHtml(html, { collapseQuotes });
+function buildSrcdoc(
+  html: string,
+  collapseQuotes?: boolean,
+  attachments?: CidAttachment[],
+): string {
+  const sanitized = sanitizeEmailHtml(html, { collapseQuotes, attachments });
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -10,7 +10,8 @@ type MaintenanceJobType =
   | "scheduled-send"
   | "wake-snoozes"
   | "check-follow-ups"
-  | "expire-attachments";
+  | "expire-attachments"
+  | "cleanup-orphan-uploads";
 
 interface MaintenanceJobData {
   task: MaintenanceJobType;
@@ -36,6 +37,10 @@ async function processMaintenanceJob(
 
     case "expire-attachments":
       await expireOldAttachments();
+      break;
+
+    case "cleanup-orphan-uploads":
+      await cleanupOrphanUploads();
       break;
   }
 }
@@ -83,6 +88,39 @@ async function expireOldAttachments(): Promise<void> {
     result.length > 0 && "count" in result[0] ? result[0].count : 0;
   if (count > 0) {
     console.log(`[maintenance] Expired ${count} attachment contents`);
+  }
+}
+
+/**
+ * Delete uploaded attachments that are:
+ * - Not linked to any message (messageId IS NULL)
+ * - Uploaded by a user (userId IS NOT NULL)
+ * - Older than 24 hours
+ * - Not referenced by any scheduled message
+ */
+async function cleanupOrphanUploads(): Promise<void> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // Get all attachment IDs referenced by pending scheduled messages
+  const scheduled = await db.scheduledMessage.findMany({
+    where: { status: "PENDING", attachmentIds: { isEmpty: false } },
+    select: { attachmentIds: true },
+  });
+  const referencedIds = scheduled.flatMap((s) => s.attachmentIds);
+
+  const result = await db.attachment.deleteMany({
+    where: {
+      messageId: null,
+      userId: { not: null },
+      createdAt: { lt: cutoff },
+      ...(referencedIds.length > 0 && { id: { notIn: referencedIds } }),
+    },
+  });
+
+  if (result.count > 0) {
+    console.log(
+      `[maintenance] Cleaned up ${result.count} orphaned upload(s)`,
+    );
   }
 }
 
@@ -152,6 +190,16 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
     {
       jobId: "expire-attachments",
       repeat: { every: 24 * 60 * 60_000 },
+    },
+  );
+
+  // Cleanup orphaned uploads: every 6 hours
+  await queue.add(
+    "cleanup-orphan-uploads",
+    { task: "cleanup-orphan-uploads" as const },
+    {
+      jobId: "cleanup-orphan-uploads",
+      repeat: { every: 6 * 60 * 60_000 },
     },
   );
 

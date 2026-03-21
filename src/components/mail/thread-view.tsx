@@ -33,6 +33,7 @@ interface ThreadMessage {
     id: string;
     filename: string;
     size: number;
+    contentId?: string | null;
   }[];
 }
 
@@ -276,6 +277,7 @@ function MessageBubble({
                       <EmailBodyFrame
                         html={message.htmlBody}
                         collapseQuotes={quotesCollapsed && hasHtmlQuotes}
+                        attachments={message.attachments}
                       />
                     ) : (
                       <div>

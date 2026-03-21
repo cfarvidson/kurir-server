@@ -1,8 +1,15 @@
 import DOMPurify from "dompurify";
 
+export interface CidAttachment {
+  id: string;
+  contentId: string | null;
+}
+
 export interface SanitizeOptions {
   /** When true, strip blockquote / gmail_quote elements from the output. */
   collapseQuotes?: boolean;
+  /** Message attachments for CID→URL rewriting */
+  attachments?: CidAttachment[];
 }
 
 /**
@@ -89,11 +96,31 @@ export function sanitizeEmailHtml(
     a.setAttribute("rel", "noopener noreferrer");
   });
 
-  // 2. Filter dangerous img src and rewrite external images to proxy.
+  // 2. Build CID→attachment URL map for inline image rewriting.
+  const cidMap = new Map<string, string>();
+  if (options.attachments) {
+    for (const att of options.attachments) {
+      if (att.contentId) {
+        // CID can appear with or without angle brackets
+        const cid = att.contentId.replace(/^<|>$/g, "");
+        cidMap.set(cid.toLowerCase(), `/api/attachments/${att.id}`);
+      }
+    }
+  }
+
+  // 3. Filter dangerous img src, rewrite CID to attachment URLs, proxy external images.
   doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") ?? "";
     if (src && !/^(https?:|cid:)/i.test(src)) {
       img.removeAttribute("src");
+    } else if (/^cid:/i.test(src)) {
+      const cid = src.replace(/^cid:/i, "").toLowerCase();
+      const attachmentUrl = cidMap.get(cid);
+      if (attachmentUrl) {
+        img.setAttribute("src", attachmentUrl);
+      } else {
+        img.removeAttribute("src");
+      }
     } else if (/^https?:/i.test(src)) {
       img.setAttribute(
         "src",
@@ -102,7 +129,7 @@ export function sanitizeEmailHtml(
     }
   });
 
-  // 3. Strip CSS url() from inline style attributes to prevent tracking pixels
+  // 4. Strip CSS url() from inline style attributes to prevent tracking pixels
   //    and SSRF via background-image, list-style-image, content, cursor, etc.
   doc.querySelectorAll("[style]").forEach((el) => {
     const style = el.getAttribute("style") ?? "";
@@ -112,7 +139,7 @@ export function sanitizeEmailHtml(
     }
   });
 
-  // 4. Optionally collapse quotes.
+  // 5. Optionally collapse quotes.
   if (options.collapseQuotes) {
     // Standard blockquotes.
     doc.querySelectorAll("blockquote").forEach((el) => el.remove());

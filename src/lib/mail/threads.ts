@@ -48,7 +48,7 @@ export async function getThreadCounts(
 
 const threadInclude = {
   sender: { select: { displayName: true, email: true } },
-  attachments: { select: { id: true, filename: true, size: true } },
+  attachments: { select: { id: true, filename: true, size: true, contentId: true } },
 } as const;
 
 /**
