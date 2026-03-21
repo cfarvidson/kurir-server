@@ -4,7 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, MoreHorizontal, Paperclip, Printer } from "lucide-react";
+import { Archive, ChevronDown, Forward, MoreHorizontal, Paperclip, Printer } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
@@ -121,6 +122,7 @@ function MessageBubble({
   isFirst: boolean;
   isLast: boolean;
 }) {
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
 
@@ -221,6 +223,16 @@ function MessageBubble({
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/compose?forward=${message.id}`);
+                        }}
+                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                        title="Forward this email"
+                      >
+                        <Forward className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
