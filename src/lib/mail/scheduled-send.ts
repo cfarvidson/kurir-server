@@ -240,7 +240,7 @@ export async function sendScheduledEmail(
   let inlineImageIds: string[] = [];
   if (!htmlBody && textBody) {
     const converted = convertMarkdownToEmailHtml(textBody);
-    emailHtml = converted.html;
+    emailHtml = converted.emailHtml;
     inlineImageIds = converted.inlineImageIds;
   }
 

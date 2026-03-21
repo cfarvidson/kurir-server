@@ -86,7 +86,7 @@ export async function replyToMessage(
     to: replyTo,
     subject,
     text: body,
-    html: converted.html,
+    html: converted.emailHtml,
     ...(message.messageId && { inReplyTo: message.messageId }),
     ...(references.length > 0 && {
       references: references.join(" "),
@@ -107,7 +107,7 @@ export async function replyToMessage(
     fromAddress,
     toAddresses: [replyTo],
     text: body,
-    html: converted.html,
+    html: converted.displayHtml,
     attachmentIds: loaded.ids,
   });
 
@@ -121,7 +121,7 @@ export async function replyToMessage(
     fromAddress,
     toAddresses: [replyTo],
     text: body,
-    html: converted.html,
+    html: converted.emailHtml,
     attachments: loaded.sentAttachments,
   }).catch(console.error);
 

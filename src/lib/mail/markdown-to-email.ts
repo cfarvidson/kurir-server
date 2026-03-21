@@ -3,43 +3,7 @@ import { marked } from "marked";
 // Configure marked for GFM
 marked.setOptions({ gfm: true, breaks: true });
 
-const ATTACHMENT_URL_REGEX = /\/api\/attachments\/([a-zA-Z0-9_-]+)/g;
-
-interface ConvertResult {
-  html: string;
-  /** Attachment IDs referenced as inline images (need CID embedding) */
-  inlineImageIds: string[];
-}
-
-/**
- * Convert markdown to email-safe HTML with CID rewriting for inline images.
- *
- * 1. Converts markdown to HTML via `marked`
- * 2. Finds all <img src="/api/attachments/{id}"> references
- * 3. Rewrites them to <img src="cid:{id}@kurir">
- * 4. Wraps in minimal email boilerplate with inline styles
- */
-export function convertMarkdownToEmailHtml(markdown: string): ConvertResult {
-  const rawHtml = marked.parse(markdown) as string;
-
-  // Extract inline image attachment IDs
-  const inlineImageIds: string[] = [];
-  const rewrittenHtml = rawHtml.replace(
-    /src="\/api\/attachments\/([a-zA-Z0-9_-]+)"/g,
-    (_match, id) => {
-      if (!inlineImageIds.includes(id)) {
-        inlineImageIds.push(id);
-      }
-      return `src="cid:${id}@kurir"`;
-    },
-  );
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
+const EMAIL_STYLES = `
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 16px; }
   p { margin: 0 0 1em; }
   h1 { font-size: 1.5em; margin: 1em 0 0.5em; }
@@ -57,12 +21,55 @@ export function convertMarkdownToEmailHtml(markdown: string): ConvertResult {
   ul, ol { margin: 0 0 1em; padding-left: 2em; }
   li { margin: 0 0 0.25em; }
   hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5em 0; }
-</style>
+`;
+
+function wrapInBoilerplate(bodyHtml: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${EMAIL_STYLES}</style>
 </head>
 <body>
-${rewrittenHtml}
+${bodyHtml}
 </body>
 </html>`;
+}
 
-  return { html, inlineImageIds };
+interface ConvertResult {
+  /** HTML for display in Kurir (images use /api/attachments/{id} URLs) */
+  displayHtml: string;
+  /** HTML for sending via email (images use cid: URLs) */
+  emailHtml: string;
+  /** Attachment IDs referenced as inline images (need CID embedding) */
+  inlineImageIds: string[];
+}
+
+/**
+ * Convert markdown to HTML in two variants:
+ *
+ * - displayHtml: for rendering in Kurir's thread view (images as /api/attachments/{id})
+ * - emailHtml: for sending via SMTP (images as cid:{id}@kurir)
+ */
+export function convertMarkdownToEmailHtml(markdown: string): ConvertResult {
+  const rawHtml = marked.parse(markdown) as string;
+
+  // Extract inline image attachment IDs and build CID version
+  const inlineImageIds: string[] = [];
+  const cidHtml = rawHtml.replace(
+    /src="\/api\/attachments\/([a-zA-Z0-9_-]+)"/g,
+    (_match, id) => {
+      if (!inlineImageIds.includes(id)) {
+        inlineImageIds.push(id);
+      }
+      return `src="cid:${id}@kurir"`;
+    },
+  );
+
+  return {
+    displayHtml: wrapInBoilerplate(rawHtml),
+    emailHtml: wrapInBoilerplate(cidHtml),
+    inlineImageIds,
+  };
 }

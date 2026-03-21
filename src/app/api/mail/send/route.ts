@@ -94,10 +94,12 @@ export async function POST(request: Request) {
   try {
     // Convert markdown to email HTML if no html was explicitly provided
     let emailHtml = html;
+    let displayHtml = html;
     let inlineImageIds: string[] = [];
     if (!html && text) {
       const converted = convertMarkdownToEmailHtml(text);
-      emailHtml = converted.html;
+      emailHtml = converted.emailHtml;
+      displayHtml = converted.displayHtml;
       inlineImageIds = converted.inlineImageIds;
     }
 
@@ -155,7 +157,7 @@ export async function POST(request: Request) {
       fromAddress,
       toAddresses: [to],
       text,
-      html: emailHtml,
+      html: displayHtml,
       attachmentIds: loaded.ids,
     });
 
