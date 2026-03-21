@@ -1,6 +1,7 @@
 import { ImapFlow, MailboxLockObject } from "imapflow";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sseSubscribers } from "./sse-subscribers";
 
 // Single-process constraint: ConnectionManager, sseSubscribers, and echo
 // suppression must all live in the same Node.js process. See plan doc for details.
@@ -15,9 +16,11 @@ export interface EmailConnectionConn {
   reconnectAttempt: number;
   debounceTimers: Map<string, NodeJS.Timeout>;
   isGmail: boolean;
+  lastActivity: Date;
 }
 
 const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 min
+const MAX_IDLE_CONNECTIONS = 25;
 
 class ConnectionManager {
   // Keyed by emailConnectionId
@@ -25,8 +28,29 @@ class ConnectionManager {
   private pendingReconnects = new Map<string, NodeJS.Timeout>();
   private stopping = false;
 
+  get activeCount(): number {
+    return this.connections.size;
+  }
+
+  get maxConnections(): number {
+    return MAX_IDLE_CONNECTIONS;
+  }
+
   async startConnection(connectionId: string): Promise<void> {
     if (this.connections.has(connectionId) || this.stopping) return;
+
+    // Enforce connection cap: evict least-recently-active inactive connection
+    if (this.connections.size >= MAX_IDLE_CONNECTIONS) {
+      const evicted = this.findEvictionCandidate();
+      if (evicted) {
+        console.log(`[idle] Cap reached (${MAX_IDLE_CONNECTIONS}), evicting ${evicted}`);
+        await this.stopConnection(evicted);
+      } else {
+        // All connections belong to active users — skip this one
+        console.log(`[idle] Cap reached, all connections active, skipping ${connectionId}`);
+        return;
+      }
+    }
 
     const credentials = await getConnectionCredentialsInternal(connectionId);
     if (!credentials) {
@@ -75,6 +99,7 @@ class ConnectionManager {
       reconnectAttempt: 0,
       debounceTimers: new Map(),
       isGmail,
+      lastActivity: new Date(),
     };
 
     this.connections.set(connectionId, conn);
@@ -159,6 +184,34 @@ class ConnectionManager {
     try { conn.client.close(); } catch { /* ignore */ }
   }
 
+  /**
+   * Find the best connection to evict: inactive user (no SSE) with oldest lastActivity.
+   * Returns null if all connections belong to active SSE users.
+   */
+  private findEvictionCandidate(): string | null {
+    let oldest: { connectionId: string; lastActivity: Date } | null = null;
+
+    for (const conn of this.connections.values()) {
+      // Only evict connections of users without active SSE
+      if (sseSubscribers.has(conn.userId)) continue;
+
+      if (!oldest || conn.lastActivity < oldest.lastActivity) {
+        oldest = {
+          connectionId: conn.connectionId,
+          lastActivity: conn.lastActivity,
+        };
+      }
+    }
+
+    return oldest?.connectionId ?? null;
+  }
+
+  /** Update lastActivity timestamp for a connection (called on IDLE events). */
+  touchActivity(connectionId: string): void {
+    const conn = this.connections.get(connectionId);
+    if (conn) conn.lastActivity = new Date();
+  }
+
   async stopConnection(connectionId: string): Promise<void> {
     // Cancel any pending reconnect timer (may exist even without a connection)
     const pendingTimer = this.pendingReconnects.get(connectionId);
@@ -240,7 +293,4 @@ if (process.env.NODE_ENV !== "production") {
   globalForImap.connectionManager = connectionManager;
 }
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  connectionManager.stopAll().catch(console.error);
-});
+// Graceful shutdown is handled by stopBackgroundSync() in instrumentation.ts

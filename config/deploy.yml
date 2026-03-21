@@ -10,7 +10,7 @@ servers:
     hosts:
       - kurir-app-1.banded-beta.ts.net
     options:
-      memory: 2048m
+      memory: 8192m
 
 proxy:
   ssl: false
@@ -48,6 +48,7 @@ env:
     - NEXTAUTH_SECRET
     - ENCRYPTION_KEY
     - VAPID_PRIVATE_KEY
+    - REDIS_URL
 
 # Use accessory services (secrets come from .kamal/secrets).
 accessories:
@@ -63,3 +64,10 @@ accessories:
         - POSTGRES_PASSWORD
     directories:
       - data:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    host: kurir-app-1.banded-beta.ts.net
+    port: 6379
+    cmd: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    directories:
+      - data:/data

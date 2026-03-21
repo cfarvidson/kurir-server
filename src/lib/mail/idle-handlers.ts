@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
 import { pushToUser } from "./push-sender";
-import type { EmailConnectionConn } from "./connection-manager";
+import { connectionManager, type EmailConnectionConn } from "./connection-manager";
 
 /**
  * Wrap an async handler so unhandled rejections don't crash Node.js.
@@ -38,6 +38,7 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
   client.on(
     "exists",
     safeAsync(async (_data: { count?: number; prevCount?: number }) => {
+      connectionManager.touchActivity(connectionId);
       // Debounce rapid arrivals (200ms)
       const key = "exists";
       const existing = conn.debounceTimers.get(key);

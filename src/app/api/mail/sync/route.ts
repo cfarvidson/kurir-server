@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
-import { checkExpiredFollowUps } from "@/lib/mail/background-sync";
+import { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
 import { pushToUser } from "@/lib/mail/push-sender";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes

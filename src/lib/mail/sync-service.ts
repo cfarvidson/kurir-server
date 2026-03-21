@@ -664,7 +664,11 @@ export async function processMessage(
       encoding:
         (att as unknown as { contentTransferEncoding?: string })
           .contentTransferEncoding || null,
-      content: att.content ? Buffer.from(att.content) : null,
+      // Skip storing content for attachments > 10MB (lazy-download on demand)
+      content:
+        att.content && att.size <= 10 * 1024 * 1024
+          ? Buffer.from(att.content)
+          : null,
     }));
 
     await db.attachment.createMany({
