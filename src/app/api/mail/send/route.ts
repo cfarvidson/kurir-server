@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth, getConnectionCredentials, getDefaultConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
+import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
+import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -12,7 +14,8 @@ const sendSchema = z.object({
   html: z.string().optional(),
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
-  fromConnectionId: z.string().optional(), // which email to send from
+  fromConnectionId: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { to, subject, text, html, inReplyTo, references, fromConnectionId } = parsed.data;
+  const { to, subject, text, html, inReplyTo, references, fromConnectionId, attachmentIds } = parsed.data;
 
   // Resolve credentials: use specified connection or fall back to default
   let credentials;
@@ -89,15 +92,34 @@ export async function POST(request: Request) {
   const fromAddress = credentials.sendAsEmail || credentials.email;
 
   try {
+    // Convert markdown to email HTML if no html was explicitly provided
+    let emailHtml = html;
+    let inlineImageIds: string[] = [];
+    if (!html && text) {
+      const converted = convertMarkdownToEmailHtml(text);
+      emailHtml = converted.html;
+      inlineImageIds = converted.inlineImageIds;
+    }
+
+    // Load attachments if provided
+    const loaded = await loadAttachmentsForSend(
+      attachmentIds || [],
+      session.user.id,
+      inlineImageIds,
+    );
+
     const result = await transporter.sendMail({
       from: fromAddress,
       to,
       subject,
       text,
-      html,
+      html: emailHtml,
       ...(inReplyTo && { inReplyTo }),
       ...(references && references.length > 0 && {
         references: references.join(" "),
+      }),
+      ...(loaded.nodemailerAttachments.length > 0 && {
+        attachments: loaded.nodemailerAttachments,
       }),
     });
 
@@ -133,7 +155,8 @@ export async function POST(request: Request) {
       fromAddress,
       toAddresses: [to],
       text,
-      html,
+      html: emailHtml,
+      attachmentIds: loaded.ids,
     });
 
     // Append to IMAP Sent folder (fire-and-forget)
@@ -146,7 +169,8 @@ export async function POST(request: Request) {
       fromAddress,
       toAddresses: [to],
       text,
-      html,
+      html: emailHtml,
+      attachments: loaded.sentAttachments,
     }).catch(console.error);
 
     return NextResponse.json({
@@ -156,7 +180,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to send email:", error);
     return NextResponse.json(
-      { error: "Failed to send email" },
+      { error: error instanceof Error ? error.message : "Failed to send email" },
       { status: 500 }
     );
   }

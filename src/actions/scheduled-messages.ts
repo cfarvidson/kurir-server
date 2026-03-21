@@ -22,6 +22,7 @@ const createSchema = z.object({
   emailConnectionId: z.string(),
   inReplyToMessageId: z.string().optional(),
   references: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
 });
 
 const editSchema = z.object({
@@ -79,6 +80,7 @@ export async function createScheduledMessage(
       scheduledFor: jitteredTime,
       inReplyToMessageId: parsed.inReplyToMessageId ?? null,
       references: parsed.references ?? null,
+      attachmentIds: parsed.attachmentIds ?? [],
     },
   });
 

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FromPicker, type FromConnection } from "@/components/mail/from-picker";
+import { MarkdownComposer } from "@/components/mail/markdown-composer";
+import { useAttachments, type UploadedAttachment } from "@/hooks/use-attachments";
 import { Send, X, Loader2, BookUser, CalendarClock } from "lucide-react";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
@@ -65,6 +67,12 @@ function useContactSearch(query: string) {
   return { results, loading };
 }
 
+export interface ForwardData {
+  subject: string;
+  body: string;
+  attachments: UploadedAttachment[];
+}
+
 interface ComposeClientPageProps {
   /** All email connections for the current user */
   connections: FromConnection[];
@@ -72,18 +80,21 @@ interface ComposeClientPageProps {
   defaultConnectionId?: string;
   /** User's IANA timezone for the schedule picker */
   userTimezone?: string;
+  /** Pre-populated forward data */
+  forwardData?: ForwardData;
 }
 
 export function ComposeClientPage({
   connections,
   defaultConnectionId,
   userTimezone = "UTC",
+  forwardData,
 }: ComposeClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [to, setTo] = useState(searchParams.get("to") || "");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [subject, setSubject] = useState(forwardData?.subject || "");
+  const [body, setBody] = useState(forwardData?.body || "");
   const [fromConnectionId, setFromConnectionId] = useState(
     defaultConnectionId ??
       connections.find((c) => c.isDefault)?.id ??
@@ -91,6 +102,23 @@ export function ComposeClientPage({
       ""
   );
   const [error, setError] = useState<string | null>(null);
+  const {
+    attachments,
+    upload,
+    remove,
+    isUploading,
+    setAttachments,
+    getSnapshot,
+  } = useAttachments();
+  const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
+
+  // Pre-load forward attachments
+  useEffect(() => {
+    if (forwardData?.attachments?.length) {
+      setAttachments(forwardData.attachments);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -157,14 +185,22 @@ export function ComposeClientPage({
       setError("Please enter a recipient");
       return;
     }
+    if (isUploading) {
+      setError("Please wait for uploads to finish");
+      return;
+    }
     setScheduling(true);
     try {
+      const attachmentIds = attachments
+        .filter((a) => a.status === "done")
+        .map((a) => a.id);
       await createScheduledMessage({
         to: to.trim(),
         subject,
         textBody: body,
         scheduledFor: scheduledFor.toISOString(),
         emailConnectionId: fromConnectionId,
+        attachmentIds,
       });
       toast.success("Message scheduled");
       router.push("/scheduled");
@@ -180,16 +216,27 @@ export function ComposeClientPage({
       setError("Please enter a recipient");
       return;
     }
+    if (isUploading) {
+      setError("Please wait for uploads to finish");
+      return;
+    }
 
     setError(null);
 
     const sendId = `send_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const attachmentIds = attachments
+      .filter((a) => a.status === "done")
+      .map((a) => a.id);
     const payload = {
       to: to.trim(),
       subject,
       body,
       fromConnectionId: connections.length > 1 ? fromConnectionId : undefined,
+      attachmentIds,
     };
+
+    // Save state for undo
+    savedAttachmentsRef.current = getSnapshot();
 
     const pendingSend = {
       id: sendId,
@@ -206,6 +253,7 @@ export function ComposeClientPage({
           subject: payload.subject,
           text: payload.body,
           fromConnectionId: payload.fromConnectionId,
+          attachmentIds: payload.attachmentIds,
         }),
       });
 
@@ -219,8 +267,8 @@ export function ComposeClientPage({
       toast.success("Message sent");
     };
 
-    const onError = (error: string) => {
-      toast.error(error);
+    const onError = (errorMsg: string) => {
+      toast.error(errorMsg);
     };
 
     enqueue(pendingSend, onExpire, onSuccess, onError);
@@ -231,33 +279,17 @@ export function ComposeClientPage({
       UNDO_DELAY_MS,
       () => {
         cancel(sendId);
+        // Restore state on undo — but we've already navigated away
+        // so this is mostly for the toast feedback
         toast.success("Send cancelled");
       },
-      () => {
-        // Toast countdown finished visually — no action needed,
-        // the store timer handles the actual send.
-      },
+      () => {},
     );
 
     router.push("/imbox");
   };
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
-
-  const handleBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        setScheduleOpen(true);
-      } else {
-        handleSend();
-      }
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      router.back();
-    }
-  };
 
   const hasSuggestions = showSuggestions && isTyping && (results.length > 0 || loading);
   const hasMultipleConnections = connections.length > 1;
@@ -409,14 +441,17 @@ export function ComposeClientPage({
 
           <div className="space-y-2">
             <Label htmlFor="body">Message</Label>
-            <textarea
-              id="body"
-              spellCheck={false}
-              className="flex min-h-[300px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Write your message..."
+            <MarkdownComposer
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onKeyDown={handleBodyKeyDown}
+              onChange={setBody}
+              placeholder="Write your message..."
+              attachments={attachments}
+              onFileUpload={upload}
+              onFileRemove={remove}
+              onSubmit={handleSend}
+              onSchedule={() => setScheduleOpen(true)}
+              onCancel={() => router.back()}
+              minHeight={300}
             />
           </div>
         </div>

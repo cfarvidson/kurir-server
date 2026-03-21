@@ -27,6 +27,13 @@ export async function getSentFolder(emailConnectionId: string) {
  * Builds an RFC822 message from the provided fields and uses IMAP APPEND.
  * Should be called fire-and-forget (.catch(console.error)).
  */
+export interface SentAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+  cid?: string;
+}
+
 export async function appendToImapSent(opts: {
   emailConnectionId: string;
   messageId: string | null;
@@ -37,6 +44,7 @@ export async function appendToImapSent(opts: {
   toAddresses: string[];
   text: string;
   html?: string | null;
+  attachments?: SentAttachment[];
 }): Promise<void> {
   const folder = await db.folder.findFirst({
     where: { emailConnectionId: opts.emailConnectionId, specialUse: "sent" },
@@ -55,6 +63,8 @@ export async function appendToImapSent(opts: {
     ...(opts.references.length > 0 && {
       references: opts.references.join(" "),
     }),
+    ...(opts.attachments &&
+      opts.attachments.length > 0 && { attachments: opts.attachments }),
   });
 
   const raw = await mail.compile().build();
@@ -85,11 +95,14 @@ export async function createLocalSentMessage(opts: {
   toAddresses: string[];
   text: string;
   html?: string | null;
+  attachmentIds?: string[];
 }) {
   const folder = await getSentFolder(opts.emailConnectionId);
   if (!folder) return null;
 
-  return db.message.create({
+  const hasAttachments = (opts.attachmentIds?.length ?? 0) > 0;
+
+  const message = await db.message.create({
     data: {
       uid: generateTempUid(),
       messageId: opts.messageId,
@@ -107,6 +120,7 @@ export async function createLocalSentMessage(opts: {
       htmlBody: opts.html ?? null,
       snippet: createSnippet(opts.text),
       isRead: true,
+      hasAttachments,
       isInScreener: false,
       isInImbox: false,
       isInFeed: false,
@@ -116,4 +130,14 @@ export async function createLocalSentMessage(opts: {
       emailConnectionId: opts.emailConnectionId,
     },
   });
+
+  // Link uploaded attachments to the sent message
+  if (opts.attachmentIds && opts.attachmentIds.length > 0) {
+    await db.attachment.updateMany({
+      where: { id: { in: opts.attachmentIds }, userId: opts.userId },
+      data: { messageId: message.id },
+    });
+  }
+
+  return message;
 }

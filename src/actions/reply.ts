@@ -3,10 +3,17 @@
 import { auth, getConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
+import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
+import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
-export async function replyToMessage(messageId: string, body: string, to?: string) {
+export async function replyToMessage(
+  messageId: string,
+  body: string,
+  to?: string,
+  attachmentIds?: string[],
+) {
   if (body.length > 1_000_000) {
     throw new Error("Message body too large");
   }
@@ -64,14 +71,28 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     },
   });
 
+  // Convert markdown to email HTML
+  const converted = convertMarkdownToEmailHtml(body);
+
+  // Load attachments if provided
+  const loaded = await loadAttachmentsForSend(
+    attachmentIds || [],
+    session.user.id,
+    converted.inlineImageIds,
+  );
+
   const info = await transporter.sendMail({
     from: fromAddress,
     to: replyTo,
     subject,
     text: body,
+    html: converted.html,
     ...(message.messageId && { inReplyTo: message.messageId }),
     ...(references.length > 0 && {
       references: references.join(" "),
+    }),
+    ...(loaded.nodemailerAttachments.length > 0 && {
+      attachments: loaded.nodemailerAttachments,
     }),
   });
 
@@ -86,6 +107,8 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     fromAddress,
     toAddresses: [replyTo],
     text: body,
+    html: converted.html,
+    attachmentIds: loaded.ids,
   });
 
   // Append to IMAP Sent folder (fire-and-forget)
@@ -98,6 +121,8 @@ export async function replyToMessage(messageId: string, body: string, to?: strin
     fromAddress,
     toAddresses: [replyTo],
     text: body,
+    html: converted.html,
+    attachments: loaded.sentAttachments,
   }).catch(console.error);
 
   await db.message.update({

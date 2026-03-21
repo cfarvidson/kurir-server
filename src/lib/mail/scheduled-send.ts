@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { createLocalSentMessage, appendToImapSent } from "./persist-sent";
+import { convertMarkdownToEmailHtml } from "./markdown-to-email";
+import { loadAttachmentsForSend } from "./attachment-helpers";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -143,6 +145,12 @@ async function processSingleMessage(
     const fromAddress =
       msg.emailConnection.sendAsEmail || msg.emailConnection.email;
 
+    // Load attachments for persist (reuse for IMAP sent append)
+    const sentLoaded = await loadAttachmentsForSend(
+      msg.attachmentIds || [],
+      msg.userId,
+    );
+
     await createLocalSentMessage({
       userId: msg.userId,
       emailConnectionId: msg.emailConnectionId,
@@ -155,6 +163,7 @@ async function processSingleMessage(
       toAddresses: [msg.to],
       text: textBody,
       html: htmlBody,
+      attachmentIds: sentLoaded.ids,
     });
 
     // Append to IMAP Sent folder (fire-and-forget)
@@ -168,6 +177,7 @@ async function processSingleMessage(
       toAddresses: [msg.to],
       text: textBody,
       html: htmlBody,
+      attachments: sentLoaded.sentAttachments,
     }).catch(console.error);
 
     // Notify connected clients
@@ -225,6 +235,22 @@ export async function sendScheduledEmail(
   const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : undefined;
   const fromAddress = connection.sendAsEmail || connection.email;
 
+  // Convert markdown to email HTML if no explicit html
+  let emailHtml = htmlBody;
+  let inlineImageIds: string[] = [];
+  if (!htmlBody && textBody) {
+    const converted = convertMarkdownToEmailHtml(textBody);
+    emailHtml = converted.html;
+    inlineImageIds = converted.inlineImageIds;
+  }
+
+  // Load attachments if any
+  const loaded = await loadAttachmentsForSend(
+    msg.attachmentIds || [],
+    msg.userId,
+    inlineImageIds,
+  );
+
   const transporter = nodemailer.createTransport({
     host: connection.smtpHost,
     port: connection.smtpPort,
@@ -244,9 +270,12 @@ export async function sendScheduledEmail(
     to: msg.to,
     subject: msg.subject,
     text: textBody,
-    html: htmlBody,
+    html: emailHtml,
     ...(msg.inReplyToMessageId && { inReplyTo: msg.inReplyToMessageId }),
     ...(refList.length > 0 && { references: refList.join(" ") }),
+    ...(loaded.nodemailerAttachments.length > 0 && {
+      attachments: loaded.nodemailerAttachments,
+    }),
   });
 
   return { messageId: result.messageId };

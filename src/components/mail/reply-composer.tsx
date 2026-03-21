@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
 import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarkdownComposer } from "@/components/mail/markdown-composer";
+import { useAttachments, type UploadedAttachment } from "@/hooks/use-attachments";
 import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
@@ -42,16 +44,24 @@ export function ReplyComposer({
   const [to, setTo] = useState(replyToAddress);
   const [isEditingTo, setIsEditingTo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const [scheduling, setScheduling] = useState(false);
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const { enqueue, cancel } = usePendingSendStore();
-  // Keep a ref to the pending send ID so undo can restore state
   const pendingSendIdRef = useRef<string | null>(null);
   const savedBodyRef = useRef("");
   const savedToRef = useRef("");
+  const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
+
+  const {
+    attachments,
+    upload,
+    remove,
+    isUploading,
+    setAttachments,
+    getSnapshot,
+  } = useAttachments();
 
   useEffect(() => {
     if (!isEditingTo) setTo(replyToAddress);
@@ -61,19 +71,10 @@ export function ReplyComposer({
   useEffect(() => {
     const handler = () => {
       setIsOpen(true);
-      setTimeout(() => textareaRef.current?.focus(), 50);
     };
     window.addEventListener("keyboard-reply", handler);
     return () => window.removeEventListener("keyboard-reply", handler);
   }, []);
-
-  const autoResize = () => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 300) + "px";
-    }
-  };
 
   const handleUndo = useCallback(() => {
     const sendId = pendingSendIdRef.current;
@@ -81,16 +82,16 @@ export function ReplyComposer({
       cancel(sendId);
       pendingSendIdRef.current = null;
     }
-    // Restore body and reopen the composer
     setBody(savedBodyRef.current);
     setTo(savedToRef.current);
+    setAttachments(savedAttachmentsRef.current);
     setIsOpen(true);
     setError(null);
     sendingRef.current = false;
-  }, [cancel]);
+  }, [cancel, setAttachments]);
 
   const handleScheduleSend = async (scheduledFor: Date) => {
-    if (!body.trim() || scheduling) return;
+    if (!body.trim() || scheduling || isUploading) return;
     setScheduling(true);
     try {
       const replySubject = subject.startsWith("Re:") ? subject : `Re: ${subject}`;
@@ -98,6 +99,10 @@ export function ReplyComposer({
         ...references,
         ...(rfcMessageId && !references.includes(rfcMessageId) ? [rfcMessageId] : []),
       ].join(" ");
+
+      const attachmentIds = attachments
+        .filter((a) => a.status === "done")
+        .map((a) => a.id);
 
       await createScheduledMessage({
         to: to.trim(),
@@ -107,9 +112,11 @@ export function ReplyComposer({
         emailConnectionId,
         inReplyToMessageId: rfcMessageId,
         references: refsString || undefined,
+        attachmentIds,
       });
       toast.success("Reply scheduled");
       setBody("");
+      setAttachments([]);
       setIsOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to schedule");
@@ -119,22 +126,27 @@ export function ReplyComposer({
   };
 
   const handleSend = () => {
-    if (!body.trim() || sendingRef.current || scheduling) return;
+    if (!body.trim() || sendingRef.current || scheduling || isUploading) return;
     sendingRef.current = true;
 
     const sentBody = body.trim();
     const sentTo = to;
+    const attachmentIds = attachments
+      .filter((a) => a.status === "done")
+      .map((a) => a.id);
     setError(null);
 
     // Save state for undo restoration
     savedBodyRef.current = sentBody;
     savedToRef.current = sentTo;
+    savedAttachmentsRef.current = getSnapshot();
 
     const sendId = `reply-${messageId}-${Date.now()}`;
     pendingSendIdRef.current = sendId;
 
     // Collapse composer immediately
     setBody("");
+    setAttachments([]);
     setIsOpen(false);
 
     enqueue(
@@ -143,49 +155,28 @@ export function ReplyComposer({
         createdAt: Date.now(),
         delayMs: UNDO_DELAY_MS,
       },
-      // onExpire: actually send the reply
       async () => {
-        await replyToMessage(messageId, sentBody, sentTo);
+        await replyToMessage(messageId, sentBody, sentTo, attachmentIds);
         onSent?.(sentBody);
       },
-      // onSuccess
       () => {
         pendingSendIdRef.current = null;
         sendingRef.current = false;
         toast.success("Reply sent");
       },
-      // onError
       (errorMessage) => {
         pendingSendIdRef.current = null;
         sendingRef.current = false;
-        // Restore body and reopen composer on failure
         setBody(savedBodyRef.current);
         setTo(savedToRef.current);
+        setAttachments(savedAttachmentsRef.current);
         setIsOpen(true);
         setError(errorMessage);
         toast.error(errorMessage);
       },
     );
 
-    showUndoSendToast(sendId, sentTo, UNDO_DELAY_MS, handleUndo, () => {
-      // onComplete (countdown finished) — toast dismisses itself
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        setSchedulePickerOpen(true);
-      } else {
-        handleSend();
-      }
-    }
-    if (e.key === "Escape") {
-      if (!body.trim()) {
-        setIsOpen(false);
-      }
-    }
+    showUndoSendToast(sendId, sentTo, UNDO_DELAY_MS, handleUndo, () => {});
   };
 
   return (
@@ -198,7 +189,7 @@ export function ReplyComposer({
             "px-4 py-3.5 text-sm text-muted-foreground",
             "transition-all duration-200",
             "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-sm",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
           <CornerDownLeft className="h-4 w-4" />
@@ -215,151 +206,148 @@ export function ReplyComposer({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15 }}
-            className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
-          >
-            {/* Composer header */}
-            <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
-              {isEditingTo ? (
-                <div className="flex flex-1 items-center gap-2 mr-2">
-                  <span className="text-xs text-muted-foreground">To:</span>
-                  <input
-                    ref={toInputRef}
-                    type="email"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                    onBlur={() => {
-                      if (to.trim()) setIsEditingTo(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && to.trim()) {
-                        setIsEditingTo(false);
-                        textareaRef.current?.focus();
-                      }
-                      if (e.key === "Escape") {
-                        setTo(replyToAddress);
-                        setIsEditingTo(false);
-                      }
-                    }}
-                    className="flex-1 bg-transparent text-xs font-medium outline-none"
-                    autoFocus
-                  />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditingTo(true);
-                    setTimeout(() => toInputRef.current?.select(), 0);
+          className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
+        >
+          {/* Composer header */}
+          <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
+            {isEditingTo ? (
+              <div className="mr-2 flex flex-1 items-center gap-2">
+                <span className="text-xs text-muted-foreground">To:</span>
+                <input
+                  ref={toInputRef}
+                  type="email"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  onBlur={() => {
+                    if (to.trim()) setIsEditingTo(false);
                   }}
-                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                  title="Click to edit recipient"
-                >
-                  To{" "}
-                  <span className="font-medium text-foreground">
-                    {to === replyToAddress ? replyToName : to}
-                  </span>{" "}
-                  <span className="text-muted-foreground/60">
-                    &lt;{to}&gt;
-                  </span>
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (body.trim()) {
-                    if (confirm("Discard reply?")) {
-                      setBody("");
-                      setIsOpen(false);
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && to.trim()) {
+                      setIsEditingTo(false);
                     }
-                  } else {
+                    if (e.key === "Escape") {
+                      setTo(replyToAddress);
+                      setIsEditingTo(false);
+                    }
+                  }}
+                  className="flex-1 bg-transparent text-xs font-medium outline-none"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingTo(true);
+                  setTimeout(() => toInputRef.current?.select(), 0);
+                }}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                title="Click to edit recipient"
+              >
+                To{" "}
+                <span className="font-medium text-foreground">
+                  {to === replyToAddress ? replyToName : to}
+                </span>{" "}
+                <span className="text-muted-foreground/60">
+                  &lt;{to}&gt;
+                </span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (body.trim() || attachments.length > 0) {
+                  if (confirm("Discard reply?")) {
+                    setBody("");
+                    setAttachments([]);
                     setIsOpen(false);
                   }
-                }}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                } else {
+                  setIsOpen(false);
+                }
+              }}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden border-b bg-destructive/5 px-4 py-2 text-xs text-destructive"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Error */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden border-b bg-destructive/5 px-4 py-2 text-xs text-destructive"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Markdown composer */}
+          <div className="px-4 py-3">
+            <MarkdownComposer
+              value={body}
+              onChange={setBody}
+              placeholder="Write your reply..."
+              disabled={sendingRef.current}
+              attachments={attachments}
+              onFileUpload={upload}
+              onFileRemove={remove}
+              onSubmit={handleSend}
+              onSchedule={() => setSchedulePickerOpen(true)}
+              onCancel={() => {
+                if (!body.trim() && attachments.length === 0) {
+                  setIsOpen(false);
+                }
+              }}
+              minHeight={100}
+              autoFocus
+            />
+          </div>
 
-            {/* Textarea */}
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
-                autoFocus
-                spellCheck={false}
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value);
-                  autoResize();
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="Write your reply..."
-                disabled={sendingRef.current}
-                className={cn(
-                  "block w-full resize-none bg-transparent px-4 py-3 text-sm",
-                  "placeholder:text-muted-foreground/50",
-                  "focus:outline-none",
-                  "disabled:opacity-50",
-                  "min-h-[100px]"
-                )}
-                rows={4}
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
+            <span className="text-[11px] text-muted-foreground/50">
+              {typeof navigator !== "undefined" &&
+              navigator.platform.includes("Mac")
+                ? "Cmd"
+                : "Ctrl"}
+              +Enter to send
+            </span>
+            <div className="flex items-center gap-1">
+              <SchedulePicker
+                onSchedule={handleScheduleSend}
+                userTimezone={userTimezone}
+                isPending={scheduling}
+                open={schedulePickerOpen}
+                onOpenChange={setSchedulePickerOpen}
+                side="top"
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-2"
+                    disabled={!body.trim() || scheduling || isUploading}
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" />
+                  </Button>
+                }
               />
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={!body.trim() || scheduling || isUploading}
+                className="gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Send
+              </Button>
             </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
-              <span className="text-[11px] text-muted-foreground/50">
-                {typeof navigator !== "undefined" &&
-                navigator.platform.includes("Mac")
-                  ? "Cmd"
-                  : "Ctrl"}
-                +Enter to send
-              </span>
-              <div className="flex items-center gap-1">
-                <SchedulePicker
-                  onSchedule={handleScheduleSend}
-                  userTimezone={userTimezone}
-                  isPending={scheduling}
-                  open={schedulePickerOpen}
-                  onOpenChange={setSchedulePickerOpen}
-                  side="top"
-                  trigger={
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="px-2"
-                      disabled={!body.trim() || scheduling}
-                    >
-                      <CalendarClock className="h-3.5 w-3.5" />
-                    </Button>
-                  }
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSend}
-                  disabled={!body.trim() || scheduling}
-                  className="gap-1.5"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  Send
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
