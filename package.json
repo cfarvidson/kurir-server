@@ -37,6 +37,7 @@
     "ioredis": "^5.10.1",
     "lucide-react": "^0.469.0",
     "mailparser": "^3.7.2",
+    "marked": "^17.0.5",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.25",
     "nodemailer": "^6.9.16",
@@ -49,6 +50,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/react": "^16.3.2",
     "@types/dompurify": "^3.2.0",
