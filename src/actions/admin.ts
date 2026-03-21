@@ -24,6 +24,24 @@ export async function toggleSelfServiceAccountManagement(enabled: boolean) {
   revalidatePath("/settings/admin");
 }
 
+export async function updateUserDisplayName(
+  targetUserId: string,
+  displayName: string,
+) {
+  await requireAdmin();
+
+  const trimmed = displayName.trim();
+  if (!trimmed) throw new Error("Display name cannot be empty");
+  if (trimmed.length > 100) throw new Error("Display name too long");
+
+  await db.user.update({
+    where: { id: targetUserId },
+    data: { displayName: trimmed },
+  });
+
+  revalidatePath("/settings/admin");
+}
+
 export async function updateUserRole(
   targetUserId: string,
   newRole: "ADMIN" | "USER",

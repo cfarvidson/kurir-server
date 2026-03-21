@@ -15,6 +15,7 @@ import {
   WipeButton,
   WipeMailButton,
 } from "@/components/settings/wipe-button";
+import { DisplayNameField } from "@/components/settings/display-name-field";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 
@@ -203,12 +204,7 @@ export default async function SettingsPage() {
         <h2 className="text-lg font-medium">Profile</h2>
         <div className="mt-4 rounded-lg border bg-card p-4">
           <dl className="space-y-3">
-            {user?.displayName && (
-              <div className="flex justify-between">
-                <dt className="text-sm text-muted-foreground">Display name</dt>
-                <dd className="text-sm font-medium">{user.displayName}</dd>
-              </div>
-            )}
+            <DisplayNameField currentName={user?.displayName ?? null} />
             <div className="flex justify-between">
               <dt className="text-sm text-muted-foreground">Account created</dt>
               <dd className="text-sm font-medium">

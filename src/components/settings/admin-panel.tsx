@@ -3,12 +3,15 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   toggleSignups,
   toggleSelfServiceAccountManagement,
   updateUserRole,
+  updateUserDisplayName,
 } from "@/actions/admin";
-import { Loader2, ShieldCheck, User } from "lucide-react";
+import { Check, Loader2, Pencil, ShieldCheck, User } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -110,81 +113,147 @@ export function AdminPanel({
       <section>
         <h2 className="text-lg font-medium">Users</h2>
         <div className="mt-4 rounded-lg border bg-card divide-y">
-          {users.map((user) => {
-            const isCurrentUser = user.id === currentUserId;
-            const isAdmin = user.role === "ADMIN";
-
-            return (
-              <div
-                key={user.id}
-                className="flex items-center justify-between px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">
-                      {user.displayName || "Unnamed user"}
-                    </p>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        isAdmin
-                          ? "bg-primary/10 text-primary"
-                          : "bg-secondary text-secondary-foreground"
-                      }`}
-                    >
-                      {isAdmin ? (
-                        <ShieldCheck className="h-3 w-3" />
-                      ) : (
-                        <User className="h-3 w-3" />
-                      )}
-                      {user.role}
-                    </span>
-                    {isCurrentUser && (
-                      <span className="text-xs text-muted-foreground">
-                        (you)
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {user.emailConnectionCount} connection
-                    {user.emailConnectionCount !== 1 ? "s" : ""}
-                    {" · "}
-                    joined {new Date(user.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isCurrentUser || updatingUserId === user.id}
-                  onClick={() => {
-                    const newRole = isAdmin ? "USER" : "ADMIN";
-                    setError(null);
-                    setUpdatingUserId(user.id);
-                    startUpdate(async () => {
-                      try {
-                        await updateUserRole(user.id, newRole);
-                      } catch (err) {
-                        setError(
-                          err instanceof Error
-                            ? err.message
-                            : "Failed to update role",
-                        );
-                      } finally {
-                        setUpdatingUserId(null);
-                      }
-                    });
-                  }}
-                >
-                  {updatingUserId === user.id ? (
-                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                  ) : null}
-                  {isAdmin ? "Remove admin" : "Make admin"}
-                </Button>
-              </div>
-            );
-          })}
+          {users.map((user) => (
+            <AdminUserRow
+              key={user.id}
+              user={user}
+              isCurrentUser={user.id === currentUserId}
+              updatingUserId={updatingUserId}
+              onRoleChange={(userId, newRole) => {
+                setError(null);
+                setUpdatingUserId(userId);
+                startUpdate(async () => {
+                  try {
+                    await updateUserRole(userId, newRole);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to update role",
+                    );
+                  } finally {
+                    setUpdatingUserId(null);
+                  }
+                });
+              }}
+            />
+          ))}
         </div>
       </section>
     </>
+  );
+}
+
+function AdminUserRow({
+  user,
+  isCurrentUser,
+  updatingUserId,
+  onRoleChange,
+}: {
+  user: AdminPanelProps["users"][0];
+  isCurrentUser: boolean;
+  updatingUserId: string | null;
+  onRoleChange: (userId: string, newRole: "ADMIN" | "USER") => void;
+}) {
+  const isAdmin = user.role === "ADMIN";
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(user.displayName || "");
+  const [isSavingName, startSaveName] = useTransition();
+
+  const handleSaveName = () => {
+    if (!nameValue.trim()) return;
+    startSaveName(async () => {
+      try {
+        await updateUserDisplayName(user.id, nameValue.trim());
+        toast.success("Name updated");
+        setEditingName(false);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to update name",
+        );
+      }
+    });
+  };
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {editingName ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                className="h-6 text-sm w-32"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveName();
+                  if (e.key === "Escape") setEditingName(false);
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                disabled={isSavingName || !nameValue.trim()}
+                onClick={handleSaveName}
+              >
+                {isSavingName ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingName(true)}
+              className="flex items-center gap-1 text-sm font-medium truncate hover:underline"
+            >
+              {user.displayName || "Unnamed user"}
+              <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+            </button>
+          )}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+              isAdmin
+                ? "bg-primary/10 text-primary"
+                : "bg-secondary text-secondary-foreground"
+            }`}
+          >
+            {isAdmin ? (
+              <ShieldCheck className="h-3 w-3" />
+            ) : (
+              <User className="h-3 w-3" />
+            )}
+            {user.role}
+          </span>
+          {isCurrentUser && (
+            <span className="text-xs text-muted-foreground">(you)</span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {user.emailConnectionCount} connection
+          {user.emailConnectionCount !== 1 ? "s" : ""}
+          {" · "}
+          joined {new Date(user.createdAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={isCurrentUser || updatingUserId === user.id}
+        onClick={() => {
+          const newRole = isAdmin ? "USER" : "ADMIN";
+          onRoleChange(user.id, newRole);
+        }}
+      >
+        {updatingUserId === user.id ? (
+          <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+        ) : null}
+        {isAdmin ? "Remove admin" : "Make admin"}
+      </Button>
+    </div>
   );
 }
