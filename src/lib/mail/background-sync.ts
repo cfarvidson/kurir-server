@@ -1,5 +1,14 @@
-import { startSyncWorker, scheduleSyncJobs, stopSyncWorker, refreshSyncPriorities } from "@/lib/jobs/sync-worker";
-import { startMaintenanceWorker, scheduleMaintenanceJobs, stopMaintenanceWorker } from "@/lib/jobs/maintenance-worker";
+import {
+  startSyncWorker,
+  scheduleSyncJobs,
+  stopSyncWorker,
+  refreshSyncPriorities,
+} from "@/lib/jobs/sync-worker";
+import {
+  startMaintenanceWorker,
+  scheduleMaintenanceJobs,
+  stopMaintenanceWorker,
+} from "@/lib/jobs/maintenance-worker";
 import { closeQueues } from "@/lib/jobs/queue";
 import { connectionManager } from "./connection-manager";
 import { db } from "@/lib/db";
@@ -47,6 +56,15 @@ export async function startBackgroundSync() {
 
       workersHealthy = true;
       workerError = null;
+
+      // Clear any stale syncError from a previous failed startup
+      await db.syncState
+        .updateMany({
+          where: { syncError: { not: null } },
+          data: { syncError: null },
+        })
+        .catch(() => {});
+
       console.log("[bg-sync] All workers and jobs started");
     } catch (err) {
       workersHealthy = false;
