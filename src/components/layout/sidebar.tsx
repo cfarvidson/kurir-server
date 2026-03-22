@@ -10,6 +10,8 @@ import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { navigation } from "./navigation";
+import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
+import { useSync } from "@/hooks/useSync";
 
 interface SidebarProps {
   screenerCount?: number;
@@ -36,6 +38,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
+  const syncState = useSync();
 
   // Listen for optimistic badge updates
   useEffect(() => {
@@ -65,6 +68,9 @@ export function Sidebar({
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <KurirLogo className="h-8 w-8" />
         <span className="text-xl font-semibold">Kurir</span>
+        <div className="ml-auto">
+          <SyncStatusIndicator status={syncState.status} />
+        </div>
       </div>
 
       {/* Compose button */}

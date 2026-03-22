@@ -2,6 +2,7 @@ import { startSyncWorker, scheduleSyncJobs, stopSyncWorker, refreshSyncPrioritie
 import { startMaintenanceWorker, scheduleMaintenanceJobs, stopMaintenanceWorker } from "@/lib/jobs/maintenance-worker";
 import { closeQueues } from "@/lib/jobs/queue";
 import { connectionManager } from "./connection-manager";
+import { db } from "@/lib/db";
 
 // Re-export for backward compatibility (used by sync route)
 export { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
@@ -41,6 +42,16 @@ export async function startBackgroundSync() {
     } catch (err) {
       console.error("[bg-sync] Failed to start BullMQ workers:", err);
       console.error("[bg-sync] Sync will not run until Redis is available");
+
+      // Mark all connections as having a sync error so the UI banner shows
+      const errorMsg = `Sync infrastructure unavailable: ${err instanceof Error ? err.message : String(err)}`;
+      await db.syncState
+        .updateMany({
+          data: { syncError: errorMsg },
+        })
+        .catch((e) =>
+          console.error("[bg-sync] Failed to write sync error to DB:", e),
+        );
     }
   }, 5_000);
 }

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { AutoSync } from "@/components/mail/auto-sync";
+import { SyncErrorBanner } from "@/components/mail/sync-error-banner";
 import { PullToRefresh } from "@/components/mail/pull-to-refresh";
 import { KeyboardShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { Providers } from "@/components/providers";
@@ -95,9 +96,12 @@ export default async function MailLayout({
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
         />
-        <main className="flex-1 overflow-auto overscroll-y-contain pb-[env(safe-area-inset-bottom)]">
-          <PullToRefresh>{children}</PullToRefresh>
-        </main>
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <SyncErrorBanner />
+          <main className="flex-1 overflow-auto overscroll-y-contain pb-[env(safe-area-inset-bottom)]">
+            <PullToRefresh>{children}</PullToRefresh>
+          </main>
+        </div>
         <AutoSync />
         <KeyboardShortcuts />
         <Toaster
