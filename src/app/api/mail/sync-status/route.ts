@@ -24,10 +24,12 @@ export async function GET() {
         },
       },
     }),
-    getSyncQueue()
-      .getJobCounts("active")
-      .then(() => true)
-      .catch(() => false),
+    Promise.race([
+      getSyncQueue()
+        .getJobCounts("active")
+        .then(() => true),
+      new Promise<false>((r) => setTimeout(() => r(false), 3000)),
+    ]).catch(() => false),
   ]);
 
   const infraError = redisOk
