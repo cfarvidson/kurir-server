@@ -8,6 +8,13 @@ import { db } from "@/lib/db";
 export { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
 
 let started = false;
+let workersHealthy = false;
+let workerError: string | null = null;
+
+/** Returns whether BullMQ workers started successfully. */
+export function getBackgroundSyncHealth() {
+  return { healthy: workersHealthy, error: workerError };
+}
 
 const PRIORITY_REFRESH_MS = 5 * 60_000; // Refresh sync priorities every 5 minutes
 let priorityInterval: NodeJS.Timeout | null = null;
@@ -38,8 +45,12 @@ export async function startBackgroundSync() {
         }
       }, PRIORITY_REFRESH_MS);
 
+      workersHealthy = true;
+      workerError = null;
       console.log("[bg-sync] All workers and jobs started");
     } catch (err) {
+      workersHealthy = false;
+      workerError = `Sync infrastructure unavailable: ${err instanceof Error ? err.message : String(err)}`;
       console.error("[bg-sync] Failed to start BullMQ workers:", err);
       console.error("[bg-sync] Sync will not run until Redis is available");
 

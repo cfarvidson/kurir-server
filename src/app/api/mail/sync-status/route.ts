@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getBackgroundSyncHealth } from "@/lib/mail/background-sync";
 
 export async function GET() {
   const session = await auth();
@@ -23,13 +24,16 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json(
-    connections.map((c) => ({
+  const { healthy, error: infraError } = getBackgroundSyncHealth();
+
+  return NextResponse.json({
+    infraError: healthy ? null : infraError,
+    connections: connections.map((c) => ({
       connectionId: c.id,
       email: c.email,
       isSyncing: c.syncState?.isSyncing ?? false,
       syncError: c.syncState?.syncError ?? null,
       lastFullSync: c.syncState?.lastFullSync?.toISOString() ?? null,
     })),
-  );
+  });
 }

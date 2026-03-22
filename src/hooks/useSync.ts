@@ -13,19 +13,35 @@ interface ConnectionSyncState {
   lastFullSync: string | null;
 }
 
-const POLL_INTERVAL = 60_000; // 60s — matches BullMQ sync interval
-const STALE_THRESHOLD = 10 * 60_000; // 10 minutes
+interface SyncStatusResponse {
+  infraError: string | null;
+  connections: ConnectionSyncState[];
+}
 
-function deriveStatus(connections: ConnectionSyncState[]): {
+interface DerivedState {
   status: SyncStatus;
   errorMessage?: string;
   lastSyncTime: Date | null;
-} {
+}
+
+const POLL_INTERVAL = 60_000;
+const STALE_THRESHOLD = 10 * 60_000;
+
+function deriveStatus(data: SyncStatusResponse): DerivedState {
+  // Infrastructure error takes priority — background sync can't run at all
+  if (data.infraError) {
+    return {
+      status: "error",
+      errorMessage: data.infraError,
+      lastSyncTime: null,
+    };
+  }
+
+  const connections = data.connections;
   if (connections.length === 0) {
     return { status: "synced", lastSyncTime: null };
   }
 
-  // Check for explicit errors first
   const errored = connections.filter((c) => c.syncError);
   if (errored.length > 0) {
     const messages = errored.map((c) => `${c.email}: ${c.syncError}`);
@@ -37,12 +53,10 @@ function deriveStatus(connections: ConnectionSyncState[]): {
     };
   }
 
-  // Check if any are actively syncing
   if (connections.some((c) => c.isSyncing)) {
     return { status: "syncing", lastSyncTime: null };
   }
 
-  // Check for stale sync (no successful sync in STALE_THRESHOLD)
   const now = Date.now();
   const oldestSync = connections.reduce<Date | null>((oldest, c) => {
     if (!c.lastFullSync) return oldest;
@@ -69,9 +83,11 @@ function deriveStatus(connections: ConnectionSyncState[]): {
   return { status: "synced", lastSyncTime: oldestSync };
 }
 
-async function fetchSyncStatus(): Promise<ConnectionSyncState[]> {
+const DEFAULT_RESPONSE: SyncStatusResponse = { infraError: null, connections: [] };
+
+async function fetchSyncStatus(): Promise<SyncStatusResponse> {
   const res = await fetch("/api/mail/sync-status");
-  if (!res.ok) return [];
+  if (!res.ok) return DEFAULT_RESPONSE;
   return res.json();
 }
 
@@ -79,20 +95,19 @@ export function useSync() {
   const queryClient = useQueryClient();
   const [retrying, setRetrying] = useState(false);
 
-  const { data: connections = [] } = useQuery({
+  const { data = DEFAULT_RESPONSE } = useQuery({
     queryKey: ["sync-status"],
     queryFn: fetchSyncStatus,
     refetchInterval: POLL_INTERVAL,
     staleTime: POLL_INTERVAL,
   });
 
-  const derived = deriveStatus(connections);
+  const derived = deriveStatus(data);
 
   const retry = useCallback(async () => {
     setRetrying(true);
     try {
       await fetch("/api/mail/sync", { method: "POST" });
-      // Wait for sync to start, then refetch status
       setTimeout(() => {
         queryClient
           .invalidateQueries({ queryKey: ["sync-status"] })
@@ -105,7 +120,7 @@ export function useSync() {
 
   return {
     ...derived,
-    connections,
+    connections: data.connections,
     retry,
     retrying,
   };
