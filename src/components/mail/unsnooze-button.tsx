@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlarmClockOff, Loader2 } from "lucide-react";
 import { unsnoozeConversation } from "@/actions/snooze";
 
@@ -13,12 +14,13 @@ interface UnsnoozeButtonProps {
 export function UnsnoozeButton({ messageId, returnPath = "/snoozed" }: UnsnoozeButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleUnsnooze = () => {
     startTransition(async () => {
       await unsnoozeConversation(messageId);
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
-      router.refresh();
     });
   };
 

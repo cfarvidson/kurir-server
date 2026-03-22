@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Loader2 } from "lucide-react";
 import { archiveConversation } from "@/actions/archive";
 
@@ -13,10 +14,12 @@ interface ArchiveButtonProps {
 export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleArchive = () => {
     startTransition(async () => {
       await archiveConversation(messageId, returnPath);
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
     });
   };

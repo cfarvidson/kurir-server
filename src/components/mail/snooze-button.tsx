@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Clock, Loader2 } from "lucide-react";
 import { snoozeConversation } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
@@ -19,12 +20,13 @@ export function SnoozeButton({
 }: SnoozeButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleSnooze = (until: Date) => {
     startTransition(async () => {
       await snoozeConversation(messageId, until);
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
-      router.refresh();
     });
   };
 

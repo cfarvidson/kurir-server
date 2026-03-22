@@ -2,6 +2,7 @@
 
 import { useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 
 interface ArchiveKeyboardShortcutProps {
@@ -17,6 +18,7 @@ export function ArchiveKeyboardShortcut({
 }: ArchiveKeyboardShortcutProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleAction = useCallback(() => {
     startTransition(async () => {
@@ -25,9 +27,10 @@ export function ArchiveKeyboardShortcut({
       } else {
         await archiveConversation(messageId, returnPath);
       }
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
     });
-  }, [messageId, returnPath, action, router, startTransition]);
+  }, [messageId, returnPath, action, router, queryClient, startTransition]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

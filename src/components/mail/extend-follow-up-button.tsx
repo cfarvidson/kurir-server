@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bell, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { extendFollowUp } from "@/actions/follow-up";
@@ -18,6 +19,7 @@ export function ExtendFollowUpButton({
 }: ExtendFollowUpButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleExtend = (until: Date) => {
     startTransition(async () => {
@@ -26,8 +28,8 @@ export function ExtendFollowUpButton({
         (until.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
       );
       toast.success(`Extended to ${diffDays} day${diffDays !== 1 ? "s" : ""}`);
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
-      router.refresh();
     });
   };
 

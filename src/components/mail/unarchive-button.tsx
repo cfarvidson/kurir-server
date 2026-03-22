@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArchiveRestore, Loader2 } from "lucide-react";
 import { unarchiveConversation } from "@/actions/archive";
 
@@ -13,12 +14,13 @@ interface UnarchiveButtonProps {
 export function UnarchiveButton({ messageId, returnPath = "/archive" }: UnarchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleUnarchive = () => {
     startTransition(async () => {
       await unarchiveConversation(messageId);
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
-      router.refresh();
     });
   };
 

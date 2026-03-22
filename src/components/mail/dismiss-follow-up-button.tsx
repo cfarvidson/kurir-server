@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { BellOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { dismissFollowUp } from "@/actions/follow-up";
@@ -17,13 +18,14 @@ export function DismissFollowUpButton({
 }: DismissFollowUpButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleDismiss = () => {
     startTransition(async () => {
       await dismissFollowUp(messageId);
       toast.success("Follow-up dismissed");
+      queryClient.removeQueries({ queryKey: ["messages"] });
       router.push(returnPath);
-      router.refresh();
     });
   };
 
