@@ -1,10 +1,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { ScreenerView } from "@/components/screener/screener-view";
-import { ScreenerHintBanner } from "@/components/screener/screener-hint-banner";
-import { ScreenedSenderList } from "@/components/screener/screened-sender-list";
-import { SkippedSenderList } from "@/components/screener/skipped-sender-list";
+import { ScreenerContent } from "@/components/screener/screener-content";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 
 async function getPendingSenders(userId: string, excludedEmails?: string[]) {
@@ -115,46 +112,13 @@ export default async function ScreenerPage() {
         )}
       </div>
 
-      {/* Keyboard hint banner (desktop only, first visit) */}
-      {pendingSenders.length > 0 && <ScreenerHintBanner />}
-
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {pendingSenders.length === 0 && skippedSenders.length === 0 && screenedSenders.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-green-100 p-4">
-              <svg
-                className="h-8 w-8 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <h2 className="mt-4 text-lg font-medium">No senders yet</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sync your email to start screening senders.
-            </p>
-          </div>
-        ) : (
-          <>
-            {pendingSenders.length > 0 && (
-              <ScreenerView senders={pendingSenders} />
-            )}
-            {skippedSenders.length > 0 && (
-              <SkippedSenderList senders={skippedSenders} />
-            )}
-            {screenedSenders.length > 0 && (
-              <ScreenedSenderList senders={screenedSenders} />
-            )}
-          </>
-        )}
+        <ScreenerContent
+          pendingSenders={pendingSenders}
+          skippedSenders={skippedSenders}
+          screenedSenders={screenedSenders}
+        />
       </div>
     </div>
   );
