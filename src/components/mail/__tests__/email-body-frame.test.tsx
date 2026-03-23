@@ -30,12 +30,14 @@ describe("EmailBodyFrame", () => {
     expect(iframe).not.toBeNull();
   });
 
-  it("sets sandbox attribute to allow-same-origin only", async () => {
+  it("sets sandbox attribute to allow-same-origin and allow-popups", async () => {
     await act(async () => {
       render(<EmailBodyFrame html="<p>Hello</p>" />);
     });
     const iframe = document.querySelector("iframe");
-    expect(iframe?.getAttribute("sandbox")).toBe("allow-same-origin");
+    expect(iframe?.getAttribute("sandbox")).toBe(
+      "allow-same-origin allow-popups",
+    );
   });
 
   it("does NOT include allow-scripts in sandbox (blocks JS execution)", async () => {

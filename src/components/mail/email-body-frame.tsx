@@ -15,8 +15,9 @@ interface EmailBodyFrameProps {
  * Renders sanitized email HTML inside a sandboxed iframe.
  *
  * Isolation properties:
- * - sandbox="allow-same-origin" — allows ResizeObserver to measure body height;
- *   scripts, forms, popups, and top-level navigation are all blocked.
+ * - sandbox="allow-same-origin allow-popups" — allows ResizeObserver to measure
+ *   body height and lets links open in new tabs; scripts, forms, and
+ *   top-level navigation are all blocked.
  * - srcdoc — content is set directly; no external URL is loaded.
  * - The iframe has no name, so it cannot be targeted by other frames.
  *
@@ -97,7 +98,7 @@ export function EmailBodyFrame({ html, collapseQuotes, attachments }: EmailBodyF
       <iframe
         ref={iframeRef}
         srcDoc={srcdoc}
-        sandbox="allow-same-origin"
+        sandbox="allow-same-origin allow-popups"
         referrerPolicy="no-referrer"
         title="Email content"
         aria-label="Email body"
