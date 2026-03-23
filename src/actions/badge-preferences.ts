@@ -1,3 +1,5 @@
+"use server";
+
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -42,8 +44,6 @@ export async function getBadgePreferences(
 export async function updateBadgePreferences(
   prefs: Partial<BadgePreferences>,
 ) {
-  "use server";
-
   const session = await requireAuth();
 
   // Validate: only accept known boolean fields
