@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Archive, ArchiveRestore, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
+import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
 
@@ -132,6 +133,21 @@ export function MessageRow({
 
   const doArchive = () => {
     onArchived?.(message.id);
+
+    const subject =
+      message.subject ||
+      message.sender?.displayName ||
+      message.fromName ||
+      "email";
+    showUndoToast({
+      id: `archive-${message.id}`,
+      label: "Archived",
+      description: subject,
+      onUndo: () => {
+        unarchiveConversation(message.id).then(() => router.refresh());
+      },
+    });
+
     startTransition(async () => {
       await archiveConversation(message.id, basePath);
       router.refresh();
@@ -286,10 +302,13 @@ export function MessageRow({
               align="end"
               trigger={
                 <button
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                   title="Snooze"
                 >
                   <Clock className="h-4 w-4" />
+                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                    S
+                  </kbd>
                 </button>
               }
             />
@@ -297,20 +316,25 @@ export function MessageRow({
           {showArchiveAction && (
             <button
               onClick={handleArchive}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Archive"
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Archive className="h-4 w-4" />
+                <>
+                  <Archive className="h-4 w-4" />
+                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                    E
+                  </kbd>
+                </>
               )}
             </button>
           )}
           {showUnarchiveAction && (
             <button
               onClick={handleUnarchive}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Unarchive"
             >
               {isPending ? (

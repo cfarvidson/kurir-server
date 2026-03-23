@@ -4,8 +4,9 @@ import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { keyboardState } from "@/lib/keyboard-state";
-import { archiveConversation } from "@/actions/archive";
+import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { toggleReadStatus } from "@/actions/read-status";
+import { showUndoToast } from "@/components/mail/undo-toast";
 import type { MessageItem } from "@/components/mail/message-list";
 
 interface ListKeyboardHandlerProps {
@@ -84,6 +85,18 @@ export function ListKeyboardHandler({
           if (!msg) break;
           e.preventDefault();
           onArchived?.(msg.id);
+
+          const subject =
+            msg.subject || msg.sender?.displayName || msg.fromName || "email";
+          showUndoToast({
+            id: `archive-${msg.id}`,
+            label: "Archived",
+            description: subject,
+            onUndo: () => {
+              unarchiveConversation(msg.id).then(() => router.refresh());
+            },
+          });
+
           archiveConversation(msg.id, basePath).then(() => {
             router.refresh();
           });

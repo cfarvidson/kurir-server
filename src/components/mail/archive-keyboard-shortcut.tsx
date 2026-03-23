@@ -4,6 +4,7 @@ import { useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
+import { showUndoToast } from "@/components/mail/undo-toast";
 
 interface ArchiveKeyboardShortcutProps {
   messageId: string;
@@ -21,6 +22,16 @@ export function ArchiveKeyboardShortcut({
   const queryClient = useQueryClient();
 
   const handleAction = useCallback(() => {
+    if (action === "archive") {
+      showUndoToast({
+        id: `archive-${messageId}`,
+        label: "Archived",
+        onUndo: () => {
+          unarchiveConversation(messageId).then(() => router.refresh());
+        },
+      });
+    }
+
     startTransition(async () => {
       if (action === "unarchive") {
         await unarchiveConversation(messageId);

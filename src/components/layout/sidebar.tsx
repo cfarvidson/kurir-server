@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Settings, PenSquare, LogOut, Keyboard } from "lucide-react";
+import { Settings, PenSquare, LogOut, Keyboard, Command } from "lucide-react";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,20 @@ export function badgeUpdate(key: string, delta: number) {
   window.dispatchEvent(
     new CustomEvent("badge-count-update", { detail: { key, delta } }),
   );
+}
+
+/** Maps nav href → keyboard shortcut key for g+X sequence */
+const NAV_SHORTCUTS: Record<string, string> = {
+  "/imbox": "I",
+  "/feed": "F",
+  "/paper-trail": "P",
+  "/screener": "N",
+  "/sent": "S",
+  "/archive": "A",
+};
+
+function openCommandPalette() {
+  window.dispatchEvent(new CustomEvent("open-command-palette"));
 }
 
 export function Sidebar({
@@ -114,12 +128,13 @@ export function Sidebar({
             return null;
 
           const isActive = pathname === item.href;
+          const shortcutKey = NAV_SHORTCUTS[item.href];
           return (
             <Link
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
+                "group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -129,7 +144,7 @@ export function Sidebar({
               <span className="flex-1">{item.name}</span>
               {item.badgeKey &&
                 badgeCounts[item.badgeKey] > 0 &&
-                badgePreferences[badgeKeyToPref[item.badgeKey]] !== false && (
+                badgePreferences[badgeKeyToPref[item.badgeKey]] !== false ? (
                 <span
                   className={cn(
                     "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
@@ -142,7 +157,17 @@ export function Sidebar({
                     ? "99+"
                     : badgeCounts[item.badgeKey]}
                 </span>
-              )}
+              ) : shortcutKey ? (
+                <span className="hidden items-center gap-0.5 opacity-0 transition-opacity group-hover/nav:opacity-100 lg:inline-flex">
+                  <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
+                    G
+                  </kbd>
+                  <span className="text-[9px] text-muted-foreground/30">›</span>
+                  <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
+                    {shortcutKey}
+                  </kbd>
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -162,6 +187,21 @@ export function Sidebar({
           <Settings className="h-5 w-5" />
           Settings
         </Link>
+        <button
+          onClick={openCommandPalette}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Command className="h-5 w-5" />
+          <span className="flex-1 text-left">Commands</span>
+          <span className="inline-flex items-center gap-0.5">
+            <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              ⌘
+            </kbd>
+            <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              K
+            </kbd>
+          </span>
+        </button>
         <button
           onClick={showShortcuts}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

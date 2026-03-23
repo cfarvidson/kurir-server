@@ -47,6 +47,9 @@ export function SnoozeButton({
             <Clock className="h-3.5 w-3.5" />
           )}
           <span className="hidden md:inline">Snooze</span>
+          <kbd className="hidden h-[18px] min-w-[18px] items-center justify-center rounded border border-border/50 bg-muted/30 px-1 font-mono text-[10px] text-muted-foreground/50 lg:inline-flex">
+            S
+          </kbd>
         </button>
       }
     />

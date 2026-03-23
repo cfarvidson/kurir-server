@@ -4,7 +4,8 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Loader2 } from "lucide-react";
-import { archiveConversation } from "@/actions/archive";
+import { archiveConversation, unarchiveConversation } from "@/actions/archive";
+import { showUndoToast } from "@/components/mail/undo-toast";
 
 interface ArchiveButtonProps {
   messageId: string;
@@ -17,6 +18,14 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
   const queryClient = useQueryClient();
 
   const handleArchive = () => {
+    showUndoToast({
+      id: `archive-${messageId}`,
+      label: "Archived",
+      onUndo: () => {
+        unarchiveConversation(messageId).then(() => router.refresh());
+      },
+    });
+
     startTransition(async () => {
       await archiveConversation(messageId, returnPath);
       queryClient.removeQueries({ queryKey: ["messages"] });
@@ -36,6 +45,9 @@ export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButto
         <Archive className="h-3.5 w-3.5" />
       )}
       <span className="hidden md:inline">Archive</span>
+      <kbd className="hidden h-[18px] min-w-[18px] items-center justify-center rounded border border-border/50 bg-muted/30 px-1 font-mono text-[10px] text-muted-foreground/50 lg:inline-flex">
+        E
+      </kbd>
     </button>
   );
 }

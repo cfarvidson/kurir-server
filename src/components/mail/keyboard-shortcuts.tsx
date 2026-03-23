@@ -65,6 +65,7 @@ const sharedShortcuts: ShortcutEntry[] = [
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
   { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
+  { keys: ["Cmd", "K"], description: "Command palette", mode: "combo" },
   { keys: ["?"], description: "Keyboard shortcuts" },
 ];
 

@@ -4,6 +4,7 @@ import { AutoSync } from "@/components/mail/auto-sync";
 import { SyncErrorBanner } from "@/components/mail/sync-error-banner";
 import { PullToRefresh } from "@/components/mail/pull-to-refresh";
 import { KeyboardShortcuts } from "@/components/mail/keyboard-shortcuts";
+import { CommandPaletteShell } from "@/components/mail/command-palette-shell";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
 import { db } from "@/lib/db";
@@ -143,6 +144,7 @@ export default async function MailLayout({
         </div>
         <AutoSync />
         <KeyboardShortcuts />
+        <CommandPaletteShell />
         <Toaster
           position="bottom-right"
           expand={false}
