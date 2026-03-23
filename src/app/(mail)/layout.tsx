@@ -11,6 +11,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
+import { getBadgePreferences } from "@/actions/badge-preferences";
 
 async function getUserEmails(userId: string): Promise<string[]> {
   const connections = await db.emailConnection.findMany({
@@ -60,6 +61,28 @@ const getFollowUpCount = unstable_cache(
   { tags: ["sidebar-counts"], revalidate: 30 },
 );
 
+const getFeedUnreadCount = unstable_cache(
+  async (userId: string) =>
+    db.message.count({ where: { userId, isInFeed: true, isRead: false } }),
+  ["feed-unread-count"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
+const getPaperTrailUnreadCount = unstable_cache(
+  async (userId: string) =>
+    db.message.count({
+      where: { userId, isInPaperTrail: true, isRead: false },
+    }),
+  ["paper-trail-unread-count"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
+const getCachedBadgePreferences = unstable_cache(
+  getBadgePreferences,
+  ["badge-preferences"],
+  { tags: ["sidebar-counts"], revalidate: 30 },
+);
+
 export default async function MailLayout({
   children,
 }: {
@@ -73,13 +96,23 @@ export default async function MailLayout({
 
   const userEmails = await getUserEmails(session.user.id);
 
-  const [screenerCount, imboxUnreadCount, scheduledCount, followUpCount] =
-    await Promise.all([
-      getScreenerCount(session.user.id, userEmails),
-      getImboxUnreadCount(session.user.id),
-      getScheduledCount(session.user.id),
-      getFollowUpCount(session.user.id),
-    ]);
+  const [
+    screenerCount,
+    imboxUnreadCount,
+    scheduledCount,
+    followUpCount,
+    feedUnreadCount,
+    paperTrailUnreadCount,
+    badgePreferences,
+  ] = await Promise.all([
+    getScreenerCount(session.user.id, userEmails),
+    getImboxUnreadCount(session.user.id),
+    getScheduledCount(session.user.id),
+    getFollowUpCount(session.user.id),
+    getFeedUnreadCount(session.user.id),
+    getPaperTrailUnreadCount(session.user.id),
+    getCachedBadgePreferences(session.user.id),
+  ]);
 
   return (
     <Providers>
@@ -89,12 +122,18 @@ export default async function MailLayout({
           imboxUnreadCount={imboxUnreadCount}
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
+          feedUnreadCount={feedUnreadCount}
+          paperTrailUnreadCount={paperTrailUnreadCount}
+          badgePreferences={badgePreferences}
         />
         <MobileSidebar
           screenerCount={screenerCount}
           imboxUnreadCount={imboxUnreadCount}
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
+          feedUnreadCount={feedUnreadCount}
+          paperTrailUnreadCount={paperTrailUnreadCount}
+          badgePreferences={badgePreferences}
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />

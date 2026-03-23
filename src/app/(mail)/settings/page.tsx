@@ -18,6 +18,8 @@ import {
 import { DisplayNameField } from "@/components/settings/display-name-field";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
+import { BadgePreferencesSettings } from "@/components/settings/badge-preferences";
+import { getBadgePreferences } from "@/actions/badge-preferences";
 
 interface StorageRow {
   name: string;
@@ -104,7 +106,8 @@ export default async function SettingsPage() {
   const userId = session.user.id;
   const isAdmin = session.user.role === "ADMIN";
 
-  const [user, rawConnections, rawPasskeys, systemSettings] = await Promise.all([
+  const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs] =
+    await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: {
@@ -147,6 +150,7 @@ export default async function SettingsPage() {
       },
     }),
     db.systemSettings.findUnique({ where: { id: "singleton" } }),
+    getBadgePreferences(userId),
   ]);
 
   const canManageConnections =
@@ -235,6 +239,14 @@ export default async function SettingsPage() {
         <h2 className="text-lg font-medium">Notifications</h2>
         <div className="mt-4 rounded-lg border bg-card p-4">
           <NotificationSettings />
+        </div>
+      </section>
+
+      {/* Badge preferences */}
+      <section>
+        <h2 className="text-lg font-medium">Badge preferences</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <BadgePreferencesSettings initialPrefs={badgePrefs} />
         </div>
       </section>
     </div>

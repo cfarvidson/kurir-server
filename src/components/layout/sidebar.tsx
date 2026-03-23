@@ -12,12 +12,20 @@ import { Button } from "@/components/ui/button";
 import { navigation } from "./navigation";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
 import { useSync } from "@/hooks/useSync";
+import {
+  type BadgePreferences,
+  badgeKeyToPref,
+  defaultBadgePreferences,
+} from "./navigation";
 
 interface SidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
   scheduledCount?: number;
   followUpCount?: number;
+  feedUnreadCount?: number;
+  paperTrailUnreadCount?: number;
+  badgePreferences?: BadgePreferences;
 }
 
 /**
@@ -35,6 +43,9 @@ export function Sidebar({
   imboxUnreadCount = 0,
   scheduledCount = 0,
   followUpCount = 0,
+  feedUnreadCount = 0,
+  paperTrailUnreadCount = 0,
+  badgePreferences = defaultBadgePreferences,
 }: SidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
@@ -53,13 +64,22 @@ export function Sidebar({
   // Reset deltas when server props change (router.refresh() completed)
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount, scheduledCount, followUpCount]);
+  }, [
+    screenerCount,
+    imboxUnreadCount,
+    scheduledCount,
+    followUpCount,
+    feedUnreadCount,
+    paperTrailUnreadCount,
+  ]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
     scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
     followUp: Math.max(0, followUpCount + (deltas.followUp ?? 0)),
+    feed: Math.max(0, feedUnreadCount + (deltas.feed ?? 0)),
+    paperTrail: Math.max(0, paperTrailUnreadCount + (deltas.paperTrail ?? 0)),
   };
 
   return (
@@ -107,7 +127,9 @@ export function Sidebar({
             >
               <item.icon className="h-5 w-5" />
               <span className="flex-1">{item.name}</span>
-              {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
+              {item.badgeKey &&
+                badgeCounts[item.badgeKey] > 0 &&
+                badgePreferences[badgeKeyToPref[item.badgeKey]] !== false && (
                 <span
                   className={cn(
                     "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",

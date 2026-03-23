@@ -9,13 +9,21 @@ import { cn } from "@/lib/utils";
 import { Menu, X, Settings, PenSquare, LogOut, Keyboard } from "lucide-react";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
-import { navigation } from "./navigation";
+import {
+  navigation,
+  type BadgePreferences,
+  badgeKeyToPref,
+  defaultBadgePreferences,
+} from "./navigation";
 
 interface MobileSidebarProps {
   screenerCount?: number;
   imboxUnreadCount?: number;
   scheduledCount?: number;
   followUpCount?: number;
+  feedUnreadCount?: number;
+  paperTrailUnreadCount?: number;
+  badgePreferences?: BadgePreferences;
 }
 
 export function MobileSidebar({
@@ -23,6 +31,9 @@ export function MobileSidebar({
   imboxUnreadCount = 0,
   scheduledCount = 0,
   followUpCount = 0,
+  feedUnreadCount = 0,
+  paperTrailUnreadCount = 0,
+  badgePreferences = defaultBadgePreferences,
 }: MobileSidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
@@ -41,13 +52,22 @@ export function MobileSidebar({
   // Reset deltas when server props change
   useEffect(() => {
     setDeltas({});
-  }, [screenerCount, imboxUnreadCount, scheduledCount, followUpCount]);
+  }, [
+    screenerCount,
+    imboxUnreadCount,
+    scheduledCount,
+    followUpCount,
+    feedUnreadCount,
+    paperTrailUnreadCount,
+  ]);
 
   const badgeCounts: Record<string, number> = {
     imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
     screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
     scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
     followUp: Math.max(0, followUpCount + (deltas.followUp ?? 0)),
+    feed: Math.max(0, feedUnreadCount + (deltas.feed ?? 0)),
+    paperTrail: Math.max(0, paperTrailUnreadCount + (deltas.paperTrail ?? 0)),
   };
 
   // Hide hamburger on detail/sub-pages that have their own back button
@@ -164,7 +184,10 @@ export function MobileSidebar({
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="flex-1">{item.name}</span>
-                      {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
+                      {item.badgeKey &&
+                        badgeCounts[item.badgeKey] > 0 &&
+                        badgePreferences[badgeKeyToPref[item.badgeKey]] !==
+                          false && (
                         <span
                           className={cn(
                             "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",

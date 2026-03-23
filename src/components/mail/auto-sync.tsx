@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { refreshSidebarCounts } from "@/actions/sidebar";
 
 interface SyncResultData {
   newMessages: number;
@@ -56,7 +57,10 @@ export function AutoSync() {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        routerRef.current.refresh();
+        void (async () => {
+          await refreshSidebarCounts();
+          routerRef.current.refresh();
+        })();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -67,19 +71,28 @@ export function AutoSync() {
   // SSE: realtime updates from IDLE
   useEffect(() => {
     const es = new EventSource("/api/mail/events");
-    const handleEvent = () => routerRef.current.refresh();
-    es.addEventListener("new-messages", handleEvent);
-    es.addEventListener("flags-changed", handleEvent);
-    es.addEventListener("message-deleted", handleEvent);
+    const handleEvent = async () => {
+      await refreshSidebarCounts();
+      routerRef.current.refresh();
+    };
+    es.addEventListener("new-messages", () => void handleEvent());
+    es.addEventListener("flags-changed", () => void handleEvent());
+    es.addEventListener("message-deleted", () => void handleEvent());
 
     es.addEventListener("scheduled-sent", () => {
       toast.success("Scheduled message sent");
-      routerRef.current.refresh();
+      void (async () => {
+        await refreshSidebarCounts();
+        routerRef.current.refresh();
+      })();
     });
     es.addEventListener("scheduled-failed", (e) => {
       const data = JSON.parse((e as MessageEvent).data);
       toast.error("Scheduled send failed: " + data.error);
-      routerRef.current.refresh();
+      void (async () => {
+        await refreshSidebarCounts();
+        routerRef.current.refresh();
+      })();
     });
 
     es.onerror = () => console.warn("[sse] reconnecting...");

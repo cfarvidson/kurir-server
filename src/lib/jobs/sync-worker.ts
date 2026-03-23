@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 import { pushToUser } from "@/lib/mail/push-sender";
 import { connectionManager } from "@/lib/mail/connection-manager";
-import { sseSubscribers } from "@/lib/mail/sse-subscribers";
+import { sseSubscribers, emitToUser } from "@/lib/mail/sse-subscribers";
 import { redisConnection, SYNC_QUEUE, getSyncQueue } from "./queue";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
@@ -85,12 +85,23 @@ async function processSyncJob(job: Job<SyncJobData>): Promise<void> {
       log,
     );
 
-    // Send push notifications for new Imbox messages
-    const totalNew = result.results
+    // Emit SSE for any new messages across all folders
+    const totalNewAll = result.results.reduce(
+      (sum, r) => sum + r.newMessages,
+      0,
+    );
+    if (totalNewAll > 0) {
+      emitToUser(userId, {
+        type: "new-messages",
+        data: { folderId: emailConnectionId, count: totalNewAll },
+      });
+    }
+
+    // Send push notifications only for new Imbox messages
+    const totalNewInbox = result.results
       .filter((r) => r.folderPath === "INBOX")
       .reduce((sum, r) => sum + r.newMessages, 0);
-
-    if (totalNew > 0) {
+    if (totalNewInbox > 0) {
       await sendPushForNewMessages(userId);
     }
   } catch (err) {

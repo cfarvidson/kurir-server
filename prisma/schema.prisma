@@ -26,6 +26,14 @@ model User {
   timezone    String  @default("UTC")
   role        Role    @default(USER)
 
+  // Badge preferences (which sidebar badges to show)
+  showImboxBadge      Boolean @default(true)
+  showScreenerBadge   Boolean @default(true)
+  showFeedBadge       Boolean @default(true)
+  showPaperTrailBadge Boolean @default(true)
+  showFollowUpBadge   Boolean @default(true)
+  showScheduledBadge  Boolean @default(true)
+
   // Relations
   passkeys          Passkey[]
   emailConnections  EmailConnection[]
