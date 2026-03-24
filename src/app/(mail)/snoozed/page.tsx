@@ -78,6 +78,7 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
       basePath="/snoozed"
       showSnoozeAction
       showSnoozedUntil
+      showFollowUpAction
       showSelectionToggle
       showArchiveAction={true}
     />

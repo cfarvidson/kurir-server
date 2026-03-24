@@ -26,6 +26,7 @@ interface InfiniteMessageListProps {
   showSnoozeAction?: boolean;
   showSelectionToggle?: boolean;
   showSnoozedUntil?: boolean;
+  showFollowUpAction?: boolean;
 }
 
 export function InfiniteMessageList({
@@ -39,6 +40,7 @@ export function InfiniteMessageList({
   showSnoozeAction = false,
   showSelectionToggle = false,
   showSnoozedUntil = false,
+  showFollowUpAction = false,
 }: InfiniteMessageListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -207,6 +209,7 @@ export function InfiniteMessageList({
           showUnarchiveAction={showUnarchiveAction}
           showSnoozeAction={showSnoozeAction}
           showSnoozedUntil={showSnoozedUntil}
+          showFollowUpAction={showFollowUpAction}
           onArchived={handleArchived}
           isSelectionMode={isSelectionMode}
           isSelected={selectedIds.has(threadKey)}
@@ -244,6 +247,7 @@ export function InfiniteMessageList({
       onArchived={handleArchived}
       onToggleSelect={toggleSelection}
       showSnoozeAction={showSnoozeAction}
+      showFollowUpAction={showFollowUpAction}
     />
   );
 

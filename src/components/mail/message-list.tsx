@@ -6,12 +6,15 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ArchiveRestore, AlarmClock, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import { Archive, ArchiveRestore, AlarmClock, Bell, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
+import { setFollowUp } from "@/actions/follow-up";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
+import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
+import { toast } from "sonner";
 
 export interface MessageItem {
   id: string;
@@ -25,6 +28,8 @@ export interface MessageItem {
   threadId?: string | null;
   threadCount?: number;
   snoozedUntil?: Date | null;
+  followUpAt?: Date | null;
+  isFollowUp?: boolean;
   sender?: {
     displayName: string | null;
     email: string;
@@ -38,6 +43,7 @@ interface MessageListProps {
   showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
+  showFollowUpAction?: boolean;
 }
 
 export function MessageList({
@@ -47,6 +53,7 @@ export function MessageList({
   showUnarchiveAction = false,
   showSnoozeAction = false,
   showSnoozedUntil = false,
+  showFollowUpAction = false,
 }: MessageListProps) {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
@@ -74,6 +81,7 @@ export function MessageList({
               showUnarchiveAction={showUnarchiveAction}
               showSnoozeAction={showSnoozeAction}
               showSnoozedUntil={showSnoozedUntil}
+              showFollowUpAction={showFollowUpAction}
               onArchived={handleArchived}
             />
           </motion.div>
@@ -90,6 +98,7 @@ export function MessageRow({
   showUnarchiveAction,
   showSnoozeAction,
   showSnoozedUntil,
+  showFollowUpAction,
   onArchived,
   isSelectionMode,
   isSelected,
@@ -102,6 +111,7 @@ export function MessageRow({
   showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
+  showFollowUpAction?: boolean;
   onArchived?: (messageId?: string) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -110,6 +120,7 @@ export function MessageRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const isDragging = useRef(false);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -129,6 +140,18 @@ export function MessageRow({
     };
     window.addEventListener("keyboard-snooze", handler);
     return () => window.removeEventListener("keyboard-snooze", handler);
+  }, [message.id]);
+
+  // Listen for keyboard-triggered follow-up
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.messageId === message.id) {
+        setFollowUpOpen(true);
+      }
+    };
+    window.addEventListener("keyboard-follow-up", handler);
+    return () => window.removeEventListener("keyboard-follow-up", handler);
   }, [message.id]);
 
   const doArchive = () => {
@@ -178,6 +201,23 @@ export function MessageRow({
     onArchived?.(message.id);
     startTransition(async () => {
       await snoozeConversation(message.id, until);
+      router.refresh();
+    });
+  };
+
+  const handleFollowUp = (until: Date) => {
+    // On the follow-up page, rescheduling removes the message from the list
+    if (basePath === "/follow-up") {
+      onArchived?.(message.id);
+    }
+    const diffDays = Math.ceil(
+      (until.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+    );
+    toast.success(
+      `Following up ${diffDays === 1 ? "tomorrow" : `in ${diffDays} days`}`,
+    );
+    startTransition(async () => {
+      await setFollowUp(message.id, until);
       router.refresh();
     });
   };
@@ -288,12 +328,31 @@ export function MessageRow({
       </div>
 
       {/* Hover action buttons — hidden on mobile (swipe replaces them), hover-reveal on desktop */}
-      {(showArchiveAction || showUnarchiveAction || showSnoozeAction) && !isSelectionMode && (
+      {(showArchiveAction || showUnarchiveAction || showSnoozeAction || showFollowUpAction) && !isSelectionMode && (
         <div
           className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onPointerDown={(e) => e.stopPropagation()}
         >
+          {showFollowUpAction && (
+            <FollowUpPicker
+              onFollowUp={handleFollowUp}
+              isPending={isPending}
+              side="bottom"
+              align="end"
+              trigger={
+                <button
+                  className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title="Follow up"
+                >
+                  <Bell className={cn("h-4 w-4", message.followUpAt && "text-amber-500")} />
+                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                    F
+                  </kbd>
+                </button>
+              }
+            />
+          )}
           {showSnoozeAction && (
             <SnoozePicker
               onSnooze={handleSnooze}
@@ -357,6 +416,19 @@ export function MessageRow({
           open={snoozeOpen}
           onOpenChange={setSnoozeOpen}
           trigger={<span className="sr-only">Snooze</span>}
+        />
+      )}
+
+      {/* Controlled FollowUpPicker for keyboard trigger — lazy-mounted */}
+      {showFollowUpAction && !isSelectionMode && followUpOpen && (
+        <FollowUpPicker
+          onFollowUp={handleFollowUp}
+          isPending={isPending}
+          side="bottom"
+          align="center"
+          open={followUpOpen}
+          onOpenChange={setFollowUpOpen}
+          trigger={<span className="sr-only">Follow up</span>}
         />
       )}
     </>

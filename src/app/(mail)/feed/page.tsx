@@ -100,6 +100,7 @@ async function PaginatedFeed({ userId }: { userId: string }) {
       showSections={true}
       showArchiveAction={true}
       showSnoozeAction={true}
+      showFollowUpAction={true}
       showSelectionToggle={true}
     />
   );

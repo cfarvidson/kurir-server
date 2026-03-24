@@ -18,6 +18,7 @@ const listShortcuts: ShortcutEntry[] = [
   { keys: ["Enter"], description: "Open conversation" },
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
+  { keys: ["f"], description: "Follow up" },
   { keys: ["x"], description: "Select / deselect" },
   { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["/"], description: "Search" },
@@ -48,6 +49,7 @@ const navigationShortcuts: ShortcutEntry[] = [
   { keys: ["g", "s"], description: "Sent", mode: "sequence" },
   { keys: ["g", "a"], description: "Archive", mode: "sequence" },
   { keys: ["g", "n"], description: "Screener", mode: "sequence" },
+  { keys: ["g", "u"], description: "Follow Up", mode: "sequence" },
 ];
 
 const screenerShortcuts: ShortcutEntry[] = [
@@ -64,6 +66,7 @@ const screenerShortcuts: ShortcutEntry[] = [
 const sharedShortcuts: ShortcutEntry[] = [
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
+  { keys: ["f"], description: "Follow up" },
   { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["Cmd", "K"], description: "Command palette", mode: "combo" },
   { keys: ["?"], description: "Keyboard shortcuts" },
@@ -199,6 +202,7 @@ const GOTO_MAP: Record<string, string> = {
   s: "/sent",
   a: "/archive",
   n: "/screener",
+  u: "/follow-up",
 };
 
 const GOTO_TIMEOUT = 1000;

@@ -77,6 +77,7 @@ async function PaginatedFollowUp({ userId }: { userId: string }) {
       basePath="/follow-up"
       showSelectionToggle
       showArchiveAction
+      showFollowUpAction
     />
   );
 }

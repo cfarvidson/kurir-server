@@ -238,7 +238,7 @@ export default async function SentPage({
               </div>
             )}
             {messages.length > 0 && (
-              <MessageList messages={messages} basePath="/sent" />
+              <MessageList messages={messages} basePath="/sent" showFollowUpAction />
             )}
           </div>
         )}

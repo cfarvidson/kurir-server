@@ -169,6 +169,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       id: "go-follow-up",
       label: "Go to Follow Up",
       icon: <Bell className="h-4 w-4" />,
+      shortcut: ["G", "U"],
       group: "navigation",
       onSelect: () => go("/follow-up"),
     },
@@ -212,6 +213,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         close();
         window.dispatchEvent(
           new KeyboardEvent("keydown", { key: "s", bubbles: true }),
+        );
+      },
+    },
+    {
+      id: "follow-up",
+      label: "Follow up on conversation",
+      icon: <Bell className="h-4 w-4" />,
+      shortcut: ["F"],
+      group: "actions",
+      when: (p) => isListingPath(p) || isThreadPath(p),
+      onSelect: () => {
+        close();
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "f", bubbles: true }),
         );
       },
     },

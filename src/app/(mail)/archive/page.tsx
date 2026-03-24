@@ -75,6 +75,7 @@ async function PaginatedArchive({ userId }: { userId: string }) {
       category="archive"
       basePath="/archive"
       showUnarchiveAction
+      showFollowUpAction
       showSelectionToggle
     />
   );
