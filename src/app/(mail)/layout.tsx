@@ -10,7 +10,6 @@ import { Toaster } from "sonner";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { unstable_cache } from "next/cache";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { getBadgePreferences } from "@/actions/badge-preferences";
 
@@ -28,61 +27,6 @@ async function getUserEmails(userId: string): Promise<string[]> {
     ),
   ];
 }
-
-const getScreenerCount = unstable_cache(
-  async (userId: string, excludedEmails: string[]) =>
-    db.sender.count({
-      where: visiblePendingSenderWhere(
-        userId,
-        excludedEmails.length > 0 ? excludedEmails : null,
-      ),
-    }),
-  ["screener-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getImboxUnreadCount = unstable_cache(
-  async (userId: string) =>
-    db.message.count({ where: { userId, isInImbox: true, isRead: false } }),
-  ["imbox-unread-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getScheduledCount = unstable_cache(
-  async (userId: string) =>
-    db.scheduledMessage.count({ where: { userId, status: "PENDING" } }),
-  ["scheduled-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getFollowUpCount = unstable_cache(
-  async (userId: string) =>
-    db.message.count({ where: { userId, isFollowUp: true } }),
-  ["follow-up-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getFeedUnreadCount = unstable_cache(
-  async (userId: string) =>
-    db.message.count({ where: { userId, isInFeed: true, isRead: false } }),
-  ["feed-unread-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getPaperTrailUnreadCount = unstable_cache(
-  async (userId: string) =>
-    db.message.count({
-      where: { userId, isInPaperTrail: true, isRead: false },
-    }),
-  ["paper-trail-unread-count"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
-
-const getCachedBadgePreferences = unstable_cache(
-  getBadgePreferences,
-  ["badge-preferences"],
-  { tags: ["sidebar-counts"], revalidate: 30 },
-);
 
 export default async function MailLayout({
   children,
@@ -106,13 +50,28 @@ export default async function MailLayout({
     paperTrailUnreadCount,
     badgePreferences,
   ] = await Promise.all([
-    getScreenerCount(session.user.id, userEmails),
-    getImboxUnreadCount(session.user.id),
-    getScheduledCount(session.user.id),
-    getFollowUpCount(session.user.id),
-    getFeedUnreadCount(session.user.id),
-    getPaperTrailUnreadCount(session.user.id),
-    getCachedBadgePreferences(session.user.id),
+    db.sender.count({
+      where: visiblePendingSenderWhere(
+        session.user.id,
+        userEmails.length > 0 ? userEmails : null,
+      ),
+    }),
+    db.message.count({
+      where: { userId: session.user.id, isInImbox: true, isRead: false },
+    }),
+    db.scheduledMessage.count({
+      where: { userId: session.user.id, status: "PENDING" },
+    }),
+    db.message.count({
+      where: { userId: session.user.id, isFollowUp: true },
+    }),
+    db.message.count({
+      where: { userId: session.user.id, isInFeed: true, isRead: false },
+    }),
+    db.message.count({
+      where: { userId: session.user.id, isInPaperTrail: true, isRead: false },
+    }),
+    getBadgePreferences(session.user.id),
   ]);
 
   return (
