@@ -73,6 +73,7 @@ export function AutoSync() {
     const es = new EventSource("/api/mail/events");
     const handleEvent = async () => {
       await refreshSidebarCounts();
+      queryClient.invalidateQueries({ queryKey: ["sync-status"] });
       routerRef.current.refresh();
     };
     es.addEventListener("new-messages", () => void handleEvent());

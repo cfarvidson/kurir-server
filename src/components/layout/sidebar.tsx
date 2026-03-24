@@ -103,7 +103,11 @@ export function Sidebar({
         <KurirLogo className="h-8 w-8" />
         <span className="text-xl font-semibold">Kurir</span>
         <div className="ml-auto">
-          <SyncStatusIndicator status={syncState.status} />
+          <SyncStatusIndicator
+            status={syncState.status}
+            lastSyncTime={syncState.lastSyncTime}
+            errorMessage={syncState.errorMessage}
+          />
         </div>
       </div>
 
