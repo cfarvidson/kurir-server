@@ -25,6 +25,7 @@ model User {
   displayName String?
   timezone    String  @default("UTC")
   role        Role    @default(USER)
+  theme       String  @default("system") // "light", "dark", or "system"
 
   // Badge preferences (which sidebar badges to show)
   showImboxBadge      Boolean @default(true)

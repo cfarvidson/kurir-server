@@ -49,6 +49,7 @@ export default async function MailLayout({
     feedUnreadCount,
     paperTrailUnreadCount,
     badgePreferences,
+    userTheme,
   ] = await Promise.all([
     db.sender.count({
       where: visiblePendingSenderWhere(
@@ -72,10 +73,16 @@ export default async function MailLayout({
       where: { userId: session.user.id, isInPaperTrail: true, isRead: false },
     }),
     getBadgePreferences(session.user.id),
+    db.user
+      .findUnique({
+        where: { id: session.user.id },
+        select: { theme: true },
+      })
+      .then((u) => u?.theme ?? "system"),
   ]);
 
   return (
-    <Providers>
+    <Providers defaultTheme={userTheme} userId={session.user.id}>
       <div className="flex h-screen h-dvh">
         <Sidebar
           screenerCount={screenerCount}

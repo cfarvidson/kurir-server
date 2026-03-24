@@ -19,6 +19,7 @@ import { DisplayNameField } from "@/components/settings/display-name-field";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BadgePreferencesSettings } from "@/components/settings/badge-preferences";
+import { ThemeSettings } from "@/components/settings/theme-settings";
 import { getBadgePreferences } from "@/actions/badge-preferences";
 
 interface StorageRow {
@@ -239,6 +240,14 @@ export default async function SettingsPage() {
         <h2 className="text-lg font-medium">Notifications</h2>
         <div className="mt-4 rounded-lg border bg-card p-4">
           <NotificationSettings />
+        </div>
+      </section>
+
+      {/* Appearance */}
+      <section>
+        <h2 className="text-lg font-medium">Appearance</h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <ThemeSettings />
         </div>
       </section>
 
