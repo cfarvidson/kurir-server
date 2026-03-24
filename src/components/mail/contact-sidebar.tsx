@@ -1,36 +1,10 @@
 import Link from "next/link";
-import {
-  Mail,
-  Calendar,
-  Inbox,
-  Newspaper,
-  Receipt,
-  ExternalLink,
-} from "lucide-react";
+import { Mail, Calendar, ExternalLink } from "lucide-react";
 import {
   getContactContext,
   getThreadRoute,
 } from "@/lib/mail/contact-context";
-
-const categoryConfig = {
-  IMBOX: {
-    label: "Imbox",
-    icon: Inbox,
-    color: "text-primary bg-primary/10",
-  },
-  FEED: {
-    label: "Feed",
-    icon: Newspaper,
-    color:
-      "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
-  },
-  PAPER_TRAIL: {
-    label: "Paper Trail",
-    icon: Receipt,
-    color:
-      "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30",
-  },
-} as const;
+import { CategoryPicker } from "@/components/mail/category-picker";
 
 function getInitialColor(str: string): string {
   const palettes = [
@@ -88,9 +62,6 @@ export async function ContactSidebar({
 
   const name =
     context.sender?.displayName || contactEmail.split("@")[0];
-  const cat = context.sender?.category
-    ? categoryConfig[context.sender.category]
-    : null;
 
   return (
     <div className="hidden w-[280px] shrink-0 border-l lg:block">
@@ -112,13 +83,12 @@ export async function ContactSidebar({
 
         {/* Category badge and stats */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {cat ? (
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cat.color}`}
-            >
-              <cat.icon className="h-3 w-3" />
-              {cat.label}
-            </span>
+          {context.sender?.status === "APPROVED" &&
+          context.sender.category ? (
+            <CategoryPicker
+              senderId={context.sender.id}
+              currentCategory={context.sender.category}
+            />
           ) : context.sender?.status === "PENDING" ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
               Awaiting decision
