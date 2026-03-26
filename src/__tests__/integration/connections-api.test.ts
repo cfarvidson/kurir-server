@@ -47,7 +47,7 @@ vi.mock("@/lib/mail/imap-verify", () => ({
 function makeRequest(
   method: string,
   body?: unknown,
-  cookies?: Record<string, string>
+  cookies?: Record<string, string>,
 ): Request {
   const req = new Request("http://localhost/api/connections", {
     method,
@@ -200,7 +200,9 @@ describe("POST /api/connections", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.emailConnection.findFirst).mockResolvedValue(null); // no duplicate
     vi.mocked(db.emailConnection.count).mockResolvedValue(0); // first connection
-    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
     vi.mocked(db.emailConnection.create).mockResolvedValue({
       id: "conn-1",
       email: "me@gmail.com",
@@ -231,7 +233,7 @@ describe("POST /api/connections", () => {
     expect(db.emailConnection.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ isDefault: true }),
-      })
+      }),
     );
   });
 
@@ -245,7 +247,9 @@ describe("POST /api/connections", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.emailConnection.findFirst).mockResolvedValue(null);
     vi.mocked(db.emailConnection.count).mockResolvedValue(0);
-    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
     vi.mocked(db.emailConnection.create).mockResolvedValue({
       id: "conn-1",
       email: "me@gmail.com",
@@ -277,7 +281,7 @@ describe("POST /api/connections", () => {
         data: expect.objectContaining({
           encryptedPassword: "encrypted-password", // the mocked encrypted value
         }),
-      })
+      }),
     );
     // Plain password should not be in the create call
     const createCall = vi.mocked(db.emailConnection.create).mock.calls[0][0];
@@ -294,7 +298,9 @@ describe("POST /api/connections", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.emailConnection.findFirst).mockResolvedValue(null);
     vi.mocked(db.emailConnection.count).mockResolvedValue(1); // not first
-    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.emailConnection.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
     vi.mocked(db.emailConnection.create).mockResolvedValue({
       id: "conn-2",
       email: "work@example.com",
@@ -336,7 +342,9 @@ describe("DELETE /api/connections/[id]", () => {
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
-    const response = await DELETE(req as any, { params: Promise.resolve({ id: "conn-1" }) });
+    const response = await DELETE(req as any, {
+      params: Promise.resolve({ id: "conn-1" }),
+    });
 
     expect(response.status).toBe(401);
   });
@@ -348,7 +356,9 @@ describe("DELETE /api/connections/[id]", () => {
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
-    const response = await DELETE(req as any, { params: Promise.resolve({ id: "other-conn" }) });
+    const response = await DELETE(req as any, {
+      params: Promise.resolve({ id: "other-conn" }),
+    });
 
     expect(response.status).toBe(404);
   });
@@ -377,7 +387,9 @@ describe("DELETE /api/connections/[id]", () => {
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
-    const response = await DELETE(req as any, { params: Promise.resolve({ id: "conn-1" }) });
+    const response = await DELETE(req as any, {
+      params: Promise.resolve({ id: "conn-1" }),
+    });
 
     expect(response.status).toBe(409);
     const body = await response.json();
@@ -409,7 +421,9 @@ describe("DELETE /api/connections/[id]", () => {
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
-    const response = await DELETE(req as any, { params: Promise.resolve({ id: "conn-1" }) });
+    const response = await DELETE(req as any, {
+      params: Promise.resolve({ id: "conn-1" }),
+    });
 
     expect(response.status).toBe(200);
     // Should have promoted the next connection
@@ -444,7 +458,9 @@ describe("DELETE /api/connections/[id]", () => {
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");
-    const response = await DELETE(req as any, { params: Promise.resolve({ id: "conn-2" }) });
+    const response = await DELETE(req as any, {
+      params: Promise.resolve({ id: "conn-2" }),
+    });
 
     expect(response.status).toBe(200);
     // Should NOT have called update (no promotion needed)

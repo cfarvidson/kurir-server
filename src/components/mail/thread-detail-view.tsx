@@ -74,8 +74,7 @@ export async function ThreadDetailView({
 
   const { messages, markedRead } = threadResult;
 
-  const targetMessage =
-    messages.find((m) => m.id === messageId) || messages[0];
+  const targetMessage = messages.find((m) => m.id === messageId) || messages[0];
   const userInfo = await getUserInfo(
     session.user.id,
     targetMessage.emailConnectionId,
@@ -142,18 +141,15 @@ export async function ThreadDetailView({
   );
   const contactEmail = firstExternalMessage
     ? firstExternalMessage.fromAddress.toLowerCase()
-    : messages[0].toAddresses.find(
-          (a) => !userEmails.has(a.toLowerCase()),
-        )?.toLowerCase() ||
+    : messages[0].toAddresses
+        .find((a) => !userEmails.has(a.toLowerCase()))
+        ?.toLowerCase() ||
       messages[0].toAddresses[0]?.toLowerCase() ||
       null;
 
   return (
     <div className="flex h-full flex-col">
-      <ThreadKeyboardHandler
-        messageId={messageId}
-        returnPath={returnPath}
-      />
+      <ThreadKeyboardHandler messageId={messageId} returnPath={returnPath} />
       {markedRead.length > 0 && <SidebarRefresh />}
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm md:px-6">

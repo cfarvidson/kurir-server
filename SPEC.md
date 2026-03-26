@@ -16,32 +16,33 @@ Rejected senders are silently ignored forever.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router, Turbopack) |
-| Language | TypeScript 5.7, strict mode |
-| React | React 19 |
-| Auth | NextAuth.js v5 beta, WebAuthn/passkeys (SimpleWebAuthn) |
-| ORM | Prisma 6 |
-| Database | PostgreSQL 16 |
-| IMAP | ImapFlow 1.0.171 |
-| SMTP | Nodemailer |
-| Email parsing | MailParser |
-| Styling | Tailwind CSS (HSL variables), shadcn/ui components (CVA) |
-| Icons | lucide-react |
-| Data fetching | TanStack React Query v5 |
-| State | Zustand v5 |
-| Animation | Framer Motion |
-| Validation | Zod |
-| HTML sanitization | DOMPurify |
-| Package manager | pnpm 9.15.0 |
-| Containerization | Docker + Docker Compose |
+| Layer             | Technology                                               |
+| ----------------- | -------------------------------------------------------- |
+| Framework         | Next.js 15 (App Router, Turbopack)                       |
+| Language          | TypeScript 5.7, strict mode                              |
+| React             | React 19                                                 |
+| Auth              | NextAuth.js v5 beta, WebAuthn/passkeys (SimpleWebAuthn)  |
+| ORM               | Prisma 6                                                 |
+| Database          | PostgreSQL 16                                            |
+| IMAP              | ImapFlow 1.0.171                                         |
+| SMTP              | Nodemailer                                               |
+| Email parsing     | MailParser                                               |
+| Styling           | Tailwind CSS (HSL variables), shadcn/ui components (CVA) |
+| Icons             | lucide-react                                             |
+| Data fetching     | TanStack React Query v5                                  |
+| State             | Zustand v5                                               |
+| Animation         | Framer Motion                                            |
+| Validation        | Zod                                                      |
+| HTML sanitization | DOMPurify                                                |
+| Package manager   | pnpm 9.15.0                                              |
+| Containerization  | Docker + Docker Compose                                  |
 
 ---
 
 ## Data Model
 
 ### User
+
 Identity-only model. No email credentials — those live on EmailConnection.
 
 ```
@@ -55,6 +56,7 @@ User
 ```
 
 ### Passkey (WebAuthn)
+
 Stores passkey credentials for passwordless login.
 
 ```
@@ -71,6 +73,7 @@ Passkey
 ```
 
 ### EmailConnection
+
 Per-user email account. A user can have multiple (e.g., personal + work). Each connection has its own IMAP/SMTP credentials, its own senders, folders, messages, and sync state.
 
 ```
@@ -90,6 +93,7 @@ EmailConnection
 ```
 
 ### Sender
+
 Represents an email sender (From address), scoped to an EmailConnection.
 
 ```
@@ -115,6 +119,7 @@ Sender
 ```
 
 ### Folder
+
 Cached IMAP mailbox metadata.
 
 ```
@@ -136,6 +141,7 @@ Folder
 ```
 
 ### Message
+
 Cached email with metadata, body content, and categorization flags.
 
 ```
@@ -183,6 +189,7 @@ Message
 Key indexes: by category + isRead, by threadId, by messageId, by senderId, by receivedAt desc.
 
 ### Attachment
+
 Metadata for IMAP attachments. Content is lazy-fetched from IMAP on demand.
 
 ```
@@ -198,6 +205,7 @@ Attachment
 ```
 
 ### SyncState
+
 Per-connection sync lock and status.
 
 ```
@@ -211,6 +219,7 @@ SyncState
 ```
 
 ### Session
+
 NextAuth JWT session storage.
 
 ```
@@ -222,6 +231,7 @@ Session
 ```
 
 ### Full-Text Search (not in Prisma)
+
 A `search_vector` tsvector column on Message, maintained by a PostgreSQL trigger. Not managed by Prisma — applied via a manual SQL migration (`prisma/migrations/search_vector.sql`).
 
 - Weights: subject (A) > fromName (B) > body text (C)
@@ -234,38 +244,47 @@ A `search_vector` tsvector column on Message, maintained by a PostgreSQL trigger
 ## Authentication
 
 ### Architecture Split
+
 The auth system is split into two files to accommodate Next.js edge runtime constraints:
 
 - **auth.config.ts** — Edge-safe. Contains JWT callbacks, session strategy config, custom pages. Used by middleware. Cannot import anything that uses Node.js `crypto`.
 - **auth.ts** — Full Node.js. Imports auth.config.ts and adds providers, DB adapter, etc.
 
 ### WebAuthn (Passkey) Authentication
+
 No passwords. Users register and login exclusively with passkeys (Touch ID, Face ID, security keys, etc.).
 
 **Registration flow:**
+
 1. `POST /api/auth/webauthn/register/options` — Generate registration challenge, store server-side in a challenge session (httpOnly cookie, 5-min TTL)
 2. Browser prompts user for biometric/security key
 3. `POST /api/auth/webauthn/register/verify` — Verify credential, create User + Passkey records, issue JWT session cookie
 4. Supports adding additional passkeys to existing user (`?addPasskey=true` param, requires existing session)
 
 **Login flow:**
+
 1. `POST /api/auth/webauthn/login/options` — Generate authentication challenge
 2. Browser prompts user for biometric/security key (supports conditional mediation / autofill)
 3. `POST /api/auth/webauthn/login/verify` — Verify credential + counter, update counter, issue JWT session cookie
 
 **Session management:**
+
 - JWT-based sessions stored in httpOnly cookies
 - 30-day expiration
 - Challenge sessions: 5-min TTL, single-use
 
 ### Encryption
+
 Email passwords are encrypted at rest using AES-256-GCM:
+
 - Key derived from `ENCRYPTION_KEY` env var via `scryptSync`
 - Format: `iv:authTag:encryptedData` (all base64)
 - Applied to `EmailConnection.encryptedPassword`
 
 ### Middleware
+
 Route protection via Next.js middleware:
+
 - Auth API routes (`/api/auth/*`) — always allowed
 - Login/register/setup pages — allowed for unauthenticated users; logged-in users redirected to `/imbox`
 - All other routes — require authentication, redirect to `/login` if not logged in
@@ -280,6 +299,7 @@ Route protection via Next.js middleware:
 Triggered by `POST /api/mail/sync` or CLI `pnpm sync-user`.
 
 **Process:**
+
 1. Acquire sync lock (atomic check: `isSyncing=false OR syncStartedAt > 5 min ago`)
 2. Connect to IMAP server via ImapFlow
 3. Discover/sync folders: INBOX, Sent, All-Mail (by specialUse flags)
@@ -297,6 +317,7 @@ Triggered by `POST /api/mail/sync` or CLI `pnpm sync-user`.
 7. Release sync lock
 
 **Message processing rules:**
+
 - Inbox messages from PENDING sender → `isInScreener = true`
 - Inbox messages from APPROVED sender → set category flag (`isInImbox`, `isInFeed`, or `isInPaperTrail`)
 - Inbox messages from REJECTED sender → all category flags false (hidden)
@@ -304,6 +325,7 @@ Triggered by `POST /api/mail/sync` or CLI `pnpm sync-user`.
 - All-Mail messages → skip if already synced from another folder (dedup by messageId)
 
 **Thread ID computation:**
+
 - Initial: first entry in References header, or In-Reply-To, or own Message-ID
 - Repair pass: `repairThreadIds()` walks chains to ensure all messages in a conversation share the same threadId
 
@@ -312,6 +334,7 @@ Triggered by `POST /api/mail/sync` or CLI `pnpm sync-user`.
 Persistent IMAP connections that listen for server-side changes.
 
 **Connection Manager (`connection-manager.ts`):**
+
 - GlobalThis singleton (survives Next.js HMR in dev)
 - One long-lived IMAP connection per EmailConnection
 - QRESYNC enabled for modseq tracking
@@ -320,11 +343,11 @@ Persistent IMAP connections that listen for server-side changes.
 
 **IDLE Event Handlers (`idle-handlers.ts`):**
 
-| Event | Trigger | Action |
-|-------|---------|--------|
-| `exists` | New message count increased | Fetch new UIDs, process messages, emit SSE |
-| `flags` | Read/unread/flagged change on server | Update DB flags, emit SSE |
-| `expunge` | Message deleted on server | Mark as deleted in DB |
+| Event     | Trigger                              | Action                                     |
+| --------- | ------------------------------------ | ------------------------------------------ |
+| `exists`  | New message count increased          | Fetch new UIDs, process messages, emit SSE |
+| `flags`   | Read/unread/flagged change on server | Update DB flags, emit SSE                  |
+| `expunge` | Message deleted on server            | Mark as deleted in DB                      |
 
 **Debouncing:** Rapid `exists` events debounced (200ms wait).
 
@@ -333,6 +356,7 @@ Persistent IMAP connections that listen for server-side changes.
 ### Flag Push (`flag-push.ts`)
 
 Bidirectional sync of read/unread/flagged status:
+
 - Tries persistent IDLE client first (via ConnectionManager)
 - Falls back to ephemeral IMAP connection
 - Pushes `\Seen`, `\Flagged` flags
@@ -343,6 +367,7 @@ Bidirectional sync of read/unread/flagged status:
 `GET /api/mail/events` — Real-time event stream.
 
 Events:
+
 - `new-messages` — New messages arrived (from IDLE)
 - `flags-changed` — Flag update on existing message
 - `message-deleted` — Message removed
@@ -354,6 +379,7 @@ Implementation: In-memory subscriber map (`userId → Set<callbacks>`). Single-p
 ## Categorization System
 
 ### Sender Lifecycle
+
 ```
 New email arrives from unknown sender
   → Sender created with status=PENDING
@@ -372,11 +398,13 @@ User rejects sender:
 ```
 
 ### Auto-behaviors
+
 - **Own email auto-approve:** Messages from the user's own email address are auto-approved as IMBOX
 - **Auto-reject on archive:** When archiving from Screener, if all of a PENDING sender's messages are now archived, the sender is auto-rejected (prevents re-appearance)
 - **Snooze wake-up:** On each sync, check for snoozed conversations past their `snoozedUntil` — unsnooze and mark unread
 
 ### Category Change
+
 When a sender's category changes, all their non-archived messages are moved to the new category in a single transaction.
 
 ---
@@ -386,24 +414,29 @@ When a sender's category changes, all their non-archived messages are moved to t
 All server actions follow this pattern: auth check → ownership verification → DB mutation (often `$transaction`) → cache invalidation (`revalidateTag("sidebar-counts")` + `revalidatePath`).
 
 ### Sender Actions (`src/actions/senders.ts`)
+
 - **`approveSender(senderId, category)`** — Set sender APPROVED + chosen category. Move all non-archived messages from Screener to the category.
 - **`rejectSender(senderId)`** — Set sender REJECTED. Hide all non-archived messages (all category flags false).
 - **`changeSenderCategory(senderId, category)`** — Requires sender already APPROVED. Move all non-archived messages to new category.
 
 ### Archive Actions (`src/actions/archive.ts`)
+
 - **`archiveConversation(messageId)`** — Find all thread messages. Move INBOX messages to Archive folder on IMAP server. Set `isArchived=true`, clear all category flags. Auto-reject fully-archived PENDING senders.
 - **`archiveConversations(messageIds)`** — Batch version. Groups by EmailConnection for IMAP operations.
 - **`unarchiveConversation(messageId)`** — Move Archive messages back to INBOX on IMAP. Restore category flags based on sender's current category.
 
 ### Snooze Actions (`src/actions/snooze.ts`)
+
 - **`snoozeConversation(messageId, until)`** — Set `isSnoozed=true`, `snoozedUntil=date`, `isRead=true` (user acknowledged, just deferred). Applies to all thread messages.
 - **`snoozeConversations(messageIds, until)`** — Batch version.
 - **`unsnoozeConversation(messageId)`** — Clear snooze, set `isRead=false` (resurfaces as unread).
 
 ### Reply Action (`src/actions/reply.ts`)
+
 - **`replyToMessage(messageId, body, to?)`** — Send reply via SMTP using the connection that received the message. Builds proper `In-Reply-To` and `References` headers. Creates a local sent message record (negative UID) for immediate display. Marks original as answered.
 
 ### Sidebar Action (`src/actions/sidebar.ts`)
+
 - **`refreshSidebarCounts()`** — Just calls `revalidateTag("sidebar-counts")`.
 
 ---
@@ -411,81 +444,92 @@ All server actions follow this pattern: auth check → ownership verification �
 ## API Routes
 
 ### Auth Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| * | `/api/auth/[...nextauth]` | NextAuth.js handler |
-| POST | `/api/auth/webauthn/register/options` | Generate registration challenge |
-| POST | `/api/auth/webauthn/register/verify` | Verify & create passkey |
-| POST | `/api/auth/webauthn/login/options` | Generate login challenge |
-| POST | `/api/auth/webauthn/login/verify` | Verify & authenticate |
-| GET/POST | `/api/auth/webauthn/passkeys/[id]` | List/manage passkeys |
+
+| Method   | Path                                  | Purpose                         |
+| -------- | ------------------------------------- | ------------------------------- |
+| \*       | `/api/auth/[...nextauth]`             | NextAuth.js handler             |
+| POST     | `/api/auth/webauthn/register/options` | Generate registration challenge |
+| POST     | `/api/auth/webauthn/register/verify`  | Verify & create passkey         |
+| POST     | `/api/auth/webauthn/login/options`    | Generate login challenge        |
+| POST     | `/api/auth/webauthn/login/verify`     | Verify & authenticate           |
+| GET/POST | `/api/auth/webauthn/passkeys/[id]`    | List/manage passkeys            |
 
 ### Email Connection Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/connections` | List user's email connections |
-| POST | `/api/connections` | Add new connection (verifies IMAP first) |
+
+| Method | Path               | Purpose                                  |
+| ------ | ------------------ | ---------------------------------------- |
+| GET    | `/api/connections` | List user's email connections            |
+| POST   | `/api/connections` | Add new connection (verifies IMAP first) |
 
 ### Message Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/messages` | Fetch messages by category, cursor-based pagination |
+
+| Method | Path            | Purpose                                             |
+| ------ | --------------- | --------------------------------------------------- |
+| GET    | `/api/messages` | Fetch messages by category, cursor-based pagination |
 
 Query params: `category` (imbox/feed/paper-trail/archive/snoozed), `cursor`, `limit`
 
 ### Mail Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/mail/sync` | Trigger email sync |
-| POST | `/api/mail/send` | Send new email |
-| GET | `/api/mail/events` | SSE stream for real-time updates |
+
+| Method | Path               | Purpose                          |
+| ------ | ------------------ | -------------------------------- |
+| POST   | `/api/mail/sync`   | Trigger email sync               |
+| POST   | `/api/mail/send`   | Send new email                   |
+| GET    | `/api/mail/events` | SSE stream for real-time updates |
 
 Sync query params: `connectionId` (specific or all), `batchSize`, `resync` (force full resync)
 
 ### Attachment Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/attachments/[id]` | Lazy-fetch attachment content from IMAP |
+
+| Method | Path                    | Purpose                                 |
+| ------ | ----------------------- | --------------------------------------- |
+| GET    | `/api/attachments/[id]` | Lazy-fetch attachment content from IMAP |
 
 ### Contact Routes
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/contacts/search` | Search contacts by name/email |
+
+| Method | Path                   | Purpose                       |
+| ------ | ---------------------- | ----------------------------- |
+| GET    | `/api/contacts/search` | Search contacts by name/email |
 
 ---
 
 ## Pages & Routing
 
 ### Route Groups
+
 - **(auth)** — Unprotected pages for login, register, initial setup
 - **(mail)** — Protected pages requiring authentication
 
 ### Auth Pages
-| Path | Description |
-|------|-------------|
-| `/login` | WebAuthn login (supports autofill / conditional mediation) |
-| `/register` | WebAuthn registration (create account with passkey) |
-| `/setup` | Initial setup after registration |
+
+| Path        | Description                                                |
+| ----------- | ---------------------------------------------------------- |
+| `/login`    | WebAuthn login (supports autofill / conditional mediation) |
+| `/register` | WebAuthn registration (create account with passkey)        |
+| `/setup`    | Initial setup after registration                           |
 
 ### Mail Pages
-| Path | Description |
-|------|-------------|
-| `/` | Redirects to `/imbox` |
-| `/imbox` | Main inbox — approved IMBOX senders |
-| `/feed` | Newsletters — approved FEED senders |
-| `/paper-trail` | Transactional — approved PAPER_TRAIL senders |
-| `/screener` | New/pending senders — approve or reject |
-| `/archive` | Archived conversations |
-| `/snoozed` | Snoozed conversations (with wake-up time) |
-| `/sent` | Sent messages |
-| `/contacts` | Contact list |
-| `/contacts/[id]` | Contact detail / thread history |
-| `/compose` | Compose new message |
-| `/settings` | Email connections + passkey management |
-| `/imbox/[id]` | Thread detail view (same for feed, paper-trail, archive, sent, snoozed) |
+
+| Path             | Description                                                             |
+| ---------------- | ----------------------------------------------------------------------- |
+| `/`              | Redirects to `/imbox`                                                   |
+| `/imbox`         | Main inbox — approved IMBOX senders                                     |
+| `/feed`          | Newsletters — approved FEED senders                                     |
+| `/paper-trail`   | Transactional — approved PAPER_TRAIL senders                            |
+| `/screener`      | New/pending senders — approve or reject                                 |
+| `/archive`       | Archived conversations                                                  |
+| `/snoozed`       | Snoozed conversations (with wake-up time)                               |
+| `/sent`          | Sent messages                                                           |
+| `/contacts`      | Contact list                                                            |
+| `/contacts/[id]` | Contact detail / thread history                                         |
+| `/compose`       | Compose new message                                                     |
+| `/settings`      | Email connections + passkey management                                  |
+| `/imbox/[id]`    | Thread detail view (same for feed, paper-trail, archive, sent, snoozed) |
 
 ### Mail Layout (`(mail)/layout.tsx`)
+
 Wraps all mail pages. Renders:
+
 - Desktop Sidebar (always visible)
 - Mobile Sidebar (collapsible)
 - AutoSync component (triggers periodic sync)
@@ -497,38 +541,46 @@ Wraps all mail pages. Renders:
 ## UI Components
 
 ### Message Display
+
 - **InfiniteMessageList** — Infinite scroll with cursor-based pagination via React Query. Each row shows: sender, subject, snippet, timestamp, unread indicator, attachment icon, thread count badge.
 - **MessageList** — Static list for search results (no pagination).
 - **ThreadPageContent** — Full thread view. Shows all messages in chronological order. Auto-marks unread messages as read on view. Includes reply composer at bottom.
 - **EmailBodyFrame** — Sandboxed iframe for rendering HTML email bodies. Uses DOMPurify to sanitize HTML (removes scripts, forms, dangerous handlers, data: URIs). Forces `target="_blank"` on all links. Supports collapsing quoted text.
 
 ### Sort Order
+
 Messages sorted by: unread first (isRead ASC), then newest first (receivedAt DESC), then by ID (DESC). Cursor encoding: `isRead_receivedAt_id`.
 
 ### Thread Collapsing
+
 In list views, messages are collapsed to one row per thread via `collapseToThreads()`. The representative message is the latest in the thread. If any message in the thread is unread, the row shows as unread. Thread count badge shows total messages.
 
 ### Screener
+
 - **ScreenerView** — Shows pending senders grouped. Each sender card shows: name, email, message count, latest message preview.
 - **ScreenedSenderList** — List of pending senders with approve (pick category) / reject buttons.
 
 ### Actions
+
 - **ArchiveButton** — Archive single conversation or batch selection.
 - **SnoozeButton** — Popover with time picker (later today, tomorrow, next week, custom date). Snoozes entire thread.
 - **ReplyComposer** — Text input + send button. Sends via `replyToMessage` server action.
 - **SelectionActionBar** — Appears when messages are selected. Batch archive, batch snooze.
 
 ### Sidebar
+
 - **Sidebar** — Desktop navigation. Shows all category links with unread count badges. Includes manual sync button.
 - **MobileSidebar** — Collapsible version for mobile viewports.
 - **SearchInput** — Full-text search. Navigates to search results within current category.
 
 ### Settings
+
 - **ConnectionCard** — Display email connection details (email, host, port, default status).
 - **PasskeysList** — List registered passkeys + add new passkey button.
 - **PasskeyCard** — Individual passkey with friendly name and delete option.
 
 ### Contacts
+
 - **ContactList** — List of known senders with search.
 - **ContactThreadList** — All conversations with a specific contact.
 
@@ -549,12 +601,15 @@ PostgreSQL full-text search via `search_vector` tsvector column.
 ## Sent Messages
 
 ### Sending
+
 Reply via `replyToMessage` server action → Nodemailer SMTP transport → creates local sent message.
 
 ### Local Sent Messages
+
 Sent replies are immediately persisted with a negative UID (`generateTempUid()` → random negative integer). This allows them to appear in the UI before the next IMAP sync reconciles them with the real server-side UID.
 
 ### Reconciliation
+
 On next IMAP sync of the Sent folder, the sync engine matches local messages (negative UID) to server messages by `messageId` header. The negative UID is updated to the real UID.
 
 ---
@@ -586,34 +641,39 @@ NODE_ENV              "development" or "production"
 
 ## CLI Scripts
 
-| Command | Script | Purpose |
-|---------|--------|---------|
-| `pnpm add-user` | `scripts/add-user.ts` | Create user + email connection. Verifies IMAP before saving. Supports provider presets (gmail, outlook, icloud, yahoo) or custom hosts. Interactive prompts if args missing. |
-| `pnpm sync-user` | `scripts/sync-user.ts` | Trigger IMAP sync for a user (by email) or all users (`--all`). Limits to 100 new messages per run. |
-| `pnpm list-users` | `scripts/list-users.ts` | Display all users. |
-| `pnpm migrate:passkey-auth` | `scripts/migrate-to-passkey-auth.ts` | Convert old credential-based sessions to passkey auth. |
+| Command                     | Script                               | Purpose                                                                                                                                                                      |
+| --------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm add-user`             | `scripts/add-user.ts`                | Create user + email connection. Verifies IMAP before saving. Supports provider presets (gmail, outlook, icloud, yahoo) or custom hosts. Interactive prompts if args missing. |
+| `pnpm sync-user`            | `scripts/sync-user.ts`               | Trigger IMAP sync for a user (by email) or all users (`--all`). Limits to 100 new messages per run.                                                                          |
+| `pnpm list-users`           | `scripts/list-users.ts`              | Display all users.                                                                                                                                                           |
+| `pnpm migrate:passkey-auth` | `scripts/migrate-to-passkey-auth.ts` | Convert old credential-based sessions to passkey auth.                                                                                                                       |
 
 ---
 
 ## Docker Setup
 
 ### docker-compose.yml
+
 Two services:
 
 **app** (Next.js):
+
 - Build target: `dev`
 - Port: 3000
 - Bind mount `.:/app` with anonymous volumes for `node_modules/` and `.next/`
 - Depends on postgres health check
 
 **postgres** (PostgreSQL 16 Alpine):
+
 - User: kurir, Password: kurir, DB: kurir
 - Port: 5432
 - Persistent volume: `postgres_data`
 - Health check: `pg_isready`
 
 ### Dockerfile
+
 Multi-stage: base → deps → dev / builder → runner.
+
 - Dev stage runs `pnpm dev` (Turbopack)
 - Requires `corepack prepare pnpm@9.15.0 --activate`
 - Requires `pnpm db:generate` after COPY
@@ -623,37 +683,48 @@ Multi-stage: base → deps → dev / builder → runner.
 ## Important Implementation Details
 
 ### ImapFlow Fetch Gotcha
+
 `client.fetch("256,255", {uid: true})` with comma-separated UIDs returns an empty iterator. Always use range format `"minUid:*"` and filter by desired UID set in the processing loop.
 
 ### Prisma + search_vector Coexistence
+
 Prisma ignores unknown columns. The `search_vector` column is added via raw SQL migration and coexists safely with `prisma db push`. However, `--force-reset` would drop it.
 
 ### Negative UID Convention
+
 - Positive UID = synced from IMAP server
 - Negative UID = locally created (sent replies, pending sync)
 - On sync, negative UIDs are reconciled by matching `messageId` headers
 
 ### Thread Repair
+
 After sync, `repairThreadIds()` walks In-Reply-To chains to ensure all messages in a conversation share the same threadId. This handles cases where messages arrive out of order or across different folders.
 
 ### Sent Message Categorization
+
 `processMessage` must check whether the message is from an inbox folder before setting categorization flags. Sent folder messages skip categorization entirely.
 
 ### Sync Lock
+
 Atomic check prevents concurrent syncs: `isSyncing = false OR syncStartedAt > 5 minutes ago`. Stale locks (from crashes) auto-clear after 5 minutes.
 
 ### Edge Runtime
+
 `middleware.ts` cannot import anything that uses Node.js `crypto`. The auth config is split specifically for this reason — `auth.config.ts` is edge-safe, `auth.ts` has full Node.js dependencies.
 
 ### Single-Process Constraint
+
 ConnectionManager (IDLE daemon), SSE subscriber registry, and echo suppression state all use in-memory data structures. They must run in the same Node.js process — no distributed worker support.
 
 ### Cache Invalidation Pattern
+
 After any mutation that changes message counts or visibility:
+
 1. `revalidateTag("sidebar-counts")` — refreshes sidebar badge counts
 2. `revalidatePath("/affected-page")` — refreshes page data for affected categories
 
 ### Multi-Tenant Security
+
 All database queries filter by `userId`. Server actions verify ownership before mutations. No cross-user data access is possible.
 
 ---

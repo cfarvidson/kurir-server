@@ -43,12 +43,12 @@ The route was built before knowing about ImapFlow's `client.download()` method, 
 
 ### Performance Impact (from research)
 
-| Metric | Current | After fix | Improvement |
-|---|---|---|---|
-| IMAP bytes transferred | ~10MB | ~50KB + 500B metadata | ~200x |
-| Peak memory per download | ~20MB | ~50KB (streaming) | ~400x |
-| CPU (simpleParser) | 200-500ms | 0ms | eliminated |
-| Total latency | 2-5s (LAN IMAP) | 50-100ms | 20-50x |
+| Metric                   | Current         | After fix             | Improvement |
+| ------------------------ | --------------- | --------------------- | ----------- |
+| IMAP bytes transferred   | ~10MB           | ~50KB + 500B metadata | ~200x       |
+| Peak memory per download | ~20MB           | ~50KB (streaming)     | ~400x       |
+| CPU (simpleParser)       | 200-500ms       | 0ms                   | eliminated  |
+| Total latency            | 2-5s (LAN IMAP) | 50-100ms              | 20-50x      |
 
 ### Approach: Fix partId at Sync Time (Simplified)
 
@@ -57,6 +57,7 @@ The route was built before knowing about ImapFlow's `client.download()` method, 
 The sync service already fetches `bodyStructure` (it's in the `msg` object passed to `processMessage`). Walk `msg.bodyStructure` during sync to extract the correct BODYSTRUCTURE part path for each attachment, and store that instead of the sequential index.
 
 This eliminates:
+
 - The entire `findPartId()` function (~30 lines)
 - The extra `fetchOne(bodyStructure)` IMAP call at download time
 - The duplicate-filename tiebreaker edge case
@@ -71,7 +72,7 @@ Add a helper to walk the bodyStructure tree and build a map of attachment part p
 ```typescript
 function extractAttachmentParts(
   node: any,
-  path: string = ""
+  path: string = "",
 ): Array<{ partId: string; type: string; filename: string; size: number }> {
   if (node.childNodes) {
     return node.childNodes.flatMap((child: any, i: number) => {
@@ -81,9 +82,12 @@ function extractAttachmentParts(
   }
   // Leaf node — check if it's an attachment
   const disposition = node.disposition?.toLowerCase();
-  const filename = node.dispositionParameters?.filename || node.parameters?.name || "";
+  const filename =
+    node.dispositionParameters?.filename || node.parameters?.name || "";
   if (disposition === "attachment" || (filename && disposition !== "inline")) {
-    return [{ partId: path || "1", type: node.type, filename, size: node.size || 0 }];
+    return [
+      { partId: path || "1", type: node.type, filename, size: node.size || 0 },
+    ];
   }
   return [];
 }
@@ -106,22 +110,27 @@ const partId = structureParts[index]?.partId ?? String(index + 1); // fallback f
 The route becomes trivially simple:
 
 ```typescript
-const content = await withImapConnection(message.emailConnectionId, async (client) => {
-  const mailbox = await client.getMailboxLock(message.folder.path);
-  try {
-    // Download only the specific MIME part (streams decoded content)
-    const { content: stream } = await client.download(
-      String(message.uid), attachment.partId, { uid: true }
-    );
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
+const content = await withImapConnection(
+  message.emailConnectionId,
+  async (client) => {
+    const mailbox = await client.getMailboxLock(message.folder.path);
+    try {
+      // Download only the specific MIME part (streams decoded content)
+      const { content: stream } = await client.download(
+        String(message.uid),
+        attachment.partId,
+        { uid: true },
+      );
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    } finally {
+      mailbox.release();
     }
-    return Buffer.concat(chunks);
-  } finally {
-    mailbox.release();
-  }
-});
+  },
+);
 ```
 
 > **Performance note:** For a future improvement, stream the response directly instead of buffering: `return new NextResponse(Readable.toWeb(stream))`. This brings memory from O(attachment_size) to O(chunk_size). Buffering is fine for v1.
@@ -130,7 +139,7 @@ const content = await withImapConnection(message.emailConnectionId, async (clien
 
 ```typescript
 // Download specific attachment (part '2') by UID
-const { meta, content } = await client.download('12345', '2', { uid: true });
+const { meta, content } = await client.download("12345", "2", { uid: true });
 // meta: { contentType, filename, expectedSize, encoding, charset }
 // content: Node.js Readable stream (auto-decoded from base64/quoted-printable)
 ```
@@ -165,6 +174,7 @@ const { meta, content } = await client.download('12345', '2', { uid: true });
 ### Problem
 
 Emails are rendered in a sandboxed iframe with `referrerPolicy="no-referrer"`, but all external images (`<img src="https://...">`) load directly from the sender's server. This exposes:
+
 - User's IP address
 - User-Agent string
 - The fact that the email was opened (tracking pixel purpose)
@@ -183,15 +193,13 @@ Emails are rendered in a sandboxed iframe with `referrerPolicy="no-referrer"`, b
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const BLOCKED_HOSTNAMES = new Set([
-  "localhost", "127.0.0.1", "::1", "0.0.0.0",
-]);
+const BLOCKED_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 const BLOCKED_SUFFIXES = [".local", ".internal", ".ts.net"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const TRANSPARENT_PIXEL = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAAlwSFlzAAAApgAAAKYB3X3/OAAAABJQREFUCB1jYGBg+A8EDAAEJgFNlT3VvQAAAABJRU5ErkJggg==",
-  "base64"
+  "base64",
 );
 
 function transparentPixelResponse() {
@@ -210,7 +218,8 @@ function isBlockedHostname(hostname: string): boolean {
   const parts = hostname.split(".").map(Number);
   if (parts.length === 4 && parts.every((p) => !isNaN(p))) {
     return (
-      parts[0] === 10 || parts[0] === 127 ||
+      parts[0] === 10 ||
+      parts[0] === 127 ||
       (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
       (parts[0] === 192 && parts[1] === 168) ||
       (parts[0] === 169 && parts[1] === 254)
@@ -253,8 +262,10 @@ export async function GET(req: NextRequest) {
       if (!location) return transparentPixelResponse();
       try {
         const redirectUrl = new URL(location, parsed.href);
-        if (isBlockedHostname(redirectUrl.hostname)) return transparentPixelResponse();
-        if (!/^https?:$/i.test(redirectUrl.protocol)) return transparentPixelResponse();
+        if (isBlockedHostname(redirectUrl.hostname))
+          return transparentPixelResponse();
+        if (!/^https?:$/i.test(redirectUrl.protocol))
+          return transparentPixelResponse();
         // Single redirect follow (no recursion)
         const redirectResponse = await fetch(redirectUrl.href, {
           signal: AbortSignal.timeout(10_000),
@@ -318,16 +329,16 @@ doc.querySelectorAll("img").forEach((img) => {
 
 ### Security Measures (from security review)
 
-| Threat | Mitigation |
-|---|---|
-| **SSRF via redirect chain** | `redirect: "manual"` + validate each redirect target |
+| Threat                         | Mitigation                                                         |
+| ------------------------------ | ------------------------------------------------------------------ |
+| **SSRF via redirect chain**    | `redirect: "manual"` + validate each redirect target               |
 | **SSRF via private hostnames** | Hostname blocklist (localhost, .local, .ts.net, private IP ranges) |
-| **SVG XSS** | Block `image/svg+xml` content type entirely |
-| **Content-Type sniffing** | `X-Content-Type-Options: nosniff` on all responses |
-| **Auth bypass** | Session required, iframe is same-origin so cookies flow |
-| **Credentials in URL** | Strip `username`/`password` before fetching |
-| **Open proxy abuse** | Auth-gated, content-type restricted to `image/*` |
-| **Defense-in-depth** | `Content-Security-Policy: default-src 'none'` on proxy responses |
+| **SVG XSS**                    | Block `image/svg+xml` content type entirely                        |
+| **Content-Type sniffing**      | `X-Content-Type-Options: nosniff` on all responses                 |
+| **Auth bypass**                | Session required, iframe is same-origin so cookies flow            |
+| **Credentials in URL**         | Strip `username`/`password` before fetching                        |
+| **Open proxy abuse**           | Auth-gated, content-type restricted to `image/*`                   |
+| **Defense-in-depth**           | `Content-Security-Policy: default-src 'none'` on proxy responses   |
 
 > **Simplicity note (from simplicity review):** Full DNS-resolution SSRF protection is disproportionate for a single-user app behind auth. The URL parameter is constructed server-side by the sanitizer, not from arbitrary user input. A hostname blocklist is sufficient. An attacker would need to send a crafted email, have the user open it, and the target would need to respond with useful content as an image — practical SSRF risk is near zero.
 
@@ -468,7 +479,7 @@ Wrap action buttons to prevent squishing:
 #### `src/components/layout/mobile-sidebar.tsx` — safe-area hamburger positioning
 
 ```tsx
-className="fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-40 ..."
+className = "fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-40 ...";
 ```
 
 #### `src/components/mail/selection-action-bar.tsx` — safe-area bottom

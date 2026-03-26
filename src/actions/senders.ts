@@ -7,7 +7,10 @@ import { db } from "@/lib/db";
 import { moveToArchiveViaImap } from "@/actions/archive";
 import { SenderCategory } from "@prisma/client";
 
-export async function approveSender(senderId: string, category: SenderCategory) {
+export async function approveSender(
+  senderId: string,
+  category: SenderCategory,
+) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -318,7 +321,7 @@ export async function bulkApproveOldSenders(days: number = 90) {
 
 export async function changeSenderCategory(
   senderId: string,
-  category: SenderCategory
+  category: SenderCategory,
 ) {
   const session = await auth();
   if (!session?.user?.id) {

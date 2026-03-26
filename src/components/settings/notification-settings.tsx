@@ -66,11 +66,7 @@ export function NotificationSettings() {
             onClick={handleToggle}
             disabled={loading}
           >
-            {loading
-              ? "..."
-              : isSubscribed
-                ? "Disable"
-                : "Enable"}
+            {loading ? "..." : isSubscribed ? "Disable" : "Enable"}
           </Button>
         )}
       </div>

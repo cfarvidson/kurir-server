@@ -13,11 +13,13 @@ deepened: 2026-03-17
 **Review agents used:** architecture-strategist, data-integrity-guardian, performance-oracle, code-simplicity-reviewer
 
 ### Key Simplifications (from review)
+
 1. **Dropped new `imap-move.ts` file** — just export existing helpers from `archive.ts` (two consumers don't justify a new abstraction)
 2. **Dropped re-approve unarchive flow** — YAGNI; future messages are correctly handled by `processMessage`; blind unarchive of ALL messages (including manually archived) is a data-correctness bug
 3. **Dropped archive folder dedup fix** — pre-existing concern unrelated to this feature; manual archive has worked without it
 
 ### Key Improvements Added
+
 1. **Batch IMAP moves** — use UID sequence sets instead of serial loop (100x perf improvement for prolific senders)
 2. **Guard `handleExpunge` against archived messages** — prevents `isDeleted: true` corruption when echo suppression TTL expires during bulk moves
 3. **Parallelize pre-transaction queries** — `Promise.all` for independent message/folder fetches
@@ -107,13 +109,18 @@ export async function rejectSender(senderId: string) {
       select: { uid: true, folderId: true },
     }),
     db.folder.findFirst({
-      where: { emailConnectionId: sender.emailConnectionId, specialUse: "inbox" },
+      where: {
+        emailConnectionId: sender.emailConnectionId,
+        specialUse: "inbox",
+      },
       select: { id: true },
     }),
   ]);
 
   const inboxUids = inboxFolder
-    ? inboxMessages.filter(m => m.folderId === inboxFolder.id).map(m => m.uid)
+    ? inboxMessages
+        .filter((m) => m.folderId === inboxFolder.id)
+        .map((m) => m.uid)
     : [];
 
   // Transaction: reject sender + archive messages
@@ -146,8 +153,14 @@ export async function rejectSender(senderId: string) {
   // Defer IMAP move (batched)
   if (inboxUids.length > 0 && inboxFolder) {
     after(() =>
-      moveToArchiveViaImap(userId, sender.emailConnectionId, inboxFolder.id, inboxUids)
-        .catch(err => console.error("IMAP archive move (reject) failed:", err))
+      moveToArchiveViaImap(
+        userId,
+        sender.emailConnectionId,
+        inboxFolder.id,
+        inboxUids,
+      ).catch((err) =>
+        console.error("IMAP archive move (reject) failed:", err),
+      ),
     );
   }
 }
@@ -159,13 +172,16 @@ Add a `REJECTED` branch at line ~427. Two lines of change:
 
 ```typescript
 const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
-const isRejectedInbox = isInbox && !isArchived && sender.status === "REJECTED";  // NEW
-const isInImbox = isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
-const isInFeed = isInbox && sender.status === "APPROVED" && sender.category === "FEED";
-const isInPaperTrail = isInbox && sender.status === "APPROVED" && sender.category === "PAPER_TRAIL";
+const isRejectedInbox = isInbox && !isArchived && sender.status === "REJECTED"; // NEW
+const isInImbox =
+  isInbox && sender.status === "APPROVED" && sender.category === "IMBOX";
+const isInFeed =
+  isInbox && sender.status === "APPROVED" && sender.category === "FEED";
+const isInPaperTrail =
+  isInbox && sender.status === "APPROVED" && sender.category === "PAPER_TRAIL";
 
 // Use finalIsArchived in the db.message.create() call
-const finalIsArchived = isArchived || isRejectedInbox;  // NEW
+const finalIsArchived = isArchived || isRejectedInbox; // NEW
 ```
 
 No IMAP move during sync — accept DB/IMAP divergence (consistent with existing "DB is authoritative" pattern).
@@ -187,28 +203,28 @@ This is the simplest and most robust fix for the echo suppression TTL concern. I
 
 ## Edge Cases
 
-| Scenario | Behavior |
-|----------|----------|
-| Reject PENDING sender from Screener card | Messages archived + IMAP moved (batched) |
-| Reject APPROVED sender from ScreenedSenderList | Messages archived from category views + IMAP moved |
-| New message from rejected sender (sync/IDLE) | Auto-archived in DB, stays in INBOX on IMAP |
-| Re-approve rejected sender | Only future messages go to chosen category; archived messages stay in Archive |
-| Multi-party thread with rejected sender | Only rejected sender's messages archived; thread may split |
-| Snoozed message from rejected sender | Snooze cleared, message archived |
-| IMAP move fails | DB is authoritative; message shows in Archive view regardless |
-| `autoRejectFullyArchivedSenders` | No change needed — messages already archived before auto-reject |
-| Prolific sender (500+ messages) | Batched IMAP move handles in ~300ms vs ~50s serial |
-| TOCTOU: new message arrives between pre-fetch and transaction | DB `updateMany` catches it; IMAP UID list misses it (acceptable divergence) |
-| Existing auto-rejected senders | Their future messages now auto-archive during sync (behavior change, desired) |
+| Scenario                                                      | Behavior                                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Reject PENDING sender from Screener card                      | Messages archived + IMAP moved (batched)                                      |
+| Reject APPROVED sender from ScreenedSenderList                | Messages archived from category views + IMAP moved                            |
+| New message from rejected sender (sync/IDLE)                  | Auto-archived in DB, stays in INBOX on IMAP                                   |
+| Re-approve rejected sender                                    | Only future messages go to chosen category; archived messages stay in Archive |
+| Multi-party thread with rejected sender                       | Only rejected sender's messages archived; thread may split                    |
+| Snoozed message from rejected sender                          | Snooze cleared, message archived                                              |
+| IMAP move fails                                               | DB is authoritative; message shows in Archive view regardless                 |
+| `autoRejectFullyArchivedSenders`                              | No change needed — messages already archived before auto-reject               |
+| Prolific sender (500+ messages)                               | Batched IMAP move handles in ~300ms vs ~50s serial                            |
+| TOCTOU: new message arrives between pre-fetch and transaction | DB `updateMany` catches it; IMAP UID list misses it (acceptable divergence)   |
+| Existing auto-rejected senders                                | Their future messages now auto-archive during sync (behavior change, desired) |
 
 ## Files to Modify
 
-| File | Change | LOC |
-|------|--------|-----|
-| `src/actions/archive.ts` | Export `moveToArchiveViaImap` + `moveToInboxViaImap`; batch the IMAP move loop | ~10 |
-| `src/actions/senders.ts` | `rejectSender`: archive + IMAP move | ~20 |
-| `src/lib/mail/sync-service.ts` | `processMessage`: add `isRejectedInbox` + `finalIsArchived` | ~2 |
-| `src/lib/mail/idle-handlers.ts` | Guard `handleExpunge` against archived messages | ~3 |
+| File                            | Change                                                                         | LOC |
+| ------------------------------- | ------------------------------------------------------------------------------ | --- |
+| `src/actions/archive.ts`        | Export `moveToArchiveViaImap` + `moveToInboxViaImap`; batch the IMAP move loop | ~10 |
+| `src/actions/senders.ts`        | `rejectSender`: archive + IMAP move                                            | ~20 |
+| `src/lib/mail/sync-service.ts`  | `processMessage`: add `isRejectedInbox` + `finalIsArchived`                    | ~2  |
+| `src/lib/mail/idle-handlers.ts` | Guard `handleExpunge` against archived messages                                | ~3  |
 
 **Total: ~35 lines changed across 4 files. No new files.**
 

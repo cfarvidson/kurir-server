@@ -22,20 +22,21 @@ This distinction must be communicated clearly during onboarding and never assume
 
 ## 1. User Stories
 
-| Story | Who | What | Why |
-|-------|-----|------|-----|
-| Registration | New user | Create a Kurir account using a passkey | No password to forget; device-native security |
-| Login | Returning user | Sign in instantly with a passkey | Fast, frictionless, no password typing |
-| Add email | Authenticated user | Connect an IMAP/SMTP email account | Access and manage that inbox in Kurir |
-| Remove email | Authenticated user | Disconnect an email account | Clean up unused accounts |
-| Send from specific email | Authenticated user | Pick which email to send from in compose | Control which address appears as sender |
-| Manage connections | Authenticated user | View and manage all connected emails in settings | Overview and control of linked accounts |
+| Story                    | Who                | What                                             | Why                                           |
+| ------------------------ | ------------------ | ------------------------------------------------ | --------------------------------------------- |
+| Registration             | New user           | Create a Kurir account using a passkey           | No password to forget; device-native security |
+| Login                    | Returning user     | Sign in instantly with a passkey                 | Fast, frictionless, no password typing        |
+| Add email                | Authenticated user | Connect an IMAP/SMTP email account               | Access and manage that inbox in Kurir         |
+| Remove email             | Authenticated user | Disconnect an email account                      | Clean up unused accounts                      |
+| Send from specific email | Authenticated user | Pick which email to send from in compose         | Control which address appears as sender       |
+| Manage connections       | Authenticated user | View and manage all connected emails in settings | Overview and control of linked accounts       |
 
 ---
 
 ## 2. Flow 1 — Passkey Registration (`/register`)
 
 ### User Goal
+
 Create a new Kurir account with a passkey. No email or password required for account creation.
 
 ### Happy Path
@@ -135,6 +136,7 @@ Create a new Kurir account with a passkey. No email or password required for acc
 ## 3. Flow 2 — Passkey Login (`/login`)
 
 ### User Goal
+
 Sign in to an existing Kurir account using a passkey. Must be fast and frictionless.
 
 ### Happy Path (Conditional UI / Autofill)
@@ -216,17 +218,20 @@ Sign in to an existing Kurir account using a passkey. Must be fast and frictionl
 ### Interaction Spec
 
 **Conditional UI (autofill):**
+
 - On mount, call `startAuthentication({ mediation: 'conditional' })` from `@simplewebauthn/browser`.
 - The hint input field (`autocomplete="username webauthn"`) is required for the browser to know where to show the autofill dropdown.
 - The conditional UI request runs silently — no loading spinner, no disruption.
 - If the user clicks the explicit button while conditional UI is pending, abort the conditional UI request and start a modal request.
 
 **Explicit "Sign in with passkey" button:**
+
 - Primary, full-width.
 - Loading state: spinner + "Signing in..."
 - Abort any in-flight conditional UI before starting explicit flow.
 
 **Error states:**
+
 - `NotAllowedError` (cancelled): "Sign-in was cancelled."
 - `NotSupportedError` (no passkey on device): "No passkey found for this device. Did you register on a different device?"
 - Generic: "Sign-in failed. Please try again."
@@ -249,6 +254,7 @@ Same as `/register`. Card centered, max-width 448px, background gradient matchin
 ## 4. Flow 3 — Add Email Connection (`/setup`, post-login)
 
 ### User Goal
+
 Connect a first (or additional) email account after being authenticated. This is a required step for new users — they cannot use Kurir without at least one email connection.
 
 ### Context
@@ -372,6 +378,7 @@ Connect a first (or additional) email account after being authenticated. This is
 ## 5. Flow 4 — Compose From-Picker
 
 ### User Goal
+
 When composing a new email, select which connected email address to send from.
 
 ### Context
@@ -435,6 +442,7 @@ The current compose page sends from the single user email with no choice. With m
 ### API Change
 
 The send payload adds `fromConnectionId`:
+
 ```json
 {
   "to": "recipient@example.com",
@@ -460,6 +468,7 @@ The send payload adds `fromConnectionId`:
 ## 6. Flow 5 — Settings: Connection Management
 
 ### User Goal
+
 View all connected email accounts, add new ones, and remove existing ones. Understand which is the default sending address.
 
 ### Wireframe — `/settings` (updated)
@@ -516,6 +525,7 @@ View all connected email accounts, add new ones, and remove existing ones. Under
 ### Interaction Spec
 
 **Connection cards:**
+
 - Display: email address (primary), display name + IMAP host (secondary), "[default]" badge if `isDefault`.
 - Actions: overflow menu `[···]` with options: "Set as default", "Edit", "Remove".
 - "Remove" in overflow menu (not a standalone button in the card) to avoid accidental deletion.
@@ -523,10 +533,12 @@ View all connected email accounts, add new ones, and remove existing ones. Under
 - Setting a default: `PATCH /api/connections/[id]` sets `isDefault: true` (server ensures only one default at a time).
 
 **"Add email account" button:**
+
 - Ghost/outline style button at the bottom of the list.
 - Links to `/setup` (with a query param like `?mode=add` so setup page knows this is an additional connection, not first-time setup).
 
 **Passkeys section:**
+
 - Shows count of registered passkeys.
 - "Manage" button expands a list of passkeys with friendly names (e.g. "MacBook Pro", "iPhone") and "Remove" action.
 - Minimum 1 passkey enforced: show "You must keep at least one passkey" if user tries to remove the last one.
@@ -566,43 +578,43 @@ View all connected email accounts, add new ones, and remove existing ones. Under
 
 ### Registration
 
-| Scenario | UI Response |
-|----------|-------------|
-| Passkey already exists for device | "A passkey for this device already exists. Sign in instead." |
+| Scenario                             | UI Response                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| Passkey already exists for device    | "A passkey for this device already exists. Sign in instead."             |
 | WebAuthn not supported (old browser) | "Your browser doesn't support passkeys. Try Chrome, Safari, or Firefox." |
-| Network error during registration | "Registration failed. Check your connection and try again." |
-| Display name too long (>100 chars) | Inline validation: "Name must be 100 characters or fewer." |
+| Network error during registration    | "Registration failed. Check your connection and try again."              |
+| Display name too long (>100 chars)   | Inline validation: "Name must be 100 characters or fewer."               |
 
 ### Login
 
-| Scenario | UI Response |
-|----------|-------------|
-| No passkey on device | "No passkey found on this device. Did you register on a different device?" |
+| Scenario                         | UI Response                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------- |
+| No passkey on device             | "No passkey found on this device. Did you register on a different device?"  |
 | Counter mismatch (replay attack) | Generic: "Sign-in failed. Please try again." (don't reveal security detail) |
-| No account found for passkey | "Account not found. Please register." |
+| No account found for passkey     | "Account not found. Please register."                                       |
 
 ### Add Email Connection
 
-| Scenario | UI Response |
-|----------|-------------|
-| Wrong password | "Couldn't connect. Check your password. Gmail and Outlook may require an app password." |
-| IMAP host unreachable | "Couldn't reach the mail server. Check the IMAP host and port." |
-| Email already connected to this account | "This email is already connected to your account." |
-| Connection timeout (>15 seconds) | "Connection timed out. The server may be slow or the port may be blocked." |
+| Scenario                                | UI Response                                                                             |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Wrong password                          | "Couldn't connect. Check your password. Gmail and Outlook may require an app password." |
+| IMAP host unreachable                   | "Couldn't reach the mail server. Check the IMAP host and port."                         |
+| Email already connected to this account | "This email is already connected to your account."                                      |
+| Connection timeout (>15 seconds)        | "Connection timed out. The server may be slow or the port may be blocked."              |
 
 ### Settings — Remove Connection
 
-| Scenario | UI Response |
-|----------|-------------|
+| Scenario                 | UI Response                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
 | Removing last connection | Block action + warning: "Add another email before removing this one." |
-| Network error on remove | Toast: "Failed to remove account. Please try again." |
+| Network error on remove  | Toast: "Failed to remove account. Please try again."                  |
 
 ### Compose
 
-| Scenario | UI Response |
-|----------|-------------|
+| Scenario                                      | UI Response                                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
 | All connections removed while compose is open | Show error banner in compose: "No email accounts connected. Add one in Settings." |
-| Send fails (SMTP error) | Existing error display: `{error.message}` |
+| Send fails (SMTP error)                       | Existing error display: `{error.message}`                                         |
 
 ---
 
@@ -628,13 +640,13 @@ View all connected email accounts, add new ones, and remove existing ones. Under
 
 ## 9. Navigation and Route Changes
 
-| Route | Before | After |
-|-------|--------|-------|
-| `/register` | Does not exist | New passkey registration page |
-| `/login` | Email + password form | Passkey login (conditional UI + explicit button) |
-| `/setup` | Email + password + IMAP = register AND login | IMAP/SMTP connection for authenticated users only |
-| `/settings` | Single account info | Multi-connection list + passkey management |
-| `/compose` | No from-picker | From-picker (if >1 connection) |
+| Route       | Before                                       | After                                             |
+| ----------- | -------------------------------------------- | ------------------------------------------------- |
+| `/register` | Does not exist                               | New passkey registration page                     |
+| `/login`    | Email + password form                        | Passkey login (conditional UI + explicit button)  |
+| `/setup`    | Email + password + IMAP = register AND login | IMAP/SMTP connection for authenticated users only |
+| `/settings` | Single account info                          | Multi-connection list + passkey management        |
+| `/compose`  | No from-picker                               | From-picker (if >1 connection)                    |
 
 ### Middleware
 

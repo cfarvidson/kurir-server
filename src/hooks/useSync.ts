@@ -83,7 +83,10 @@ function deriveStatus(data: SyncStatusResponse): DerivedState {
   return { status: "synced", lastSyncTime: oldestSync };
 }
 
-const DEFAULT_RESPONSE: SyncStatusResponse = { infraError: null, connections: [] };
+const DEFAULT_RESPONSE: SyncStatusResponse = {
+  infraError: null,
+  connections: [],
+};
 
 async function fetchSyncStatus(): Promise<SyncStatusResponse> {
   const res = await fetch("/api/mail/sync-status");

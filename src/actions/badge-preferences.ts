@@ -41,9 +41,7 @@ export async function getBadgePreferences(
   };
 }
 
-export async function updateBadgePreferences(
-  prefs: Partial<BadgePreferences>,
-) {
+export async function updateBadgePreferences(prefs: Partial<BadgePreferences>) {
   const session = await requireAuth();
 
   // Validate: only accept known boolean fields

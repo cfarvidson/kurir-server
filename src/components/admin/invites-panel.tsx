@@ -24,8 +24,7 @@ export function InvitesPanel({ invites }: { invites: Invite[] }) {
   const [name, setName] = useState("");
   const [emailHint, setEmailHint] = useState("");
 
-  const baseUrl =
-    typeof window !== "undefined" ? window.location.origin : "";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +32,10 @@ export function InvitesPanel({ invites }: { invites: Invite[] }) {
 
     startCreate(async () => {
       try {
-        const result = await createInvite(name.trim(), emailHint.trim() || undefined);
+        const result = await createInvite(
+          name.trim(),
+          emailHint.trim() || undefined,
+        );
         const link = `${baseUrl}/register?invite=${result.token}`;
         await navigator.clipboard.writeText(link);
         toast.success("Invite created and link copied to clipboard");
@@ -64,7 +66,10 @@ export function InvitesPanel({ invites }: { invites: Invite[] }) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="mt-4 rounded-lg border bg-card p-4 space-y-3">
+        <form
+          onSubmit={handleCreate}
+          className="mt-4 rounded-lg border bg-card p-4 space-y-3"
+        >
           <div>
             <label className="text-sm font-medium">Display name</label>
             <Input
@@ -120,8 +125,7 @@ export function InvitesPanel({ invites }: { invites: Invite[] }) {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Expires{" "}
-                  {new Date(invite.expiresAt).toLocaleDateString()}
+                  Expires {new Date(invite.expiresAt).toLocaleDateString()}
                 </p>
               </div>
               <div className="flex items-center gap-1">

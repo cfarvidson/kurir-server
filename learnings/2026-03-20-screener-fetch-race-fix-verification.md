@@ -12,6 +12,7 @@ while its body fetch was in-flight, the `finally` block would call `setPreviewLo
 after sender B's card was already rendered — stomping B's loading state.
 
 **Root causes (pre-fix):**
+
 1. `useCallback` deps included `bodyCache` — new closure captured on every cache update
 2. `finally` always called `setPreviewLoading(false)` regardless of whether the fetch was stale
 3. Reset `useEffect` only reset state, never aborted the in-flight fetch
@@ -40,6 +41,7 @@ of this oversight; fixed by wrapping resolvers in signal-aware promise factories
 ## Test File Added
 
 `src/__tests__/unit/screener-fetch-race.test.ts` — 19 tests covering:
+
 - AbortController lifecycle (created per fetch, previous one aborted, signal passed to fetch)
 - AbortError silencing (no previewError, no previewLoading false from abort path)
 - resetPreview aborts in-flight fetch (correct synchronous state reset)
@@ -59,9 +61,18 @@ test files are unchanged — confirmed by running baseline before/after (stash s
   ```ts
   function abortAwareFetch(id, signal, body) {
     return new Promise((res, rej) => {
-      if (signal.aborted) { rej(new DOMException("Aborted", "AbortError")); return; }
-      signal.addEventListener("abort", () => rej(new DOMException("Aborted", "AbortError")), { once: true });
-      Promise.resolve().then(() => { if (!signal.aborted) res(body); });
+      if (signal.aborted) {
+        rej(new DOMException("Aborted", "AbortError"));
+        return;
+      }
+      signal.addEventListener(
+        "abort",
+        () => rej(new DOMException("Aborted", "AbortError")),
+        { once: true },
+      );
+      Promise.resolve().then(() => {
+        if (!signal.aborted) res(body);
+      });
     });
   }
   ```

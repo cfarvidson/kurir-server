@@ -10,6 +10,7 @@ date: 2026-03-18
 **Research agents used:** best-practices-researcher (x2), security-sentinel, performance-oracle, architecture-strategist, spec-flow-analyzer, learnings-researcher, repo-research-analyst, Context7 (zustand, Next.js, Prisma)
 
 ### Key Improvements from Research
+
 1. **Use sonner for toasts** — shadcn-ecosystem toast library, supports `toast.custom()` for countdown UI, works from outside React components (zustand actions)
 2. **Do NOT store email bodies in localStorage** — security risk (XSS-readable, persists after logout). Store metadata only; in-memory zustand for payloads. If tab closes during 5s window, message simply doesn't send (same as Gmail)
 3. **Add `sendingStartedAt` to ScheduledMessage** — enables stale-lock recovery (SENDING stuck > 5min = reset to PENDING), mirrors existing `claimSyncLock` pattern
@@ -20,6 +21,7 @@ date: 2026-03-18
 8. **Split button on compose only** — reply composer gets a compact calendar icon, not a full split button
 
 ### Architecture Decisions (from review)
+
 - **Zustand is correct** for the pending-send store — it's already in `package.json` and is a module-level singleton that survives React component unmounts. Use `Record<string, T>` not `Map` for serialization simplicity.
 - **Client-side delay for undo-send, server-side for schedule-send** — different reliability requirements justify different architectures
 - **Separate `ScheduledMessage` model** — `Message` is an IMAP cache with UID/folder semantics that don't apply to unsent content
@@ -51,6 +53,7 @@ Email sending is currently instant and irreversible. Users have no way to catch 
 The key architectural decision is where the countdown timer lives. It **must** survive page navigation (compose → sent, reply → sidebar click). Solution: a zustand store holding pending sends, consumed by sonner toasts mounted via `<Toaster />` in `src/app/(mail)/layout.tsx`.
 
 **Flow:**
+
 1. User clicks Send → payload is captured into zustand store with a 5s timer
 2. Sonner countdown toast appears (bottom-left, matching shadcn ecosystem)
 3. Toast shows: recipient, subject snippet, SVG progress ring countdown, "Undo" button
@@ -59,6 +62,7 @@ The key architectural decision is where the countdown timer lives. It **must** s
 6. Undo clicked → timer cleared, payload removed from store, compose state restored
 
 **Edge cases handled:**
+
 - **Navigation during countdown**: Sonner `<Toaster>` is in the layout, zustand store is module-level — both survive component unmounts
 - **Tab close during countdown**: `beforeunload` handler warns user. Message simply doesn't send if force-closed (same trade-off as Gmail). No localStorage for payloads (security concern: XSS-readable, persists after logout)
 - **Multiple concurrent sends**: Zustand store holds `Record<string, PendingSend>`. Sonner stacks toasts automatically
@@ -67,12 +71,14 @@ The key architectural decision is where the countdown timer lives. It **must** s
 ### Research Insights: Undo Send
 
 **Industry precedents:**
+
 - Gmail: client-side delay, configurable 5/10/20/30s, no server-side queue
 - Hey.com: server-side delay (owns full mail pipeline), opt-in via settings
 - Superhuman: client-side delay, Cmd+Z to undo, inline countdown in conversation view
 - All use the same fundamental pattern: hold message in memory, send after timer expires
 
 **Why sonner over custom toast:**
+
 - Used by shadcn/ui ecosystem (matches existing UI approach)
 - `toast()` callable from outside React components (from zustand actions)
 - `toast.custom()` for fully custom JSX (countdown progress ring)
@@ -81,6 +87,7 @@ The key architectural decision is where the countdown timer lives. It **must** s
 - ~1KB gzipped
 
 **beforeunload in Next.js App Router:**
+
 - Pure browser API, no framework magic needed
 - Only handles browser-level navigation (close tab, refresh). Does NOT intercept `router.push()` or `<Link>`
 - For client-side route changes: not needed — zustand store + sonner Toaster both survive App Router navigations
@@ -93,6 +100,7 @@ The key architectural decision is where the countdown timer lives. It **must** s
 Follows the snooze pattern: store a timestamp, check it every 60s in `syncAndNotify()`.
 
 **Flow:**
+
 1. User clicks schedule button (split-button dropdown on compose, calendar icon on reply) → date/time picker opens (reuses `SnoozePicker` pattern)
 2. Server action creates `ScheduledMessage` record with full SMTP payload (encrypted at rest)
 3. User sees confirmation, navigated to `/scheduled`
@@ -107,11 +115,13 @@ Follows the snooze pattern: store a timestamp, check it every 60s in `syncAndNot
 ### Research Insights: Schedule Send
 
 **Schema as lightweight job table (Postgres-as-job-queue pattern):**
+
 - Separate model is correct — scheduled messages are not yet real messages (no UID, no folder, no IMAP metadata)
 - After SMTP succeeds, worker calls existing `createLocalSentMessage()` to create the real `Message` row
 - At Kurir's scale (single-digit users), this is more than sufficient without BullMQ or pg-boss
 
 **Timezone handling:**
+
 - Store `scheduledFor` in UTC always. The DB column is `DateTime` (Prisma → PostgreSQL `timestamp`)
 - Convert on the client using `date-fns-tz`: `zonedTimeToUtc(localDateTime, userTimezone)` before sending to API
 - Display in user's timezone: `formatInTimeZone(scheduledFor, user.timezone, "MMM d, yyyy 'at' h:mm a")`
@@ -119,6 +129,7 @@ Follows the snooze pattern: store a timestamp, check it every 60s in `syncAndNot
 - DST edge case: if scheduled time doesn't exist (spring forward), `date-fns-tz` pushes to next valid moment
 
 **Preset time options (Gmail-inspired):**
+
 - "Later today" (6 PM) — only shown if before 4 PM in user's timezone
 - "Tomorrow morning" (8 AM)
 - "Tomorrow afternoon" (1 PM)
@@ -138,10 +149,10 @@ Mount `<Toaster>` in the mail layout:
 
 ```tsx
 // src/app/(mail)/layout.tsx
-import { Toaster } from "sonner"
+import { Toaster } from "sonner";
 
 // Inside the layout JSX, after {children}:
-<Toaster position="bottom-left" expand={false} richColors visibleToasts={4} />
+<Toaster position="bottom-left" expand={false} richColors visibleToasts={4} />;
 ```
 
 #### 1.2 Zustand Pending-Send Store
@@ -149,23 +160,23 @@ import { Toaster } from "sonner"
 **New file: `src/stores/pending-send-store.ts`**
 
 ```typescript
-import { create } from "zustand"
+import { create } from "zustand";
 
 interface PendingSend {
-  id: string
-  type: "compose" | "reply"
-  payload: ComposePayload | ReplyPayload
-  createdAt: number
-  delayMs: number
+  id: string;
+  type: "compose" | "reply";
+  payload: ComposePayload | ReplyPayload;
+  createdAt: number;
+  delayMs: number;
 }
 
 interface PendingSendStore {
-  pendingSends: Record<string, PendingSend>
-  timers: Record<string, ReturnType<typeof setTimeout>>
-  enqueue: (send: PendingSend, onExpire: () => Promise<void>) => void
-  cancel: (id: string) => PendingSend | undefined
-  sendNow: (id: string) => void
-  complete: (id: string) => void
+  pendingSends: Record<string, PendingSend>;
+  timers: Record<string, ReturnType<typeof setTimeout>>;
+  enqueue: (send: PendingSend, onExpire: () => Promise<void>) => void;
+  cancel: (id: string) => PendingSend | undefined;
+  sendNow: (id: string) => void;
+  complete: (id: string) => void;
 }
 ```
 
@@ -183,42 +194,63 @@ Uses `toast.custom()` from sonner for fully custom JSX:
 
 ```tsx
 function UndoSendToastContent({ sendId, to, delayMs, onUndo, onComplete }) {
-  const { remaining, progress } = useCountdown(delayMs, onComplete)
-  const seconds = Math.ceil(remaining / 1000)
+  const { remaining, progress } = useCountdown(delayMs, onComplete);
+  const seconds = Math.ceil(remaining / 1000);
 
   return (
     <div className="flex w-full items-center gap-3">
       {/* SVG progress ring */}
       <div className="relative h-8 w-8 shrink-0">
         <svg className="h-8 w-8 -rotate-90" viewBox="0 0 32 32">
-          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor"
-            strokeWidth="2" className="text-muted-foreground/20" />
-          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeDasharray={`${2 * Math.PI * 14}`}
+          <circle
+            cx="16"
+            cy="16"
+            r="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="text-muted-foreground/20"
+          />
+          <circle
+            cx="16"
+            cy="16"
+            r="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeDasharray={`${2 * Math.PI * 14}`}
             strokeDashoffset={`${2 * Math.PI * 14 * progress}`}
-            strokeLinecap="round" className="text-primary transition-[stroke-dashoffset] duration-100" />
+            strokeLinecap="round"
+            className="text-primary transition-[stroke-dashoffset] duration-100"
+          />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">{seconds}</span>
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
+          {seconds}
+        </span>
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">Sending...</p>
         <p className="truncate text-xs text-muted-foreground">To {to}</p>
       </div>
-      <button onClick={onUndo}
-        className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20">
+      <button
+        onClick={onUndo}
+        className="shrink-0 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+      >
         Undo
       </button>
     </div>
-  )
+  );
 }
 ```
 
 **`useCountdown` hook** (`src/hooks/use-countdown.ts`):
+
 - Updates at ~15fps (66ms intervals) for smooth progress bar, not 60fps
 - Uses `Date.now()` delta for accuracy (not interval accumulation which drifts)
 - Calls `onComplete` when remaining reaches 0
 
 **`useBeforeUnload` hook** (`src/hooks/use-before-unload.ts`):
+
 - `useEffect` that attaches `beforeunload` when `active` is true
 - `e.preventDefault()` (modern standard) — no need for `returnValue` string
 - Conditionally attached based on `Object.keys(pendingSends).length > 0`
@@ -305,6 +337,7 @@ enum ScheduledMessageStatus {
 ```
 
 **Research-informed additions vs original plan:**
+
 - `maxAttempts` (default 5) — avoids hardcoded retry limit, configurable per message
 - `nextRetryAt` — exponential backoff tracking, avoids immediate retry storms
 - `sendingStartedAt` — stale-lock recovery (mirrors `syncStartedAt` in `SyncState`)
@@ -313,6 +346,7 @@ enum ScheduledMessageStatus {
 - Bodies encrypted at application level via `encrypt()`/`decrypt()` from `src/lib/crypto.ts`
 
 Also add relation arrays:
+
 ```prisma
 // On User model:
 scheduledMessages ScheduledMessage[]
@@ -341,14 +375,14 @@ Run scheduled-send processing **before** IMAP sync (time-sensitive — reduces w
 ```typescript
 async function syncAndNotify() {
   // Process scheduled sends first (time-sensitive)
-  await sendDueScheduledMessages().catch(console.error)
+  await sendDueScheduledMessages().catch(console.error);
 
   // ... existing sync logic (wakeExpiredSnoozes, IMAP sync, etc.)
 }
 
 async function sendDueScheduledMessages() {
-  const now = new Date()
-  const staleThreshold = new Date(Date.now() - 5 * 60 * 1000)
+  const now = new Date();
+  const staleThreshold = new Date(Date.now() - 5 * 60 * 1000);
 
   // Atomic claim — prevents duplicate sends. Also recovers stale SENDING locks.
   const claimed = await prisma.scheduledMessage.updateMany({
@@ -360,82 +394,104 @@ async function sendDueScheduledMessages() {
       ],
     },
     data: { status: "SENDING", sendingStartedAt: now },
-  })
-  if (claimed.count === 0) return
+  });
+  if (claimed.count === 0) return;
 
   const toSend = await prisma.scheduledMessage.findMany({
     where: { status: "SENDING" },
     include: { emailConnection: true },
-  })
+  });
 
   for (const msg of toSend) {
     // Idempotency: if SMTP messageId already recorded, skip re-send
     if (msg.smtpMessageId) {
-      await prisma.scheduledMessage.update({ where: { id: msg.id }, data: { status: "SENT" } })
-      continue
+      await prisma.scheduledMessage.update({
+        where: { id: msg.id },
+        data: { status: "SENT" },
+      });
+      continue;
     }
 
     // Ownership verification
     const connection = await prisma.emailConnection.findFirst({
       where: { id: msg.emailConnectionId, userId: msg.userId },
-    })
+    });
     if (!connection) {
       await prisma.scheduledMessage.update({
         where: { id: msg.id },
-        data: { status: "FAILED", error: "Email connection not found or unauthorized" },
-      })
-      continue
+        data: {
+          status: "FAILED",
+          error: "Email connection not found or unauthorized",
+        },
+      });
+      continue;
     }
 
     try {
-      const result = await sendScheduledEmail(msg, connection)
+      const result = await sendScheduledEmail(msg, connection);
 
       // Record SMTP messageId FIRST (idempotency checkpoint)
       await prisma.scheduledMessage.update({
         where: { id: msg.id },
         data: { smtpMessageId: result.messageId, status: "SENT" },
-      })
+      });
 
-      await createLocalSentMessage(/* ... */)
-      emitToUser(msg.userId, { type: "scheduled-sent", data: { scheduledMessageId: msg.id } })
+      await createLocalSentMessage(/* ... */);
+      emitToUser(msg.userId, {
+        type: "scheduled-sent",
+        data: { scheduledMessageId: msg.id },
+      });
     } catch (error) {
-      const attempts = msg.attempts + 1
-      const permanent = isSmtpPermanentError(error) || attempts >= msg.maxAttempts
+      const attempts = msg.attempts + 1;
+      const permanent =
+        isSmtpPermanentError(error) || attempts >= msg.maxAttempts;
 
       if (permanent) {
         await prisma.scheduledMessage.update({
           where: { id: msg.id },
           data: { status: "FAILED", attempts, error: sanitizeError(error) },
-        })
+        });
         emitToUser(msg.userId, {
           type: "scheduled-failed",
-          data: { scheduledMessageId: msg.id, error: "Failed to send — check email connection settings" },
-        })
+          data: {
+            scheduledMessageId: msg.id,
+            error: "Failed to send — check email connection settings",
+          },
+        });
       } else {
-        const delay = getNextRetryDelay(attempts) // Exponential: 1m, 5m, 15m, 1h, 4h + jitter
+        const delay = getNextRetryDelay(attempts); // Exponential: 1m, 5m, 15m, 1h, 4h + jitter
         await prisma.scheduledMessage.update({
           where: { id: msg.id },
-          data: { status: "PENDING", attempts, nextRetryAt: new Date(Date.now() + delay), error: sanitizeError(error) },
-        })
+          data: {
+            status: "PENDING",
+            attempts,
+            nextRetryAt: new Date(Date.now() + delay),
+            error: sanitizeError(error),
+          },
+        });
       }
     }
   }
 }
 
 function isSmtpPermanentError(error: unknown): boolean {
-  const msg = String(error)
-  return /^5\d{2}\b/.test(msg) || /Invalid recipient|mailbox not found/i.test(msg)
+  const msg = String(error);
+  return (
+    /^5\d{2}\b/.test(msg) || /Invalid recipient|mailbox not found/i.test(msg)
+  );
 }
 
 function getNextRetryDelay(attempts: number): number {
-  const delays = [60_000, 300_000, 900_000, 3_600_000, 14_400_000] // 1m, 5m, 15m, 1h, 4h
-  const base = delays[Math.min(attempts - 1, delays.length - 1)]
-  return base + base * 0.2 * (Math.random() * 2 - 1) // +/- 20% jitter
+  const delays = [60_000, 300_000, 900_000, 3_600_000, 14_400_000]; // 1m, 5m, 15m, 1h, 4h
+  const base = delays[Math.min(attempts - 1, delays.length - 1)];
+  return base + base * 0.2 * (Math.random() * 2 - 1); // +/- 20% jitter
 }
 
 function sanitizeError(error: unknown): string {
   // Strip internal details (SMTP host, port, IPs) — store only user-friendly message
-  return String(error).slice(0, 500).replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "[redacted]")
+  return String(error)
+    .slice(0, 500)
+    .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "[redacted]");
 }
 ```
 
@@ -444,6 +500,7 @@ function sanitizeError(error: unknown): string {
 **New file: `src/components/mail/schedule-picker.tsx`**
 
 Reuses the `SnoozePicker` pattern (`src/components/mail/snooze-picker.tsx`):
+
 - Preset options (timezone-aware, computed via `date-fns-tz`):
   - "Later today" (6 PM) — only shown before 4 PM
   - "Tomorrow morning" (8 AM)
@@ -458,6 +515,7 @@ Reuses the `SnoozePicker` pattern (`src/components/mail/snooze-picker.tsx`):
 **Modified files: `compose-client.tsx`, `reply-composer.tsx`**
 
 **Compose page**: Split button component:
+
 - Left: "Send" (with undo delay) — primary action
 - Right: dropdown chevron → "Schedule Send" opens `SchedulePicker`
 - Accessible: `aria-haspopup="true"`, `aria-expanded`, Escape closes, arrow keys navigate
@@ -489,7 +547,7 @@ const getScheduledCount = unstable_cache(
     db.scheduledMessage.count({ where: { userId, status: "PENDING" } }),
   ["scheduled-count"],
   { tags: ["sidebar-counts"], revalidate: 30 },
-)
+);
 ```
 
 #### 2.8 SSE Events
@@ -499,10 +557,16 @@ const getScheduledCount = unstable_cache(
 ```typescript
 export type MailEvent =
   | { type: "new-messages"; data: { folderId: string; count: number } }
-  | { type: "flags-changed"; data: { messageId: string; flags: Record<string, boolean> } }
+  | {
+      type: "flags-changed";
+      data: { messageId: string; flags: Record<string, boolean> };
+    }
   | { type: "message-deleted"; data: { messageId: string } }
   | { type: "scheduled-sent"; data: { scheduledMessageId: string } }
-  | { type: "scheduled-failed"; data: { scheduledMessageId: string; error: string } }
+  | {
+      type: "scheduled-failed";
+      data: { scheduledMessageId: string; error: string };
+    };
 ```
 
 **Modified file: `src/components/mail/auto-sync.tsx`**
@@ -514,9 +578,13 @@ Listen for `scheduled-failed` → show error sonner toast + `router.refresh()`.
 
 ```typescript
 const heartbeat = setInterval(() => {
-  try { controller.enqueue(encoder.encode(": heartbeat\n\n")) }
-  catch { subscribers.delete(send); clearInterval(heartbeat) }
-}, 30_000)
+  try {
+    controller.enqueue(encoder.encode(": heartbeat\n\n"));
+  } catch {
+    subscribers.delete(send);
+    clearInterval(heartbeat);
+  }
+}, 30_000);
 ```
 
 #### 2.9 Body Encryption at Rest
@@ -526,7 +594,7 @@ const heartbeat = setInterval(() => {
 Use existing `encrypt()`/`decrypt()` from `src/lib/crypto.ts` (already used for `EmailConnection.encryptedPassword`):
 
 ```typescript
-import { encrypt, decrypt } from "@/lib/crypto"
+import { encrypt, decrypt } from "@/lib/crypto";
 
 // On create:
 const record = await prisma.scheduledMessage.create({
@@ -535,17 +603,18 @@ const record = await prisma.scheduledMessage.create({
     textBody: encrypt(data.textBody),
     htmlBody: data.htmlBody ? encrypt(data.htmlBody) : null,
   },
-})
+});
 
 // On read (for edit, or background send):
-const msg = await prisma.scheduledMessage.findFirst({ where: { id } })
-const textBody = decrypt(msg.textBody)
-const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null
+const msg = await prisma.scheduledMessage.findFirst({ where: { id } });
+const textBody = decrypt(msg.textBody);
+const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null;
 ```
 
 ## Acceptance Criteria
 
 ### Undo Send
+
 - [ ] Clicking Send on compose shows sonner countdown toast with 5s timer
 - [ ] Clicking Send on reply shows sonner countdown toast with 5s timer
 - [ ] Clicking "Undo" cancels the send and restores compose/reply state
@@ -556,6 +625,7 @@ const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null
 - [ ] Tab close during countdown = message not sent (no silent data loss)
 
 ### Schedule Send
+
 - [ ] Split button on compose page shows "Schedule Send" dropdown
 - [ ] Calendar icon on reply composer opens schedule picker
 - [ ] Schedule picker shows timezone-aware preset times + custom date/time
@@ -573,24 +643,24 @@ const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null
 
 ## Key Files to Modify/Create
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/components/mail/undo-send-toast.tsx` | Create | Countdown toast with progress ring |
-| `src/stores/pending-send-store.ts` | Create | Zustand store (in-memory, no persist) |
-| `src/hooks/use-countdown.ts` | Create | Countdown timer hook (15fps) |
-| `src/hooks/use-before-unload.ts` | Create | beforeunload handler hook |
-| `src/app/(mail)/compose/compose-client.tsx` | Modify | Integrate undo-send + split button |
-| `src/components/mail/reply-composer.tsx` | Modify | Integrate undo-send + schedule icon |
-| `src/app/(mail)/layout.tsx` | Modify | Mount sonner `<Toaster>` |
-| `prisma/schema.prisma` | Modify | Add `ScheduledMessage` model + enum |
-| `src/actions/scheduled-messages.ts` | Create | CRUD server actions with zod + encryption |
-| `src/lib/mail/background-sync.ts` | Modify | Add `sendDueScheduledMessages()` before sync |
-| `src/lib/mail/scheduled-send.ts` | Create | `sendScheduledEmail()` helper, error classification |
-| `src/components/mail/schedule-picker.tsx` | Create | Date/time picker (reuse SnoozePicker pattern) |
-| `src/app/(mail)/scheduled/page.tsx` | Create | Scheduled messages list page |
-| `src/components/layout/sidebar.tsx` | Modify | Add Scheduled nav entry with badge |
-| `src/lib/mail/sse-subscribers.ts` | Modify | Add scheduled event types |
-| `src/components/mail/auto-sync.tsx` | Modify | Listen for scheduled events + fix heartbeat cleanup |
+| File                                        | Action | Purpose                                             |
+| ------------------------------------------- | ------ | --------------------------------------------------- |
+| `src/components/mail/undo-send-toast.tsx`   | Create | Countdown toast with progress ring                  |
+| `src/stores/pending-send-store.ts`          | Create | Zustand store (in-memory, no persist)               |
+| `src/hooks/use-countdown.ts`                | Create | Countdown timer hook (15fps)                        |
+| `src/hooks/use-before-unload.ts`            | Create | beforeunload handler hook                           |
+| `src/app/(mail)/compose/compose-client.tsx` | Modify | Integrate undo-send + split button                  |
+| `src/components/mail/reply-composer.tsx`    | Modify | Integrate undo-send + schedule icon                 |
+| `src/app/(mail)/layout.tsx`                 | Modify | Mount sonner `<Toaster>`                            |
+| `prisma/schema.prisma`                      | Modify | Add `ScheduledMessage` model + enum                 |
+| `src/actions/scheduled-messages.ts`         | Create | CRUD server actions with zod + encryption           |
+| `src/lib/mail/background-sync.ts`           | Modify | Add `sendDueScheduledMessages()` before sync        |
+| `src/lib/mail/scheduled-send.ts`            | Create | `sendScheduledEmail()` helper, error classification |
+| `src/components/mail/schedule-picker.tsx`   | Create | Date/time picker (reuse SnoozePicker pattern)       |
+| `src/app/(mail)/scheduled/page.tsx`         | Create | Scheduled messages list page                        |
+| `src/components/layout/sidebar.tsx`         | Modify | Add Scheduled nav entry with badge                  |
+| `src/lib/mail/sse-subscribers.ts`           | Modify | Add scheduled event types                           |
+| `src/components/mail/auto-sync.tsx`         | Modify | Listen for scheduled events + fix heartbeat cleanup |
 
 ## Dependencies & Risks
 
@@ -603,16 +673,16 @@ const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null
 
 ## Security Considerations
 
-| Risk | Mitigation |
-|------|------------|
-| Email bodies in localStorage (XSS-readable) | Do NOT persist to localStorage. In-memory zustand only. |
-| Plaintext scheduled message bodies in DB | Encrypt at rest using existing `encrypt()`/`decrypt()` from `crypto.ts` |
-| Background loop sends without request auth | Verify `emailConnectionId` belongs to `userId` before every send |
-| Stale SENDING lock = missed send | `sendingStartedAt` + 5min TTL auto-recovery (mirrors `claimSyncLock`) |
-| Double-send on crash recovery | Record `smtpMessageId` immediately after `sendMail()` success |
-| SMTP errors leak infra details in SSE | `sanitizeError()` strips IPs, hostnames; user-friendly messages only |
-| No global CSP header | Pre-existing issue — add global CSP in `next.config.ts` (defense-in-depth) |
-| Scheduled messages persist forever | Add retention policy: delete SENT/CANCELLED records after 30 days |
+| Risk                                        | Mitigation                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------------- |
+| Email bodies in localStorage (XSS-readable) | Do NOT persist to localStorage. In-memory zustand only.                    |
+| Plaintext scheduled message bodies in DB    | Encrypt at rest using existing `encrypt()`/`decrypt()` from `crypto.ts`    |
+| Background loop sends without request auth  | Verify `emailConnectionId` belongs to `userId` before every send           |
+| Stale SENDING lock = missed send            | `sendingStartedAt` + 5min TTL auto-recovery (mirrors `claimSyncLock`)      |
+| Double-send on crash recovery               | Record `smtpMessageId` immediately after `sendMail()` success              |
+| SMTP errors leak infra details in SSE       | `sanitizeError()` strips IPs, hostnames; user-friendly messages only       |
+| No global CSP header                        | Pre-existing issue — add global CSP in `next.config.ts` (defense-in-depth) |
+| Scheduled messages persist forever          | Add retention policy: delete SENT/CANCELLED records after 30 days          |
 
 ## ERD
 

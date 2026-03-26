@@ -43,11 +43,7 @@ function ConfirmButton({
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant="destructive"
-        onClick={handleClick}
-        disabled={isPending}
-      >
+      <Button variant="destructive" onClick={handleClick} disabled={isPending}>
         {isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (

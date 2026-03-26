@@ -57,7 +57,9 @@ In each of the 4 thread pages, add after the `pushFlagsToImap` block:
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 
 // In the JSX return, before ArchiveKeyboardShortcut:
-{markedRead.length > 0 && <SidebarRefresh />}
+{
+  markedRead.length > 0 && <SidebarRefresh />;
+}
 ```
 
 ### 4. Keep `threads.ts` clean (already done)
@@ -75,6 +77,6 @@ The `revalidateTag` import and call have already been removed from `getThreadMes
 ## Context
 
 - Previous fix that added `revalidateTag` to render: [sidebar-fixes-brainstorm.md](docs/brainstorms/2026-02-16-sidebar-fixes-brainstorm.md)
-- Sidebar cache setup: [layout.tsx:11-23](src/app/(mail)/layout.tsx#L11-L23) — `unstable_cache` with `sidebar-counts` tag, 30s TTL
-- Thread page pattern: [imbox/[id]/page.tsx:36-49](src/app/(mail)/imbox/[id]/page.tsx#L36-L49) — `getThreadMessages` + `pushFlagsToImap`
+- Sidebar cache setup: [layout.tsx:11-23](<src/app/(mail)/layout.tsx#L11-L23>) — `unstable_cache` with `sidebar-counts` tag, 30s TTL
+- Thread page pattern: [imbox/[id]/page.tsx:36-49](<src/app/(mail)/imbox/[id]/page.tsx#L36-L49>) — `getThreadMessages` + `pushFlagsToImap`
 - All existing `revalidateTag("sidebar-counts")` calls in server actions: [archive.ts](src/actions/archive.ts), [senders.ts](src/actions/senders.ts), [reply.ts](src/actions/reply.ts)

@@ -12,6 +12,7 @@ date: 2026-03-17
 **Agents used:** architecture-strategist, security-sentinel, kieran-typescript-reviewer, data-integrity-guardian, code-simplicity-reviewer, best-practices-researcher
 
 ### Key Improvements from Deepening
+
 1. Use `Serializable` transaction isolation for first-user-gets-admin (prevents race condition)
 2. Simplified from 3 client components to 1 (`admin-panel.tsx`)
 3. Eliminated `/api/auth/signup-status` route — register page becomes server component wrapper
@@ -64,28 +65,35 @@ model SystemSettings {
 In the WebAuthn registration verify route (`src/app/api/auth/webauthn/register/verify/route.ts`), use `Serializable` isolation to prevent a race condition where two simultaneous registrations both see `count = 0`:
 
 ```typescript
-const user = await db.$transaction(async (tx) => {
-  const userCount = await tx.user.count();
-  const role = userCount === 0 ? "ADMIN" : "USER";
+const user = await db.$transaction(
+  async (tx) => {
+    const userCount = await tx.user.count();
+    const role = userCount === 0 ? "ADMIN" : "USER";
 
-  const newUser = await tx.user.create({
-    data: {
-      role,
-      passkeys: { create: { /* ... existing passkey data ... */ } },
-    },
-  });
+    const newUser = await tx.user.create({
+      data: {
+        role,
+        passkeys: {
+          create: {
+            /* ... existing passkey data ... */
+          },
+        },
+      },
+    });
 
-  // Ensure SystemSettings singleton exists
-  await tx.systemSettings.upsert({
-    where: { id: "singleton" },
-    create: {},
-    update: {},
-  });
+    // Ensure SystemSettings singleton exists
+    await tx.systemSettings.upsert({
+      where: { id: "singleton" },
+      create: {},
+      update: {},
+    });
 
-  return newUser;
-}, {
-  isolationLevel: "Serializable",
-});
+    return newUser;
+  },
+  {
+    isolationLevel: "Serializable",
+  },
+);
 ```
 
 **Why Serializable?** Under PostgreSQL's default `READ COMMITTED`, two concurrent transactions can both read `count = 0` before either commits. `Serializable` causes one to fail with a serialization error (Prisma `P2034`). For a self-hosted app where registration is rare, this is a theoretical concern but trivially prevented.
@@ -171,17 +179,25 @@ const token = await encode({
 
 ```typescript
 declare module "next-auth" {
-  interface User { role?: string }
-  interface Session { user: { id: string; role: string } }
+  interface User {
+    role?: string;
+  }
+  interface Session {
+    user: { id: string; role: string };
+  }
 }
 declare module "next-auth/jwt" {
-  interface JWT { id?: string; role?: string }
+  interface JWT {
+    id?: string;
+    role?: string;
+  }
 }
 ```
 
 Use `string` instead of importing `Role` from `@prisma/client` to keep `auth.config.ts` edge-safe (Prisma enum imports may pull in Node.js dependencies).
 
 **Stale JWT handling:** The JWT role can become stale when an admin changes another user's role. This is acceptable because:
+
 - UI uses JWT role (optimistic, may be stale briefly)
 - All mutations use `requireAdmin()` which checks DB (always fresh)
 - User can log out/in to refresh
@@ -232,7 +248,10 @@ export async function toggleSignups(enabled: boolean) {
   revalidatePath("/settings/admin");
 }
 
-export async function updateUserRole(targetUserId: string, newRole: "ADMIN" | "USER") {
+export async function updateUserRole(
+  targetUserId: string,
+  newRole: "ADMIN" | "USER",
+) {
   const session = await requireAdmin();
 
   // Prevent self-demotion
@@ -240,22 +259,25 @@ export async function updateUserRole(targetUserId: string, newRole: "ADMIN" | "U
     throw new Error("Cannot demote yourself. Ask another admin.");
   }
 
-  await db.$transaction(async (tx) => {
-    if (newRole !== "ADMIN") {
-      const adminCount = await tx.user.count({
-        where: { role: "ADMIN", NOT: { id: targetUserId } },
-      });
-      if (adminCount < 1) {
-        throw new Error("Cannot remove the last admin");
+  await db.$transaction(
+    async (tx) => {
+      if (newRole !== "ADMIN") {
+        const adminCount = await tx.user.count({
+          where: { role: "ADMIN", NOT: { id: targetUserId } },
+        });
+        if (adminCount < 1) {
+          throw new Error("Cannot remove the last admin");
+        }
       }
-    }
-    await tx.user.update({
-      where: { id: targetUserId },
-      data: { role: newRole },
-    });
-  }, {
-    isolationLevel: "Serializable",
-  });
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: { role: newRole },
+      });
+    },
+    {
+      isolationLevel: "Serializable",
+    },
+  );
 
   revalidatePath("/settings/admin");
 }
@@ -273,6 +295,7 @@ export async function updateUserRole(targetUserId: string, newRole: "ADMIN" | "U
 **Single client component:** `src/components/settings/admin-panel.tsx`
 
 Contains:
+
 - **Signup toggle** — `<Switch>` calling `toggleSignups()` server action
 - **Users table** — display name, role badge, email connection count, created date
 - **Role toggle button** — "Make admin" / "Remove admin" button per user (not a dropdown — only 2 roles)
@@ -285,9 +308,11 @@ Add an "Admin" link on the settings page, visible only when `session.user.role =
 
 ```tsx
 // In src/app/(mail)/settings/page.tsx, add near the top:
-{session.user.role === "ADMIN" && (
-  <Link href="/settings/admin">Admin settings</Link>
-)}
+{
+  session.user.role === "ADMIN" && (
+    <Link href="/settings/admin">Admin settings</Link>
+  );
+}
 ```
 
 Also check `signupsEnabled` in the register options route (`/api/auth/webauthn/register/options`) to fail early before generating WebAuthn challenge.
@@ -356,11 +381,13 @@ erDiagram
 ## Files to Create/Modify
 
 ### New files
+
 - `src/app/(mail)/settings/admin/page.tsx` — admin settings server component
 - `src/components/settings/admin-panel.tsx` — single client component (toggle + users table)
 - `src/actions/admin.ts` — admin server actions
 
 ### Modified files
+
 - `prisma/schema.prisma` — Role enum, role field on User, SystemSettings model
 - `src/types/next-auth.d.ts` — extend with role
 - `src/lib/auth.config.ts` — role in JWT/session callbacks

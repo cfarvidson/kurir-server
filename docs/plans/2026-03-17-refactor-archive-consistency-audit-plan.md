@@ -12,13 +12,13 @@ Fix 5 inconsistencies in how archive/unarchive works across imbox, feed, paper-t
 
 ## Problem Statement
 
-| # | Issue | Impact |
-|---|-------|--------|
-| 1 | Feed & Paper Trail lack multi-select | Users can't bulk archive from those pages |
-| 2 | Archive actions don't revalidate source page; search results have no optimistic removal | Archived rows stay visible in search results until page reload |
-| 3 | Bulk archive skips optimistic removal (no messageIds passed to handler) | Selected rows flash as stale after bulk archive |
-| 4 | Detail view navigates before action completes | Archived message briefly reappears in list |
-| 5 | 6 detail pages are 95% identical | Maintenance burden, divergent behavior |
+| #   | Issue                                                                                   | Impact                                                         |
+| --- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 1   | Feed & Paper Trail lack multi-select                                                    | Users can't bulk archive from those pages                      |
+| 2   | Archive actions don't revalidate source page; search results have no optimistic removal | Archived rows stay visible in search results until page reload |
+| 3   | Bulk archive skips optimistic removal (no messageIds passed to handler)                 | Selected rows flash as stale after bulk archive                |
+| 4   | Detail view navigates before action completes                                           | Archived message briefly reappears in list                     |
+| 5   | 6 detail pages are 95% identical                                                        | Maintenance burden, divergent behavior                         |
 
 ## Proposed Solution
 
@@ -33,6 +33,7 @@ src/components/mail/thread-detail-view.tsx  (new)
 ```
 
 **Props:**
+
 - `categoryLabel: string` — "Imbox", "The Feed", "Paper Trail", "Archive", "Snoozed", "Sent"
 - `returnPath: string` — base path for back navigation (e.g., "/imbox")
 - `actions: React.ReactNode` — slot for ArchiveButton/UnarchiveButton/SnoozeButton
@@ -40,6 +41,7 @@ src/components/mail/thread-detail-view.tsx  (new)
 - `searchQuery?: string` — optional `?q=` param for return path
 
 **Shared logic to move into the component:**
+
 - `getUserInfo` helper (fetches email + timezone) — generalize to always fetch both
 - `getThreadMessages` call
 - Reply-target resolution (except sent-page special case — stays in page wrapper)
@@ -62,9 +64,17 @@ export default async function ImboxDetailPage({ params, searchParams }) {
       searchQuery={q}
       actions={(messageId, returnPath, timezone) => (
         <>
-          <SnoozeButton messageId={messageId} returnPath={returnPath} timezone={timezone} />
+          <SnoozeButton
+            messageId={messageId}
+            returnPath={returnPath}
+            timezone={timezone}
+          />
           <ArchiveButton messageId={messageId} returnPath={returnPath} />
-          <ArchiveKeyboardShortcut messageId={messageId} returnPath={returnPath} action="archive" />
+          <ArchiveKeyboardShortcut
+            messageId={messageId}
+            returnPath={returnPath}
+            action="archive"
+          />
         </>
       )}
     />
@@ -77,6 +87,7 @@ export default async function ImboxDetailPage({ params, searchParams }) {
 **Archive page:** Passes `UnarchiveButton` + `ArchiveKeyboardShortcut action="unarchive"` and no `SnoozeButton`.
 
 **Files to modify:**
+
 - `src/app/(mail)/imbox/[id]/page.tsx` — slim wrapper
 - `src/app/(mail)/feed/[id]/page.tsx` — slim wrapper
 - `src/app/(mail)/paper-trail/[id]/page.tsx` — slim wrapper
@@ -89,10 +100,12 @@ export default async function ImboxDetailPage({ params, searchParams }) {
 One-line change each:
 
 **Files to modify:**
+
 - `src/app/(mail)/feed/page.tsx` — add `showSelectionToggle={true}`
 - `src/app/(mail)/paper-trail/page.tsx` — add `showSelectionToggle={true}`
 
 **Defensive fix while in InfiniteMessageList:**
+
 - `src/components/mail/infinite-message-list.tsx` — pass `showSnoozeAction` to `SelectionActionBar` in the non-sectioned render branch (line ~284) for consistency
 
 ### Phase 3: Source Page Revalidation + Search Optimistic Removal (Fix 2)
@@ -103,7 +116,10 @@ Add optional `sourcePath?: string` parameter to `archiveConversation` and `archi
 
 ```typescript
 // src/actions/archive.ts
-export async function archiveConversation(messageId: string, sourcePath?: string) {
+export async function archiveConversation(
+  messageId: string,
+  sourcePath?: string,
+) {
   // ... existing logic ...
   revalidateTag("sidebar-counts");
   revalidatePath("/archive");
@@ -114,6 +130,7 @@ export async function archiveConversation(messageId: string, sourcePath?: string
 Same for `archiveConversations(messageIds: string[], sourcePath?: string)`.
 
 **Callers pass basePath:**
+
 - `MessageRow.doArchive()` in both `message-list.tsx` and `infinite-message-list.tsx` — pass the `basePath` prop through to `archiveConversation`
 - `SelectionActionBar.handleArchive()` — accept and pass `sourcePath`
 
@@ -126,11 +143,11 @@ Add local state to `MessageList` that tracks optimistically-removed IDs:
 const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
 const handleArchived = (messageId: string) => {
-  setHiddenIds(prev => new Set(prev).add(messageId));
+  setHiddenIds((prev) => new Set(prev).add(messageId));
 };
 
 // Filter visible messages
-const visibleMessages = messages.filter(m => !hiddenIds.has(m.id));
+const visibleMessages = messages.filter((m) => !hiddenIds.has(m.id));
 ```
 
 Wire `handleArchived` to `MessageRow` via `onArchived` prop.
@@ -138,6 +155,7 @@ Wire `handleArchived` to `MessageRow` via `onArchived` prop.
 Add `AnimatePresence mode="popLayout"` wrapper for smooth exit animation, matching `InfiniteMessageList`.
 
 **Files to modify:**
+
 - `src/actions/archive.ts` — add `sourcePath` param to both archive functions
 - `src/components/mail/message-list.tsx` — add optimistic removal state + AnimatePresence + wire onArchived
 - `src/components/mail/infinite-message-list.tsx` — pass basePath to doArchive calls
@@ -150,24 +168,30 @@ Add `AnimatePresence mode="popLayout"` wrapper for smooth exit animation, matchi
 ```typescript
 // InfiniteMessageList
 const handleArchived = (messageIds?: string | string[]) => {
-  const ids = Array.isArray(messageIds) ? messageIds : messageIds ? [messageIds] : [];
+  const ids = Array.isArray(messageIds)
+    ? messageIds
+    : messageIds
+      ? [messageIds]
+      : [];
   if (ids.length === 0) return;
 
   queryClient.setQueryData(queryKey, (old) => {
     // Resolve all thread keys for the given IDs
-    const allMessages = old.pages.flatMap(p => p.messages);
+    const allMessages = old.pages.flatMap((p) => p.messages);
     const threadKeys = new Set(
-      ids.map(id => {
-        const target = allMessages.find(m => m.id === id);
+      ids.map((id) => {
+        const target = allMessages.find((m) => m.id === id);
         return target?.threadId || id;
-      })
+      }),
     );
     // Filter out all messages matching any thread key
     return {
       ...old,
-      pages: old.pages.map(page => ({
+      pages: old.pages.map((page) => ({
         ...page,
-        messages: page.messages.filter(m => !threadKeys.has(m.threadId || m.id)),
+        messages: page.messages.filter(
+          (m) => !threadKeys.has(m.threadId || m.id),
+        ),
       })),
     };
   });
@@ -190,6 +214,7 @@ const handleArchive = () => {
 Same fix for `handleUnarchive` — capture IDs, pass to `onQueryInvalidate`, then clear.
 
 **Files to modify:**
+
 - `src/components/mail/infinite-message-list.tsx` — update `handleArchived` to accept `string | string[]`
 - `src/components/mail/selection-action-bar.tsx` — capture IDs, reorder calls, pass to `onQueryInvalidate`
 
@@ -211,11 +236,13 @@ const handleArchive = () => {
 The DB update is fast (~50ms); the IMAP move is already deferred via `after()`. Perceived latency is minimal. Button shows pending state via `useTransition`.
 
 Apply the same pattern to:
+
 - `src/components/mail/archive-button.tsx`
 - `src/components/mail/unarchive-button.tsx`
 - `src/components/mail/archive-keyboard-shortcut.tsx`
 
 **Files to modify:**
+
 - `src/components/mail/archive-button.tsx` — await action before router.push
 - `src/components/mail/unarchive-button.tsx` — same fix
 - `src/components/mail/archive-keyboard-shortcut.tsx` — same fix

@@ -12,6 +12,7 @@ Import all existing messages from an IMAP account (both Inbox and Sent), not jus
 **Batched sync with client-side loop** — modify the existing sync to process messages in batches (e.g., 100-200 per call) and return a `hasMore` flag. The client loops calling `/api/mail/sync` until all messages are imported, showing a progress bar.
 
 Why this over alternatives:
+
 - **vs SSE streaming:** Simpler, no long-lived connections, naturally resumable if the browser closes
 - **vs separate import endpoint:** No code duplication, the existing sync logic already handles UID delta correctly
 - **vs background workers:** Next.js doesn't have native workers; this stays within serverless constraints

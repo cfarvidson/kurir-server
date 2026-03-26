@@ -18,6 +18,7 @@ The sync order is already guaranteed: INBOX → Sent → All Mail. By the time A
 - No Gmail-specific APIs (X-GM-LABELS) needed
 
 **Rejected alternatives:**
+
 - Post-sync pass comparing All Mail vs INBOX — extra queries, unnecessary complexity for the same result
 - Gmail X-GM-LABELS — most accurate but Gmail-specific, violates IMAP generality
 

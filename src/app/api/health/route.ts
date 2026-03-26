@@ -29,12 +29,7 @@ export async function GET() {
 
     const [syncCounts, maintenanceCounts] = await Promise.all([
       syncQueue.getJobCounts("active", "waiting", "delayed", "failed"),
-      maintenanceQueue.getJobCounts(
-        "active",
-        "waiting",
-        "delayed",
-        "failed",
-      ),
+      maintenanceQueue.getJobCounts("active", "waiting", "delayed", "failed"),
     ]);
 
     syncStats = syncCounts as typeof syncStats;

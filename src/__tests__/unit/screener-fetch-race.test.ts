@@ -107,8 +107,14 @@ describe("fetchBody race condition fix", () => {
 
       const fakeFetch = vi
         .fn()
-        .mockImplementationOnce((_id: string, _signal: AbortSignal) => firstFetch)
-        .mockResolvedValueOnce({ html: "<p>second</p>", text: null, sizeBytes: 50 });
+        .mockImplementationOnce(
+          (_id: string, _signal: AbortSignal) => firstFetch,
+        )
+        .mockResolvedValueOnce({
+          html: "<p>second</p>",
+          text: null,
+          sizeBytes: 50,
+        });
 
       // Start first fetch (pending)
       const firstPromise = fetchBody(state, "msg-1", fakeFetch);
@@ -128,12 +134,16 @@ describe("fetchBody race condition fix", () => {
       const state = makeFetchState();
       let capturedSignal: AbortSignal | null = null;
 
-      const fakeFetch = vi.fn().mockImplementation(
-        (_id: string, signal: AbortSignal) => {
+      const fakeFetch = vi
+        .fn()
+        .mockImplementation((_id: string, signal: AbortSignal) => {
           capturedSignal = signal;
-          return Promise.resolve({ html: "<p>x</p>", text: null, sizeBytes: 10 });
-        },
-      );
+          return Promise.resolve({
+            html: "<p>x</p>",
+            text: null,
+            sizeBytes: 10,
+          });
+        });
 
       await fetchBody(state, "msg-1", fakeFetch);
 
@@ -146,8 +156,9 @@ describe("fetchBody race condition fix", () => {
     it("does NOT set previewError when fetch is aborted", async () => {
       const state = makeFetchState();
 
-      const fakeFetch = vi.fn().mockImplementation(
-        (_id: string, signal: AbortSignal) => {
+      const fakeFetch = vi
+        .fn()
+        .mockImplementation((_id: string, signal: AbortSignal) => {
           return new Promise<BodyCache>((_res, rej) => {
             // Immediately abort ourselves to simulate cancellation
             signal.addEventListener("abort", () => {
@@ -155,8 +166,7 @@ describe("fetchBody race condition fix", () => {
             });
             signal.dispatchEvent(new Event("abort"));
           });
-        },
-      );
+        });
 
       await fetchBody(state, "msg-1", fakeFetch);
 
@@ -199,7 +209,10 @@ describe("fetchBody race condition fix", () => {
 
     it("does not set previewError for a DOMException with name AbortError", async () => {
       const state = makeFetchState();
-      const abortError = new DOMException("The user aborted a request.", "AbortError");
+      const abortError = new DOMException(
+        "The user aborted a request.",
+        "AbortError",
+      );
 
       const fakeFetch = vi.fn().mockRejectedValue(abortError);
 
@@ -254,8 +267,7 @@ describe("fetchBody race condition fix", () => {
             rej(new DOMException("Aborted", "AbortError"));
             return;
           }
-          const onAbort = () =>
-            rej(new DOMException("Aborted", "AbortError"));
+          const onAbort = () => rej(new DOMException("Aborted", "AbortError"));
           signal.addEventListener("abort", onAbort, { once: true });
           // Resolve after a tick (simulates async network)
           Promise.resolve().then(() => {
@@ -317,8 +329,7 @@ describe("fetchBody race condition fix", () => {
             rej(new DOMException("Aborted", "AbortError"));
             return;
           }
-          const onAbort = () =>
-            rej(new DOMException("Aborted", "AbortError"));
+          const onAbort = () => rej(new DOMException("Aborted", "AbortError"));
           signal.addEventListener("abort", onAbort, { once: true });
           Promise.resolve().then(() => {
             if (!signal.aborted) {
@@ -388,7 +399,11 @@ describe("fetchBody race condition fix", () => {
     it("does not re-fetch a message already in cache", async () => {
       const state = makeFetchState();
       // Pre-populate cache (simulates bodyCacheRef.current having the entry)
-      state.cache["msg-1"] = { html: "<p>cached</p>", text: null, sizeBytes: 50 };
+      state.cache["msg-1"] = {
+        html: "<p>cached</p>",
+        text: null,
+        sizeBytes: 50,
+      };
 
       const fakeFetch = vi.fn();
       await fetchBody(state, "msg-1", fakeFetch);
@@ -436,12 +451,16 @@ describe("fetchBody race condition fix", () => {
       const states: boolean[] = [];
       const originalFetch = fetchBody;
 
-      const fakeFetch = vi.fn().mockImplementation(
-        (_id: string, _signal: AbortSignal) => {
+      const fakeFetch = vi
+        .fn()
+        .mockImplementation((_id: string, _signal: AbortSignal) => {
           states.push(state.previewLoading); // capture state mid-fetch
-          return Promise.resolve({ html: "<p>x</p>", text: null, sizeBytes: 5 });
-        },
-      );
+          return Promise.resolve({
+            html: "<p>x</p>",
+            text: null,
+            sizeBytes: 5,
+          });
+        });
 
       await fetchBody(state, "msg-1", fakeFetch);
 
@@ -453,7 +472,9 @@ describe("fetchBody race condition fix", () => {
 
     it("sets previewError=true and previewLoading=false on network error", async () => {
       const state = makeFetchState();
-      const fakeFetch = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+      const fakeFetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("fetch failed"));
 
       await fetchBody(state, "msg-1", fakeFetch);
 
@@ -529,7 +550,11 @@ describe("setSenders isPending gate", () => {
   });
 
   it("applies incoming senders once transition completes (isPending becomes false)", () => {
-    const afterTransition = applyInitialSenders(["sender-a"], ["sender-b"], false);
+    const afterTransition = applyInitialSenders(
+      ["sender-a"],
+      ["sender-b"],
+      false,
+    );
     expect(afterTransition).toEqual(["sender-b"]);
   });
 
@@ -587,7 +612,10 @@ describe("setProcessingId functional update guard", () => {
    * `clearIfMatch(current, completedId)` mirrors:
    *   setProcessingId((prev) => (prev === senderId ? null : prev))
    */
-  function clearIfMatch(current: string | null, completedId: string): string | null {
+  function clearIfMatch(
+    current: string | null,
+    completedId: string,
+  ): string | null {
     return current === completedId ? null : current;
   }
 

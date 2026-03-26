@@ -30,24 +30,35 @@ export async function POST(req: NextRequest) {
 
   const sessionKey = req.cookies.get("wa_reg_session")?.value;
   if (!sessionKey) {
-    return NextResponse.json({ error: "Missing registration session" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing registration session" },
+      { status: 400 },
+    );
   }
 
   const expectedChallenge = consumeChallenge(sessionKey);
   if (!expectedChallenge) {
-    return NextResponse.json({ error: "Challenge expired or invalid" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Challenge expired or invalid" },
+      { status: 400 },
+    );
   }
 
   let body: { credential: RegistrationResponseJSON } | RegistrationResponseJSON;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   // passkeys-list.tsx sends { credential } wrapped; new-user register sends the credential directly
   const registrationResponse: RegistrationResponseJSON =
-    "credential" in body ? (body as { credential: RegistrationResponseJSON }).credential : body;
+    "credential" in body
+      ? (body as { credential: RegistrationResponseJSON }).credential
+      : body;
 
   let verification;
   try {
@@ -64,7 +75,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verification.verified || !verification.registrationInfo) {
-    return NextResponse.json({ error: "Registration not verified" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Registration not verified" },
+      { status: 400 },
+    );
   }
 
   const { credential, credentialDeviceType, credentialBackedUp } =
@@ -177,7 +191,10 @@ export async function POST(req: NextRequest) {
   // Issue a NextAuth JWT session so the user is immediately logged in
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server misconfiguration" },
+      { status: 500 },
+    );
   }
 
   const cookieName =

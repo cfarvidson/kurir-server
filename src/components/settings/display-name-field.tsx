@@ -24,9 +24,7 @@ export function DisplayNameField({
         toast.success("Display name updated");
         setEditing(false);
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to update",
-        );
+        toast.error(err instanceof Error ? err.message : "Failed to update");
       }
     });
   };

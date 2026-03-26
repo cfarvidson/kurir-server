@@ -118,11 +118,13 @@ model Attachment {
 ```
 
 Add to `ScheduledMessage`:
+
 ```prisma
   attachmentIds String[] @default([])
 ```
 
 Add to `User`:
+
 ```prisma
   attachments Attachment[]
 ```
@@ -145,6 +147,7 @@ Add to `User`:
 - [x] Run `pnpm db:push` and `pnpm db:generate`
 
 **Acceptance criteria:**
+
 - [x] Can upload a file via POST, get back ID and URL
 - [x] Can serve uploaded file via GET with correct Content-Type
 - [x] Can delete an uploaded (unlinked) attachment
@@ -160,6 +163,7 @@ Add to `User`:
 Shared GitHub-style composer with Write/Preview tabs, used by both compose and reply.
 
 **Dependencies to install:**
+
 ```bash
 pnpm add marked
 ```
@@ -169,6 +173,7 @@ pnpm add marked
 **Files to create/modify:**
 
 - [x] `src/hooks/use-attachments.ts` — attachment upload/remove/state hook:
+
   ```typescript
   interface UploadedAttachment {
     id: string;
@@ -205,6 +210,7 @@ pnpm add marked
   - Error state: red text + retry button
 
 **Acceptance criteria:**
+
 - [x] Write/Preview tabs toggle correctly
 - [x] Preview renders markdown (headings, bold, italic, code, links, lists, tables, images)
 - [x] Drag & drop a file onto composer triggers upload
@@ -281,6 +287,7 @@ Wire the markdown composer and attachment hook into the existing compose and rep
   - Return both the HTML string and a list of extracted attachment IDs (for CID mapping)
 
 **Acceptance criteria:**
+
 - [x] Compose-new sends emails with attachments (visible in recipient's email client)
 - [x] Reply sends emails with attachments
 - [x] Inline images render correctly in recipient's email client (CID embedded)
@@ -314,6 +321,7 @@ Forward button on messages, navigating to `/compose` with pre-populated content.
   - Accept optional `forwardData` prop
   - Pre-fill subject: `Fwd: {original subject}`
   - Pre-fill body with forwarded header block:
+
     ```
 
     ---------- Forwarded message ----------
@@ -323,6 +331,7 @@ Forward button on messages, navigating to `/compose` with pre-populated content.
 
     {original plain text body}
     ```
+
   - Pre-load original attachments into `useAttachments` state (already uploaded, status "done")
   - User can edit body, add/remove attachments, pick recipient, then send
   - Forward uses compose send path (not reply) — no `inReplyTo` or `references` headers
@@ -330,6 +339,7 @@ Forward button on messages, navigating to `/compose` with pre-populated content.
 - [x] `src/components/mail/keyboard-shortcuts.tsx` — add `f` for forward (optional)
 
 **Acceptance criteria:**
+
 - [x] Forward button visible on messages in thread view
 - [x] Clicking Forward navigates to compose with pre-populated subject and body
 - [x] Original attachments carried over and shown as chips / inline images
@@ -362,6 +372,7 @@ Orphan cleanup, CID fix for received emails, and UX polish.
 - [x] `src/components/mail/reply-composer.tsx` — save/restore attachment state on undo
 
 **Acceptance criteria:**
+
 - [x] Orphaned uploads cleaned up after 24 hours
 - [x] Scheduled message attachments NOT cleaned up
 - [x] Received emails with CID inline images display correctly
@@ -372,34 +383,35 @@ Orphan cleanup, CID fix for received emails, and UX polish.
 
 ## Key Design Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Storage | Postgres `Bytes` column | Simplest, no external deps. Swap to S3 later via storage abstraction. |
-| Upload model | Upload-first (immediate) | GitHub model. Fast send, instant feedback, clean undo-send. |
-| Attachment model | Extend existing, make `partId`/`messageId` nullable | Less schema fragmentation than a separate table. GET route already handles both paths. |
-| Markdown library | `marked` | Lightweight, GFM built-in, works server-side. |
-| Email HTML styling | Inline styles via utility function | Simpler than adding `juice` dep. Basic element styles sufficient. |
-| Inline images in email | CID rewriting at send time | Email-standard. Works offline for recipients. |
-| Forward navigation | `/compose?forward={messageId}` | Reuses existing compose page. Avoids dual inline composers. |
-| Forward body format | Plain text with standard forwarded header | Composer is plain text. HTML→markdown conversion would be lossy. |
-| Orphan cleanup | 24h TTL, exclude scheduled message refs | Balances storage vs. abandoned compose sessions. |
-| Max per file | 10MB | User-specified. |
-| Max total per message | 25MB | Common SMTP server limit. |
-| Max attachments per message | 20 | Generous but prevents abuse. |
+| Decision                    | Choice                                              | Rationale                                                                              |
+| --------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Storage                     | Postgres `Bytes` column                             | Simplest, no external deps. Swap to S3 later via storage abstraction.                  |
+| Upload model                | Upload-first (immediate)                            | GitHub model. Fast send, instant feedback, clean undo-send.                            |
+| Attachment model            | Extend existing, make `partId`/`messageId` nullable | Less schema fragmentation than a separate table. GET route already handles both paths. |
+| Markdown library            | `marked`                                            | Lightweight, GFM built-in, works server-side.                                          |
+| Email HTML styling          | Inline styles via utility function                  | Simpler than adding `juice` dep. Basic element styles sufficient.                      |
+| Inline images in email      | CID rewriting at send time                          | Email-standard. Works offline for recipients.                                          |
+| Forward navigation          | `/compose?forward={messageId}`                      | Reuses existing compose page. Avoids dual inline composers.                            |
+| Forward body format         | Plain text with standard forwarded header           | Composer is plain text. HTML→markdown conversion would be lossy.                       |
+| Orphan cleanup              | 24h TTL, exclude scheduled message refs             | Balances storage vs. abandoned compose sessions.                                       |
+| Max per file                | 10MB                                                | User-specified.                                                                        |
+| Max total per message       | 25MB                                                | Common SMTP server limit.                                                              |
+| Max attachments per message | 20                                                  | Generous but prevents abuse.                                                           |
 
 ## Dependencies & Risks
 
-| Risk | Mitigation |
-|---|---|
-| Large Bytes columns bloat Postgres | Phase 2 of storage: migrate to S3. Monitor DB size. |
-| CID rewriting is fragile (regex on HTML) | Use the markdown→HTML pipeline — we control the output format, so image URLs are predictable (`/api/attachments/{id}` pattern). |
-| Orphan cleanup deletes scheduled message attachments | Explicitly exclude IDs referenced in `ScheduledMessage.attachmentIds`. |
-| Markdown preview XSS | `marked` output is rendered in a `prose` div with `dangerouslySetInnerHTML` — sanitize via `marked`'s built-in sanitizer or DOMPurify on the output. |
-| SMTP rejects large messages | Enforce 25MB total before send. Show clear error if exceeded. |
+| Risk                                                 | Mitigation                                                                                                                                           |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Large Bytes columns bloat Postgres                   | Phase 2 of storage: migrate to S3. Monitor DB size.                                                                                                  |
+| CID rewriting is fragile (regex on HTML)             | Use the markdown→HTML pipeline — we control the output format, so image URLs are predictable (`/api/attachments/{id}` pattern).                      |
+| Orphan cleanup deletes scheduled message attachments | Explicitly exclude IDs referenced in `ScheduledMessage.attachmentIds`.                                                                               |
+| Markdown preview XSS                                 | `marked` output is rendered in a `prose` div with `dangerouslySetInnerHTML` — sanitize via `marked`'s built-in sanitizer or DOMPurify on the output. |
+| SMTP rejects large messages                          | Enforce 25MB total before send. Show clear error if exceeded.                                                                                        |
 
 ## References & Research
 
 ### Internal References
+
 - Brainstorm: `docs/brainstorms/2026-03-21-attachments-and-compose-brainstorm.md`
 - Attachment model: `prisma/schema.prisma:315-338`
 - Attachment GET route: `src/app/api/attachments/[id]/route.ts`
@@ -415,6 +427,7 @@ Orphan cleanup, CID fix for received emails, and UX polish.
 - Tabs UI component: `src/components/ui/tabs.tsx`
 
 ### Institutional Learnings Applied
+
 - `docs/solutions/integration-issues/sent-messages-missing-from-thread-views.md` — use shared `persist-sent.ts` helper, link attachments to message after send
 - `docs/solutions/performance-issues/sync-timeout-on-large-mailboxes.md` — batch large operations
 - `docs/solutions/feature-implementations/auto-archive-rejected-screener-messages.md` — ImapFlow API type safety

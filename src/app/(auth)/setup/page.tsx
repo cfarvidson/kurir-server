@@ -19,5 +19,10 @@ export default async function SetupPage() {
     }
   }
 
-  return <SetupForm />;
+  const oauthEnabled = {
+    microsoft: !!process.env.MICROSOFT_CLIENT_ID,
+    google: !!process.env.GOOGLE_CLIENT_ID,
+  };
+
+  return <SetupForm oauthEnabled={oauthEnabled} />;
 }

@@ -96,6 +96,7 @@ redis:
 New env vars: `REDIS_URL=redis://localhost:6379` in docker-compose and `.kamal/secrets`.
 
 Files:
+
 - `docker-compose.yml`
 - `config/deploy.yml`
 - `.kamal/secrets`
@@ -105,6 +106,7 @@ Files:
 Append `?connection_limit=15` to `DATABASE_URL`. Coordinate with PostgreSQL `max_connections` (default 100 — 15 Prisma + headroom is fine).
 
 Files:
+
 - `docker-compose.yml` (DATABASE_URL)
 - `config/deploy.yml` (env)
 
@@ -114,13 +116,13 @@ Replace `setInterval` in `background-sync.ts` with BullMQ repeatable jobs.
 
 **Job types:**
 
-| Job Type | Schedule | Concurrency | Retry | Priority |
-|---|---|---|---|---|
-| `sync-connection` | Every 60s per connection | 5 | 3 attempts, exponential backoff | Higher for users with active SSE |
-| `scheduled-send` | Every 30s (global) | 1 | Existing retry logic (5 attempts) | Normal |
-| `wake-snoozes` | Every 60s (global) | 1 | 1 | Normal |
-| `check-follow-ups` | Every 60s (global) | 1 | 1 | Normal |
-| `expire-attachments` | Every 24h (global) | 1 | 1 | Low |
+| Job Type             | Schedule                 | Concurrency | Retry                             | Priority                         |
+| -------------------- | ------------------------ | ----------- | --------------------------------- | -------------------------------- |
+| `sync-connection`    | Every 60s per connection | 5           | 3 attempts, exponential backoff   | Higher for users with active SSE |
+| `scheduled-send`     | Every 30s (global)       | 1           | Existing retry logic (5 attempts) | Normal                           |
+| `wake-snoozes`       | Every 60s (global)       | 1           | 1                                 | Normal                           |
+| `check-follow-ups`   | Every 60s (global)       | 1           | 1                                 | Normal                           |
+| `expire-attachments` | Every 24h (global)       | 1           | 1                                 | Low                              |
 
 **"Recently active" = user has an active SSE connection.** Check `sseSubscribers.has(userId)` to determine priority. Active users get BullMQ priority 1 (high), inactive get priority 10 (low).
 
@@ -135,6 +137,7 @@ New file: `src/lib/jobs/sync-worker.ts` — sync job processor
 New file: `src/lib/jobs/maintenance-worker.ts` — scheduled-send, snooze, follow-up jobs
 
 Modified files:
+
 - `src/lib/mail/background-sync.ts` — gut and replace with BullMQ job scheduling
 - `src/instrumentation.ts` — initialize BullMQ workers instead of `startBackgroundSync()`
 - `package.json` — add `bullmq` dependency
@@ -144,6 +147,7 @@ Modified files:
 Add a max connections limit to `ConnectionManager` (default: 25).
 
 **Eviction policy:** LRU based on SSE subscriber status:
+
 1. Users with active SSE connections keep their IDLE connections
 2. When cap is reached and a new high-priority user needs IDLE, evict the connection belonging to the user who has been offline longest (no active SSE + oldest `lastActivity` timestamp)
 3. Evicted users get their mail on the next BullMQ sync cycle (60s worst case)
@@ -153,6 +157,7 @@ Add a max connections limit to `ConnectionManager` (default: 25).
 Track `lastActivity: Date` per connection in the ConnectionManager Map.
 
 Modified files:
+
 - `src/lib/mail/connection-manager.ts` — add `MAX_CONNECTIONS`, eviction logic, `lastActivity` tracking
 
 **1.5 Memory optimizations**
@@ -162,6 +167,7 @@ Modified files:
 **Attachment size cap:** During sync, skip storing `content` for attachments larger than 10MB. Store metadata + `partId` only. Lazy-download on demand via existing IMAP fallback in `/api/attachments/[id]`.
 
 Modified files:
+
 - `src/lib/mail/sync-service.ts` — sequential (not concurrent) `repairThreadIds` per user; skip large attachment content
 
 ---
@@ -171,12 +177,14 @@ Modified files:
 **2.1 Attachment 30-day expiry**
 
 **Expiry basis:** 30 days from `message.receivedAt` (the message's IMAP internal date). This means:
+
 - Recent mail: attachments cached in DB for fast access
 - Old mail imported during initial sync: attachments only stored temporarily, then expired
 
 **Inline image exemption:** Attachments with a non-null `contentId` (CID-referenced inline images) are exempt from expiry. Nullifying inline images breaks email rendering.
 
 **Expiry job:** The `expire-attachments` BullMQ job runs daily. Query:
+
 ```sql
 UPDATE "Attachment"
 SET content = NULL
@@ -196,6 +204,7 @@ WHERE content IS NOT NULL
 **Schema change:** None needed. `Attachment.content` is already `Bytes?` (nullable).
 
 Modified files:
+
 - `src/lib/jobs/maintenance-worker.ts` — add attachment expiry job
 - `src/lib/mail/sync-service.ts` — skip content for attachments >10MB
 
@@ -205,12 +214,12 @@ Use a simple Redis-backed sliding window rate limiter.
 
 **Thresholds:**
 
-| Scope | Limit | Window |
-|---|---|---|
-| API requests (per user) | 120 | 1 minute |
-| Manual sync trigger (per user) | 1 | 30 seconds |
-| Connection create/update (per user) | 5 | 1 minute |
-| Registration attempts (per IP) | 3 | 10 minutes |
+| Scope                               | Limit | Window     |
+| ----------------------------------- | ----- | ---------- |
+| API requests (per user)             | 120   | 1 minute   |
+| Manual sync trigger (per user)      | 1     | 30 seconds |
+| Connection create/update (per user) | 5     | 1 minute   |
+| Registration attempts (per IP)      | 3     | 10 minutes |
 
 **Admin exemption:** Admin users are not exempt — rate limits protect the server, not just other users.
 
@@ -222,6 +231,7 @@ Use a simple Redis-backed sliding window rate limiter.
 
 New file: `src/lib/rate-limit.ts` — sliding window rate limiter using Redis
 Modified files:
+
 - `src/middleware.ts` — apply rate limiting middleware
 - `src/components/mail/auto-sync.tsx` — handle 429 responses
 
@@ -234,10 +244,12 @@ Modified files:
 Add `selfServiceAccountManagement Boolean @default(true)` to `SystemSettings`.
 
 **Behavior:**
+
 - **ON (default):** Users can add/edit/remove their own email connections via `/setup` and `/api/connections`
 - **OFF:** Only admins can manage connections. **Exception:** A user's FIRST connection (during initial onboarding at `/setup`) is always allowed, regardless of this toggle. Without this exception, newly registered users would be stuck with no email.
 
 Modified files:
+
 - `prisma/schema.prisma` — add column to SystemSettings
 - `src/app/api/connections/route.ts` — check toggle on POST
 - `src/app/api/connections/[id]/route.ts` — check toggle on PATCH/DELETE
@@ -249,6 +261,7 @@ Modified files:
 **Mechanism:** Admin creates an invite with a display name and optional email. System generates a single-use invite token (URL-safe random string, 48 chars). Admin shares the invite link (`/register?invite=TOKEN`) with the invitee.
 
 **Invite flow:**
+
 1. Admin clicks "Invite User" on admin dashboard
 2. Enters display name (required) and email hint (optional, for admin's reference)
 3. System creates `Invite` record with token, stores in DB
@@ -257,6 +270,7 @@ Modified files:
 6. Invite is consumed (single-use), bypasses `signupsEnabled` check
 
 **Invite properties:**
+
 - Expires after 7 days
 - Single use (consumed on registration)
 - Revocable by admin (delete from dashboard)
@@ -281,6 +295,7 @@ model Invite {
 
 New file: `src/actions/invites.ts` — createInvite, revokeInvite, listInvites
 Modified files:
+
 - `prisma/schema.prisma` — add Invite model
 - `src/app/api/auth/webauthn/register/verify/route.ts` — accept invite token, bypass signupsEnabled, consume invite, set displayName
 - `src/app/(auth)/register/page.tsx` — accept `?invite=TOKEN` query param, prefill displayName
@@ -320,6 +335,7 @@ Expand the existing `/settings/admin` page into a full dashboard.
    - Self-service account management toggle
 
 **Admin connection management for other users:** When self-service is OFF (or anytime), admin can:
+
 - View another user's connections (host, email, last sync time — NOT the password)
 - Add a connection to another user's account (admin enters IMAP/SMTP credentials — encrypted immediately, admin cannot retrieve later)
 - Delete another user's connection
@@ -334,6 +350,7 @@ New file: `src/components/admin/system-panel.tsx`
 New file: `src/components/admin/invites-panel.tsx`
 New file: `src/actions/admin-connections.ts` — manage connections for other users
 Modified files:
+
 - `src/components/settings/admin-panel.tsx` — restructure as dashboard layout
 - `src/actions/admin.ts` — add disableUser, enableUser actions
 
@@ -377,6 +394,7 @@ Two endpoints:
 
 New file: `src/app/api/health/route.ts`
 Modified files:
+
 - `src/middleware.ts` — add `/api/health` with admin auth check
 
 ---
@@ -464,14 +482,14 @@ erDiagram
 
 ## Risk Analysis & Mitigation
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Redis goes down | All syncs stop | Health endpoint alerts; documented recovery procedure; short-term: restart Redis |
-| BullMQ job stuck | One connection stops syncing | Job timeout (5 min) + stale Postgres lock (5 min); admin dashboard shows failed jobs |
-| IDLE connection cap causes missed real-time updates | Inactive users get 60s delay | Acceptable for this scale; BullMQ priority ensures active users sync fast |
-| Admin enters wrong IMAP credentials for user | Connection fails to sync | IMAP credential verification on connection create (existing pattern) |
-| Attachment expiry + IMAP credential change = permanent loss | Old attachments unrecoverable | Accepted risk; same as any IMAP client. Users are warned in UI. |
-| repairThreadIds memory for power user (100K+ messages) | OOM for one user | Phase 1 processes one user at a time; future: SQL recursive CTE |
+| Risk                                                        | Impact                        | Mitigation                                                                           |
+| ----------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------ |
+| Redis goes down                                             | All syncs stop                | Health endpoint alerts; documented recovery procedure; short-term: restart Redis     |
+| BullMQ job stuck                                            | One connection stops syncing  | Job timeout (5 min) + stale Postgres lock (5 min); admin dashboard shows failed jobs |
+| IDLE connection cap causes missed real-time updates         | Inactive users get 60s delay  | Acceptable for this scale; BullMQ priority ensures active users sync fast            |
+| Admin enters wrong IMAP credentials for user                | Connection fails to sync      | IMAP credential verification on connection create (existing pattern)                 |
+| Attachment expiry + IMAP credential change = permanent loss | Old attachments unrecoverable | Accepted risk; same as any IMAP client. Users are warned in UI.                      |
+| repairThreadIds memory for power user (100K+ messages)      | OOM for one user              | Phase 1 processes one user at a time; future: SQL recursive CTE                      |
 
 ## Not Doing (YAGNI)
 

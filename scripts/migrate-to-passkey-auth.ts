@@ -24,7 +24,9 @@
  *   pnpm tsx scripts/migrate-to-passkey-auth.ts --dry-run
  */
 
-try { await import("dotenv/config"); } catch {}
+try {
+  await import("dotenv/config");
+} catch {}
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();
@@ -75,8 +77,12 @@ async function main() {
   log(`Found ${legacyUsers.length} user(s) with legacy email credentials`);
 
   if (legacyUsers.length === 0) {
-    log("Nothing to migrate — all users already migrated or no legacy data found.");
-    log("If you expected data here, check that the legacy columns still exist in the DB.");
+    log(
+      "Nothing to migrate — all users already migrated or no legacy data found.",
+    );
+    log(
+      "If you expected data here, check that the legacy columns still exist in the DB.",
+    );
     await db.$disconnect();
     return;
   }
@@ -89,7 +95,12 @@ async function main() {
   let syncStatesBackfilled = 0;
 
   for (const user of legacyUsers) {
-    if (!user.email || !user.imap_host || !user.smtp_host || !user.encrypted_password) {
+    if (
+      !user.email ||
+      !user.imap_host ||
+      !user.smtp_host ||
+      !user.encrypted_password
+    ) {
       log(`  SKIP user ${user.id}: missing required legacy fields`);
       continue;
     }
@@ -104,7 +115,9 @@ async function main() {
     let connectionId: string;
 
     if (existingConnection) {
-      log(`    EmailConnection already exists (${existingConnection.id}), skipping creation`);
+      log(
+        `    EmailConnection already exists (${existingConnection.id}), skipping creation`,
+      );
       connectionId = existingConnection.id;
     } else {
       log(`    Creating EmailConnection for ${user.email}`);
@@ -134,12 +147,22 @@ async function main() {
 
     if (isDryRun) {
       // Count what would be backfilled
-      const folderCount = await db.folder.count({ where: { userId: user.id, emailConnectionId: undefined } });
-      const senderCount = await db.sender.count({ where: { userId: user.id, emailConnectionId: undefined } });
-      const messageCount = await db.message.count({ where: { userId: user.id, emailConnectionId: undefined } });
-      const syncStateCount = await db.syncState.count({ where: { emailConnectionId: undefined } });
+      const folderCount = await db.folder.count({
+        where: { userId: user.id, emailConnectionId: undefined },
+      });
+      const senderCount = await db.sender.count({
+        where: { userId: user.id, emailConnectionId: undefined },
+      });
+      const messageCount = await db.message.count({
+        where: { userId: user.id, emailConnectionId: undefined },
+      });
+      const syncStateCount = await db.syncState.count({
+        where: { emailConnectionId: undefined },
+      });
 
-      log(`    Would backfill: ${folderCount} folders, ${senderCount} senders, ${messageCount} messages`);
+      log(
+        `    Would backfill: ${folderCount} folders, ${senderCount} senders, ${messageCount} messages`,
+      );
       if (syncStateCount > 0) log(`    Would migrate SyncState`);
 
       foldersBackfilled += folderCount;
@@ -157,7 +180,9 @@ async function main() {
     });
     foldersBackfilled += folderResult.count;
     if (folderResult.count > 0) {
-      log(`    Backfilled emailConnectionId on ${folderResult.count} folder(s)`);
+      log(
+        `    Backfilled emailConnectionId on ${folderResult.count} folder(s)`,
+      );
     }
 
     // Step 3: Backfill emailConnectionId on Senders for this user
@@ -167,7 +192,9 @@ async function main() {
     });
     sendersBackfilled += senderResult.count;
     if (senderResult.count > 0) {
-      log(`    Backfilled emailConnectionId on ${senderResult.count} sender(s)`);
+      log(
+        `    Backfilled emailConnectionId on ${senderResult.count} sender(s)`,
+      );
     }
 
     // Step 4: Backfill emailConnectionId on Messages for this user
@@ -192,7 +219,9 @@ async function main() {
           data: { emailConnectionId: connectionId },
         });
         messagesBackfilled += batchCount;
-        log(`    Backfilled ${batchCount} message(s) (total: ${messagesBackfilled})`);
+        log(
+          `    Backfilled ${batchCount} message(s) (total: ${messagesBackfilled})`,
+        );
       }
 
       offset += batchCount;
@@ -201,7 +230,13 @@ async function main() {
     // Step 5: Migrate SyncState from userId to emailConnectionId
     // The old SyncState has a unique userId; the new one has a unique emailConnectionId.
     // Read via raw SQL since the Prisma model no longer has a userId field.
-    type LegacySyncState = { id: string; last_full_sync: Date | null; is_syncing: boolean; sync_started_at: Date | null; sync_error: string | null };
+    type LegacySyncState = {
+      id: string;
+      last_full_sync: Date | null;
+      is_syncing: boolean;
+      sync_started_at: Date | null;
+      sync_error: string | null;
+    };
     const legacySyncStates = await db.$queryRaw<LegacySyncState[]>`
       SELECT id, "lastFullSync" AS last_full_sync, "isSyncing" AS is_syncing,
              "syncStartedAt" AS sync_started_at, "syncError" AS sync_error
@@ -247,7 +282,9 @@ async function main() {
     console.log("\nNext steps:");
     console.log("  1. Verify the app works correctly with the migrated data.");
     console.log("  2. Register a passkey at /register.");
-    console.log("  3. Once verified, run a follow-up Prisma migration to drop the legacy");
+    console.log(
+      "  3. Once verified, run a follow-up Prisma migration to drop the legacy",
+    );
     console.log("     columns (email, imapHost, etc.) from the User table.");
   }
 

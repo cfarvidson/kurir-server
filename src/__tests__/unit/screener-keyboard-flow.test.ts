@@ -20,7 +20,11 @@ type Category = "IMBOX" | "FEED" | "PAPER_TRAIL";
 
 interface ScreenerState {
   senderQueue: string[]; // sender IDs
-  processedSenders: Array<{ id: string; action: "approved" | "rejected" | "skipped"; category?: Category }>;
+  processedSenders: Array<{
+    id: string;
+    action: "approved" | "rejected" | "skipped";
+    category?: Category;
+  }>;
   isPreviewOpen: boolean;
   isCategoryPickerOpen: boolean;
   isProcessing: boolean;
@@ -52,14 +56,19 @@ function dispatch(
     | { type: "CLOSE_PREVIEW" }
     | { type: "OPEN_CATEGORY_PICKER" }
     | { type: "CLOSE_CATEGORY_PICKER" }
-    | { type: "UNDO" }
+    | { type: "UNDO" },
 ): ScreenerState {
   const senderId = state.senderQueue[0];
 
   switch (action.type) {
     case "APPROVE": {
       if (!senderId) return state;
-      const entry = { id: senderId, action: "approved" as const, category: action.category, timestamp: Date.now() };
+      const entry = {
+        id: senderId,
+        action: "approved" as const,
+        category: action.category,
+        timestamp: Date.now(),
+      };
       return {
         ...state,
         senderQueue: state.senderQueue.slice(1),
@@ -71,7 +80,11 @@ function dispatch(
     }
     case "REJECT": {
       if (!senderId) return state;
-      const entry = { id: senderId, action: "rejected" as const, timestamp: Date.now() };
+      const entry = {
+        id: senderId,
+        action: "rejected" as const,
+        timestamp: Date.now(),
+      };
       return {
         ...state,
         senderQueue: state.senderQueue.slice(1),
@@ -110,7 +123,9 @@ function dispatch(
       return {
         ...state,
         senderQueue: [last.id, ...state.senderQueue],
-        processedSenders: state.processedSenders.filter((s) => s.id !== last.id),
+        processedSenders: state.processedSenders.filter(
+          (s) => s.id !== last.id,
+        ),
         undoStack: state.undoStack.slice(0, -1),
       };
     }
@@ -121,10 +136,7 @@ function dispatch(
 
 // ─── Keyboard handler ─────────────────────────────────────────────────────────
 
-function handleKey(
-  key: string,
-  state: ScreenerState
-): ScreenerState {
+function handleKey(key: string, state: ScreenerState): ScreenerState {
   if (keyboardState.gSequenceActive) return state;
   if (state.isProcessing) return state;
   if (!currentSenderId(state)) return state;
@@ -330,8 +342,8 @@ describe("Screener keyboard flow integration", () => {
     it("Escape with both picker and preview open closes picker first", () => {
       let state = createScreenerState(["sender-a"]);
 
-      state = handleKey(" ", state);   // open preview
-      state = handleKey("y", state);   // open picker
+      state = handleKey(" ", state); // open preview
+      state = handleKey("y", state); // open picker
 
       state = handleKey("Escape", state);
       expect(state.isCategoryPickerOpen).toBe(false);
@@ -445,7 +457,11 @@ describe("Undo within 5 seconds", () => {
 
   it("undo time window: action within 5s is undoable", () => {
     const now = Date.now();
-    const recentAction = { id: "sender-a", action: "rejected", timestamp: now - 2000 };
+    const recentAction = {
+      id: "sender-a",
+      action: "rejected",
+      timestamp: now - 2000,
+    };
 
     // Within 5s window
     expect(now - recentAction.timestamp).toBeLessThan(5000);
@@ -453,7 +469,11 @@ describe("Undo within 5 seconds", () => {
 
   it("action older than 5s is outside undo window", () => {
     const now = Date.now();
-    const oldAction = { id: "sender-a", action: "rejected", timestamp: now - 6000 };
+    const oldAction = {
+      id: "sender-a",
+      action: "rejected",
+      timestamp: now - 6000,
+    };
 
     // Outside 5s window — UI should hide the undo toast
     expect(now - oldAction.timestamp).toBeGreaterThan(5000);

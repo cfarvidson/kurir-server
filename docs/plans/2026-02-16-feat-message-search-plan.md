@@ -18,6 +18,7 @@ With 10k+ messages, users need a fast way to find specific emails by subject and
 ## Pre-work: Fix basePath on Feed, Paper Trail, Sent
 
 **Files to modify:**
+
 - `src/app/(mail)/feed/page.tsx` — add `basePath="/feed"`
 - `src/app/(mail)/paper-trail/page.tsx` — add `basePath="/paper-trail"`
 - `src/app/(mail)/sent/page.tsx` — add `basePath="/sent"`
@@ -53,6 +54,7 @@ This reuses all existing page infrastructure — no new API routes, no client-si
 ### Phase 1: Database — tsvector column, GIN index, trigger
 
 **Files:**
+
 - New: `prisma/migrations/search_vector.sql`
 
 Add a `search_vector tsvector` column to the `Message` table with a GIN index and an auto-update trigger. This keeps search vector maintenance in the database layer — no application code needed for population.
@@ -118,9 +120,11 @@ WHERE id IN (
 **Why a trigger:** The project uses `prisma db push` and Prisma's `message.create()` — it cannot set a `tsvector` column. A trigger handles this transparently. No changes to `processMessage` needed.
 
 **Migration strategy:** Since the project uses `db push` (no Prisma migrations), run this SQL file manually:
+
 ```bash
 docker compose exec -T postgres psql -U kurir < prisma/migrations/search_vector.sql
 ```
+
 The column is invisible to Prisma schema and only accessed via `$queryRaw`.
 
 ---
@@ -128,6 +132,7 @@ The column is invisible to Prisma schema and only accessed via `$queryRaw`.
 ### Phase 2: Search function + search input component
 
 **Files:**
+
 - New: `src/lib/mail/search.ts`
 - New: `src/components/mail/search-input.tsx`
 
@@ -155,7 +160,7 @@ export async function searchMessages(
   userId: string,
   query: string,
   categoryFilter: Prisma.Sql,
-  limit = 50
+  limit = 50,
 ) {
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
     SELECT
@@ -174,6 +179,7 @@ export async function searchMessages(
 ```
 
 **Key decisions:**
+
 - Uses `websearch_to_tsquery` — handles user input safely (supports quotes, `-` exclusion, no syntax errors on special chars)
 - Sorts by relevance first, then recency as tiebreaker
 - **No `Prisma.raw()`** — each page passes a safe `Prisma.sql` fragment for its category filter
@@ -202,6 +208,7 @@ Uses `useSearchParams`, `usePathname`, and `useRouter` from `next/navigation`.
 ### Phase 3: Page integration
 
 **Files to modify:**
+
 - `src/app/(mail)/imbox/page.tsx`
 - `src/app/(mail)/feed/page.tsx`
 - `src/app/(mail)/paper-trail/page.tsx`
@@ -209,6 +216,7 @@ Uses `useSearchParams`, `usePathname`, and `useRouter` from `next/navigation`.
 - `src/app/(mail)/sent/page.tsx`
 
 Each page:
+
 1. Accepts `searchParams` prop (Next.js 15 async server component pattern)
 2. When `searchParams.q` is present and >= 2 chars: calls `searchMessages()` with its specific category filter
 3. When searching: skips `collapseToThreads()` and the Imbox read/unread split
@@ -235,7 +243,7 @@ export default async function ImboxPage({
     ? await searchMessages(
         session.user.id,
         q,
-        Prisma.sql`AND "isInImbox" = true`
+        Prisma.sql`AND "isInImbox" = true`,
       )
     : await getImboxMessages(session.user.id);
 
@@ -283,10 +291,12 @@ const messages = isSearching
 ## Dependencies & Risks
 
 **Dependencies:**
+
 - PostgreSQL 11+ required for `websearch_to_tsquery` (should already be the case)
 - Raw SQL migration must be run before the feature works
 
 **Risks:**
+
 - `prisma db push` could interfere with the manually-added `search_vector` column. Mitigation: Prisma ignores columns not in the schema — `db push` will not drop unknown columns by default (only `--force-reset` would).
 - Backfill on very large tables may be slow. Mitigation: batched UPDATE (1000 rows at a time) in the migration SQL.
 - Each debounced keystroke triggers a server component re-render (network round-trip). With sub-second FTS queries and 300ms debounce, this should be imperceptible on normal connections.

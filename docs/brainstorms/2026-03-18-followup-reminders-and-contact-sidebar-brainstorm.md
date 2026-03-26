@@ -12,6 +12,7 @@
 A per-thread reminder system that surfaces threads where the user is waiting for a reply. The user explicitly sets a follow-up deadline ("remind me if no reply in 3 days"). If no reply arrives by the deadline, the thread appears in a dedicated "Follow Up" sidebar section with a badge count. If a reply comes in before the deadline, the reminder auto-cancels silently.
 
 **User flow:**
+
 1. User sends a reply or reads a thread they want to track
 2. Clicks "Follow Up" button (next to Snooze) → preset picker appears (1 day, 3 days, 1 week, 2 weeks)
 3. System stores `followUpAt` timestamp on the thread's messages
@@ -25,6 +26,7 @@ A per-thread reminder system that surfaces threads where the user is waiting for
 A compact, always-visible right panel (~280px) in the thread detail view showing context about the sender. Desktop only (hidden below `lg` breakpoint). Shows sender name, email, category badge, message count, first/last email dates, and the 5 most recent threads with this contact. Links to the full `/contacts/[id]` page.
 
 **User flow:**
+
 1. User opens any thread
 2. Right panel shows sender info, pulled from the Sender model
 3. Recent threads listed as clickable links

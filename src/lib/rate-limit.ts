@@ -63,9 +63,7 @@ async function checkRateLimit(
       // Find the oldest entry to calculate retry-after
       const oldest = await client.zrange(redisKey, 0, 0, "WITHSCORES");
       const oldestTime = oldest.length >= 2 ? parseInt(oldest[1], 10) : now;
-      const retryAfter = Math.ceil(
-        (oldestTime + windowMs - now) / 1000,
-      );
+      const retryAfter = Math.ceil((oldestTime + windowMs - now) / 1000);
 
       return {
         allowed: false,
@@ -90,9 +88,7 @@ async function checkRateLimit(
  * Rate limit by authenticated user ID.
  * 120 requests per minute.
  */
-export async function rateLimitUser(
-  userId: string,
-): Promise<RateLimitResult> {
+export async function rateLimitUser(userId: string): Promise<RateLimitResult> {
   return checkRateLimit(`user:${userId}`, 120, 60);
 }
 
@@ -100,9 +96,7 @@ export async function rateLimitUser(
  * Rate limit manual sync triggers.
  * 1 per 30 seconds per user.
  */
-export async function rateLimitSync(
-  userId: string,
-): Promise<RateLimitResult> {
+export async function rateLimitSync(userId: string): Promise<RateLimitResult> {
   return checkRateLimit(`sync:${userId}`, 1, 30);
 }
 

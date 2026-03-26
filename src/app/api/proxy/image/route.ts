@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dns from "dns/promises";
 
-const BLOCKED_HOSTNAMES = new Set([
-  "localhost",
-  "127.0.0.1",
-  "::1",
-  "0.0.0.0",
-]);
+const BLOCKED_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 const BLOCKED_SUFFIXES = [".local", ".internal", ".ts.net"];
 
 const TRANSPARENT_PIXEL = Buffer.from(
@@ -110,8 +105,7 @@ function proxyImageResponse(
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(content.length),
-      "Cache-Control":
-        "private, max-age=86400, stale-while-revalidate=604800",
+      "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "default-src 'none'",
     },

@@ -7,7 +7,10 @@ import { replyToMessage } from "@/actions/reply";
 import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownComposer } from "@/components/mail/markdown-composer";
-import { useAttachments, type UploadedAttachment } from "@/hooks/use-attachments";
+import {
+  useAttachments,
+  type UploadedAttachment,
+} from "@/hooks/use-attachments";
 import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
@@ -94,10 +97,14 @@ export function ReplyComposer({
     if (!body.trim() || scheduling || isUploading) return;
     setScheduling(true);
     try {
-      const replySubject = subject.startsWith("Re:") ? subject : `Re: ${subject}`;
+      const replySubject = subject.startsWith("Re:")
+        ? subject
+        : `Re: ${subject}`;
       const refsString = [
         ...references,
-        ...(rfcMessageId && !references.includes(rfcMessageId) ? [rfcMessageId] : []),
+        ...(rfcMessageId && !references.includes(rfcMessageId)
+          ? [rfcMessageId]
+          : []),
       ].join(" ");
 
       const attachmentIds = attachments
@@ -248,9 +255,7 @@ export function ReplyComposer({
                 <span className="font-medium text-foreground">
                   {to === replyToAddress ? replyToName : to}
                 </span>{" "}
-                <span className="text-muted-foreground/60">
-                  &lt;{to}&gt;
-                </span>
+                <span className="text-muted-foreground/60">&lt;{to}&gt;</span>
               </button>
             )}
             <button

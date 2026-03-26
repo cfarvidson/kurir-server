@@ -2,14 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Clock,
-  Send,
-  X,
-  Pencil,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import { Clock, Send, X, Pencil, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   cancelScheduledMessage,
@@ -115,9 +108,7 @@ function ScheduledMessageRow({
       <div className="min-w-0 flex-1">
         {/* Recipient + subject */}
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">
-            To: {message.to}
-          </span>
+          <span className="truncate text-sm font-medium">To: {message.to}</span>
           {message.status === "FAILED" && (
             <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
               Failed
@@ -229,9 +220,7 @@ function formatScheduledTime(date: Date, timezone: string): string {
   if (diffHours < 2) return `in about ${diffHours} hour`;
 
   // Compare dates in user's timezone
-  const nowInTz = new Date(
-    now.toLocaleString("en-US", { timeZone: timezone }),
-  );
+  const nowInTz = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
   const dateInTz = new Date(
     date.toLocaleString("en-US", { timeZone: timezone }),
   );

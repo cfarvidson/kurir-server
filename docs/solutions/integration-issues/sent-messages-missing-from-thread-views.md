@@ -2,7 +2,20 @@
 title: "Sent messages missing from thread views"
 date: 2026-02-08
 category: integration-issues
-tags: [imap, threading, deduplication, sent-messages, message-id-rewriting, prisma, sync, negative-uid, smtp, nodemailer, next-js-cache]
+tags:
+  [
+    imap,
+    threading,
+    deduplication,
+    sent-messages,
+    message-id-rewriting,
+    prisma,
+    sync,
+    negative-uid,
+    smtp,
+    nodemailer,
+    next-js-cache,
+  ]
 module: mail/sync, mail/threads, actions/reply, api/mail/send
 symptoms:
   - Replies composed in thread view disappear on page reload
@@ -59,7 +72,7 @@ export async function createLocalSentMessage(opts: {
   const folder = await getSentFolder(opts.userId);
   if (!folder) return null;
   return db.message.create({
-    data: { uid: generateTempUid(), ...opts, /* defaults */ },
+    data: { uid: generateTempUid(), ...opts /* defaults */ },
   });
 }
 ```
@@ -119,7 +132,7 @@ for (const m of allMessages) {
   }
 }
 const deduped = allMessages.filter(
-  (m) => !m.messageId || seen.get(m.messageId) === m
+  (m) => !m.messageId || seen.get(m.messageId) === m,
 );
 ```
 

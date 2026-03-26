@@ -27,7 +27,7 @@ function buildDateInTimezone(
   month: number,
   day: number,
   hour: number,
-  minute: number
+  minute: number,
 ): Date {
   const probe = new Date(year, month, day, hour, minute);
   const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC" });
@@ -56,7 +56,12 @@ function getSnoozeOptions(now: Date, tz: string): SnoozeOption[] {
         const local = getDateInTimezone(now, tz);
         if (local.getHours() < 15) {
           return buildDateInTimezone(
-            tz, local.getFullYear(), local.getMonth(), local.getDate(), 18, 0
+            tz,
+            local.getFullYear(),
+            local.getMonth(),
+            local.getDate(),
+            18,
+            0,
           );
         }
         return new Date(now.getTime() + 3 * 60 * 60 * 1000);
@@ -69,7 +74,12 @@ function getSnoozeOptions(now: Date, tz: string): SnoozeOption[] {
       getDate: (_now, tz) => {
         const local = getDateInTimezone(_now, tz);
         return buildDateInTimezone(
-          tz, local.getFullYear(), local.getMonth(), local.getDate() + 1, 8, 0
+          tz,
+          local.getFullYear(),
+          local.getMonth(),
+          local.getDate() + 1,
+          8,
+          0,
         );
       },
     },
@@ -84,13 +94,18 @@ function getSnoozeOptions(now: Date, tz: string): SnoozeOption[] {
       getDate: (_now, tz) => {
         const local = getDateInTimezone(_now, tz);
         return buildDateInTimezone(
-          tz, local.getFullYear(), local.getMonth(), local.getDate() + daysUntilSaturday, 8, 0
+          tz,
+          local.getFullYear(),
+          local.getMonth(),
+          local.getDate() + daysUntilSaturday,
+          8,
+          0,
         );
       },
     });
   }
 
-  const daysUntilMonday = ((8 - dayOfWeek) % 7) || 7;
+  const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
   options.push({
     label: "Next week",
     description: "Monday 8:00 AM",
@@ -98,7 +113,12 @@ function getSnoozeOptions(now: Date, tz: string): SnoozeOption[] {
     getDate: (_now, tz) => {
       const local = getDateInTimezone(_now, tz);
       return buildDateInTimezone(
-        tz, local.getFullYear(), local.getMonth(), local.getDate() + daysUntilMonday, 8, 0
+        tz,
+        local.getFullYear(),
+        local.getMonth(),
+        local.getDate() + daysUntilMonday,
+        8,
+        0,
       );
     },
   });
@@ -153,16 +173,20 @@ export function SnoozePicker({
     if (!customDate || !customTime) return;
     const [year, month, day] = customDate.split("-").map(Number);
     const [hour, minute] = customTime.split(":").map(Number);
-    const until = buildDateInTimezone(timezone, year, month - 1, day, hour, minute);
+    const until = buildDateInTimezone(
+      timezone,
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+    );
     if (until <= now) return;
     handleSnooze(until);
   };
 
   return (
-    <Popover
-      open={isOpen}
-      onOpenChange={handleOpenChange}
-    >
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         align={align}

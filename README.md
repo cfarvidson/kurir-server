@@ -5,19 +5,25 @@ A Hey.com-inspired email client built with Next.js 15. Kurir connects to your ex
 ## Features
 
 ### Screener
+
 First-time senders land in the Screener, not your inbox. You decide who gets through:
+
 - **Screen In** - Approve the sender, their emails go to your Imbox
 - **Screen Out** - Reject silently, you'll never hear from them again
 
 ### Imbox
+
 Your curated inbox showing only emails from approved senders:
+
 - **New For You** - Unread messages at the top
 - **Previously Seen** - Read messages below
 
 ### The Feed
+
 Newsletters and subscriptions in a browsable feed format.
 
 ### Paper Trail
+
 Receipts, shipping notifications, and transactional emails kept separate.
 
 ## Tech Stack
@@ -86,20 +92,72 @@ NEXTAUTH_URL="http://localhost:3000"
 
 # Email password encryption (generate with: openssl rand -base64 32)
 ENCRYPTION_KEY="your-encryption-key"
+
+# OAuth (optional — enables "Sign in with" buttons for Gmail/Outlook)
+MICROSOFT_CLIENT_ID="your-azure-app-client-id"
+MICROSOFT_CLIENT_SECRET="your-azure-app-client-secret"
+GOOGLE_CLIENT_ID="your-google-oauth-client-id"
+GOOGLE_CLIENT_SECRET="your-google-oauth-client-secret"
 ```
 
 ## Connecting Your Email
 
 Kurir supports any email provider with IMAP/SMTP access:
 
-| Provider | IMAP Host | SMTP Host | Notes |
-|----------|-----------|-----------|-------|
-| Gmail | imap.gmail.com | smtp.gmail.com | Requires [App Password](https://support.google.com/accounts/answer/185833) |
-| Outlook | outlook.office365.com | smtp.office365.com | Requires App Password |
-| iCloud | imap.mail.me.com | smtp.mail.me.com | Requires App Password |
-| Yahoo | imap.mail.yahoo.com | smtp.mail.yahoo.com | Requires App Password |
+| Provider | IMAP Host             | SMTP Host           | Notes                                                                      |
+| -------- | --------------------- | ------------------- | -------------------------------------------------------------------------- |
+| Gmail    | imap.gmail.com        | smtp.gmail.com      | OAuth or [App Password](https://support.google.com/accounts/answer/185833) |
+| Outlook  | outlook.office365.com | smtp.office365.com  | OAuth (recommended) or App Password                                        |
+| iCloud   | imap.mail.me.com      | smtp.mail.me.com    | Requires [App Password](https://support.apple.com/en-us/102654)            |
+| Yahoo    | imap.mail.yahoo.com   | smtp.mail.yahoo.com | Requires App Password                                                      |
 
 For other providers, use the "Custom" option and enter your IMAP/SMTP settings.
+
+### OAuth Setup (Microsoft / Google)
+
+OAuth lets users connect Gmail and Outlook accounts without app passwords. It's optional — password-based connections still work. OAuth buttons only appear in the UI when the corresponding env vars are set.
+
+#### Microsoft (Azure AD / Entra)
+
+Requires a free Azure account which creates an Entra ID tenant. App registration is free forever — the credit card is for identity verification only.
+
+1. Create a free Azure account at https://azure.microsoft.com/free
+2. Go to [entra.microsoft.com](https://entra.microsoft.com) > Identity > Applications > App registrations > New registration
+3. Name: e.g. "Kurir Mail"
+4. Supported account types: **"Accounts in any organizational directory and personal Microsoft accounts"** (multi-tenant + personal)
+5. Redirect URI (Web): `https://<your-domain>/api/auth/oauth/callback`
+6. Click Register, copy the **Application (client) ID** → `MICROSOFT_CLIENT_ID`
+7. Go to Certificates & secrets > New client secret, copy the value → `MICROSOFT_CLIENT_SECRET`
+8. Go to API permissions > Add a permission > APIs my organization uses > search **"Office 365 Exchange Online"**
+
+   > **Not showing up?** Free tenants don't have the Exchange service principal pre-provisioned. Go to your app's **Manifest** tab, find the `requiredResourceAccess` array, and add:
+   >
+   > ```json
+   > {
+   >   "resourceAppId": "00000002-0000-0ff1-ce00-000000000000",
+   >   "resourceAccess": [
+   >     { "id": "5df07973-7d5d-46ed-f847-aeb6baeafa96", "type": "Scope" },
+   >     { "id": "258f6531-6087-4cc4-bb90-092c5fb3ed3f", "type": "Scope" }
+   >   ]
+   > }
+   > ```
+   >
+   > Save the manifest, then continue to step 10.
+
+9. Select **Delegated permissions**, add:
+   - `IMAP.AccessAsUser.All`
+   - `SMTP.Send`
+10. Click "Grant admin consent" (you are tenant admin on a free account)
+
+#### Google
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) > APIs & Credentials
+2. Create an OAuth 2.0 Client ID (Web application)
+3. Add authorized redirect URI: `https://<your-domain>/api/auth/oauth/callback`
+4. Enable the **Gmail API** in the API Library
+5. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+
+Both providers use `NEXTAUTH_URL` as the base for the redirect URI. Token refresh is handled automatically.
 
 ## Project Structure
 
@@ -195,6 +253,7 @@ pnpm sync-user --all
 ### Sender Classification
 
 When you screen in a sender, choose where their emails go:
+
 - **Imbox** - Important messages from people
 - **The Feed** - Newsletters you want to read
 - **Paper Trail** - Receipts and transactional emails

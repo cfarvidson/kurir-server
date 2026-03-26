@@ -37,11 +37,12 @@ isFollowUp      Boolean    @default(false)  // True when reminder has fired
 @@index([userId, followUpAt])
 ```
 
-> **Why `followUpSetAt`?** The auto-cancel check needs to know *when* the reminder was set to distinguish pre-existing replies from new ones. Without it, a thread with an old reply would immediately cancel a newly set follow-up.
+> **Why `followUpSetAt`?** The auto-cancel check needs to know _when_ the reminder was set to distinguish pre-existing replies from new ones. Without it, a thread with an old reply would immediately cancel a newly set follow-up.
 
 ### User Flows
 
 **Setting a follow-up:**
+
 1. User opens any thread (Imbox, Feed, Paper Trail, Sent, Archive)
 2. Clicks "Follow Up" button in thread header actions bar
 3. Preset picker appears: **1 day, 3 days, 1 week, 2 weeks**
@@ -50,6 +51,7 @@ isFollowUp      Boolean    @default(false)  // True when reminder has fired
 6. `revalidateTag("sidebar-counts")`
 
 **Background check fires reminder:**
+
 1. `syncAndNotify()` runs every 60s
 2. `checkExpiredFollowUps(userId)` queries messages where `followUpAt <= now()` AND `isFollowUp = false`
 3. For each matching thread: check if any incoming message exists with `receivedAt > followUpSetAt` AND `fromAddress != userEmail`
@@ -57,44 +59,50 @@ isFollowUp      Boolean    @default(false)  // True when reminder has fired
 5. Optional: emit SSE `follow-up-fired` event for toast notification
 
 **Auto-cancel on reply (two locations):**
+
 1. **In `processMessage()`** (sync-service.ts): After persisting a new incoming message, check if the thread has `followUpAt` set. If yes, clear `followUpAt` and `followUpSetAt` on all thread messages. This provides immediate cancellation.
 2. **In `checkExpiredFollowUps()`** (background-sync.ts): As a safety net, also check for newer replies before firing. This catches replies that arrived between sync cycles.
 
 **Auto-clear fired follow-ups on late reply:**
+
 - If a new incoming message arrives in a thread where `isFollowUp = true`, auto-clear `isFollowUp`, `followUpAt`, and `followUpSetAt`. The thread disappears from /follow-up.
 
 **Viewing /follow-up:**
+
 1. User clicks "Follow Up" in sidebar navigation
 2. Page queries `{ isFollowUp: true }` via `CATEGORY_FILTERS`, collapses to threads
 3. Each thread shows subject, snippet, and how long overdue
 4. Two actions per thread: **Dismiss** and **Extend**
 
 **Dismiss:**
+
 - Sets `isFollowUp = false`, clears `followUpAt` and `followUpSetAt`
 - Thread disappears from /follow-up view
 
 **Extend:**
-- Opens picker with same presets (1d, 3d, 1w, 2w from *now*)
+
+- Opens picker with same presets (1d, 3d, 1w, 2w from _now_)
 - Sets `isFollowUp = false`, sets new `followUpAt` and `followUpSetAt`
 - Thread returns to "waiting" state
 
 **Cancel pending (not yet fired) follow-up:**
+
 - If a thread has `followUpAt` set but `isFollowUp` is still `false`, the follow-up button shows in "active" state (amber icon, "Following up in 2 days" tooltip)
 - Clicking reveals: "Cancel follow-up" and "Change deadline"
 
 ### Key Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Stay on thread after setting | Yes, show toast | Unlike snooze (which hides the thread), follow-up doesn't change visibility |
-| Follow-up in Sent view | Yes | Primary use case — "I sent this, remind me if no reply" |
-| Badge color | Amber/orange | Distinct from primary coral, signals "needs attention" |
-| Always show in sidebar | Yes (like Snoozed) | Feature needs to be discoverable |
-| Follow-up + Snooze | Independent | Thread can appear in /follow-up even while snoozed |
-| Follow-up + Archive | Follow-up still fires | User explicitly set it; archiving doesn't cancel intent |
-| User's own reply | Does NOT cancel | User is still waiting for the *other* person |
-| Auto-clear fired on late reply | Yes | Keeps /follow-up clean; mirrors mental model |
-| Extend presets | Relative to now | "Check again tomorrow" is more intuitive than "4 days after original" |
+| Decision                       | Choice                | Rationale                                                                   |
+| ------------------------------ | --------------------- | --------------------------------------------------------------------------- |
+| Stay on thread after setting   | Yes, show toast       | Unlike snooze (which hides the thread), follow-up doesn't change visibility |
+| Follow-up in Sent view         | Yes                   | Primary use case — "I sent this, remind me if no reply"                     |
+| Badge color                    | Amber/orange          | Distinct from primary coral, signals "needs attention"                      |
+| Always show in sidebar         | Yes (like Snoozed)    | Feature needs to be discoverable                                            |
+| Follow-up + Snooze             | Independent           | Thread can appear in /follow-up even while snoozed                          |
+| Follow-up + Archive            | Follow-up still fires | User explicitly set it; archiving doesn't cancel intent                     |
+| User's own reply               | Does NOT cancel       | User is still waiting for the _other_ person                                |
+| Auto-clear fired on late reply | Yes                   | Keeps /follow-up clean; mirrors mental model                                |
+| Extend presets                 | Relative to now       | "Check again tomorrow" is more intuitive than "4 days after original"       |
 
 ### Visual Indicator in List Views
 
@@ -157,6 +165,7 @@ WHERE "userId" = $1
 ### Race Condition Mitigation
 
 If a reply arrives at nearly the same time the deadline expires, `processMessage` and `checkExpiredFollowUps` could race. Mitigation:
+
 - `processMessage` clears `followUpAt` first (immediate), then `checkExpiredFollowUps` won't match (since `followUpAt` is null)
 - If `checkExpiredFollowUps` runs first and sets `isFollowUp = true`, then `processMessage` runs and clears both `isFollowUp` and `followUpAt` — correct final state
 
@@ -180,15 +189,15 @@ If a reply arrives at nearly the same time the deadline expires, `processMessage
 
 ### Key Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Multi-participant threads | Show original sender (first message `fromAddress`) | Stable, predictable — thread originator is most relevant |
-| Sent-only threads | Show primary recipient (first `toAddresses` entry) | User wants context about who they wrote to, not themselves |
-| Screener threads | Show limited sidebar for PENDING senders | Helps user decide whether to approve |
-| No Sender record | Graceful fallback: show email + "Unknown contact" | Don't crash; degrade gracefully |
-| Recent threads routing | Determine route from message category flags | Fix existing hardcoded `/imbox/` bug in ContactThreadList |
-| Recent threads scope | All categories including archived | More history is more useful |
-| Mobile access | "Info" icon button in thread header → `/contacts/[id]` | Low effort, good discoverability |
+| Decision                  | Choice                                                 | Rationale                                                  |
+| ------------------------- | ------------------------------------------------------ | ---------------------------------------------------------- |
+| Multi-participant threads | Show original sender (first message `fromAddress`)     | Stable, predictable — thread originator is most relevant   |
+| Sent-only threads         | Show primary recipient (first `toAddresses` entry)     | User wants context about who they wrote to, not themselves |
+| Screener threads          | Show limited sidebar for PENDING senders               | Helps user decide whether to approve                       |
+| No Sender record          | Graceful fallback: show email + "Unknown contact"      | Don't crash; degrade gracefully                            |
+| Recent threads routing    | Determine route from message category flags            | Fix existing hardcoded `/imbox/` bug in ContactThreadList  |
+| Recent threads scope      | All categories including archived                      | More history is more useful                                |
+| Mobile access             | "Info" icon button in thread header → `/contacts/[id]` | Low effort, good discoverability                           |
 
 ### Layout Change
 
@@ -320,9 +329,11 @@ The sidebar adds 2-3 DB queries per thread page load (sender lookup, date aggreg
 ## References
 
 ### Brainstorm
+
 - `docs/brainstorms/2026-03-18-followup-reminders-and-contact-sidebar-brainstorm.md`
 
 ### Key Existing Patterns (to replicate)
+
 - Snooze schema: `prisma/schema.prisma:271-272`
 - `wakeExpiredSnoozes`: `src/lib/mail/background-sync.ts:60-74`
 - Snooze actions: `src/actions/snooze.ts:7-148`
@@ -337,6 +348,7 @@ The sidebar adds 2-3 DB queries per thread page load (sender lookup, date aggreg
 - `processMessage`: `src/lib/mail/sync-service.ts:394-615`
 
 ### Institutional Learnings
+
 - Atomic concurrency guard pattern: `docs/solutions/performance-issues/sync-timeout-on-large-mailboxes.md`
 - Deferred IMAP operations: `docs/solutions/feature-implementations/auto-archive-rejected-screener-messages.md`
 - Thread routing: `ContactThreadList` hardcodes `/imbox/` — needs fixing for sidebar

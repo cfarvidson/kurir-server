@@ -4,7 +4,14 @@ import { auth } from "@/lib/auth";
 import { getMessages } from "@/lib/mail/messages";
 
 const querySchema = z.object({
-  category: z.enum(["imbox", "feed", "paper-trail", "archive", "snoozed", "follow-up"]),
+  category: z.enum([
+    "imbox",
+    "feed",
+    "paper-trail",
+    "archive",
+    "snoozed",
+    "follow-up",
+  ]),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -16,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const parsed = querySchema.safeParse(
-    Object.fromEntries(request.nextUrl.searchParams)
+    Object.fromEntries(request.nextUrl.searchParams),
   );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });

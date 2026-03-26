@@ -56,10 +56,7 @@ export default async function RegisterPage({
             <CardContent>
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link
-                  href="/login"
-                  className="text-primary hover:underline"
-                >
+                <Link href="/login" className="text-primary hover:underline">
                   Sign in
                 </Link>
               </p>

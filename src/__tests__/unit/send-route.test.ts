@@ -27,7 +27,9 @@ vi.mock("@/lib/mail/persist-sent", () => ({
   appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockSendMail = vi.fn().mockResolvedValue({ messageId: "<sent@example.com>" });
+const mockSendMail = vi
+  .fn()
+  .mockResolvedValue({ messageId: "<sent@example.com>" });
 vi.mock("nodemailer", () => ({
   default: {
     createTransport: vi.fn().mockReturnValue({
@@ -74,7 +76,8 @@ describe("POST /api/mail/send", () => {
   });
 
   it("uses the default connection when fromConnectionId is not specified", async () => {
-    const { auth, getDefaultConnectionCredentials } = await import("@/lib/auth");
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
     vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
       connectionId: "conn-default",
@@ -82,6 +85,8 @@ describe("POST /api/mail/send", () => {
       sendAsEmail: null,
       aliases: [],
       password: "pass",
+      accessToken: null,
+      oauthProvider: null,
       imap: { host: "imap.gmail.com", port: 993 },
       smtp: { host: "smtp.gmail.com", port: 587 },
     });
@@ -90,7 +95,11 @@ describe("POST /api/mail/send", () => {
     vi.mocked(db.message.findFirst).mockResolvedValue(null);
 
     const { POST } = await import("@/app/api/mail/send/route");
-    const req = makeRequest({ to: "someone@example.com", subject: "Hi", text: "Hello" });
+    const req = makeRequest({
+      to: "someone@example.com",
+      subject: "Hi",
+      text: "Hello",
+    });
     const response = await POST(req);
 
     expect(response.status).toBe(200);
@@ -98,7 +107,8 @@ describe("POST /api/mail/send", () => {
   });
 
   it("returns 400 when user has no email connections", async () => {
-    const { auth, getDefaultConnectionCredentials } = await import("@/lib/auth");
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
     vi.mocked(getDefaultConnectionCredentials).mockResolvedValue(null);
 
@@ -126,6 +136,8 @@ describe("POST /api/mail/send", () => {
       sendAsEmail: null,
       aliases: [],
       password: "pass",
+      accessToken: null,
+      oauthProvider: null,
       imap: { host: "imap.work.com", port: 993 },
       smtp: { host: "smtp.work.com", port: 587 },
     });
@@ -142,11 +154,14 @@ describe("POST /api/mail/send", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(200);
-    expect(getConnectionCredentials).toHaveBeenCalledWith("conn-work", "user-1");
+    expect(getConnectionCredentials).toHaveBeenCalledWith(
+      "conn-work",
+      "user-1",
+    );
 
     // Should send from the work account
     expect(mockSendMail).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "me@work.com" })
+      expect.objectContaining({ from: "me@work.com" }),
     );
   });
 
@@ -171,7 +186,8 @@ describe("POST /api/mail/send", () => {
   });
 
   it("passes emailConnectionId to createLocalSentMessage", async () => {
-    const { auth, getDefaultConnectionCredentials } = await import("@/lib/auth");
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
     vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
       connectionId: "conn-personal",
@@ -179,6 +195,8 @@ describe("POST /api/mail/send", () => {
       sendAsEmail: null,
       aliases: [],
       password: "pass",
+      accessToken: null,
+      oauthProvider: null,
       imap: { host: "imap.personal.com", port: 993 },
       smtp: { host: "smtp.personal.com", port: 587 },
     });
@@ -200,7 +218,7 @@ describe("POST /api/mail/send", () => {
         emailConnectionId: "conn-personal",
         userId: "user-1",
         fromAddress: "me@personal.com",
-      })
+      }),
     );
   });
 });

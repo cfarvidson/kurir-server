@@ -28,7 +28,9 @@ vi.mock("@simplewebauthn/server", () => ({
 
 vi.mock("@simplewebauthn/server/helpers", () => ({
   isoBase64URL: {
-    fromBuffer: vi.fn().mockImplementation((buf: Buffer) => buf.toString("base64url")),
+    fromBuffer: vi
+      .fn()
+      .mockImplementation((buf: Buffer) => buf.toString("base64url")),
   },
 }));
 
@@ -89,9 +91,8 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     const { auth } = await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue(null);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({}, undefined, "?addPasskey=true");
     const response = await POST(req);
 
@@ -107,9 +108,8 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findMany).mockResolvedValue([]);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({}, undefined, "?addPasskey=true");
     const response = await POST(req);
 
@@ -125,9 +125,8 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findMany).mockResolvedValue([]);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({}, undefined, "?addPasskey=true");
     const response = await POST(req);
 
@@ -144,10 +143,10 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
       { credentialId: "existing-cred-id", transports: ["internal"] },
     ] as any);
 
-    const { generateRegistrationOptions } = await import("@simplewebauthn/server");
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { generateRegistrationOptions } =
+      await import("@simplewebauthn/server");
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({}, undefined, "?addPasskey=true");
     await POST(req);
 
@@ -164,16 +163,15 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findMany).mockResolvedValue([]);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({}, undefined, "?addPasskey=true");
     await POST(req);
 
     expect(db.passkey.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: "user-42" },
-      })
+      }),
     );
   });
 
@@ -188,9 +186,8 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     // New user flow checks systemSettings for signup gating
     vi.mocked(db.systemSettings.findUnique).mockResolvedValue(null);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/options/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/options/route");
     const req = makeRequest({ displayName: "Alice" }); // no query string
     const response = await POST(req);
 
@@ -226,9 +223,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
   }
 
   it("returns 400 when session cookie is missing", async () => {
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({ id: "cred" }); // no cookie
     const response = await POST(req);
 
@@ -241,9 +237,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue(null);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({}, "session-key");
     const response = await POST(req);
 
@@ -256,7 +251,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -274,10 +270,12 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { auth } = await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue(null); // no session!
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
+    const req = makeVerifyRequest(
+      { credential: { id: "cred-id" } },
+      "session-key",
     );
-    const req = makeVerifyRequest({ credential: { id: "cred-id" } }, "session-key");
     const response = await POST(req);
 
     expect(response.status).toBe(401);
@@ -287,7 +285,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -308,10 +307,12 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.create).mockResolvedValue({} as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
+    const req = makeVerifyRequest(
+      { credential: { id: "new-cred-id" } },
+      "session-key",
     );
-    const req = makeVerifyRequest({ credential: { id: "new-cred-id" } }, "session-key");
     await POST(req);
 
     // Passkey should be created
@@ -326,7 +327,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -347,16 +349,15 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.create).mockResolvedValue({} as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({ credential: {} }, "session-key");
     await POST(req);
 
     expect(db.passkey.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ userId: "user-99" }),
-      })
+      }),
     );
   });
 
@@ -364,7 +365,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -385,9 +387,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.create).mockResolvedValue({} as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({ credential: {} }, "session-key");
     const response = await POST(req);
 
@@ -400,7 +401,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -423,9 +425,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
 
     const { encode } = await import("next-auth/jwt");
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({ credential: {} }, "session-key");
     await POST(req);
 
@@ -437,7 +438,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -458,16 +460,15 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.create).mockResolvedValue({} as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeVerifyRequest({ credential: {} }, "session-key");
     const response = await POST(req);
 
     // wa_reg_session should be cleared (maxAge=0)
     const allCookies = response.headers.getSetCookie?.() ?? [];
     const regClearedCookie = allCookies.find(
-      (c: string) => c.startsWith("wa_reg_session=") && c.includes("Max-Age=0")
+      (c: string) => c.startsWith("wa_reg_session=") && c.includes("Max-Age=0"),
     );
     expect(regClearedCookie).toBeTruthy();
   });
@@ -476,7 +477,8 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -497,13 +499,12 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.create).mockResolvedValue({} as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     // Wrapped form: { credential: <RegistrationResponseJSON> }
     const req = makeVerifyRequest(
       { credential: { id: "wrapped-cred", response: {} } },
-      "session-key"
+      "session-key",
     );
     const response = await POST(req);
 

@@ -15,7 +15,8 @@ class ResizeObserverStub {
   unobserve() {}
   disconnect() {}
 }
-globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver =
+  ResizeObserverStub as unknown as typeof ResizeObserver;
 
 describe("EmailBodyFrame", () => {
   beforeEach(() => {
@@ -81,9 +82,7 @@ describe("EmailBodyFrame", () => {
 
   it("includes a base tag with target=_blank for link safety", async () => {
     await act(async () => {
-      render(
-        <EmailBodyFrame html="<a href='https://example.com'>Link</a>" />,
-      );
+      render(<EmailBodyFrame html="<a href='https://example.com'>Link</a>" />);
     });
     const iframe = document.querySelector("iframe");
     const srcdoc = iframe?.getAttribute("srcdoc") ?? "";

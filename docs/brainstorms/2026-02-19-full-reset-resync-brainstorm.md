@@ -36,12 +36,14 @@ After reset, the user starts completely fresh — all senders re-enter the Scree
 ### `clearUserMailCache(userId)` in the sync API route
 
 Current behavior:
+
 - `message.deleteMany` (attachments cascade)
 - `folder.deleteMany`
 - `sender.deleteMany`
 - `syncState.update` (reset lastFullSync + syncError)
 
 New behavior:
+
 - Same deletes
 - Also `syncState.delete` + recreate (fully reset, including clearing isSyncing lock)
 

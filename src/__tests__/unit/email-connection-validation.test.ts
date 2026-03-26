@@ -22,7 +22,11 @@ function validateConnectionInput(data: unknown) {
   }
   const obj = data as Record<string, unknown>;
   for (const field of required) {
-    if (!obj[field] || typeof obj[field] !== "string" || (obj[field] as string).length === 0) {
+    if (
+      !obj[field] ||
+      typeof obj[field] !== "string" ||
+      (obj[field] as string).length === 0
+    ) {
       return { success: false, error: `Missing required field: ${field}` };
     }
   }

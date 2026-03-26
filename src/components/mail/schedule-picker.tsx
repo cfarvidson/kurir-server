@@ -100,7 +100,7 @@ function getScheduleOptions(now: Date, tz: string): ScheduleOption[] {
 
   // "Next Monday morning" at 8 AM — only show Tue-Fri (dayOfWeek 2-5)
   if (dayOfWeek >= 2 && dayOfWeek <= 5) {
-    const daysUntilMonday = ((8 - dayOfWeek) % 7) || 7;
+    const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
     options.push({
       label: "Next Monday morning",
       description: "Monday 8:00 AM",

@@ -33,7 +33,7 @@ export async function searchMessages(
   userId: string,
   query: string,
   categoryFilter: Prisma.Sql,
-  limit = 50
+  limit = 50,
 ): Promise<MessageSearchResult[]> {
   const prefixQuery = buildPrefixQuery(query);
   if (!prefixQuery) return [];

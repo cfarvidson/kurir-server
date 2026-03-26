@@ -14,7 +14,9 @@
  * and then link it to this user ID, or use the database directly to add a session.
  */
 
-try { await import("dotenv/config"); } catch {}
+try {
+  await import("dotenv/config");
+} catch {}
 import { PrismaClient } from "@prisma/client";
 import { createCipheriv, randomBytes, scryptSync } from "crypto";
 import * as readline from "readline";
@@ -22,11 +24,34 @@ import * as readline from "readline";
 const db = new PrismaClient();
 
 // Provider presets
-const PROVIDERS: Record<string, { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number }> = {
-  gmail: { imapHost: "imap.gmail.com", imapPort: 993, smtpHost: "smtp.gmail.com", smtpPort: 587 },
-  outlook: { imapHost: "outlook.office365.com", imapPort: 993, smtpHost: "smtp.office365.com", smtpPort: 587 },
-  icloud: { imapHost: "imap.mail.me.com", imapPort: 993, smtpHost: "smtp.mail.me.com", smtpPort: 587 },
-  yahoo: { imapHost: "imap.mail.yahoo.com", imapPort: 993, smtpHost: "smtp.mail.yahoo.com", smtpPort: 587 },
+const PROVIDERS: Record<
+  string,
+  { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number }
+> = {
+  gmail: {
+    imapHost: "imap.gmail.com",
+    imapPort: 993,
+    smtpHost: "smtp.gmail.com",
+    smtpPort: 587,
+  },
+  outlook: {
+    imapHost: "outlook.office365.com",
+    imapPort: 993,
+    smtpHost: "smtp.office365.com",
+    smtpPort: 587,
+  },
+  icloud: {
+    imapHost: "imap.mail.me.com",
+    imapPort: 993,
+    smtpHost: "smtp.mail.me.com",
+    smtpPort: 587,
+  },
+  yahoo: {
+    imapHost: "imap.mail.yahoo.com",
+    imapPort: 993,
+    smtpHost: "smtp.mail.yahoo.com",
+    smtpPort: 587,
+  },
 };
 
 function encrypt(text: string): string {
@@ -125,7 +150,9 @@ async function main() {
   // Check if an EmailConnection for this email already exists
   const existing = await db.emailConnection.findFirst({ where: { email } });
   if (existing) {
-    const update = await prompt(`EmailConnection for ${email} already exists. Update credentials? (y/n): `);
+    const update = await prompt(
+      `EmailConnection for ${email} already exists. Update credentials? (y/n): `,
+    );
     if (update.toLowerCase() !== "y") {
       console.log("Cancelled.");
       process.exit(0);
@@ -150,7 +177,9 @@ async function main() {
   let smtpPort = parseInt(args["smtp-port"] || "587");
 
   if (!imapHost || !smtpHost) {
-    const provider = args.provider || await prompt("Provider (gmail/outlook/icloud/yahoo/custom): ");
+    const provider =
+      args.provider ||
+      (await prompt("Provider (gmail/outlook/icloud/yahoo/custom): "));
 
     if (provider && PROVIDERS[provider]) {
       const preset = PROVIDERS[provider];
@@ -160,8 +189,8 @@ async function main() {
       smtpPort = smtpPort || preset.smtpPort;
     } else {
       // Custom provider
-      imapHost = imapHost || await prompt("IMAP host: ");
-      smtpHost = smtpHost || await prompt("SMTP host: ");
+      imapHost = imapHost || (await prompt("IMAP host: "));
+      smtpHost = smtpHost || (await prompt("SMTP host: "));
 
       const customImapPort = await prompt(`IMAP port (${imapPort}): `);
       if (customImapPort) imapPort = parseInt(customImapPort);
@@ -177,7 +206,8 @@ async function main() {
   }
 
   // Optional: Verify IMAP credentials
-  const verify = args["skip-verify"] !== "true" &&
+  const verify =
+    args["skip-verify"] !== "true" &&
     (await prompt("Verify IMAP credentials? (y/n): ")).toLowerCase() === "y";
 
   if (verify) {

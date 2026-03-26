@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ImapFlow } from "imapflow";
 import { getConnectionCredentials } from "@/lib/auth";
+import { buildImapAuth } from "@/lib/mail/auth-helpers";
 
 /**
  * Walk bodyStructure tree to find all non-text MIME parts.
@@ -42,7 +43,9 @@ function responseHeaders(attachment: {
   filename: string;
   size: number;
 }) {
-  const disposition = isImageType(attachment.contentType) ? "inline" : "attachment";
+  const disposition = isImageType(attachment.contentType)
+    ? "inline"
+    : "attachment";
   return {
     "Content-Type": attachment.contentType || "application/octet-stream",
     "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.filename)}"`,
@@ -124,7 +127,7 @@ export async function GET(
     host: credentials.imap.host,
     port: credentials.imap.port,
     secure: true,
-    auth: { user: credentials.email, pass: credentials.password },
+    auth: buildImapAuth(credentials),
     logger: false,
   });
 
@@ -178,9 +181,7 @@ export async function GET(
                 p.type === attachment.contentType.toLowerCase() &&
                 p.filename === attachment.filename,
             ) ??
-            parts.find(
-              (p) => p.type === attachment.contentType.toLowerCase(),
-            );
+            parts.find((p) => p.type === attachment.contentType.toLowerCase());
           if (match) correctedPartId = match.partId;
         }
       }

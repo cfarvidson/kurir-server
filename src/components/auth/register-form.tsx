@@ -86,9 +86,7 @@ export default function RegisterForm({
 
       if (!verifyRes.ok) {
         const data = await verifyRes.json();
-        throw new Error(
-          data.error || "Registration failed. Please try again.",
-        );
+        throw new Error(data.error || "Registration failed. Please try again.");
       }
 
       setStep("done");
@@ -96,9 +94,7 @@ export default function RegisterForm({
       if (err instanceof Error && err.name === "NotAllowedError") {
         setError("Passkey creation was cancelled. Please try again.");
       } else if (err instanceof Error && err.name === "InvalidStateError") {
-        setError(
-          "A passkey for this account already exists on this device.",
-        );
+        setError("A passkey for this account already exists on this device.");
       } else {
         setError(
           err instanceof Error ? err.message : "An unexpected error occurred.",
@@ -126,9 +122,7 @@ export default function RegisterForm({
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
                   <KurirLogo className="h-8 w-8" />
                 </div>
-                <CardTitle className="text-2xl">
-                  Create your account
-                </CardTitle>
+                <CardTitle className="text-2xl">Create your account</CardTitle>
                 <CardDescription>
                   Kurir uses passkeys for secure, passwordless sign-in. No
                   master password to remember or lose.
@@ -143,12 +137,10 @@ export default function RegisterForm({
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">
-                        Create your passkey
-                      </p>
+                      <p className="text-sm font-medium">Create your passkey</p>
                       <p className="text-xs text-muted-foreground">
-                        Your device (Touch ID, Face ID, or security key)
-                        becomes your login.
+                        Your device (Touch ID, Face ID, or security key) becomes
+                        your login.
                       </p>
                     </div>
                   </div>
@@ -159,9 +151,7 @@ export default function RegisterForm({
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">
-                        Connect your email
-                      </p>
+                      <p className="text-sm font-medium">Connect your email</p>
                       <p className="text-xs text-muted-foreground">
                         Link one or more email accounts via IMAP/SMTP.
                       </p>
@@ -176,10 +166,7 @@ export default function RegisterForm({
 
                 <p className="text-center text-sm text-muted-foreground">
                   Already have an account?{" "}
-                  <Link
-                    href="/login"
-                    className="text-primary hover:underline"
-                  >
+                  <Link href="/login" className="text-primary hover:underline">
                     Sign in
                   </Link>
                 </p>
@@ -257,12 +244,10 @@ export default function RegisterForm({
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
                   <Fingerprint className="h-7 w-7 text-primary" />
                 </div>
-                <CardTitle className="text-2xl">
-                  Create your passkey
-                </CardTitle>
+                <CardTitle className="text-2xl">Create your passkey</CardTitle>
                 <CardDescription>
-                  Your browser will ask you to authenticate with Touch ID,
-                  Face ID, Windows Hello, or a hardware security key.
+                  Your browser will ask you to authenticate with Touch ID, Face
+                  ID, Windows Hello, or a hardware security key.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -328,8 +313,8 @@ export default function RegisterForm({
                   You&apos;re in, {displayName.split(" ")[0]}!
                 </CardTitle>
                 <CardDescription>
-                  Your account is secured with a passkey. Now connect your
-                  first email account to get started.
+                  Your account is secured with a passkey. Now connect your first
+                  email account to get started.
                 </CardDescription>
               </CardHeader>
               <CardContent>

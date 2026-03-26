@@ -14,7 +14,7 @@ The fix: make `syncMailbox` batch-aware, add a concurrency guard, and give `Auto
 
 ## Problem Statement
 
-When a user connects their IMAP account, only messages that arrive *after* connection are imported. The sync appears to complete (returns JSON) but processes zero historical messages because the request times out on large mailboxes.
+When a user connects their IMAP account, only messages that arrive _after_ connection are imported. The sync appears to complete (returns JSON) but processes zero historical messages because the request times out on large mailboxes.
 
 ## Proposed Solution
 
@@ -26,7 +26,7 @@ Add a `batchSize` parameter to the existing sync. Same endpoint, same code path.
 
 Modify `syncMailbox()` in `src/lib/mail/sync-service.ts` to accept an optional `batchSize`.
 
-**Batching strategy:** The existing UID discovery is correct and cheap — `client.search({ all: true })` returns an array of integers (~200KB for 50k UIDs). Keep it. The expensive part is `client.fetch()` with `source: true` that downloads full message bodies. Batch *that*.
+**Batching strategy:** The existing UID discovery is correct and cheap — `client.search({ all: true })` returns an array of integers (~200KB for 50k UIDs). Keep it. The expensive part is `client.fetch()` with `source: true` that downloads full message bodies. Batch _that_.
 
 ```typescript
 // After computing newUids (line 162):
@@ -48,9 +48,9 @@ interface SyncResult {
   folderId: string;
   newMessages: number;
   errors: string[];
-  remaining: number;       // newUids.length - batch.length
-  totalOnServer: number;   // allUids.length
-  totalCached: number;     // existingUids.size
+  remaining: number; // newUids.length - batch.length
+  totalOnServer: number; // allUids.length
+  totalCached: number; // existingUids.size
 }
 ```
 
@@ -120,6 +120,7 @@ Note: `totalMessages`/`processedMessages` are NOT persisted — they're computed
 Modify `src/components/mail/auto-sync.tsx` to show a progress bar when `remaining > 0`.
 
 **Two visual modes:**
+
 - **Invisible (steady-state):** Current behavior. Polls every 5s, renders `null`.
 - **Importing (progress):** When response includes `remaining > 0`, show progress bar, increase poll frequency, pass `batchSize=200` on subsequent calls.
 
@@ -182,25 +183,25 @@ Alternatively, the button can set a shared state (via React context or URL param
 
 ## Edge Cases
 
-| Case | Handling |
-|------|----------|
-| UIDVALIDITY changes mid-import | Existing code at line 136-146 handles this — deletes folder messages, restarts. Progress resets naturally. |
-| IMAP connection drops mid-batch | Messages 1..N already persisted individually. Next batch picks up remaining UIDs. Client retries automatically. |
-| Server crash / stale lock | `syncStartedAt` auto-expires after 5 minutes. Next request reclaims the lock. |
-| User navigates away mid-import | Partial data kept. AutoSync detects remaining > 0 on next page load and resumes. |
-| All messages already synced | First batch returns `remaining: 0`. AutoSync stays invisible. No special UI state needed. |
-| IMAP rate limiting (Gmail) | Each batch opens a new TLS connection. The ~2-5s processing time per batch acts as natural throttle. If rate-limited, IMAP error is caught and client retries on next poll. |
-| Non-contiguous UIDs | UID search returns all UIDs regardless of gaps. Batching slices the newUids array, not the UID range. |
+| Case                            | Handling                                                                                                                                                                    |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UIDVALIDITY changes mid-import  | Existing code at line 136-146 handles this — deletes folder messages, restarts. Progress resets naturally.                                                                  |
+| IMAP connection drops mid-batch | Messages 1..N already persisted individually. Next batch picks up remaining UIDs. Client retries automatically.                                                             |
+| Server crash / stale lock       | `syncStartedAt` auto-expires after 5 minutes. Next request reclaims the lock.                                                                                               |
+| User navigates away mid-import  | Partial data kept. AutoSync detects remaining > 0 on next page load and resumes.                                                                                            |
+| All messages already synced     | First batch returns `remaining: 0`. AutoSync stays invisible. No special UI state needed.                                                                                   |
+| IMAP rate limiting (Gmail)      | Each batch opens a new TLS connection. The ~2-5s processing time per batch acts as natural throttle. If rate-limited, IMAP error is caught and client retries on next poll. |
+| Non-contiguous UIDs             | UID search returns all UIDs regardless of gaps. Batching slices the newUids array, not the UID range.                                                                       |
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `src/lib/mail/sync-service.ts` | Add `batchSize` option to `syncMailbox()` and `syncUserEmail()`. Slice `newUids`. Return `remaining`/`totalOnServer`/`totalCached`. Skip `repairThreadIds` when remaining > 0. |
-| `src/app/api/mail/sync/route.ts` | Accept `batchSize` query param. Add atomic `SyncState.isSyncing` guard with stale lock recovery. |
-| `src/components/mail/auto-sync.tsx` | Two-mode component: invisible (steady-state) and visible (importing with progress bar). |
-| `src/app/(mail)/settings/page.tsx` | Replace "Sync Now" form with "Import All Messages" button. |
-| `prisma/schema.prisma` | Add `syncStartedAt DateTime?` and `User` relation to `SyncState`. |
+| File                                | Change                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib/mail/sync-service.ts`      | Add `batchSize` option to `syncMailbox()` and `syncUserEmail()`. Slice `newUids`. Return `remaining`/`totalOnServer`/`totalCached`. Skip `repairThreadIds` when remaining > 0. |
+| `src/app/api/mail/sync/route.ts`    | Accept `batchSize` query param. Add atomic `SyncState.isSyncing` guard with stale lock recovery.                                                                               |
+| `src/components/mail/auto-sync.tsx` | Two-mode component: invisible (steady-state) and visible (importing with progress bar).                                                                                        |
+| `src/app/(mail)/settings/page.tsx`  | Replace "Sync Now" form with "Import All Messages" button.                                                                                                                     |
+| `prisma/schema.prisma`              | Add `syncStartedAt DateTime?` and `User` relation to `SyncState`.                                                                                                              |
 
 ## References
 

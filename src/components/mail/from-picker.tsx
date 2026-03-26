@@ -56,7 +56,12 @@ export function FromPicker({
   // Single connection — no picker needed
   if (connections.length <= 1) {
     return (
-      <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          "flex items-center gap-2 text-sm text-muted-foreground",
+          className,
+        )}
+      >
         <Mail className="h-3.5 w-3.5 shrink-0" />
         <span>{selected?.email}</span>
       </div>
@@ -75,7 +80,7 @@ export function FromPicker({
           "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors",
           "text-muted-foreground hover:bg-muted hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          open && "bg-muted text-foreground"
+          open && "bg-muted text-foreground",
         )}
       >
         <Mail className="h-3.5 w-3.5 shrink-0" />
@@ -87,7 +92,7 @@ export function FromPicker({
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-            open && "rotate-180"
+            open && "rotate-180",
           )}
         />
       </button>
@@ -104,7 +109,7 @@ export function FromPicker({
             aria-label="Select sender"
             className={cn(
               "absolute left-0 top-full z-50 mt-1",
-              "min-w-[260px] overflow-hidden rounded-lg border bg-popover shadow-lg"
+              "min-w-[260px] overflow-hidden rounded-lg border bg-popover shadow-lg",
             )}
           >
             <div className="py-1">
@@ -124,7 +129,7 @@ export function FromPicker({
                       "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors",
                       isSelected
                         ? "bg-accent text-accent-foreground"
-                        : "hover:bg-muted/60"
+                        : "hover:bg-muted/60",
                     )}
                   >
                     {/* Avatar */}
@@ -136,7 +141,9 @@ export function FromPicker({
                     <div className="min-w-0 flex-1">
                       {conn.displayName ? (
                         <>
-                          <div className="truncate font-medium">{conn.displayName}</div>
+                          <div className="truncate font-medium">
+                            {conn.displayName}
+                          </div>
                           <div className="truncate text-xs text-muted-foreground">
                             {conn.email}
                           </div>

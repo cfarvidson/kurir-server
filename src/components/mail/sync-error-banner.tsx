@@ -25,7 +25,7 @@ export function SyncErrorBanner() {
       <span className="flex-1 truncate">
         {isError
           ? `Sync error: ${errorMessage || "Unable to sync emails"}`
-          : (errorMessage || "Email sync is delayed")}
+          : errorMessage || "Email sync is delayed"}
       </span>
       <button
         onClick={retry}
@@ -37,9 +37,7 @@ export function SyncErrorBanner() {
             : "bg-amber-100 hover:bg-amber-200 dark:bg-amber-900 dark:hover:bg-amber-800",
         )}
       >
-        <RefreshCw
-          className={cn("h-3 w-3", retrying && "animate-spin")}
-        />
+        <RefreshCw className={cn("h-3 w-3", retrying && "animate-spin")} />
         {retrying ? "Retrying..." : "Retry"}
       </button>
     </div>

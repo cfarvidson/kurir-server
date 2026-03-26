@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sanitizeEmailHtml, type CidAttachment } from "@/lib/mail/sanitize-html";
+import {
+  sanitizeEmailHtml,
+  type CidAttachment,
+} from "@/lib/mail/sanitize-html";
 
 interface EmailBodyFrameProps {
   html: string;
@@ -27,7 +30,11 @@ interface EmailBodyFrameProps {
  * On mobile, wide emails (e.g. 600px newsletters on a 375px screen) are
  * scaled down via transform:scale() so they fit without horizontal scroll.
  */
-export function EmailBodyFrame({ html, collapseQuotes, attachments }: EmailBodyFrameProps) {
+export function EmailBodyFrame({
+  html,
+  collapseQuotes,
+  attachments,
+}: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(200);

@@ -41,96 +41,119 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-  // Rate limit: 5 connection operations per minute
-  const rl = await rateLimitConnections(session.user.id);
-  if (!rl.allowed) return tooManyRequests(rl.retryAfter);
+    // Rate limit: 5 connection operations per minute
+    const rl = await rateLimitConnections(session.user.id);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfter);
 
-  // Check self-service account management toggle (except for first connection)
-  const [settings, existingConnCount] = await Promise.all([
-    db.systemSettings.findUnique({ where: { id: "singleton" } }),
-    db.emailConnection.count({ where: { userId: session.user.id } }),
-  ]);
-  const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
-  const isAdmin = session.user.role === "ADMIN";
-  if (!selfServiceEnabled && !isAdmin && existingConnCount > 0) {
-    return NextResponse.json(
-      { error: "Account management is disabled. Contact your admin." },
-      { status: 403 },
-    );
-  }
+    // Check self-service account management toggle (except for first connection)
+    const [settings, existingConnCount] = await Promise.all([
+      db.systemSettings.findUnique({ where: { id: "singleton" } }),
+      db.emailConnection.count({ where: { userId: session.user.id } }),
+    ]);
+    const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
+    const isAdmin = session.user.role === "ADMIN";
+    if (!selfServiceEnabled && !isAdmin && existingConnCount > 0) {
+      return NextResponse.json(
+        { error: "Account management is disabled. Contact your admin." },
+        { status: 403 },
+      );
+    }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = createConnectionSchema.safeParse(body);
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const parsed = createConnectionSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
 
-    const { email, password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
-      parsed.data;
-    const userId = session.user.id;
-
-  // Verify IMAP credentials before saving
-  const { verifyImapCredentials } = await import("@/lib/mail/imap-verify");
-  const isValid = await verifyImapCredentials(email, password, imapHost, imapPort);
-  if (!isValid) {
-    return NextResponse.json(
-      { error: "Could not connect to IMAP server. Check your email and password." },
-      { status: 422 }
-    );
-  }
-
-  // Check for duplicate email on this user
-  const existing = await db.emailConnection.findFirst({
-    where: { userId, email },
-  });
-  if (existing) {
-    return NextResponse.json(
-      { error: "This email is already connected." },
-      { status: 409 }
-    );
-  }
-
-  // If this is the first connection, make it default regardless of flag
-  const connectionCount = await db.emailConnection.count({ where: { userId } });
-  const shouldBeDefault = isDefault || connectionCount === 0;
-
-  // If making this connection default, clear existing default
-  if (shouldBeDefault) {
-    await db.emailConnection.updateMany({
-      where: { userId, isDefault: true },
-      data: { isDefault: false },
-    });
-  }
-
-  const connection = await db.emailConnection.create({
-    data: {
-      userId,
+    const {
       email,
-      encryptedPassword: encrypt(password),
+      password,
       imapHost,
       imapPort,
       smtpHost,
       smtpPort,
-      displayName: displayName ?? null,
-      sendAsEmail: sendAsEmail ?? null,
+      displayName,
+      sendAsEmail,
       aliases,
-      isDefault: shouldBeDefault,
-    },
-  });
+      isDefault,
+    } = parsed.data;
+    const userId = session.user.id;
+
+    // Verify IMAP credentials before saving
+    const { verifyImapCredentials } = await import("@/lib/mail/imap-verify");
+    const isValid = await verifyImapCredentials(
+      email,
+      password,
+      imapHost,
+      imapPort,
+    );
+    if (!isValid) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not connect to IMAP server. Check your email and password.",
+        },
+        { status: 422 },
+      );
+    }
+
+    // Check for duplicate email on this user
+    const existing = await db.emailConnection.findFirst({
+      where: { userId, email },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "This email is already connected." },
+        { status: 409 },
+      );
+    }
+
+    // If this is the first connection, make it default regardless of flag
+    const connectionCount = await db.emailConnection.count({
+      where: { userId },
+    });
+    const shouldBeDefault = isDefault || connectionCount === 0;
+
+    // If making this connection default, clear existing default
+    if (shouldBeDefault) {
+      await db.emailConnection.updateMany({
+        where: { userId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    const connection = await db.emailConnection.create({
+      data: {
+        userId,
+        email,
+        encryptedPassword: encrypt(password),
+        imapHost,
+        imapPort,
+        smtpHost,
+        smtpPort,
+        displayName: displayName ?? null,
+        sendAsEmail: sendAsEmail ?? null,
+        aliases,
+        isDefault: shouldBeDefault,
+      },
+    });
 
     const { encryptedPassword: _, ...safe } = connection;
 
     return NextResponse.json({ connection: safe }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

@@ -11,7 +11,7 @@ export interface ContactSearchResult {
 export async function searchContacts(
   userId: string,
   query: string,
-  limit = 5
+  limit = 5,
 ): Promise<ContactSearchResult[]> {
   if (query.length < 1) return [];
 

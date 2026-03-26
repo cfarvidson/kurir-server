@@ -11,10 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
-import {
-  WipeButton,
-  WipeMailButton,
-} from "@/components/settings/wipe-button";
+import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { DisplayNameField } from "@/components/settings/display-name-field";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
@@ -109,50 +106,52 @@ export default async function SettingsPage() {
 
   const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs] =
     await Promise.all([
-    db.user.findUnique({
-      where: { id: userId },
-      select: {
-        displayName: true,
-        createdAt: true,
-      },
-    }),
-    db.emailConnection.findMany({
-      where: { userId },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        sendAsEmail: true,
-        aliases: true,
-        imapHost: true,
-        smtpHost: true,
-        isDefault: true,
-        createdAt: true,
-        syncState: {
-          select: {
-            isSyncing: true,
-            syncError: true,
-            lastFullSync: true,
-            lastSyncLog: true,
+      db.user.findUnique({
+        where: { id: userId },
+        select: {
+          displayName: true,
+          createdAt: true,
+        },
+      }),
+      db.emailConnection.findMany({
+        where: { userId },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          sendAsEmail: true,
+          aliases: true,
+          imapHost: true,
+          smtpHost: true,
+          isDefault: true,
+          createdAt: true,
+          oauthProvider: true,
+          oauthError: true,
+          syncState: {
+            select: {
+              isSyncing: true,
+              syncError: true,
+              lastFullSync: true,
+              lastSyncLog: true,
+            },
           },
         },
-      },
-    }),
-    db.passkey.findMany({
-      where: { userId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        friendlyName: true,
-        createdAt: true,
-        deviceType: true,
-        backedUp: true,
-      },
-    }),
-    db.systemSettings.findUnique({ where: { id: "singleton" } }),
-    getBadgePreferences(userId),
-  ]);
+      }),
+      db.passkey.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          friendlyName: true,
+          createdAt: true,
+          deviceType: true,
+          backedUp: true,
+        },
+      }),
+      db.systemSettings.findUnique({ where: { id: "singleton" } }),
+      getBadgePreferences(userId),
+    ]);
 
   const canManageConnections =
     isAdmin || (systemSettings?.selfServiceAccountManagement ?? true);
@@ -190,6 +189,8 @@ export default async function SettingsPage() {
     lastSyncedAt: c.syncState?.lastFullSync?.toISOString() ?? null,
     syncError: c.syncState?.syncError ?? null,
     lastSyncLog: c.syncState?.lastSyncLog ?? null,
+    oauthProvider: c.oauthProvider ?? null,
+    oauthError: c.oauthError ?? null,
   }));
 
   const passkeys: PasskeyInfo[] = rawPasskeys.map((pk) => ({
@@ -453,10 +454,7 @@ export default async function SettingsPage() {
                 <span className="w-20 text-right">Indexes</span>
               </div>
               {storage.tables.map((t) => (
-                <div
-                  key={t.name}
-                  className="flex items-center gap-3 px-4 py-2"
-                >
+                <div key={t.name} className="flex items-center gap-3 px-4 py-2">
                   <span className="flex-1 truncate text-sm font-medium">
                     {t.name}
                   </span>

@@ -2,9 +2,13 @@
 
 import { auth, getConnectionCredentials } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
+import {
+  createLocalSentMessage,
+  appendToImapSent,
+} from "@/lib/mail/persist-sent";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
+import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { revalidatePath, revalidateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
@@ -65,10 +69,7 @@ export async function replyToMessage(
     host: credentials.smtp.host,
     port: credentials.smtp.port,
     secure: credentials.smtp.port === 465,
-    auth: {
-      user: credentials.email,
-      pass: credentials.password,
-    },
+    auth: buildSmtpAuth(credentials),
   });
 
   // Convert markdown to email HTML

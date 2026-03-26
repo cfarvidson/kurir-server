@@ -16,7 +16,9 @@ vi.mock("@simplewebauthn/server", () => ({
 
 vi.mock("@simplewebauthn/server/helpers", () => ({
   isoBase64URL: {
-    fromBuffer: vi.fn().mockImplementation((buf: Buffer) => buf.toString("base64url")),
+    fromBuffer: vi
+      .fn()
+      .mockImplementation((buf: Buffer) => buf.toString("base64url")),
   },
 }));
 
@@ -66,9 +68,8 @@ describe("POST /api/auth/webauthn/register/verify", () => {
   });
 
   it("returns 400 when session cookie is missing", async () => {
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeNextRequest({ id: "cred-id" }); // no cookie
     const response = await POST(req);
 
@@ -81,9 +82,8 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue(null); // expired/not found
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeNextRequest({ id: "cred-id" }, "session-key-123");
     const response = await POST(req);
 
@@ -96,14 +96,14 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: false,
     } as any);
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeNextRequest({ id: "cred-id", response: {} }, "session-key");
     const response = await POST(req);
 
@@ -114,14 +114,14 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockRejectedValue(
-      new Error("Bad authenticator data")
+      new Error("Bad authenticator data"),
     );
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeNextRequest({ id: "cred-id", response: {} }, "session-key");
     const response = await POST(req);
 
@@ -134,7 +134,8 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -163,10 +164,12 @@ describe("POST /api/auth/webauthn/register/verify", () => {
       return fn(tx);
     });
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
+    const req = makeNextRequest(
+      { id: "new-cred-id", response: {} },
+      "session-key",
     );
-    const req = makeNextRequest({ id: "new-cred-id", response: {} }, "session-key");
     const response = await POST(req);
 
     expect(response.status).toBe(200);
@@ -178,7 +181,8 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -199,17 +203,21 @@ describe("POST /api/auth/webauthn/register/verify", () => {
         systemSettings: { findUnique: vi.fn().mockResolvedValue(null) },
         user: {
           count: vi.fn().mockResolvedValue(0),
-          create: vi.fn().mockResolvedValue({ id: "new-user-id", role: "ADMIN" }),
+          create: vi
+            .fn()
+            .mockResolvedValue({ id: "new-user-id", role: "ADMIN" }),
         },
         passkey: { create: vi.fn().mockResolvedValue({}) },
       };
       return fn(tx);
     });
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
+    const req = makeNextRequest(
+      { id: "new-cred-id", response: {} },
+      "session-key",
     );
-    const req = makeNextRequest({ id: "new-cred-id", response: {} }, "session-key");
     const response = await POST(req);
 
     const setCookieHeader = response.headers.get("set-cookie") ?? "";
@@ -220,7 +228,8 @@ describe("POST /api/auth/webauthn/register/verify", () => {
     const { consumeChallenge } = await import("@/lib/webauthn-challenge-store");
     vi.mocked(consumeChallenge).mockReturnValue("valid-challenge");
 
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -248,16 +257,15 @@ describe("POST /api/auth/webauthn/register/verify", () => {
       return fn(tx);
     });
 
-    const { POST } = await import(
-      "@/app/api/auth/webauthn/register/verify/route"
-    );
+    const { POST } =
+      await import("@/app/api/auth/webauthn/register/verify/route");
     const req = makeNextRequest({}, "session-key");
     const response = await POST(req);
 
     // Check that wa_reg_session is cleared (maxAge=0)
     const allCookies = response.headers.getSetCookie?.() ?? [];
     const regSessionClearedCookie = allCookies.find(
-      (c: string) => c.startsWith("wa_reg_session=") && c.includes("Max-Age=0")
+      (c: string) => c.startsWith("wa_reg_session=") && c.includes("Max-Age=0"),
     );
     expect(regSessionClearedCookie).toBeTruthy();
   });

@@ -31,11 +31,15 @@ interface ContactThreadListProps {
   contactName: string;
 }
 
-export function ContactThreadList({ conversations, contactName }: ContactThreadListProps) {
+export function ContactThreadList({
+  conversations,
+  contactName,
+}: ContactThreadListProps) {
   return (
     <div>
       <div className="px-4 py-3 text-xs font-medium text-muted-foreground/70 md:px-6">
-        {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
+        {conversations.length} conversation
+        {conversations.length !== 1 ? "s" : ""}
       </div>
       {conversations.map((msg) => {
         const hasThread = msg.threadCount > 1;
@@ -45,7 +49,7 @@ export function ContactThreadList({ conversations, contactName }: ContactThreadL
             href={`${getThreadRoute(msg)}/${msg.id}`}
             className={cn(
               "flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
-              !msg.isRead && "bg-primary/5"
+              !msg.isRead && "bg-primary/5",
             )}
           >
             <div className="min-w-0 flex-1">
@@ -53,7 +57,7 @@ export function ContactThreadList({ conversations, contactName }: ContactThreadL
                 <span
                   className={cn(
                     "truncate text-sm",
-                    !msg.isRead && "font-semibold"
+                    !msg.isRead && "font-semibold",
                   )}
                 >
                   {msg.subject || "(no subject)"}
@@ -67,7 +71,10 @@ export function ContactThreadList({ conversations, contactName }: ContactThreadL
                 {msg.hasAttachments && (
                   <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 )}
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
+                <span
+                  className="ml-auto shrink-0 text-xs text-muted-foreground"
+                  suppressHydrationWarning
+                >
                   {formatDistanceToNow(new Date(msg.receivedAt))}
                 </span>
               </div>

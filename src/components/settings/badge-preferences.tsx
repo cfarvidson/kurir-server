@@ -73,9 +73,7 @@ export function BadgePreferencesSettings({
         <div key={badge.key} className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">{badge.label}</p>
-            <p className="text-xs text-muted-foreground">
-              {badge.description}
-            </p>
+            <p className="text-xs text-muted-foreground">{badge.description}</p>
           </div>
           <Switch
             checked={prefs[badge.key]}

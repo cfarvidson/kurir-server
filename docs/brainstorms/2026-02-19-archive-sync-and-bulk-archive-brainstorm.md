@@ -22,11 +22,13 @@ When syncing historical mail, messages that are archived on the server (exist in
 Allow selecting and archiving multiple conversations at once from the Imbox view.
 
 **Selection activation (three methods):**
+
 - **Toolbar button** — "Välj" toggle in page header
 - **Shift-click** — clicking a row with shift held activates selection mode and selects that row
 - **Long-press / right-click** — on a row activates selection mode and selects that row
 
 **UI behavior:**
+
 - Checkboxes are hidden by default — only shown when selection mode is active
 - A floating action bar appears when items are selected: "Arkivera (N) konversationer"
 - Clicking outside or pressing Escape exits selection mode
@@ -37,11 +39,13 @@ Allow selecting and archiving multiple conversations at once from the Imbox view
 ## Why This Approach
 
 ### Archive sync via IMAP folder
+
 - The `isInbox` parameter already distinguishes inbox vs non-inbox messages during sync
 - We already sync both INBOX and All Mail separately, so we know which folder a message came from
 - No need for heuristics like \Seen flag — folder membership is definitive
 
 ### Checkboxes + floating action bar for bulk
+
 - Most conventional pattern — users understand it immediately
 - Checkboxes hidden by default keeps the UI clean
 - Three activation methods cover desktop (shift-click, toolbar, right-click) and mobile (long-press)

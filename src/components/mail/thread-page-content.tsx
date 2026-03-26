@@ -98,7 +98,11 @@ export function ThreadPageContent({
 
   return (
     <>
-      <ThreadView messages={messages} currentUserEmail={currentUserEmail} userEmails={userEmailSet} />
+      <ThreadView
+        messages={messages}
+        currentUserEmail={currentUserEmail}
+        userEmails={userEmailSet}
+      />
 
       <div className="mt-6 pb-8" ref={bottomRef}>
         <ReplyComposer

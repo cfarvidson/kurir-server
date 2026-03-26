@@ -6,7 +6,17 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ArchiveRestore, AlarmClock, Bell, Clock, Check, Loader2, Paperclip, MessageSquare } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  AlarmClock,
+  Bell,
+  Clock,
+  Check,
+  Loader2,
+  Paperclip,
+  MessageSquare,
+} from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
@@ -228,9 +238,9 @@ export function MessageRow({
     : showUnarchiveAction
       ? doUnarchive
       : undefined;
-  const swipeRightIcon = showUnarchiveAction
-    ? <ArchiveRestore className="h-5 w-5" />
-    : undefined;
+  const swipeRightIcon = showUnarchiveAction ? (
+    <ArchiveRestore className="h-5 w-5" />
+  ) : undefined;
   const swipeRightColor = showUnarchiveAction ? "bg-blue-500" : undefined;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -268,7 +278,7 @@ export function MessageRow({
             "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all",
             isSelected
               ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/30 bg-background hover:border-muted-foreground/60"
+              : "border-muted-foreground/30 bg-background hover:border-muted-foreground/60",
           )}
         >
           {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
@@ -277,7 +287,11 @@ export function MessageRow({
 
       {/* Avatar */}
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary md:h-10 md:w-10">
-        {(message.sender?.displayName || message.fromName || message.fromAddress)
+        {(
+          message.sender?.displayName ||
+          message.fromName ||
+          message.fromAddress
+        )
           .charAt(0)
           .toUpperCase()}
       </div>
@@ -288,10 +302,12 @@ export function MessageRow({
           <span
             className={cn(
               "truncate text-sm",
-              !message.isRead && "font-semibold"
+              !message.isRead && "font-semibold",
             )}
           >
-            {message.sender?.displayName || message.fromName || message.fromAddress}
+            {message.sender?.displayName ||
+              message.fromName ||
+              message.fromAddress}
           </span>
           {hasThread && (
             <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">
@@ -302,14 +318,17 @@ export function MessageRow({
           {message.hasAttachments && (
             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
+          <span
+            className="ml-auto shrink-0 text-xs text-muted-foreground"
+            suppressHydrationWarning
+          >
             {formatDistanceToNow(new Date(message.receivedAt))}
           </span>
         </div>
         <div
           className={cn(
             "truncate text-sm",
-            !message.isRead ? "text-foreground" : "text-muted-foreground"
+            !message.isRead ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {message.subject || "(no subject)"}
@@ -320,7 +339,10 @@ export function MessageRow({
           </div>
         )}
         {showSnoozedUntil && message.snoozedUntil && (
-          <div className="mt-0.5 flex items-center gap-1 text-xs text-primary/70" suppressHydrationWarning>
+          <div
+            className="mt-0.5 flex items-center gap-1 text-xs text-primary/70"
+            suppressHydrationWarning
+          >
             <AlarmClock className="h-3 w-3" />
             {formatSnoozeUntil(new Date(message.snoozedUntil))}
           </div>
@@ -328,83 +350,95 @@ export function MessageRow({
       </div>
 
       {/* Hover action buttons — hidden on mobile (swipe replaces them), hover-reveal on desktop */}
-      {(showArchiveAction || showUnarchiveAction || showSnoozeAction || showFollowUpAction) && !isSelectionMode && (
-        <div
-          className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {showFollowUpAction && (
-            <FollowUpPicker
-              onFollowUp={handleFollowUp}
-              isPending={isPending}
-              side="bottom"
-              align="end"
-              trigger={
-                <button
-                  className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  title="Follow up"
-                >
-                  <Bell className={cn("h-4 w-4", message.followUpAt && "text-amber-500")} />
-                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                    F
-                  </kbd>
-                </button>
-              }
-            />
-          )}
-          {showSnoozeAction && (
-            <SnoozePicker
-              onSnooze={handleSnooze}
-              isPending={isPending}
-              side="bottom"
-              align="end"
-              trigger={
-                <button
-                  className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  title="Snooze"
-                >
-                  <Clock className="h-4 w-4" />
-                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                    S
-                  </kbd>
-                </button>
-              }
-            />
-          )}
-          {showArchiveAction && (
-            <button
-              onClick={handleArchive}
-              className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              title="Archive"
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Archive className="h-4 w-4" />
-                  <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                    E
-                  </kbd>
-                </>
-              )}
-            </button>
-          )}
-          {showUnarchiveAction && (
-            <button
-              onClick={handleUnarchive}
-              className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-              title="Unarchive"
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArchiveRestore className="h-4 w-4" />
-              )}
-            </button>
-          )}
-        </div>
-      )}
+      {(showArchiveAction ||
+        showUnarchiveAction ||
+        showSnoozeAction ||
+        showFollowUpAction) &&
+        !isSelectionMode && (
+          <div
+            className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {showFollowUpAction && (
+              <FollowUpPicker
+                onFollowUp={handleFollowUp}
+                isPending={isPending}
+                side="bottom"
+                align="end"
+                trigger={
+                  <button
+                    className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="Follow up"
+                  >
+                    <Bell
+                      className={cn(
+                        "h-4 w-4",
+                        message.followUpAt && "text-amber-500",
+                      )}
+                    />
+                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                      F
+                    </kbd>
+                  </button>
+                }
+              />
+            )}
+            {showSnoozeAction && (
+              <SnoozePicker
+                onSnooze={handleSnooze}
+                isPending={isPending}
+                side="bottom"
+                align="end"
+                trigger={
+                  <button
+                    className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="Snooze"
+                  >
+                    <Clock className="h-4 w-4" />
+                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                      S
+                    </kbd>
+                  </button>
+                }
+              />
+            )}
+            {showArchiveAction && (
+              <button
+                onClick={handleArchive}
+                className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Archive"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4" />
+                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
+                      E
+                    </kbd>
+                  </>
+                )}
+              </button>
+            )}
+            {showUnarchiveAction && (
+              <button
+                onClick={handleUnarchive}
+                className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Unarchive"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArchiveRestore className="h-4 w-4" />
+                )}
+              </button>
+            )}
+          </div>
+        )}
 
       {/* Controlled SnoozePicker for swipe-left on mobile — lazy-mounted */}
       {showSnoozeAction && !isSelectionMode && snoozeOpen && (
@@ -462,7 +496,9 @@ export function MessageRow({
       swipeRightIcon={swipeRightIcon}
       swipeRightColor={swipeRightColor}
       disabled={isPending}
-      onDragStateChange={(dragging) => { isDragging.current = dragging; }}
+      onDragStateChange={(dragging) => {
+        isDragging.current = dragging;
+      }}
     >
       <Link
         href={href}

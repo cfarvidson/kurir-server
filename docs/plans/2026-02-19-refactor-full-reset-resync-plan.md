@@ -70,12 +70,14 @@ const confirmed = window.confirm(
 Update the help text in the Import section:
 
 ```tsx
-{/* src/app/(mail)/settings/page.tsx */}
+{
+  /* src/app/(mail)/settings/page.tsx */
+}
 
 <p className="mt-2 text-sm text-muted-foreground">
-  Resync erases all cached mail and sender decisions, then
-  re-imports from IMAP. All senders return to the Screener.
-</p>
+  Resync erases all cached mail and sender decisions, then re-imports from IMAP.
+  All senders return to the Screener.
+</p>;
 ```
 
 ## References

@@ -1,5 +1,6 @@
 import { ImapFlow, type ListResponse } from "imapflow";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
+import { buildImapAuth } from "@/lib/mail/auth-helpers";
 
 /**
  * Runs a callback with an authenticated ImapFlow connection.
@@ -8,7 +9,7 @@ import { getConnectionCredentialsInternal } from "@/lib/auth";
  */
 export async function withImapConnection<T>(
   connectionId: string,
-  fn: (client: ImapFlow) => Promise<T>
+  fn: (client: ImapFlow) => Promise<T>,
 ): Promise<T | null> {
   const credentials = await getConnectionCredentialsInternal(connectionId);
   if (!credentials) {
@@ -20,10 +21,7 @@ export async function withImapConnection<T>(
     host: credentials.imap.host,
     port: credentials.imap.port,
     secure: true,
-    auth: {
-      user: credentials.email,
-      pass: credentials.password,
-    },
+    auth: buildImapAuth(credentials),
     logger: false,
   });
 
@@ -52,8 +50,7 @@ export function findArchiveMailbox(
   return (
     mailboxes.find(
       (mb) =>
-        mb.specialUse === "\\Archive" ||
-        mb.path.toLowerCase() === "archive",
+        mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
     ) ?? mailboxes.find((mb) => mb.specialUse === "\\All")
   );
 }

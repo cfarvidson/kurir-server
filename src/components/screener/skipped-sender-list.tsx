@@ -3,11 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  approveSender,
-  rejectSender,
-  unskipSender,
-} from "@/actions/senders";
+import { approveSender, rejectSender, unskipSender } from "@/actions/senders";
 import {
   Inbox,
   Newspaper,
@@ -46,11 +42,7 @@ function formatTimeRemaining(until: Date | null): string {
   return `${minutes}m`;
 }
 
-export function SkippedSenderList({
-  senders,
-}: {
-  senders: SkippedSender[];
-}) {
+export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);

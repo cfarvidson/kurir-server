@@ -44,7 +44,7 @@ async function getUserEmailFromConnections(userId: string): Promise<string> {
 }
 
 async function getUserInfoFromConnections(
-  userId: string
+  userId: string,
 ): Promise<{ email: string; timezone: string }> {
   const { db } = await import("@/lib/db");
   const user = await db.user.findUnique({
@@ -53,7 +53,10 @@ async function getUserInfoFromConnections(
       timezone: true,
       emailConnections: {
         select: { email: true },
-        orderBy: [{ isDefault: "desc" as const }, { createdAt: "asc" as const }],
+        orderBy: [
+          { isDefault: "desc" as const },
+          { createdAt: "asc" as const },
+        ],
         take: 1,
       },
     },
@@ -100,7 +103,7 @@ describe("getUserEmail — resolves current user email from EmailConnection", ()
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      })
+      }),
     );
   });
 
@@ -113,7 +116,7 @@ describe("getUserEmail — resolves current user email from EmailConnection", ()
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: "user-42" },
-      })
+      }),
     );
   });
 
@@ -126,7 +129,7 @@ describe("getUserEmail — resolves current user email from EmailConnection", ()
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         select: { email: true },
-      })
+      }),
     );
   });
 });
@@ -204,7 +207,7 @@ describe("reply target resolution — last message not from self", () => {
 
   function resolveReplyTarget(
     messages: ThreadMessage[],
-    currentUserEmail: string
+    currentUserEmail: string,
   ) {
     const lastMessage = messages[messages.length - 1];
     const lastIncoming = [...messages]
@@ -410,7 +413,7 @@ describe("multi-email currentUserEmail resolution — default connection behavio
           return { email: "me@gmail.com" }; // default connection
         }
         return null;
-      }
+      },
     );
 
     const result = await getUserEmailFromConnections("user-1");

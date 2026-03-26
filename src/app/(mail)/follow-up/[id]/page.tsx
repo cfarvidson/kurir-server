@@ -24,10 +24,7 @@ export default async function FollowUpDetailPage({
             messageId={messageId}
             returnPath={returnPath}
           />
-          <ExtendFollowUpButton
-            messageId={messageId}
-            returnPath={returnPath}
-          />
+          <ExtendFollowUpButton messageId={messageId} returnPath={returnPath} />
         </>
       )}
     />

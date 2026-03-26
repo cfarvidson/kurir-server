@@ -18,7 +18,13 @@ interface PageData {
 interface InfiniteMessageListProps {
   initialMessages: MessageItem[];
   initialCursor: string | null;
-  category: "imbox" | "feed" | "paper-trail" | "archive" | "snoozed" | "follow-up";
+  category:
+    | "imbox"
+    | "feed"
+    | "paper-trail"
+    | "archive"
+    | "snoozed"
+    | "follow-up";
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;
@@ -108,7 +114,7 @@ export function InfiniteMessageList({
       ([entry]) => {
         if (entry.isIntersecting) fetchNextPage();
       },
-      { rootMargin: "0px 0px 200px 0px" }
+      { rootMargin: "0px 0px 200px 0px" },
     );
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
@@ -185,7 +191,6 @@ export function InfiniteMessageList({
     [queryClient, category, data],
   );
 
-
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {
     return threads
@@ -224,9 +229,7 @@ export function InfiniteMessageList({
     <div className="flex items-center justify-end px-4 py-2 md:px-6">
       <button
         onClick={() =>
-          isSelectionMode
-            ? clearSelection()
-            : setSelectionModeActive(true)
+          isSelectionMode ? clearSelection() : setSelectionModeActive(true)
         }
         className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors ${
           isSelectionMode
@@ -339,7 +342,9 @@ const ScrollSentinel = forwardRef<
       {isFetchingNextPage ? (
         <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
       ) : hasNextPage === false ? (
-        <p className="text-sm text-muted-foreground">You&apos;re all caught up</p>
+        <p className="text-sm text-muted-foreground">
+          You&apos;re all caught up
+        </p>
       ) : null}
     </div>
   );

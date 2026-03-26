@@ -11,7 +11,10 @@ interface UnarchiveButtonProps {
   returnPath?: string;
 }
 
-export function UnarchiveButton({ messageId, returnPath = "/archive" }: UnarchiveButtonProps) {
+export function UnarchiveButton({
+  messageId,
+  returnPath = "/archive",
+}: UnarchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const queryClient = useQueryClient();

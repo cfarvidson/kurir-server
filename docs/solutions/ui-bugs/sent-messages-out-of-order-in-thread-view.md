@@ -2,7 +2,17 @@
 title: "Sent messages appear out of chronological order in thread view"
 date: 2026-02-16
 category: ui-bugs
-tags: [imap, threading, sort-order, sent-messages, receivedAt, sentAt, deduplication, timestamps]
+tags:
+  [
+    imap,
+    threading,
+    sort-order,
+    sent-messages,
+    receivedAt,
+    sentAt,
+    deduplication,
+    timestamps,
+  ]
 module: mail/threads, components/mail/thread-view
 symptoms:
   - Sent message appears before or after the message it replies to
@@ -37,11 +47,13 @@ Sort thread messages by `sentAt ?? receivedAt` instead of `receivedAt`. The `sen
 ### `src/lib/mail/threads.ts`
 
 **Before:**
+
 ```typescript
 // In-memory sort only ran when Pass 2 found results
 if (pass2.length > 0) {
   allMessages = [...pass1, ...pass2].sort(
-    (a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime()
+    (a, b) =>
+      new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime(),
   );
 }
 // ...
@@ -49,6 +61,7 @@ return deduped;
 ```
 
 **After:**
+
 ```typescript
 // Simple concatenation when Pass 2 finds results (no intermediate sort)
 if (pass2.length > 0) {
@@ -59,12 +72,12 @@ if (pass2.length > 0) {
 // Final sort by sentAt (envelope Date header) with receivedAt fallback
 return [...deduped].sort(
   (a, b) =>
-    (a.sentAt ?? a.receivedAt).getTime() -
-    (b.sentAt ?? b.receivedAt).getTime()
+    (a.sentAt ?? a.receivedAt).getTime() - (b.sentAt ?? b.receivedAt).getTime(),
 );
 ```
 
 Key details:
+
 - The final sort runs **after** deduplication and mark-as-read (not before)
 - DB `orderBy: { receivedAt: "asc" }` in Prisma queries is kept for DB-level optimization
 - `sentAt` is nullable (`DateTime?`) — `?? receivedAt` handles null gracefully

@@ -28,7 +28,7 @@ interface ScreenerPreviewModel {
 }
 
 function createPreviewModel(
-  fetchBody: (id: string) => Promise<PreviewCache>
+  fetchBody: (id: string) => Promise<PreviewCache>,
 ): ScreenerPreviewModel {
   return {
     state: "collapsed",
@@ -44,7 +44,7 @@ function createPreviewModel(
 async function togglePreview(
   model: ScreenerPreviewModel,
   messageId: string,
-  onStateChange: (state: PreviewState) => void
+  onStateChange: (state: PreviewState) => void,
 ): Promise<void> {
   if (model.state === "loading") return; // no-op during load
 
@@ -85,7 +85,7 @@ describe("ScreenerPreview state machine", () => {
     it("transitions from collapsed to loading then expanded on first open", async () => {
       const states: PreviewState[] = [];
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>Hello</p>", text: null, sizeBytes: 100 })
+        Promise.resolve({ html: "<p>Hello</p>", text: null, sizeBytes: 100 }),
       );
 
       await togglePreview(model, "msg-1", (s) => states.push(s));
@@ -97,7 +97,7 @@ describe("ScreenerPreview state machine", () => {
     it("transitions from expanded to collapsed on second toggle", async () => {
       const states: PreviewState[] = [];
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>Hello</p>", text: null, sizeBytes: 100 })
+        Promise.resolve({ html: "<p>Hello</p>", text: null, sizeBytes: 100 }),
       );
 
       // First toggle: collapsed → expanded
@@ -111,7 +111,7 @@ describe("ScreenerPreview state machine", () => {
 
     it("is a true toggle (open → close → open)", async () => {
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>Hi</p>", text: null, sizeBytes: 100 })
+        Promise.resolve({ html: "<p>Hi</p>", text: null, sizeBytes: 100 }),
       );
 
       await togglePreview(model, "msg-1", vi.fn());
@@ -189,7 +189,10 @@ describe("ScreenerPreview state machine", () => {
     it("enters loading state before fetch resolves", async () => {
       let resolveBody!: (value: PreviewCache) => void;
       const fetchBody = vi.fn(
-        () => new Promise<PreviewCache>((res) => { resolveBody = res; })
+        () =>
+          new Promise<PreviewCache>((res) => {
+            resolveBody = res;
+          }),
       );
       const model = createPreviewModel(fetchBody);
       const states: PreviewState[] = [];
@@ -210,7 +213,7 @@ describe("ScreenerPreview state machine", () => {
   describe("error state", () => {
     it("enters error state when fetch fails", async () => {
       const model = createPreviewModel(() =>
-        Promise.reject(new Error("Network error"))
+        Promise.reject(new Error("Network error")),
       );
 
       await togglePreview(model, "msg-1", vi.fn());
@@ -221,7 +224,7 @@ describe("ScreenerPreview state machine", () => {
     it("shows error state in onStateChange callback", async () => {
       const states: PreviewState[] = [];
       const model = createPreviewModel(() =>
-        Promise.reject(new Error("timeout"))
+        Promise.reject(new Error("timeout")),
       );
 
       await togglePreview(model, "msg-1", (s) => states.push(s));
@@ -230,9 +233,7 @@ describe("ScreenerPreview state machine", () => {
     });
 
     it("collapses on toggle when in error state", async () => {
-      const model = createPreviewModel(() =>
-        Promise.reject(new Error("fail"))
-      );
+      const model = createPreviewModel(() => Promise.reject(new Error("fail")));
       await togglePreview(model, "msg-1", vi.fn());
       expect(model.state).toBe("error");
 
@@ -246,7 +247,11 @@ describe("ScreenerPreview state machine", () => {
       const model = createPreviewModel(() => {
         callCount++;
         if (callCount === 1) return Promise.reject(new Error("first fail"));
-        return Promise.resolve({ html: "<p>Retry success</p>", text: null, sizeBytes: 100 });
+        return Promise.resolve({
+          html: "<p>Retry success</p>",
+          text: null,
+          sizeBytes: 100,
+        });
       });
 
       // First attempt: error
@@ -267,7 +272,11 @@ describe("ScreenerPreview state machine", () => {
     it("identifies oversized body from sizeBytes", async () => {
       const oversize = SIZE_THRESHOLD + 1;
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>Big</p>", text: null, sizeBytes: oversize })
+        Promise.resolve({
+          html: "<p>Big</p>",
+          text: null,
+          sizeBytes: oversize,
+        }),
       );
 
       await togglePreview(model, "msg-large", vi.fn());
@@ -280,7 +289,11 @@ describe("ScreenerPreview state machine", () => {
     it("body exactly at 150KB threshold is NOT truncated", async () => {
       const atThreshold = SIZE_THRESHOLD;
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>At limit</p>", text: null, sizeBytes: atThreshold })
+        Promise.resolve({
+          html: "<p>At limit</p>",
+          text: null,
+          sizeBytes: atThreshold,
+        }),
       );
 
       await togglePreview(model, "msg-limit", vi.fn());
@@ -293,7 +306,11 @@ describe("ScreenerPreview state machine", () => {
     it("body one byte over threshold triggers truncation", async () => {
       const oversize = SIZE_THRESHOLD + 1;
       const model = createPreviewModel(() =>
-        Promise.resolve({ html: "<p>Over</p>", text: null, sizeBytes: oversize })
+        Promise.resolve({
+          html: "<p>Over</p>",
+          text: null,
+          sizeBytes: oversize,
+        }),
       );
 
       await togglePreview(model, "msg-over", vi.fn());
@@ -310,7 +327,7 @@ describe("preview display preference — html vs text fallback", () => {
    */
   function getDisplayContent(
     html: string | null,
-    text: string | null
+    text: string | null,
   ): { type: "html" | "text" | "empty"; content: string } {
     if (html) return { type: "html", content: html };
     if (text) return { type: "text", content: text };

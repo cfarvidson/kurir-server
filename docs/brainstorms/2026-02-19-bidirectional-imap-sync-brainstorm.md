@@ -17,16 +17,19 @@ Full two-way IMAP synchronization so that changes made in any IMAP client (Apple
 **IDLE + CONDSTORE** — combines realtime notification with efficient change detection.
 
 ### IMAP IDLE
+
 - ImapFlow supports IDLE natively — the client stays connected and receives push notifications when the mailbox state changes (new messages, flag changes, expunges)
 - IDLE only monitors one mailbox per connection, so we need one connection per watched folder (INBOX + Archive at minimum)
 - For 2-10 users, this means 4-20 persistent IMAP connections — well within resource limits
 
 ### CONDSTORE / MODSEQ
+
 - When IDLE fires (or on periodic fallback), use `FETCH 1:* (FLAGS) (CHANGEDSINCE <lastModSeq>)` to get only messages whose flags changed since last check
 - The `Folder.highestModSeq` column already exists in the schema but is unused — this will finally populate it
 - Falls back to full flag comparison if the server doesn't support CONDSTORE
 
 ### Two-way conflict avoidance
+
 - When Kurir pushes a change to IMAP (e.g., setting `\Seen`), record the expected MODSEQ bump so the next IDLE event doesn't "echo" the change back
 - Simple "last writer wins" — no complex conflict resolution needed for flags
 
@@ -41,6 +44,7 @@ Full two-way IMAP synchronization so that changes made in any IMAP client (Apple
 ## Current State
 
 The sync engine today is **append-only, one-directional:**
+
 - Only new UIDs are downloaded; existing messages are never re-checked
 - IMAP flags are captured at initial sync but never updated
 - `Folder.highestModSeq` exists in schema but is never written

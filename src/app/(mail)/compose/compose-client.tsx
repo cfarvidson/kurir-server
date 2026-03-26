@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FromPicker, type FromConnection } from "@/components/mail/from-picker";
 import { MarkdownComposer } from "@/components/mail/markdown-composer";
-import { useAttachments, type UploadedAttachment } from "@/hooks/use-attachments";
+import {
+  useAttachments,
+  type UploadedAttachment,
+} from "@/hooks/use-attachments";
 import { Send, X, Loader2, BookUser, CalendarClock } from "lucide-react";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
@@ -45,7 +48,7 @@ function useContactSearch(query: string) {
       try {
         const res = await fetch(
           `/api/contacts/search?q=${encodeURIComponent(query.trim())}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         if (res.ok) {
           const data = await res.json();
@@ -99,7 +102,7 @@ export function ComposeClientPage({
     defaultConnectionId ??
       connections.find((c) => c.isDefault)?.id ??
       connections[0]?.id ??
-      ""
+      "",
   );
   const [error, setError] = useState<string | null>(null);
   const {
@@ -117,7 +120,7 @@ export function ComposeClientPage({
     if (forwardData?.attachments?.length) {
       setAttachments(forwardData.attachments);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -291,7 +294,8 @@ export function ComposeClientPage({
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
 
-  const hasSuggestions = showSuggestions && isTyping && (results.length > 0 || loading);
+  const hasSuggestions =
+    showSuggestions && isTyping && (results.length > 0 || loading);
   const hasMultipleConnections = connections.length > 1;
 
   return (
@@ -300,19 +304,12 @@ export function ComposeClientPage({
       <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">New Message</h1>
         <div className="flex items-center gap-1 md:gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-          >
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Cancel</span>
           </Button>
           <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              onClick={handleSend}
-            >
+            <Button size="sm" onClick={handleSend}>
               <Send className="h-4 w-4" />
               Send
             </Button>
@@ -404,7 +401,9 @@ export function ComposeClientPage({
                         }`}
                       >
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                          {(contact.displayName || contact.email).charAt(0).toUpperCase()}
+                          {(contact.displayName || contact.email)
+                            .charAt(0)
+                            .toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
                           {contact.displayName ? (

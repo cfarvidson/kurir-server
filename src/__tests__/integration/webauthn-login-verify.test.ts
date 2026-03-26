@@ -17,7 +17,9 @@ vi.mock("@simplewebauthn/server", () => ({
 
 vi.mock("@simplewebauthn/server/helpers", () => ({
   isoBase64URL: {
-    toBuffer: vi.fn().mockImplementation((s: string) => Buffer.from(s, "base64url")),
+    toBuffer: vi
+      .fn()
+      .mockImplementation((s: string) => Buffer.from(s, "base64url")),
   },
 }));
 
@@ -119,7 +121,8 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findUnique).mockResolvedValue(mockPasskey as any);
 
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyAuthenticationResponse).mockResolvedValue({
       verified: false,
       authenticationInfo: {} as any,
@@ -141,9 +144,10 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findUnique).mockResolvedValue(mockPasskey as any);
 
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyAuthenticationResponse).mockRejectedValue(
-      new Error("Counter did not increment")
+      new Error("Counter did not increment"),
     );
 
     const { POST } = await import("@/app/api/auth/webauthn/login/verify/route");
@@ -163,7 +167,8 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     vi.mocked(db.passkey.findUnique).mockResolvedValue(mockPasskey as any);
     vi.mocked(db.passkey.update).mockResolvedValue({} as any);
 
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyAuthenticationResponse).mockResolvedValue({
       verified: true,
       authenticationInfo: {
@@ -181,7 +186,7 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     expect(db.passkey.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ counter: BigInt(11) }),
-      })
+      }),
     );
   });
 
@@ -199,7 +204,7 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     expect(db.passkey.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { credentialId: "specific-cred-id" },
-      })
+      }),
     );
   });
 
@@ -214,7 +219,8 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     } as any);
     vi.mocked(db.passkey.update).mockResolvedValue({} as any);
 
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyAuthenticationResponse).mockResolvedValue({
       verified: true,
       authenticationInfo: {
@@ -235,7 +241,7 @@ describe("POST /api/auth/webauthn/login/verify", () => {
     expect(encode).toHaveBeenCalledWith(
       expect.objectContaining({
         token: expect.objectContaining({ id: "owner-user-id" }),
-      })
+      }),
     );
   });
 });

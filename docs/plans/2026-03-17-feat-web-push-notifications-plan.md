@@ -13,6 +13,7 @@ deepened: true
 **Research sources:** Context7 (web-push, Next.js PWA docs), SpecFlow analysis, security/performance/architecture/simplicity reviews, ICM learnings
 
 ### Key Improvements from Research
+
 1. **Security headers** for `sw.js` via `next.config.ts` — `Cache-Control: no-cache`, CSP `default-src 'self'`
 2. **`urgency: 'high'` and `topic`** options on web-push for email notifications
 3. **Batched push sending** — collect all Imbox messages after IDLE loop, one `pushToUser()` call
@@ -142,16 +143,18 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/imbox";
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      // Focus existing tab if open
-      for (const client of windowClients) {
-        if (new URL(client.url).pathname === url && "focus" in client) {
-          return client.focus();
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windowClients) => {
+        // Focus existing tab if open
+        for (const client of windowClients) {
+          if (new URL(client.url).pathname === url && "focus" in client) {
+            return client.focus();
+          }
         }
-      }
-      // Otherwise open new tab
-      return clients.openWindow(url);
-    })
+        // Otherwise open new tab
+        return clients.openWindow(url);
+      }),
   );
 });
 ```
@@ -212,10 +215,12 @@ Update the matcher regex to exclude `sw.js`:
 
 ```ts
 // Before:
-matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.png|.*\\.svg).*)"]
+matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.png|.*\\.svg).*)"];
 
 // After:
-matcher: ["/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|.*\\.png|.*\\.svg).*)"]
+matcher: [
+  "/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|.*\\.png|.*\\.svg).*)",
+];
 ```
 
 > **ICM learning confirmed:** This exact issue (middleware blocking static assets in `public/`) was previously encountered and documented. The service worker fetch request has no session cookie, so the middleware would redirect it to `/login`, causing registration to fail silently.
@@ -233,7 +238,7 @@ DELETE /api/push/subscribe  — remove subscription
 - Zod validation:
   ```ts
   const schema = z.object({
-    endpoint: z.string().url().startsWith("https://"),  // Must be HTTPS
+    endpoint: z.string().url().startsWith("https://"), // Must be HTTPS
     p256dh: z.string().min(1),
     auth: z.string().min(1),
   });
@@ -274,31 +279,40 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   const body = JSON.stringify(payload);
   const options = {
-    TTL: 3600,         // 1 hour — email notifications stay relevant
-    urgency: "high" as const,  // triggers immediate delivery + vibration
-    topic: payload.tag,        // server-side notification collapsing per-thread
+    TTL: 3600, // 1 hour — email notifications stay relevant
+    urgency: "high" as const, // triggers immediate delivery + vibration
+    topic: payload.tag, // server-side notification collapsing per-thread
   };
 
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
-      webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        body,
-        options,
-      ).catch(async (err) => {
-        // Clean up expired/invalid subscriptions
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          await db.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
-          console.log(`[push] Removed expired subscription ${sub.id}`);
-        }
-        throw err;
-      })
+      webpush
+        .sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          body,
+          options,
+        )
+        .catch(async (err) => {
+          // Clean up expired/invalid subscriptions
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await db.pushSubscription
+              .delete({ where: { id: sub.id } })
+              .catch(() => {});
+            console.log(`[push] Removed expired subscription ${sub.id}`);
+          }
+          throw err;
+        }),
     ),
   );
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   if (sent > 0) {
-    console.log(`[push] Sent ${sent}/${subscriptions.length} notifications to user ${userId}`);
+    console.log(
+      `[push] Sent ${sent}/${subscriptions.length} notifications to user ${userId}`,
+    );
   }
 }
 ```
@@ -315,10 +329,19 @@ Modify `handleNewMessages()` to capture the return value of `processMessage()` a
 
 ```ts
 // Inside handleNewMessages():
-const newImboxMessages: Array<{ fromName: string | null; fromAddress: string; subject: string | null; threadId: string | null; id: string }> = [];
+const newImboxMessages: Array<{
+  fromName: string | null;
+  fromAddress: string;
+  subject: string | null;
+  threadId: string | null;
+  id: string;
+}> = [];
 
 // In the for-await loop, capture processMessage return:
-const message = await processMessage(msg, userId, connectionId, folderId, { isInbox: true, userEmails });
+const message = await processMessage(msg, userId, connectionId, folderId, {
+  isInbox: true,
+  userEmails,
+});
 if (message) {
   count++;
   if (message.isInImbox) {
@@ -334,7 +357,7 @@ if (count > 0) {
 // Batch push: send one notification per thread, fire-and-forget
 if (newImboxMessages.length > 0) {
   // Dedupe by threadId — only latest message per thread
-  const byThread = new Map<string, typeof newImboxMessages[0]>();
+  const byThread = new Map<string, (typeof newImboxMessages)[0]>();
   for (const msg of newImboxMessages) {
     const key = msg.threadId || msg.id;
     byThread.set(key, msg); // last one wins
@@ -354,6 +377,7 @@ if (newImboxMessages.length > 0) {
 > **Performance insight — thread dedup:** If 5 messages arrive in the same thread during one IDLE batch, the user gets 1 push notification (the latest), not 5. This combines with the 200ms IDLE debounce for good burst handling.
 
 **Key decisions:**
+
 - Use `threadId` as notification `tag` → collapses multiple replies in the same thread into one notification
 - Fire-and-forget (`.catch()` on the promise) — push failures never block IDLE processing
 - No suppression when SSE is active — SSE presence doesn't mean the user is looking at the tab
@@ -377,7 +401,8 @@ function base64UrlToUint8Array(base64String: string): Uint8Array {
 }
 
 export function usePushNotifications() {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [permission, setPermission] =
+    useState<NotificationPermission>("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
 
@@ -388,7 +413,7 @@ export function usePushNotifications() {
       setPermission(Notification.permission);
       // Check existing subscription
       navigator.serviceWorker.ready.then((reg) =>
-        reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub))
+        reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub)),
       );
     }
   }, []);
@@ -400,7 +425,7 @@ export function usePushNotifications() {
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: base64UrlToUint8Array(
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
       ),
     });
 
@@ -444,6 +469,7 @@ export function usePushNotifications() {
 **3b. Discovery banner** — `src/components/mail/push-notification-banner.tsx`
 
 A dismissible banner shown at the top of the Imbox page when:
+
 - Push notifications are supported by the browser
 - The user hasn't subscribed yet
 - The user hasn't dismissed the banner (check `localStorage` key `kurir:push-banner-dismissed`)
@@ -466,6 +492,7 @@ Place in `src/app/(mail)/imbox/page.tsx` above the message list.
 **3c. Notification settings section** — `src/components/settings/notification-settings.tsx`
 
 Add inline to the settings page (not a separate sub-page — too little content):
+
 - Shows current status: "Enabled on this device" / "Not enabled"
 - Enable/disable button using the hook
 - If permission is `"denied"`, show instructions to unblock
@@ -515,31 +542,31 @@ Remove `badgeKey: "snoozed"` from the Snoozed nav item (line 25).
 
 ## Files to Create
 
-| File | Purpose |
-|------|---------|
-| `public/sw.js` | Service worker (push events + notification click) |
-| `src/app/manifest.ts` | PWA manifest for Add-to-Home-Screen |
-| `src/app/api/push/subscribe/route.ts` | POST/DELETE push subscription endpoints |
-| `src/lib/mail/push-sender.ts` | `pushToUser()` — sends web-push notifications |
-| `src/hooks/use-push-notifications.ts` | Client hook for push subscription management |
-| `src/components/mail/push-notification-banner.tsx` | Discovery banner for Imbox page |
-| `src/components/settings/notification-settings.tsx` | Settings section for notification management |
+| File                                                | Purpose                                           |
+| --------------------------------------------------- | ------------------------------------------------- |
+| `public/sw.js`                                      | Service worker (push events + notification click) |
+| `src/app/manifest.ts`                               | PWA manifest for Add-to-Home-Screen               |
+| `src/app/api/push/subscribe/route.ts`               | POST/DELETE push subscription endpoints           |
+| `src/lib/mail/push-sender.ts`                       | `pushToUser()` — sends web-push notifications     |
+| `src/hooks/use-push-notifications.ts`               | Client hook for push subscription management      |
+| `src/components/mail/push-notification-banner.tsx`  | Discovery banner for Imbox page                   |
+| `src/components/settings/notification-settings.tsx` | Settings section for notification management      |
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `prisma/schema.prisma` | Add `PushSubscription` model, add relation to `User` |
-| `next.config.ts` | Add `web-push` to `serverExternalPackages`, add `headers()` for sw.js |
-| `src/middleware.ts` | Add `sw\\.js` to matcher exclusion |
-| `src/lib/mail/idle-handlers.ts` | Capture `processMessage()` return, call `pushToUser()` for Imbox messages with thread dedup |
-| `src/app/(mail)/imbox/page.tsx` | Add `<PushNotificationBanner />` |
-| `src/app/(mail)/settings/page.tsx` | Add `<NotificationSettings />` section |
-| `src/components/layout/navigation.ts` | Remove `badgeKey: "snoozed"`, update type |
-| `src/components/layout/sidebar.tsx` | Remove `snoozedCount` prop and logic |
-| `src/components/layout/mobile-sidebar.tsx` | Remove `snoozedCount` prop and logic |
-| `src/app/(mail)/layout.tsx` | Remove `getSnoozedCount` query, remove `snoozedCount` prop |
-| `package.json` | Add `web-push` dependency |
+| File                                       | Change                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                     | Add `PushSubscription` model, add relation to `User`                                        |
+| `next.config.ts`                           | Add `web-push` to `serverExternalPackages`, add `headers()` for sw.js                       |
+| `src/middleware.ts`                        | Add `sw\\.js` to matcher exclusion                                                          |
+| `src/lib/mail/idle-handlers.ts`            | Capture `processMessage()` return, call `pushToUser()` for Imbox messages with thread dedup |
+| `src/app/(mail)/imbox/page.tsx`            | Add `<PushNotificationBanner />`                                                            |
+| `src/app/(mail)/settings/page.tsx`         | Add `<NotificationSettings />` section                                                      |
+| `src/components/layout/navigation.ts`      | Remove `badgeKey: "snoozed"`, update type                                                   |
+| `src/components/layout/sidebar.tsx`        | Remove `snoozedCount` prop and logic                                                        |
+| `src/components/layout/mobile-sidebar.tsx` | Remove `snoozedCount` prop and logic                                                        |
+| `src/app/(mail)/layout.tsx`                | Remove `getSnoozedCount` query, remove `snoozedCount` prop                                  |
+| `package.json`                             | Add `web-push` dependency                                                                   |
 
 ## Edge Cases
 

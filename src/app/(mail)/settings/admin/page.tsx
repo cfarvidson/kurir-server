@@ -83,9 +83,7 @@ export default async function AdminSettingsPage() {
           <AdminPanel
             currentUserId={session.user.id}
             signupsEnabled={settings.signupsEnabled}
-            selfServiceAccountManagement={
-              settings.selfServiceAccountManagement
-            }
+            selfServiceAccountManagement={settings.selfServiceAccountManagement}
             users={users.map((u) => ({
               id: u.id,
               displayName: u.displayName,

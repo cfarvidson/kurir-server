@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
   }
 
   const parsed = querySchema.safeParse(
-    Object.fromEntries(request.nextUrl.searchParams)
+    Object.fromEntries(request.nextUrl.searchParams),
   );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
@@ -144,9 +144,10 @@ export async function GET(request: NextRequest) {
   // Thread counts for this batch
   const threadCounts = await getThreadCounts(session.user.id, messages);
 
-  const nextCursor = messages.length === limit
-    ? encodeCursor(messages[messages.length - 1])
-    : null;
+  const nextCursor =
+    messages.length === limit
+      ? encodeCursor(messages[messages.length - 1])
+      : null;
 
   return NextResponse.json({
     messages,
@@ -175,10 +176,7 @@ function parseCursor(cursor: string): Record<string, unknown> | null {
   if (!/^c[a-z0-9]{24,}$/.test(id)) return null;
 
   return {
-    OR: [
-      { receivedAt: { lt: date } },
-      { receivedAt: date, id: { lt: id } },
-    ],
+    OR: [{ receivedAt: { lt: date } }, { receivedAt: date, id: { lt: id } }],
   };
 }
 ```
@@ -215,8 +213,10 @@ Export the core query logic from the API route file so page server components ca
 useEffect(() => {
   if (!sentinelRef.current || !hasNextPage) return;
   const observer = new IntersectionObserver(
-    ([entry]) => { if (entry.isIntersecting) fetchNextPage(); },
-    { rootMargin: "0px 0px 200px 0px" } // preload 200px before visible
+    ([entry]) => {
+      if (entry.isIntersecting) fetchNextPage();
+    },
+    { rootMargin: "0px 0px 200px 0px" }, // preload 200px before visible
   );
   observer.observe(sentinelRef.current);
   return () => observer.disconnect();
@@ -286,14 +286,14 @@ This is deferred because `router.refresh()` in Next.js 15 should preserve client
 
 ## Files to Create/Modify
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/app/api/messages/route.ts` | Create | Paginated messages API with validation |
+| File                                            | Action | Purpose                                          |
+| ----------------------------------------------- | ------ | ------------------------------------------------ |
+| `src/app/api/messages/route.ts`                 | Create | Paginated messages API with validation           |
 | `src/components/mail/infinite-message-list.tsx` | Create | Client component with scroll + incremental dedup |
-| `src/app/(mail)/imbox/page.tsx` | Modify | Use InfiniteMessageList, keep search as-is |
-| `src/app/(mail)/feed/page.tsx` | Modify | Use InfiniteMessageList |
-| `src/app/(mail)/paper-trail/page.tsx` | Modify | Use InfiniteMessageList |
-| `src/components/mail/message-list.tsx` | Modify | Export MessageRow |
+| `src/app/(mail)/imbox/page.tsx`                 | Modify | Use InfiniteMessageList, keep search as-is       |
+| `src/app/(mail)/feed/page.tsx`                  | Modify | Use InfiniteMessageList                          |
+| `src/app/(mail)/paper-trail/page.tsx`           | Modify | Use InfiniteMessageList                          |
+| `src/components/mail/message-list.tsx`          | Modify | Export MessageRow                                |
 
 ## Dependencies & Risks
 

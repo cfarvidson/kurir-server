@@ -8,7 +8,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // (the store uses globalThis singleton)
 beforeEach(() => {
   // Clear globalThis.webauthnChallenges between tests
-  const g = globalThis as unknown as { webauthnChallenges: Map<string, unknown> | undefined };
+  const g = globalThis as unknown as {
+    webauthnChallenges: Map<string, unknown> | undefined;
+  };
   if (g.webauthnChallenges) {
     g.webauthnChallenges.clear();
   }
@@ -16,17 +18,15 @@ beforeEach(() => {
 
 describe("webauthn-challenge-store (actual implementation)", () => {
   it("stores and retrieves a challenge", async () => {
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
     setChallenge("key-1", "challenge-abc");
     expect(consumeChallenge("key-1")).toBe("challenge-abc");
   });
 
   it("challenge is single-use (second consume returns null)", async () => {
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
     setChallenge("key-1", "challenge");
     consumeChallenge("key-1"); // consume it
     expect(consumeChallenge("key-1")).toBeNull();
@@ -39,9 +39,8 @@ describe("webauthn-challenge-store (actual implementation)", () => {
 
   it("expires challenges after TTL", async () => {
     vi.useFakeTimers();
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
 
     setChallenge("key-1", "will-expire");
     // Fast-forward past 5 minute TTL
@@ -53,9 +52,8 @@ describe("webauthn-challenge-store (actual implementation)", () => {
 
   it("does not expire before TTL", async () => {
     vi.useFakeTimers();
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
 
     setChallenge("key-1", "still-valid");
     vi.advanceTimersByTime(4 * 60 * 1000); // only 4 minutes
@@ -65,9 +63,8 @@ describe("webauthn-challenge-store (actual implementation)", () => {
   });
 
   it("different keys are independent", async () => {
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
     setChallenge("key-A", "challenge-A");
     setChallenge("key-B", "challenge-B");
 
@@ -76,9 +73,8 @@ describe("webauthn-challenge-store (actual implementation)", () => {
   });
 
   it("overwriting the same key replaces the challenge", async () => {
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
     setChallenge("key-1", "original");
     setChallenge("key-1", "replacement");
     expect(consumeChallenge("key-1")).toBe("replacement");
@@ -86,9 +82,8 @@ describe("webauthn-challenge-store (actual implementation)", () => {
 
   it("prunes expired entries when a new challenge is set", async () => {
     vi.useFakeTimers();
-    const { setChallenge, consumeChallenge } = await import(
-      "@/lib/webauthn-challenge-store"
-    );
+    const { setChallenge, consumeChallenge } =
+      await import("@/lib/webauthn-challenge-store");
 
     // Set an entry that will expire
     setChallenge("expired-key", "old-challenge");

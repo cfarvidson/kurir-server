@@ -24,7 +24,7 @@ export function Providers({
             refetchOnWindowFocus: true,
           },
         },
-      })
+      }),
   );
 
   return (

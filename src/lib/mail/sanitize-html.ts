@@ -17,18 +17,59 @@ export interface SanitizeOptions {
  * Excludes script, style, iframe, object, embed, form, input, link, meta, etc.
  */
 const ALLOWED_TAGS = [
-  "div", "span", "p", "br", "hr",
-  "h1", "h2", "h3", "h4", "h5", "h6",
-  "strong", "em", "b", "i", "u", "s", "sub", "sup",
-  "a", "img",
-  "ul", "ol", "li",
-  "table", "thead", "tbody", "tfoot", "tr", "td", "th",
-  "caption", "colgroup", "col",
-  "blockquote", "pre", "code",
-  "figure", "figcaption",
-  "address", "cite", "abbr", "time",
-  "dl", "dt", "dd",
-  "section", "article", "header", "footer", "main", "aside", "nav",
+  "div",
+  "span",
+  "p",
+  "br",
+  "hr",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "strong",
+  "em",
+  "b",
+  "i",
+  "u",
+  "s",
+  "sub",
+  "sup",
+  "a",
+  "img",
+  "ul",
+  "ol",
+  "li",
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "td",
+  "th",
+  "caption",
+  "colgroup",
+  "col",
+  "blockquote",
+  "pre",
+  "code",
+  "figure",
+  "figcaption",
+  "address",
+  "cite",
+  "abbr",
+  "time",
+  "dl",
+  "dt",
+  "dd",
+  "section",
+  "article",
+  "header",
+  "footer",
+  "main",
+  "aside",
+  "nav",
   // <style> blocks removed: CSS url() can bypass image proxy for tracking.
   // Allow <center> for legacy email layouts
   "center",
@@ -41,15 +82,35 @@ const ALLOWED_TAGS = [
  */
 const ALLOWED_ATTR = [
   // Universal
-  "id", "class", "style", "dir", "lang", "title", "aria-label",
-  "aria-hidden", "aria-describedby", "role",
+  "id",
+  "class",
+  "style",
+  "dir",
+  "lang",
+  "title",
+  "aria-label",
+  "aria-hidden",
+  "aria-describedby",
+  "role",
   // Links
-  "href", "target", "rel", "name",
+  "href",
+  "target",
+  "rel",
+  "name",
   // Images
-  "src", "alt", "width", "height", "loading",
+  "src",
+  "alt",
+  "width",
+  "height",
+  "loading",
   // Tables
-  "colspan", "rowspan", "align", "valign", "border",
-  "cellpadding", "cellspacing",
+  "colspan",
+  "rowspan",
+  "align",
+  "valign",
+  "border",
+  "cellpadding",
+  "cellspacing",
   // Data attributes (used by some email clients for quote markers)
   "data-*",
 ];
@@ -68,7 +129,7 @@ const ALLOWED_ATTR = [
  */
 export function sanitizeEmailHtml(
   html: string,
-  options: SanitizeOptions = {}
+  options: SanitizeOptions = {},
 ): string {
   if (typeof window === "undefined") {
     // Server-side: return empty string — the iframe renders client-side only.
@@ -148,7 +209,7 @@ export function sanitizeEmailHtml(
     // Gmail / Mozilla / Yahoo / Proton quote wrappers.
     doc
       .querySelectorAll(
-        ".gmail_quote, .moz-cite-prefix, .yahoo_quoted, .protonmail_quote"
+        ".gmail_quote, .moz-cite-prefix, .yahoo_quoted, .protonmail_quote",
       )
       .forEach((el) => el.remove());
     // "On <date>, <name> wrote:" attribution paragraphs preceding quotes.

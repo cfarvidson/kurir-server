@@ -40,9 +40,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
     const { auth } = await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue(null);
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "passkey-1" }),
     });
@@ -59,9 +58,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue(null);
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "nonexistent-passkey" }),
     });
@@ -79,9 +77,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
     // findFirst with WHERE id + userId returns null because user doesn't own it
     vi.mocked(db.passkey.findFirst).mockResolvedValue(null);
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "other-users-passkey" }),
     });
@@ -96,9 +93,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findFirst).mockResolvedValue(null);
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-123" }),
     });
@@ -106,7 +102,7 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
     expect(db.passkey.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "pk-123", userId: "user-1" },
-      })
+      }),
     );
   });
 
@@ -127,9 +123,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       return fn(tx);
     });
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-1" }),
     });
@@ -156,9 +151,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       return fn(tx);
     });
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-1" }),
     });
@@ -182,9 +176,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       return fn(tx);
     });
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-2" }),
     });
@@ -211,9 +204,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       return fn(tx);
     });
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-old" }),
     });
@@ -240,9 +232,8 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
       return fn(tx);
     });
 
-    const { DELETE } = await import(
-      "@/app/api/auth/webauthn/passkeys/[id]/route"
-    );
+    const { DELETE } =
+      await import("@/app/api/auth/webauthn/passkeys/[id]/route");
     const response = await DELETE(makeRequest("DELETE"), {
       params: Promise.resolve({ id: "pk-2" }),
     });

@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth, getConnectionCredentials, getDefaultConnectionCredentials } from "@/lib/auth";
+import {
+  auth,
+  getConnectionCredentials,
+  getDefaultConnectionCredentials,
+} from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
+import {
+  createLocalSentMessage,
+  appendToImapSent,
+} from "@/lib/mail/persist-sent";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
+import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -36,11 +44,20 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  const { to, subject, text, html, inReplyTo, references, fromConnectionId, attachmentIds } = parsed.data;
+  const {
+    to,
+    subject,
+    text,
+    html,
+    inReplyTo,
+    references,
+    fromConnectionId,
+    attachmentIds,
+  } = parsed.data;
 
   // Resolve credentials: use specified connection or fall back to default
   let credentials;
@@ -55,17 +72,23 @@ export async function POST(request: Request) {
     if (!conn) {
       return NextResponse.json(
         { error: "Email connection not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
-    credentials = await getConnectionCredentials(fromConnectionId, session.user.id);
+    credentials = await getConnectionCredentials(
+      fromConnectionId,
+      session.user.id,
+    );
     resolvedConnectionId = fromConnectionId;
   } else {
     const defaultCreds = await getDefaultConnectionCredentials(session.user.id);
     if (!defaultCreds) {
       return NextResponse.json(
-        { error: "No email connection found. Please add an email account in settings." },
-        { status: 400 }
+        {
+          error:
+            "No email connection found. Please add an email account in settings.",
+        },
+        { status: 400 },
       );
     }
     credentials = defaultCreds;
@@ -75,7 +98,7 @@ export async function POST(request: Request) {
   if (!credentials) {
     return NextResponse.json(
       { error: "Email credentials not found" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -83,10 +106,7 @@ export async function POST(request: Request) {
     host: credentials.smtp.host,
     port: credentials.smtp.port,
     secure: credentials.smtp.port === 465,
-    auth: {
-      user: credentials.email,
-      pass: credentials.password,
-    },
+    auth: buildSmtpAuth(credentials),
   });
 
   const fromAddress = credentials.sendAsEmail || credentials.email;
@@ -117,9 +137,10 @@ export async function POST(request: Request) {
       text,
       html: emailHtml,
       ...(inReplyTo && { inReplyTo }),
-      ...(references && references.length > 0 && {
-        references: references.join(" "),
-      }),
+      ...(references &&
+        references.length > 0 && {
+          references: references.join(" "),
+        }),
       ...(loaded.nodemailerAttachments.length > 0 && {
         attachments: loaded.nodemailerAttachments,
       }),
@@ -182,8 +203,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to send email:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to send email" },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Failed to send email",
+      },
+      { status: 500 },
     );
   }
 }

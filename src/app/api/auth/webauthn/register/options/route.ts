@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
     userDisplayName = "";
   } else {
     // Rate limit registration: 3 per 10 minutes per IP
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const rl = await rateLimitRegistration(ip);
     if (!rl.allowed) return tooManyRequests(rl.retryAfter);
 
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest) {
         where: { token: inviteToken },
         select: { usedAt: true, expiresAt: true },
       });
-      hasValidInvite = !!invite && !invite.usedAt && invite.expiresAt > new Date();
+      hasValidInvite =
+        !!invite && !invite.usedAt && invite.expiresAt > new Date();
     }
 
     // New user registration — check if signups are enabled (skip with valid invite)

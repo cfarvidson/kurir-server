@@ -1,8 +1,6 @@
 import { db } from "@/lib/db";
 
-export async function checkExpiredFollowUps(
-  userId: string,
-): Promise<number> {
+export async function checkExpiredFollowUps(userId: string): Promise<number> {
   const connections = await db.emailConnection.findMany({
     where: { userId },
     select: { email: true, sendAsEmail: true, aliases: true },

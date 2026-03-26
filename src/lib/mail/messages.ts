@@ -100,10 +100,7 @@ function parseChronoCursor(cursor: string) {
 
   // Sort order: receivedAt DESC, id DESC
   return {
-    OR: [
-      { receivedAt: { lt: date } },
-      { receivedAt: date, id: { lt: id } },
-    ],
+    OR: [{ receivedAt: { lt: date } }, { receivedAt: date, id: { lt: id } }],
   };
 }
 
@@ -111,7 +108,7 @@ export async function getMessages(
   userId: string,
   category: Category,
   limit: number,
-  cursor?: string
+  cursor?: string,
 ) {
   const chronological = category === "archive";
   const cursorCondition = cursor

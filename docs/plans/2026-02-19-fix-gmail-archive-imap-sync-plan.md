@@ -18,10 +18,10 @@ Same issue in reverse: `unarchiveConversation()` queries the DB for `specialUse:
 
 **Root cause table:**
 
-| Action | Looks for | Gmail has | Result |
-|--------|-----------|-----------|--------|
+| Action         | Looks for                    | Gmail has | Result                                 |
+| -------------- | ---------------------------- | --------- | -------------------------------------- |
 | Archive (IMAP) | `specialUse === "\\Archive"` | `"\\All"` | `archiveBox = undefined`, move skipped |
-| Unarchive (DB) | `specialUse: "archive"` | `"all"` | `archiveFolder = null`, move skipped |
+| Unarchive (DB) | `specialUse: "archive"`      | `"all"`   | `archiveFolder = null`, move skipped   |
 
 ## Fix
 
@@ -30,28 +30,27 @@ Extend both lookups to fall back to `\All` when `\Archive` isn't found. Standard
 ### 1. `src/actions/archive.ts` — `archiveConversation()` (~line 56)
 
 **Before:**
+
 ```typescript
 const archiveBox = mailboxes.find(
-  (mb) =>
-    mb.specialUse === "\\Archive" ||
-    mb.path.toLowerCase() === "archive"
+  (mb) => mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
 );
 ```
 
 **After:**
+
 ```typescript
 const archiveBox =
   mailboxes.find(
     (mb) =>
-      mb.specialUse === "\\Archive" ||
-      mb.path.toLowerCase() === "archive"
-  ) ??
-  mailboxes.find((mb) => mb.specialUse === "\\All");
+      mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
+  ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
 ```
 
 ### 2. `src/actions/archive.ts` — `unarchiveConversation()` (~line 140)
 
 **Before:**
+
 ```typescript
 const archiveFolder = await db.folder.findFirst({
   where: { userId, specialUse: "archive" },
@@ -60,6 +59,7 @@ const archiveFolder = await db.folder.findFirst({
 ```
 
 **After:**
+
 ```typescript
 const archiveFolder = await db.folder.findFirst({
   where: { userId, specialUse: { in: ["archive", "all"] } },
@@ -72,23 +72,21 @@ const archiveFolder = await db.folder.findFirst({
 The IMAP mailbox lookup for unarchive has the same problem — it needs to find `\All` too:
 
 **Before:**
+
 ```typescript
 const archiveBox = mailboxes.find(
-  (mb) =>
-    mb.specialUse === "\\Archive" ||
-    mb.path.toLowerCase() === "archive"
+  (mb) => mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
 );
 ```
 
 **After:**
+
 ```typescript
 const archiveBox =
   mailboxes.find(
     (mb) =>
-      mb.specialUse === "\\Archive" ||
-      mb.path.toLowerCase() === "archive"
-  ) ??
-  mailboxes.find((mb) => mb.specialUse === "\\All");
+      mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
+  ) ?? mailboxes.find((mb) => mb.specialUse === "\\All");
 ```
 
 ## Acceptance Criteria

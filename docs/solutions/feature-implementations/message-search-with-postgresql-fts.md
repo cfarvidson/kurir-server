@@ -2,7 +2,16 @@
 title: Message Search with PostgreSQL Full-Text Search
 date: 2026-02-16
 category: feature-implementations
-tags: [search, postgresql, full-text-search, tsvector, prisma, next.js, server-components]
+tags:
+  [
+    search,
+    postgresql,
+    full-text-search,
+    tsvector,
+    prisma,
+    next.js,
+    server-components,
+  ]
 module: mail
 symptoms:
   - Need to search messages by subject and body
@@ -30,6 +39,7 @@ SearchInput (client) → debounce 300ms → router.replace("?q=term")
 ```
 
 Key architectural decisions:
+
 - **Server components + URL searchParams** instead of a separate API route. The URL is the state — bookmarkable, shareable, browser back/forward works.
 - **Database trigger** instead of application-level tsvector maintenance. Prisma's `message.create()` can't set a tsvector column, but a BEFORE INSERT trigger handles it transparently. No changes to `processMessage` needed.
 - **`websearch_to_tsquery`** instead of `to_tsquery` or `plainto_tsquery`. Handles user input safely — supports quotes, `-` exclusion, doesn't crash on special characters like `it's` or `&`.
@@ -39,6 +49,7 @@ Key architectural decisions:
 **File:** `prisma/migrations/search_vector.sql`
 
 The migration adds:
+
 1. A `search_vector tsvector` column on Message
 2. A GIN index for fast lookups
 3. A trigger function that auto-computes the vector on INSERT/UPDATE
@@ -68,6 +79,7 @@ $$ LANGUAGE plpgsql;
 ```
 
 Run with:
+
 ```bash
 docker compose exec -T postgres psql -U kurir < prisma/migrations/search_vector.sql
 ```
@@ -83,7 +95,7 @@ export async function searchMessages(
   userId: string,
   query: string,
   categoryFilter: Prisma.Sql,
-  limit = 50
+  limit = 50,
 ): Promise<MessageSearchResult[]> {
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
     SELECT id, subject, snippet, "fromAddress", "fromName",
@@ -101,8 +113,9 @@ export async function searchMessages(
 ```
 
 Called from each page like:
+
 ```typescript
-await searchMessages(userId, q, Prisma.sql`AND "isInImbox" = true`)
+await searchMessages(userId, q, Prisma.sql`AND "isInImbox" = true`);
 ```
 
 ### Search Input Component
@@ -161,16 +174,16 @@ All other pages filter by boolean flags (`isInImbox`, `isInFeed`, etc.). Sent fi
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `prisma/migrations/search_vector.sql` | tsvector column, GIN index, trigger, backfill |
-| `src/lib/mail/search.ts` | `searchMessages()` function using `$queryRaw` |
-| `src/components/mail/search-input.tsx` | Debounced search input client component |
-| `src/app/(mail)/imbox/page.tsx` | Imbox search integration |
-| `src/app/(mail)/feed/page.tsx` | Feed search integration |
-| `src/app/(mail)/paper-trail/page.tsx` | Paper Trail search integration |
-| `src/app/(mail)/archive/page.tsx` | Archive search integration |
-| `src/app/(mail)/sent/page.tsx` | Sent search integration (folder-based) |
+| File                                   | Purpose                                       |
+| -------------------------------------- | --------------------------------------------- |
+| `prisma/migrations/search_vector.sql`  | tsvector column, GIN index, trigger, backfill |
+| `src/lib/mail/search.ts`               | `searchMessages()` function using `$queryRaw` |
+| `src/components/mail/search-input.tsx` | Debounced search input client component       |
+| `src/app/(mail)/imbox/page.tsx`        | Imbox search integration                      |
+| `src/app/(mail)/feed/page.tsx`         | Feed search integration                       |
+| `src/app/(mail)/paper-trail/page.tsx`  | Paper Trail search integration                |
+| `src/app/(mail)/archive/page.tsx`      | Archive search integration                    |
+| `src/app/(mail)/sent/page.tsx`         | Sent search integration (folder-based)        |
 
 ## Related
 

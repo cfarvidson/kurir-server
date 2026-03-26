@@ -20,7 +20,13 @@ export default async function FeedDetailPage({
       categoryLabel="The Feed"
       returnPath="/feed"
       searchQuery={q}
-      actions={({ messageId, returnPath, timezone, followUpAt, isFollowUp }) => (
+      actions={({
+        messageId,
+        returnPath,
+        timezone,
+        followUpAt,
+        isFollowUp,
+      }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}

@@ -177,7 +177,9 @@ export function AutoSync() {
     return (
       <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
         <div className="rounded-lg border bg-card px-4 py-3 shadow-lg">
-          <div className="text-sm font-medium">Sync in progress, waiting...</div>
+          <div className="text-sm font-medium">
+            Sync in progress, waiting...
+          </div>
         </div>
       </div>
     );

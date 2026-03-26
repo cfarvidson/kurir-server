@@ -94,8 +94,15 @@ model EmailConnection {
   // Additional owned email addresses (historical, not for sending)
   aliases String[] @default([])
 
-  // Password stored encrypted with AES-256-GCM
-  encryptedPassword String
+  // Password stored encrypted with AES-256-GCM (null for OAuth connections)
+  encryptedPassword String?
+
+  // OAuth fields (null for password-based connections)
+  oauthProvider       String?   // "microsoft" | "google"
+  oauthAccessToken    String?   // AES-256-GCM encrypted
+  oauthRefreshToken   String?   // AES-256-GCM encrypted
+  oauthTokenExpiresAt DateTime?
+  oauthError          String?   // Set when token refresh fails; cleared on reconnect
 
   // Default connection for compose/reply
   isDefault Boolean @default(false)

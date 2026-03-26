@@ -47,7 +47,7 @@ export async function PATCH(
  */
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -78,8 +78,11 @@ export async function DELETE(
 
   if (!deleted) {
     return NextResponse.json(
-      { error: "Cannot delete the last passkey. You would lose access to your account." },
-      { status: 409 }
+      {
+        error:
+          "Cannot delete the last passkey. You would lose access to your account.",
+      },
+      { status: 409 },
     );
   }
 

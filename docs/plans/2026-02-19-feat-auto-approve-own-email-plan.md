@@ -80,10 +80,10 @@ Pass `user?.email` to the `processMessage()` call.
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `src/lib/mail/sync-service.ts` | Add `userEmail` param to `getOrCreateSender()` and `processMessage()`, auto-approve logic |
-| `src/lib/mail/idle-handlers.ts` | Look up user email, pass to `processMessage()` |
+| File                            | Change                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/lib/mail/sync-service.ts`  | Add `userEmail` param to `getOrCreateSender()` and `processMessage()`, auto-approve logic |
+| `src/lib/mail/idle-handlers.ts` | Look up user email, pass to `processMessage()`                                            |
 
 ## References
 

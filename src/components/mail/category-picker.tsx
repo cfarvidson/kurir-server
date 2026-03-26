@@ -2,14 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Inbox,
-  Newspaper,
-  Receipt,
-  X,
-  Check,
-  Loader2,
-} from "lucide-react";
+import { Inbox, Newspaper, Receipt, X, Check, Loader2 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -29,8 +22,7 @@ const CATEGORY_CONFIG = {
   FEED: {
     label: "Feed",
     icon: Newspaper,
-    color:
-      "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
+    color: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
     iconColor: "text-blue-600 dark:text-blue-400",
   },
   PAPER_TRAIL: {
@@ -108,14 +100,10 @@ export function CategoryPicker({
                 onClick={() => handleSelect(cat)}
                 className={cn(
                   "flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive
-                    ? "bg-muted font-medium"
-                    : "hover:bg-muted/50",
+                  isActive ? "bg-muted font-medium" : "hover:bg-muted/50",
                 )}
               >
-                <Icon
-                  className={cn("h-3.5 w-3.5", config.iconColor)}
-                />
+                <Icon className={cn("h-3.5 w-3.5", config.iconColor)} />
                 <span>{config.label}</span>
                 <Check
                   className={cn(

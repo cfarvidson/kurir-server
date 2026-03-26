@@ -1,7 +1,11 @@
 import { Worker, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { sendDueScheduledMessages } from "@/lib/mail/scheduled-send";
-import { redisConnection, MAINTENANCE_QUEUE, getMaintenanceQueue } from "./queue";
+import {
+  redisConnection,
+  MAINTENANCE_QUEUE,
+  getMaintenanceQueue,
+} from "./queue";
 
 // Re-export for use by background-sync
 export { checkExpiredFollowUps, wakeExpiredSnoozes } from "./maintenance-tasks";
@@ -84,8 +88,7 @@ async function expireOldAttachments(): Promise<void> {
       )
   `);
 
-  const count =
-    result.length > 0 && "count" in result[0] ? result[0].count : 0;
+  const count = result.length > 0 && "count" in result[0] ? result[0].count : 0;
   if (count > 0) {
     console.log(`[maintenance] Expired ${count} attachment contents`);
   }
@@ -118,9 +121,7 @@ async function cleanupOrphanUploads(): Promise<void> {
   });
 
   if (result.count > 0) {
-    console.log(
-      `[maintenance] Cleaned up ${result.count} orphaned upload(s)`,
-    );
+    console.log(`[maintenance] Cleaned up ${result.count} orphaned upload(s)`);
   }
 }
 
@@ -141,10 +142,7 @@ export async function startMaintenanceWorker(): Promise<void> {
   );
 
   maintenanceWorker.on("failed", (job, err) => {
-    console.error(
-      `[maintenance] Job ${job?.data.task} failed:`,
-      err.message,
-    );
+    console.error(`[maintenance] Job ${job?.data.task} failed:`, err.message);
   });
 
   console.log("[maintenance] Worker started");

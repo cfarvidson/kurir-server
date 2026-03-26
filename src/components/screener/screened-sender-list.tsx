@@ -8,13 +8,7 @@ import {
   rejectSender,
   changeSenderCategory,
 } from "@/actions/senders";
-import {
-  Inbox,
-  Newspaper,
-  Receipt,
-  X,
-  Loader2,
-} from "lucide-react";
+import { Inbox, Newspaper, Receipt, X, Loader2 } from "lucide-react";
 
 import type { SenderStatus, SenderCategory } from "@prisma/client";
 
@@ -35,11 +29,7 @@ const CATEGORY_CONFIG = {
   PAPER_TRAIL: { label: "Paper Trail", icon: Receipt, color: "text-amber-500" },
 } as const;
 
-export function ScreenedSenderList({
-  senders,
-}: {
-  senders: ScreenedSender[];
-}) {
+export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -62,7 +52,10 @@ export function ScreenedSenderList({
     });
   };
 
-  const handleApprove = (senderId: string, category: SenderCategory = "IMBOX") => {
+  const handleApprove = (
+    senderId: string,
+    category: SenderCategory = "IMBOX",
+  ) => {
     setProcessingId(senderId);
     startTransition(async () => {
       await approveSender(senderId, category);
@@ -130,7 +123,7 @@ export function ScreenedSenderList({
                             "rounded-md p-1.5 transition-colors",
                             isActive
                               ? `${c.color} bg-muted`
-                              : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50"
+                              : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50",
                           )}
                         >
                           <CatIcon className="h-4 w-4" />

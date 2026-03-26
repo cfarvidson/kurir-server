@@ -19,6 +19,7 @@ A comprehensive upgrade to the existing archive feature, adding four capabilitie
 ### Existing Foundation
 
 The core archive feature is already complete:
+
 - `src/actions/archive.ts` — server action that moves IMAP messages to `\Archive` and sets `isArchived: true`
 - `src/components/mail/archive-button.tsx` — button in thread detail header
 - `src/app/(mail)/archive/` — archive list page and thread detail
@@ -27,13 +28,13 @@ The core archive feature is already complete:
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| List archive interaction | Both swipe + hover button | Swipe for mobile, hover button for desktop |
-| Bulk selection model | Checkbox mode with floating action bar | Most explicit and discoverable; scales to future bulk actions |
-| Keyboard navigation | vim-style (j/k nav, `e` to archive) | Full keyboard-driven flow in both list and detail views |
-| Unarchive destination | User chooses (Imbox / Feed / Paper Trail) | Flexible — sender category may have changed since archiving |
-| Build order | Incremental (unarchive → list archive → keyboard → bulk) | Each step independently useful and testable |
+| Decision                 | Choice                                                   | Rationale                                                     |
+| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------- |
+| List archive interaction | Both swipe + hover button                                | Swipe for mobile, hover button for desktop                    |
+| Bulk selection model     | Checkbox mode with floating action bar                   | Most explicit and discoverable; scales to future bulk actions |
+| Keyboard navigation      | vim-style (j/k nav, `e` to archive)                      | Full keyboard-driven flow in both list and detail views       |
+| Unarchive destination    | User chooses (Imbox / Feed / Paper Trail)                | Flexible — sender category may have changed since archiving   |
+| Build order              | Incremental (unarchive → list archive → keyboard → bulk) | Each step independently useful and testable                   |
 
 ## Open Questions
 
@@ -45,12 +46,14 @@ The core archive feature is already complete:
 ## Scope
 
 ### In Scope
+
 - Single and bulk archive/unarchive from list and detail views
 - IMAP sync for both archive and unarchive operations
 - Keyboard navigation with vim-style bindings
 - Hover and swipe interactions on message list rows
 
 ### Out of Scope (for now)
+
 - Other bulk actions (mark read/unread, move to Feed, etc.) — can be added later using the same bulk action bar
 - Snooze / scheduled unarchive
 - Archive from Feed or Paper Trail views (could be added later)

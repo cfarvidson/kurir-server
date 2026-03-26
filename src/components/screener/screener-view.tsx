@@ -223,9 +223,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                 try {
                   await undoScreenAction(senderId);
                 } catch {
-                  setSenders((prev) =>
-                    prev.filter((s) => s.id !== senderId),
-                  );
+                  setSenders((prev) => prev.filter((s) => s.id !== senderId));
                   badgeUpdate("screener", -1);
                 }
                 router.refresh();
@@ -251,8 +249,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     category: Category = "IMBOX",
   ) => {
     const sender = senders.find((s) => s.id === senderId);
-    const senderName =
-      sender?.displayName || sender?.email || "Unknown sender";
+    const senderName = sender?.displayName || sender?.email || "Unknown sender";
 
     setProcessingId(senderId);
     setShowCategoryPicker(null);
@@ -276,8 +273,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
   const handleReject = async (senderId: string) => {
     const sender = senders.find((s) => s.id === senderId);
-    const senderName =
-      sender?.displayName || sender?.email || "Unknown sender";
+    const senderName = sender?.displayName || sender?.email || "Unknown sender";
 
     setProcessingId(senderId);
     const prevSenders = [...senders];
@@ -345,9 +341,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         onTogglePreview={togglePreview}
         onClosePreview={() => setIsPreviewOpen(false)}
         onCloseCategoryPicker={() => setShowCategoryPicker(null)}
-        onOpenCategoryPicker={() =>
-          setShowCategoryPicker(currentSender.id)
-        }
+        onOpenCategoryPicker={() => setShowCategoryPicker(currentSender.id)}
         onDismissBanner={dismissScreenerHint}
         onKeyboardAction={() => {
           lastInteractionRef.current = "keyboard";
@@ -356,7 +350,12 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
       <div className="w-full max-w-lg">
         {/* Stable aria-live parent wrapping AnimatePresence */}
-        <div aria-live="polite" aria-atomic="true" role="region" aria-label="Sender to screen">
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          role="region"
+          aria-label="Sender to screen"
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSender.id}
@@ -367,10 +366,9 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               className="overflow-hidden rounded-xl border bg-card shadow-lg"
               onAnimationComplete={() => {
                 if (lastInteractionRef.current === "keyboard") {
-                  const firstAction =
-                    document.querySelector<HTMLButtonElement>(
-                      '[data-screener-action="reject"]',
-                    );
+                  const firstAction = document.querySelector<HTMLButtonElement>(
+                    '[data-screener-action="reject"]',
+                  );
                   firstAction?.focus();
                 }
               }}

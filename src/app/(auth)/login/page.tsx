@@ -32,7 +32,8 @@ export default function LoginPage() {
       if (!window.PublicKeyCredential) return;
 
       // Only attempt if browser supports conditional mediation
-      const available = await PublicKeyCredential.isConditionalMediationAvailable?.();
+      const available =
+        await PublicKeyCredential.isConditionalMediationAvailable?.();
       if (!available || cancelled) return;
 
       try {
@@ -59,7 +60,9 @@ export default function LoginPage() {
     };
 
     tryConditional();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -84,7 +87,9 @@ export default function LoginPage() {
     } catch (err) {
       setState("error");
       setError(
-        err instanceof Error ? err.message : "Sign-in failed. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Sign-in failed. Please try again.",
       );
     }
   };
@@ -115,7 +120,7 @@ export default function LoginPage() {
       } else {
         setState("error");
         setError(
-          err instanceof Error ? err.message : "An unexpected error occurred."
+          err instanceof Error ? err.message : "An unexpected error occurred.",
         );
       }
     }
@@ -161,7 +166,9 @@ export default function LoginPage() {
               {isWorking ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {state === "waiting" ? "Waiting for passkey..." : "Signing in..."}
+                  {state === "waiting"
+                    ? "Waiting for passkey..."
+                    : "Signing in..."}
                 </>
               ) : (
                 <>
@@ -173,7 +180,8 @@ export default function LoginPage() {
 
             {/* Hint for conditional UI / autofill */}
             <p className="text-center text-xs text-muted-foreground">
-              Your browser may also prompt you automatically with a saved passkey.
+              Your browser may also prompt you automatically with a saved
+              passkey.
             </p>
 
             {/*

@@ -26,8 +26,7 @@ export function ThreadKeyboardHandler({
   returnPath,
 }: ThreadKeyboardHandlerProps) {
   const router = useRouter();
-  const { threadIds, basePath, setFocusedIndex } =
-    useKeyboardNavigationStore();
+  const { threadIds, basePath, setFocusedIndex } = useKeyboardNavigationStore();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

@@ -19,6 +19,7 @@ The user's own email address should never appear as a PENDING sender in the Scre
 - Existing messages from own address also get correctly categorized via `processMessage()` since the sender will be APPROVED
 
 **Rejected alternatives:**
+
 - Only fix `processMessage()` flags — leaves the Sender record as PENDING, which is inconsistent and would still show in Screener's sender list query
 - Fix at sync-start — more complex, doesn't cover all code paths (e.g., future reply/compose flows)
 

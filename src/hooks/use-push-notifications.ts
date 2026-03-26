@@ -4,9 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 
 function base64UrlToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; i++) {
@@ -27,9 +25,7 @@ export function usePushNotifications() {
     if (supported) {
       setPermission(Notification.permission);
       navigator.serviceWorker.ready.then((reg) =>
-        reg.pushManager
-          .getSubscription()
-          .then((sub) => setIsSubscribed(!!sub)),
+        reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub)),
       );
     }
   }, []);

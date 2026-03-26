@@ -46,7 +46,12 @@ export function ArchiveKeyboardShortcut({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") return;
+      if (
+        el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.tagName === "SELECT"
+      )
+        return;
       if (el.isContentEditable) return;
       if (e.key === "e" && !isPending) handleAction();
     };

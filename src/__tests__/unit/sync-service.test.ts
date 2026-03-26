@@ -91,6 +91,8 @@ describe("syncEmailConnection", () => {
       sendAsEmail: null,
       aliases: [],
       password: "pass",
+      accessToken: null,
+      oauthProvider: null,
       imap: { host: "imap.example.com", port: 993 },
       smtp: { host: "smtp.example.com", port: 587 },
     });
@@ -112,10 +114,12 @@ describe("syncEmailConnection", () => {
     const { syncEmailConnection } = await import("@/lib/mail/sync-service");
     await syncEmailConnection("conn-abc-123");
 
-    expect(getConnectionCredentialsInternal).toHaveBeenCalledWith("conn-abc-123");
+    expect(getConnectionCredentialsInternal).toHaveBeenCalledWith(
+      "conn-abc-123",
+    );
     // Importantly: NOT called with userId
     expect(getConnectionCredentialsInternal).not.toHaveBeenCalledWith(
-      expect.not.stringMatching("conn-abc-123")
+      expect.not.stringMatching("conn-abc-123"),
     );
   });
 
@@ -126,6 +130,8 @@ describe("syncEmailConnection", () => {
       sendAsEmail: null,
       aliases: [],
       password: "pass",
+      accessToken: null,
+      oauthProvider: null,
       imap: { host: "imap.gmail.com", port: 993 },
       smtp: { host: "smtp.gmail.com", port: 587 },
     });
@@ -197,7 +203,7 @@ describe("processMessage scoping", () => {
       "user-1",
       "conn-42", // emailConnectionId
       "folder-1",
-      { isInbox: true, userEmails: ["me@example.com"] }
+      { isInbox: true, userEmails: ["me@example.com"] },
     );
 
     // Verify message was created with the emailConnectionId
@@ -208,7 +214,7 @@ describe("processMessage scoping", () => {
           userId: "user-1",
           folderId: "folder-1",
         }),
-      })
+      }),
     );
   });
 });

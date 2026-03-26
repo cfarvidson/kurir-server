@@ -8,6 +8,7 @@ topic: attachments-and-compose
 ## What We're Building
 
 A GitHub-style composer that supports:
+
 - **Plain text editing** with markdown preview toggle (Write/Preview tabs like GitHub)
 - **File attachments** via file picker, drag & drop, and clipboard paste
 - **Inline images** — dropping/pasting an image into the textarea auto-inserts `![](filename)` at cursor position
@@ -19,6 +20,7 @@ A GitHub-style composer that supports:
 Files upload immediately when added. By send-time, all attachments are already stored server-side.
 
 ### Upload Flow
+
 1. User drops/pastes/picks a file → immediate upload via `POST /api/attachments`
 2. Server stores content in DB (`Bytes`), returns attachment ID + serving URL
 3. For images: `![uploading...](placeholder)` inserted at cursor, replaced with `![name](/api/attachments/{id})` on success
@@ -27,6 +29,7 @@ Files upload immediately when added. By send-time, all attachments are already s
 6. Preview mode renders markdown body with working image URLs from the API
 
 ### Why This Approach
+
 - Matches the GitHub composer UX the user wants
 - Instant upload feedback with progress indicators
 - Send is fast (files already persisted)

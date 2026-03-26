@@ -33,9 +33,7 @@ export function ScreenRecentButton() {
         )}
         {isPending ? "Processing..." : "Screen recent only (90 days)"}
       </Button>
-      {result && (
-        <p className="mt-2 text-sm text-muted-foreground">{result}</p>
-      )}
+      {result && <p className="mt-2 text-sm text-muted-foreground">{result}</p>}
     </div>
   );
 }

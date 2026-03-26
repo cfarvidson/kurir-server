@@ -23,6 +23,7 @@ The `/api/mail/send` route (`src/app/api/mail/send/route.ts`) sends via SMTP but
 ### 2. IMAP sync dedup fails when mail server rewrites Message-ID
 
 The sync dedup at `src/lib/mail/sync-service.ts:311-316` matches by exact `messageId`. Some mail servers (Gmail, Exchange) rewrite the Message-ID header. When this happens:
+
 - The locally-persisted reply (negative UID, nodemailer's Message-ID) is never upgraded
 - A new record is created with the server's Message-ID
 - The thread now has **two copies** of the same reply with different `messageId` values

@@ -24,10 +24,7 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file");
 
   if (!file || !(file instanceof File)) {
-    return NextResponse.json(
-      { error: "No file provided" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
   if (file.size > MAX_FILE_SIZE) {
@@ -38,10 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (file.size === 0) {
-    return NextResponse.json(
-      { error: "Empty file" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Empty file" }, { status: 400 });
   }
 
   // Check total pending uploads for this user
@@ -52,7 +46,10 @@ export async function POST(request: NextRequest) {
 
   if ((pendingTotal._sum.size || 0) + file.size > MAX_PENDING_TOTAL) {
     return NextResponse.json(
-      { error: "Total pending uploads exceed 25MB. Send or remove existing attachments first." },
+      {
+        error:
+          "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
+      },
       { status: 413 },
     );
   }

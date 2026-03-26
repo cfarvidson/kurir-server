@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
       const send = (event: MailEvent) => {
         try {
           controller.enqueue(
-            encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`)
+            encoder.encode(
+              `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`,
+            ),
           );
         } catch {
           // Stream may be closed

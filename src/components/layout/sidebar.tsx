@@ -147,8 +147,8 @@ export function Sidebar({
               <item.icon className="h-5 w-5" />
               <span className="flex-1">{item.name}</span>
               {item.badgeKey &&
-                badgeCounts[item.badgeKey] > 0 &&
-                badgePreferences[badgeKeyToPref[item.badgeKey]] !== false ? (
+              badgeCounts[item.badgeKey] > 0 &&
+              badgePreferences[badgeKeyToPref[item.badgeKey]] !== false ? (
                 <span
                   className={cn(
                     "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",

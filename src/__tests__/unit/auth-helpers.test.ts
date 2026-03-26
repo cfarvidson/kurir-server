@@ -93,7 +93,7 @@ describe("getConnectionCredentialsInternal", () => {
     await getConnectionCredentialsInternal("my-conn-id");
 
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "my-conn-id" } })
+      expect.objectContaining({ where: { id: "my-conn-id" } }),
     );
   });
 });
@@ -145,7 +145,7 @@ describe("getDefaultConnectionCredentials", () => {
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      })
+      }),
     );
   });
 });
@@ -177,7 +177,7 @@ describe("getUserEmailConnections", () => {
     await getUserEmailConnections("user-123");
 
     expect(db.emailConnection.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "user-123" } })
+      expect.objectContaining({ where: { userId: "user-123" } }),
     );
   });
 });
@@ -220,7 +220,7 @@ describe("getEmailConnection", () => {
     expect(db.emailConnection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "conn-42", userId: "user-42" },
-      })
+      }),
     );
   });
 });

@@ -33,7 +33,8 @@ describe("WebAuthn authentication options generation", () => {
   });
 
   it("generates options with empty allowCredentials for discoverable credentials", async () => {
-    const { generateAuthenticationOptions } = await import("@simplewebauthn/server");
+    const { generateAuthenticationOptions } =
+      await import("@simplewebauthn/server");
     vi.mocked(generateAuthenticationOptions).mockResolvedValue({
       challenge: "auth-challenge",
       allowCredentials: [],
@@ -52,7 +53,8 @@ describe("WebAuthn authentication options generation", () => {
   });
 
   it("includes user credentials when username is known (non-discoverable flow)", async () => {
-    const { generateAuthenticationOptions } = await import("@simplewebauthn/server");
+    const { generateAuthenticationOptions } =
+      await import("@simplewebauthn/server");
     vi.mocked(generateAuthenticationOptions).mockResolvedValue({} as any);
 
     await generateAuthenticationOptions({
@@ -63,7 +65,7 @@ describe("WebAuthn authentication options generation", () => {
     expect(generateAuthenticationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
         allowCredentials: [expect.objectContaining({ id: "cred-id-1" })],
-      })
+      }),
     );
   });
 });
@@ -74,7 +76,8 @@ describe("WebAuthn authentication verification", () => {
   });
 
   it("accepts valid authentication response", async () => {
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyAuthenticationResponse).mockResolvedValue({
       verified: true,
       authenticationInfo: {
@@ -102,10 +105,11 @@ describe("WebAuthn authentication verification", () => {
   });
 
   it("rejects authentication when counter does not increment (replay attack)", async () => {
-    const { verifyAuthenticationResponse } = await import("@simplewebauthn/server");
+    const { verifyAuthenticationResponse } =
+      await import("@simplewebauthn/server");
     // simplewebauthn throws on counter regression
     vi.mocked(verifyAuthenticationResponse).mockRejectedValue(
-      new Error("Counter did not increment")
+      new Error("Counter did not increment"),
     );
 
     await expect(
@@ -120,7 +124,7 @@ describe("WebAuthn authentication verification", () => {
           counter: 10, // same as or less than stored counter = replay
           transports: [],
         },
-      } as any)
+      } as any),
     ).rejects.toThrow("Counter did not increment");
   });
 

@@ -18,9 +18,7 @@ describe("keyboard-state", () => {
   it("is shared across imports (same reference)", async () => {
     keyboardState.gSequenceActive = true;
     // Re-importing should give the same object
-    const { keyboardState: reimported } = await import(
-      "@/lib/keyboard-state"
-    );
+    const { keyboardState: reimported } = await import("@/lib/keyboard-state");
     expect(reimported.gSequenceActive).toBe(true);
   });
 });

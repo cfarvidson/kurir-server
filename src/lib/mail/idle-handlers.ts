@@ -3,7 +3,10 @@ import { db } from "@/lib/db";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
 import { pushToUser } from "./push-sender";
-import { connectionManager, type EmailConnectionConn } from "./connection-manager";
+import {
+  connectionManager,
+  type EmailConnectionConn,
+} from "./connection-manager";
 
 /**
  * Wrap an async handler so unhandled rejections don't crash Node.js.

@@ -20,7 +20,13 @@ export default async function PaperTrailDetailPage({
       categoryLabel="Paper Trail"
       returnPath="/paper-trail"
       searchQuery={q}
-      actions={({ messageId, returnPath, timezone, followUpAt, isFollowUp }) => (
+      actions={({
+        messageId,
+        returnPath,
+        timezone,
+        followUpAt,
+        isFollowUp,
+      }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}

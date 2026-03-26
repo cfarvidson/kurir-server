@@ -160,7 +160,9 @@ describe("updateConnectionSchema", () => {
   });
 
   it("accepts partial update with just password", () => {
-    const result = updateConnectionSchema.safeParse({ password: "new-password" });
+    const result = updateConnectionSchema.safeParse({
+      password: "new-password",
+    });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.password).toBe("new-password");
@@ -183,7 +185,9 @@ describe("updateConnectionSchema", () => {
   });
 
   it("allows updating display name only", () => {
-    const result = updateConnectionSchema.safeParse({ displayName: "Personal" });
+    const result = updateConnectionSchema.safeParse({
+      displayName: "Personal",
+    });
     expect(result.success).toBe(true);
   });
 });

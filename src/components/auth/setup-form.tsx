@@ -20,6 +20,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { KurirLogo } from "@/components/logo";
@@ -28,6 +29,7 @@ const PROVIDERS: {
   id: string;
   name: string;
   domain: string | null;
+  oauthKey?: "microsoft" | "google";
   imap?: { host: string; port: number };
   smtp?: { host: string; port: number };
 }[] = [
@@ -35,6 +37,7 @@ const PROVIDERS: {
     id: "gmail",
     name: "Gmail",
     domain: "gmail.com",
+    oauthKey: "google",
     imap: { host: "imap.gmail.com", port: 993 },
     smtp: { host: "smtp.gmail.com", port: 587 },
   },
@@ -42,6 +45,7 @@ const PROVIDERS: {
     id: "outlook",
     name: "Outlook / Hotmail",
     domain: "outlook.com",
+    oauthKey: "microsoft",
     imap: { host: "outlook.office365.com", port: 993 },
     smtp: { host: "smtp.office365.com", port: 587 },
   },
@@ -64,17 +68,22 @@ const PROVIDERS: {
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
-export default function SetupForm() {
+interface SetupFormProps {
+  oauthEnabled?: { microsoft: boolean; google: boolean };
+}
+
+export default function SetupForm({ oauthEnabled }: SetupFormProps) {
   return (
     <Suspense>
-      <AddConnectionForm />
+      <AddConnectionForm oauthEnabled={oauthEnabled} />
     </Suspense>
   );
 }
 
-function AddConnectionForm() {
+function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
   const searchParams = useSearchParams();
   const isAddMode = searchParams.get("mode") === "add";
+  const oauthError = searchParams.get("error");
   const router = useRouter();
   const successRedirect = isAddMode ? "/settings" : "/imbox";
   const [email, setEmail] = useState("");
@@ -89,7 +98,11 @@ function AddConnectionForm() {
   const [aliases, setAliases] = useState<string[]>([]);
   const [newAliasInput, setNewAliasInput] = useState("");
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(oauthError);
+
+  const selectedProvider = PROVIDERS.find((p) => p.id === provider);
+  const useOAuth =
+    selectedProvider?.oauthKey && oauthEnabled?.[selectedProvider.oauthKey];
 
   const detectProvider = (emailValue: string) => {
     const domain = emailValue.split("@")[1]?.toLowerCase();
@@ -102,6 +115,12 @@ function AddConnectionForm() {
       }
     }
     setProvider("custom");
+  };
+
+  const handleOAuthConnect = () => {
+    if (!selectedProvider?.oauthKey) return;
+    const mode = isAddMode ? "add" : "setup";
+    window.location.href = `/api/auth/oauth/${selectedProvider.oauthKey}?mode=${mode}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,7 +167,7 @@ function AddConnectionForm() {
         const data = await res.json();
         throw new Error(
           data.error ||
-            "Could not connect. Please check your credentials and server settings."
+            "Could not connect. Please check your credentials and server settings.",
         );
       }
 
@@ -160,7 +179,7 @@ function AddConnectionForm() {
     } catch (err) {
       setVerifyState("error");
       setError(
-        err instanceof Error ? err.message : "An unexpected error occurred."
+        err instanceof Error ? err.message : "An unexpected error occurred.",
       );
     }
   };
@@ -169,7 +188,7 @@ function AddConnectionForm() {
   const isSuccess = verifyState === "success";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -182,7 +201,9 @@ function AddConnectionForm() {
               <KurirLogo className="h-8 w-8" />
             </div>
             <CardTitle className="text-2xl">
-              {isAddMode ? "Add another email" : "Connect your first email account"}
+              {isAddMode
+                ? "Add another email"
+                : "Connect your first email account"}
             </CardTitle>
             <CardDescription>
               {isAddMode
@@ -209,165 +230,16 @@ function AddConnectionForm() {
                 )}
               </AnimatePresence>
 
-              {/* Display name */}
-              <div className="space-y-2">
-                <Label htmlFor="displayName">
-                  Display name{" "}
-                  <span className="text-muted-foreground font-normal text-xs">(optional)</span>
-                </Label>
-                <Input
-                  id="displayName"
-                  placeholder="Work email, Personal, etc."
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      detectProvider(e.target.value);
-                    }}
-                    className="pl-10"
-                    required
-                    autoComplete="email"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Email password or app password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                    autoComplete="current-password"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  For Gmail and Outlook, use an{" "}
-                  <a
-                    href="https://support.google.com/accounts/answer/185833"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    app password
-                  </a>
-                  .
-                </p>
-              </div>
-
-              {/* Send-as & aliases */}
-              <div className="space-y-2">
-                <Label htmlFor="sendAsEmail">
-                  Send-as email{" "}
-                  <span className="text-muted-foreground font-normal text-xs">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="sendAsEmail"
-                  type="email"
-                  placeholder="you@yourdomain.com"
-                  value={sendAsEmail}
-                  onChange={(e) => setSendAsEmail(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  If you send from a different address than you log in with
-                  (e.g. custom domain via iCloud), enter it here.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>
-                  Additional aliases{" "}
-                  <span className="text-muted-foreground font-normal text-xs">
-                    (optional)
-                  </span>
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Other email addresses you own. Messages from these won&apos;t
-                  appear in the Screener.
-                </p>
-                {aliases.length > 0 && (
-                  <div className="space-y-1">
-                    {aliases.map((alias) => (
-                      <div
-                        key={alias}
-                        className="flex items-center justify-between rounded-md border px-3 py-1.5"
-                      >
-                        <span className="text-sm">{alias}</span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAliases((prev) => prev.filter((a) => a !== alias))
-                          }
-                          className="text-xs text-muted-foreground hover:text-destructive"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Input
-                    type="email"
-                    placeholder="old-address@example.com"
-                    value={newAliasInput}
-                    onChange={(e) => setNewAliasInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const trimmed = newAliasInput.trim().toLowerCase();
-                        if (trimmed && trimmed.includes("@") && !aliases.includes(trimmed)) {
-                          setAliases((prev) => [...prev, trimmed]);
-                          setNewAliasInput("");
-                        }
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const trimmed = newAliasInput.trim().toLowerCase();
-                      if (trimmed && trimmed.includes("@") && !aliases.includes(trimmed)) {
-                        setAliases((prev) => [...prev, trimmed]);
-                        setNewAliasInput("");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              {/* Provider */}
+              {/* Provider — moved above email/password so OAuth flow is clear */}
               <div className="space-y-2">
                 <Label htmlFor="provider">Email provider</Label>
                 <select
                   id="provider"
                   value={provider}
-                  onChange={(e) => setProvider(e.target.value)}
+                  onChange={(e) => {
+                    setProvider(e.target.value);
+                    setError(null);
+                  }}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {PROVIDERS.map((p) => (
@@ -378,97 +250,292 @@ function AddConnectionForm() {
                 </select>
               </div>
 
-              {/* Server settings — only shown for custom provider */}
-              <AnimatePresence>
-                {provider === "custom" && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
+              {/* OAuth flow — shown for Gmail/Outlook when OAuth is configured */}
+              {useOAuth ? (
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleOAuthConnect}
                   >
-                    <div className="rounded-md border bg-muted/50 p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Server className="h-4 w-4" />
-                        Server settings
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-2">
-                          <Label htmlFor="imapHost" className="text-xs">
-                            IMAP host
-                          </Label>
-                          <Input
-                            id="imapHost"
-                            placeholder="imap.example.com"
-                            value={imapHost}
-                            onChange={(e) => setImapHost(e.target.value)}
-                            className="h-8 text-sm"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="imapPort" className="text-xs">
-                            Port
-                          </Label>
-                          <Input
-                            id="imapPort"
-                            placeholder="993"
-                            value={imapPort}
-                            onChange={(e) => setImapPort(e.target.value)}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      </div>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Sign in with{" "}
+                    {selectedProvider?.oauthKey === "microsoft"
+                      ? "Microsoft"
+                      : "Google"}
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    You will be redirected to{" "}
+                    {selectedProvider?.oauthKey === "microsoft"
+                      ? "Microsoft"
+                      : "Google"}{" "}
+                    to authorize access to your email.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Display name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName">
+                      Display name{" "}
+                      <span className="text-muted-foreground font-normal text-xs">
+                        (optional)
+                      </span>
+                    </Label>
+                    <Input
+                      id="displayName"
+                      placeholder="Work email, Personal, etc."
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                    />
+                  </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-2">
-                          <Label htmlFor="smtpHost" className="text-xs">
-                            SMTP host
-                          </Label>
-                          <Input
-                            id="smtpHost"
-                            placeholder="smtp.example.com"
-                            value={smtpHost}
-                            onChange={(e) => setSmtpHost(e.target.value)}
-                            className="h-8 text-sm"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="smtpPort" className="text-xs">
-                            Port
-                          </Label>
-                          <Input
-                            id="smtpPort"
-                            placeholder="587"
-                            value={smtpPort}
-                            onChange={(e) => setSmtpPort(e.target.value)}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      </div>
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email address</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          detectProvider(e.target.value);
+                        }}
+                        className="pl-10"
+                        required
+                        autoComplete="email"
+                      />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
 
-              {/* Submit */}
-              <Button type="submit" className="w-full" disabled={isLoading || isSuccess}>
-                {isSuccess ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    Connected!
-                  </>
-                ) : isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Verifying connection...
-                  </>
-                ) : (
-                  "Connect account"
-                )}
-              </Button>
+                  {/* Password */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Email password or app password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10"
+                        required
+                        autoComplete="current-password"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use an{" "}
+                      <a
+                        href="https://support.google.com/accounts/answer/185833"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        app password
+                      </a>{" "}
+                      if your provider requires it.
+                    </p>
+                  </div>
+
+                  {/* Send-as & aliases */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sendAsEmail">
+                      Send-as email{" "}
+                      <span className="text-muted-foreground font-normal text-xs">
+                        (optional)
+                      </span>
+                    </Label>
+                    <Input
+                      id="sendAsEmail"
+                      type="email"
+                      placeholder="you@yourdomain.com"
+                      value={sendAsEmail}
+                      onChange={(e) => setSendAsEmail(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      If you send from a different address than you log in with
+                      (e.g. custom domain via iCloud), enter it here.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Additional aliases{" "}
+                      <span className="text-muted-foreground font-normal text-xs">
+                        (optional)
+                      </span>
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Other email addresses you own. Messages from these
+                      won&apos;t appear in the Screener.
+                    </p>
+                    {aliases.length > 0 && (
+                      <div className="space-y-1">
+                        {aliases.map((alias) => (
+                          <div
+                            key={alias}
+                            className="flex items-center justify-between rounded-md border px-3 py-1.5"
+                          >
+                            <span className="text-sm">{alias}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAliases((prev) =>
+                                  prev.filter((a) => a !== alias),
+                                )
+                              }
+                              className="text-xs text-muted-foreground hover:text-destructive"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="old-address@example.com"
+                        value={newAliasInput}
+                        onChange={(e) => setNewAliasInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const trimmed = newAliasInput.trim().toLowerCase();
+                            if (
+                              trimmed &&
+                              trimmed.includes("@") &&
+                              !aliases.includes(trimmed)
+                            ) {
+                              setAliases((prev) => [...prev, trimmed]);
+                              setNewAliasInput("");
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const trimmed = newAliasInput.trim().toLowerCase();
+                          if (
+                            trimmed &&
+                            trimmed.includes("@") &&
+                            !aliases.includes(trimmed)
+                          ) {
+                            setAliases((prev) => [...prev, trimmed]);
+                            setNewAliasInput("");
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Server settings — only shown for custom provider */}
+                  <AnimatePresence>
+                    {provider === "custom" && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="rounded-md border bg-muted/50 p-4 space-y-3">
+                          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                            <Server className="h-4 w-4" />
+                            Server settings
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="col-span-2">
+                              <Label htmlFor="imapHost" className="text-xs">
+                                IMAP host
+                              </Label>
+                              <Input
+                                id="imapHost"
+                                placeholder="imap.example.com"
+                                value={imapHost}
+                                onChange={(e) => setImapHost(e.target.value)}
+                                className="h-8 text-sm"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="imapPort" className="text-xs">
+                                Port
+                              </Label>
+                              <Input
+                                id="imapPort"
+                                placeholder="993"
+                                value={imapPort}
+                                onChange={(e) => setImapPort(e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="col-span-2">
+                              <Label htmlFor="smtpHost" className="text-xs">
+                                SMTP host
+                              </Label>
+                              <Input
+                                id="smtpHost"
+                                placeholder="smtp.example.com"
+                                value={smtpHost}
+                                onChange={(e) => setSmtpHost(e.target.value)}
+                                className="h-8 text-sm"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="smtpPort" className="text-xs">
+                                Port
+                              </Label>
+                              <Input
+                                id="smtpPort"
+                                placeholder="587"
+                                value={smtpPort}
+                                onChange={(e) => setSmtpPort(e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Submit */}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading || isSuccess}
+                  >
+                    {isSuccess ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        Connected!
+                      </>
+                    ) : isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying connection...
+                      </>
+                    ) : (
+                      "Connect account"
+                    )}
+                  </Button>
+                </>
+              )}
 
               {isAddMode ? (
                 <p className="text-center text-sm text-muted-foreground">

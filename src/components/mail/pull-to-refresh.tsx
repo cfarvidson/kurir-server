@@ -36,7 +36,9 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     const spinner = spinnerRef.current;
     if (!content || !spinner) return;
 
-    const transition = animate ? "transform 0.3s cubic-bezier(0.2, 0, 0, 1)" : "none";
+    const transition = animate
+      ? "transform 0.3s cubic-bezier(0.2, 0, 0, 1)"
+      : "none";
     content.style.transition = transition;
     content.style.transform = `translate3d(0, ${distance}px, 0)`;
 
@@ -45,7 +47,9 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     spinner.style.opacity = String(Math.min(distance / THRESHOLD, 1));
 
     // Move the mobile hamburger button with the content
-    const hamburger = document.querySelector<HTMLElement>("[data-mobile-hamburger]");
+    const hamburger = document.querySelector<HTMLElement>(
+      "[data-mobile-hamburger]",
+    );
     if (hamburger) {
       hamburger.style.transition = transition;
       hamburger.style.transform = `translate3d(0, ${distance}px, 0)`;
@@ -85,24 +89,27 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   }, [applyTransform, router, startTransition]);
 
   // Reset to resting position
-  const reset = useCallback((animate: boolean) => {
-    const s = state.current;
-    s.distance = 0;
-    s.pulling = false;
-    s.direction = null;
-    applyTransform(0, animate);
+  const reset = useCallback(
+    (animate: boolean) => {
+      const s = state.current;
+      s.distance = 0;
+      s.pulling = false;
+      s.direction = null;
+      applyTransform(0, animate);
 
-    if (animate) {
-      // Clean up after animation
-      setTimeout(() => {
+      if (animate) {
+        // Clean up after animation
+        setTimeout(() => {
+          s.refreshing = false;
+          const svg = spinnerRef.current?.querySelector("svg");
+          if (svg) svg.classList.remove("ptr-spinning");
+        }, 300);
+      } else {
         s.refreshing = false;
-        const svg = spinnerRef.current?.querySelector("svg");
-        if (svg) svg.classList.remove("ptr-spinning");
-      }, 300);
-    } else {
-      s.refreshing = false;
-    }
-  }, [applyTransform]);
+      }
+    },
+    [applyTransform],
+  );
 
   // Dismiss when RSC render settles
   useEffect(() => {

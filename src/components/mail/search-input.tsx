@@ -58,7 +58,7 @@ export function SearchInput() {
         router.replace(pathname);
       }
     },
-    [router, pathname]
+    [router, pathname],
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

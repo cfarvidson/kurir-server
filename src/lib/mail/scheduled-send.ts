@@ -1,8 +1,10 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { createLocalSentMessage, appendToImapSent } from "./persist-sent";
 import { convertMarkdownToEmailHtml } from "./markdown-to-email";
 import { loadAttachmentsForSend } from "./attachment-helpers";
+import { buildSmtpAuth } from "./auth-helpers";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -99,8 +101,26 @@ async function processSingleMessage(
     return;
   }
 
+  const credentials = await getConnectionCredentialsInternal(
+    msg.emailConnectionId,
+  );
+  if (!credentials) {
+    await db.scheduledMessage.update({
+      where: { id: msg.id },
+      data: {
+        status: "FAILED",
+        error: "Could not retrieve connection credentials",
+      },
+    });
+    return;
+  }
+
   try {
-    const result = await sendScheduledEmail(msg, msg.emailConnection);
+    const result = await sendScheduledEmail(
+      msg,
+      msg.emailConnection,
+      credentials,
+    );
 
     // Mark as SENT with the SMTP message ID
     await db.scheduledMessage.update({
@@ -224,16 +244,18 @@ async function processSingleMessage(
 
 /**
  * Send a single scheduled email via nodemailer.
- * Decrypts the connection password and message body fields.
+ * Decrypts message body fields; uses pre-resolved credentials for auth.
  */
 export async function sendScheduledEmail(
   msg: ScheduledMessage,
   connection: EmailConnection,
+  credentials: Awaited<
+    ReturnType<typeof getConnectionCredentialsInternal>
+  > & {},
 ): Promise<{ messageId: string | false }> {
-  const password = decrypt(connection.encryptedPassword);
   const textBody = decrypt(msg.textBody);
   const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : undefined;
-  const fromAddress = connection.sendAsEmail || connection.email;
+  const fromAddress = credentials.sendAsEmail || credentials.email;
 
   // Convert markdown to email HTML if no explicit html
   let emailHtml = htmlBody;
@@ -252,13 +274,10 @@ export async function sendScheduledEmail(
   );
 
   const transporter = nodemailer.createTransport({
-    host: connection.smtpHost,
-    port: connection.smtpPort,
-    secure: connection.smtpPort === 465,
-    auth: {
-      user: connection.email,
-      pass: password,
-    },
+    host: credentials.smtp.host,
+    port: credentials.smtp.port,
+    secure: credentials.smtp.port === 465,
+    auth: buildSmtpAuth(credentials),
   });
 
   const refList = msg.references
@@ -312,8 +331,7 @@ export function getNextRetryDelay(attempts: number): number {
  * leaking infrastructure details into the database.
  */
 export function sanitizeError(error: unknown): string {
-  const raw =
-    error instanceof Error ? error.message : String(error);
+  const raw = error instanceof Error ? error.message : String(error);
   return raw
     .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "[IP]") // IPv4
     .replace(

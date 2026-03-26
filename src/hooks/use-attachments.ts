@@ -36,60 +36,63 @@ export function useAttachments(): UseAttachmentsReturn {
 
   const isUploading = attachments.some((a) => a.status === "uploading");
 
-  const upload = useCallback(async (file: File): Promise<UploadedAttachment | null> => {
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const upload = useCallback(
+    async (file: File): Promise<UploadedAttachment | null> => {
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const placeholder: UploadedAttachment = {
-      id: tempId,
-      filename: file.name,
-      contentType: file.type || "application/octet-stream",
-      size: file.size,
-      url: "",
-      status: "uploading",
-    };
-
-    setAttachments((prev) => [...prev, placeholder]);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/attachments/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Upload failed");
-      }
-
-      const data = await res.json();
-
-      const uploaded: UploadedAttachment = {
-        id: data.id,
-        filename: data.filename,
-        contentType: data.contentType,
-        size: data.size,
-        url: data.url,
-        status: "done",
+      const placeholder: UploadedAttachment = {
+        id: tempId,
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        url: "",
+        status: "uploading",
       };
 
-      setAttachments((prev) =>
-        prev.map((a) => (a.id === tempId ? uploaded : a)),
-      );
+      setAttachments((prev) => [...prev, placeholder]);
 
-      return uploaded;
-    } catch (err) {
-      console.error("[useAttachments] upload error:", err);
-      setAttachments((prev) =>
-        prev.map((a) =>
-          a.id === tempId ? { ...a, status: "error" as const } : a,
-        ),
-      );
-      return null;
-    }
-  }, []);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/attachments/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Upload failed");
+        }
+
+        const data = await res.json();
+
+        const uploaded: UploadedAttachment = {
+          id: data.id,
+          filename: data.filename,
+          contentType: data.contentType,
+          size: data.size,
+          url: data.url,
+          status: "done",
+        };
+
+        setAttachments((prev) =>
+          prev.map((a) => (a.id === tempId ? uploaded : a)),
+        );
+
+        return uploaded;
+      } catch (err) {
+        console.error("[useAttachments] upload error:", err);
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === tempId ? { ...a, status: "error" as const } : a,
+          ),
+        );
+        return null;
+      }
+    },
+    [],
+  );
 
   const remove = useCallback(async (id: string) => {
     const attachment = attachmentsRef.current.find((a) => a.id === id);

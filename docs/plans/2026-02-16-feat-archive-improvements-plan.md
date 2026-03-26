@@ -17,13 +17,13 @@ Currently, archiving only works from inside the Imbox thread detail view. There 
 
 ## Existing Foundation
 
-| Component | Path | Notes |
-|-----------|------|-------|
-| Archive server action | `src/actions/archive.ts` | Moves IMAP messages to `\Archive`, sets `isArchived: true` |
-| Archive button | `src/components/mail/archive-button.tsx` | In Imbox thread detail header only, hardcodes `router.push("/imbox")` |
-| Archive list page | `src/app/(mail)/archive/page.tsx` | Lists `isArchived: true` messages |
-| Archive detail page | `src/app/(mail)/archive/[id]/page.tsx` | Thread view with no actions |
-| DB field + index | `prisma/schema.prisma` | `isArchived Boolean` with `[userId, isArchived]` index |
+| Component             | Path                                     | Notes                                                                 |
+| --------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
+| Archive server action | `src/actions/archive.ts`                 | Moves IMAP messages to `\Archive`, sets `isArchived: true`            |
+| Archive button        | `src/components/mail/archive-button.tsx` | In Imbox thread detail header only, hardcodes `router.push("/imbox")` |
+| Archive list page     | `src/app/(mail)/archive/page.tsx`        | Lists `isArchived: true` messages                                     |
+| Archive detail page   | `src/app/(mail)/archive/[id]/page.tsx`   | Thread view with no actions                                           |
+| DB field + index      | `prisma/schema.prisma`                   | `isArchived Boolean` with `[userId, isArchived]` index                |
 
 ## Technical Approach
 
@@ -40,8 +40,8 @@ src/lib/mail/imap-client.ts (new)
 ```typescript
 async function withImapConnection<T>(
   userId: string,
-  fn: (client: ImapFlow) => Promise<T>
-): Promise<T | null>
+  fn: (client: ImapFlow) => Promise<T>,
+): Promise<T | null>;
 ```
 
 Handles: credential lookup via `getUserCredentials`, connection, error logging, guaranteed logout. Returns `null` on IMAP failure (matching the current "continue with DB update even if IMAP fails" pattern).
@@ -76,6 +76,7 @@ No destination parameter — auto-detect from the sender's category:
 **Why auto-detect:** The sender's category is already the source of truth for where messages go. Manually overriding it creates inconsistency — old messages in Imbox while new messages from the same sender go to Feed. Auto-detecting eliminates the destination picker entirely and makes the `e` keyboard shortcut (Phase B) work without a menu.
 
 **IMAP notes:**
+
 - Move always goes Archive → INBOX (IMAP has no concept of app-level categories)
 - `folderId`/`uid` staleness: known limitation (same as existing archive). IMAP moves assign new UIDs. Next sync reconciles via message-ID dedup. Document in code comments
 
@@ -96,12 +97,14 @@ src/components/mail/unarchive-button.tsx (new)
 ```
 src/app/(mail)/archive/[id]/page.tsx (modify)
 ```
+
 - Add `UnarchiveButton` to the thread detail header
 
 ```
 src/app/(mail)/feed/[id]/page.tsx (modify)
 src/app/(mail)/paper-trail/[id]/page.tsx (modify)
 ```
+
 - Add the existing `ArchiveButton` with `returnPath="/feed"` and `returnPath="/paper-trail"` respectively
 
 ---
@@ -131,9 +134,9 @@ Minimal change to the existing component:
 
 ```typescript
 interface MessageListProps {
-  messages: Message[]
-  basePath?: string
-  showArchiveAction?: boolean  // default false
+  messages: Message[];
+  basePath?: string;
+  showArchiveAction?: boolean; // default false
 }
 ```
 
@@ -147,7 +150,12 @@ Add an inline `useEffect` to each detail page's client component wrapper. No sha
 useEffect(() => {
   const handler = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
-    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") return;
+    if (
+      el.tagName === "INPUT" ||
+      el.tagName === "TEXTAREA" ||
+      el.tagName === "SELECT"
+    )
+      return;
     if (el.isContentEditable) return;
     if (e.key === "e") handleArchive();
   };
@@ -157,6 +165,7 @@ useEffect(() => {
 ```
 
 Add to:
+
 - `src/app/(mail)/imbox/[id]/page.tsx` — `e` calls `archiveConversation`, navigates to `/imbox`
 - `src/app/(mail)/feed/[id]/page.tsx` — `e` calls `archiveConversation`, navigates to `/feed`
 - `src/app/(mail)/paper-trail/[id]/page.tsx` — `e` calls `archiveConversation`, navigates to `/paper-trail`
@@ -169,6 +178,7 @@ Add to:
 ## Acceptance Criteria
 
 ### Phase A: Unarchive + Archive on All Detail Pages
+
 - [x] `unarchiveConversation(messageId)` server action works end-to-end
 - [x] Destination auto-detected from `sender.category`
 - [x] IMAP messages are moved from Archive mailbox back to INBOX
@@ -179,6 +189,7 @@ Add to:
 - [x] `withImapConnection` helper extracted and used by both archive and unarchive
 
 ### Phase B: List-Level Archive + Keyboard Shortcut
+
 - [x] Hover archive button appears on desktop list rows (Imbox, Feed, Paper Trail)
 - [x] Button click archives without navigating away from list
 - [x] Row shows pending state (reduced opacity) during archive
@@ -190,31 +201,35 @@ Add to:
 ## Dependencies & Risks
 
 **Dependencies:**
+
 - Phase B depends on the `returnPath` fix to `ArchiveButton` (done in prerequisites)
 - Both phases depend on `withImapConnection` helper (done in prerequisites)
 
 **Risks:**
+
 - **IMAP UID staleness:** After archive/unarchive round-trip, stored UIDs may not match IMAP server. Mitigated by message-ID dedup during next sync. Known limitation, documented in code
 - **Sender category changes:** If a sender's category changes between archive and unarchive, the unarchived message goes to the new category. This is correct behavior — the sender's current category is the source of truth
 
 ## Key Files
 
 ### New Files (2)
-| File | Purpose |
-|------|---------|
-| `src/lib/mail/imap-client.ts` | `withImapConnection` helper to reduce IMAP boilerplate |
-| `src/components/mail/unarchive-button.tsx` | Unarchive button (matches `ArchiveButton` pattern) |
+
+| File                                       | Purpose                                                |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `src/lib/mail/imap-client.ts`              | `withImapConnection` helper to reduce IMAP boilerplate |
+| `src/components/mail/unarchive-button.tsx` | Unarchive button (matches `ArchiveButton` pattern)     |
 
 ### Modified Files (7)
-| File | Changes |
-|------|---------|
-| `src/actions/archive.ts` | Add `unarchiveConversation`, refactor `archiveConversation` to use `withImapConnection` |
-| `src/components/mail/archive-button.tsx` | Add `returnPath` prop |
-| `src/components/mail/message-list.tsx` | Add hover archive button with `showArchiveAction` prop |
-| `src/app/(mail)/archive/[id]/page.tsx` | Add `UnarchiveButton` + `e` keyboard shortcut wrapper |
-| `src/app/(mail)/feed/[id]/page.tsx` | Add `ArchiveButton` + `e` keyboard shortcut wrapper |
-| `src/app/(mail)/paper-trail/[id]/page.tsx` | Add `ArchiveButton` + `e` keyboard shortcut wrapper |
-| `src/app/(mail)/imbox/[id]/page.tsx` | Add `e` keyboard shortcut wrapper |
+
+| File                                       | Changes                                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `src/actions/archive.ts`                   | Add `unarchiveConversation`, refactor `archiveConversation` to use `withImapConnection` |
+| `src/components/mail/archive-button.tsx`   | Add `returnPath` prop                                                                   |
+| `src/components/mail/message-list.tsx`     | Add hover archive button with `showArchiveAction` prop                                  |
+| `src/app/(mail)/archive/[id]/page.tsx`     | Add `UnarchiveButton` + `e` keyboard shortcut wrapper                                   |
+| `src/app/(mail)/feed/[id]/page.tsx`        | Add `ArchiveButton` + `e` keyboard shortcut wrapper                                     |
+| `src/app/(mail)/paper-trail/[id]/page.tsx` | Add `ArchiveButton` + `e` keyboard shortcut wrapper                                     |
+| `src/app/(mail)/imbox/[id]/page.tsx`       | Add `e` keyboard shortcut wrapper                                                       |
 
 ## Future Enhancements (Deferred)
 

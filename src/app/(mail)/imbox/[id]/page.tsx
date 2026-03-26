@@ -20,7 +20,13 @@ export default async function ImboxDetailPage({
       categoryLabel="Imbox"
       returnPath="/imbox"
       searchQuery={q}
-      actions={({ messageId, returnPath, timezone, followUpAt, isFollowUp }) => (
+      actions={({
+        messageId,
+        returnPath,
+        timezone,
+        followUpAt,
+        isFollowUp,
+      }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}

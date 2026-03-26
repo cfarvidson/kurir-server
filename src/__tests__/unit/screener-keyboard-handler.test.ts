@@ -46,7 +46,7 @@ function handleScreenerKey(
   opts: ScreenerHandlerOptions,
   activeTagName = "BODY",
   isContentEditable = false,
-  preventDefault = vi.fn()
+  preventDefault = vi.fn(),
 ): boolean {
   if (isInputFocused(activeTagName, isContentEditable)) return false;
   if (keyboardState.gSequenceActive) return false;
@@ -337,19 +337,34 @@ describe("ScreenerKeyboardHandler", () => {
 
     for (const [tagName, isContentEditable] of inputCases) {
       it(`ignores y shortcut when ${tagName}${isContentEditable ? " (contentEditable)" : ""} is focused`, () => {
-        const handled = handleScreenerKey("y", opts, tagName, isContentEditable);
+        const handled = handleScreenerKey(
+          "y",
+          opts,
+          tagName,
+          isContentEditable,
+        );
         expect(handled).toBe(false);
         expect(opts.onOpenCategoryPicker).not.toHaveBeenCalled();
       });
 
       it(`ignores n shortcut when ${tagName}${isContentEditable ? " (contentEditable)" : ""} is focused`, () => {
-        const handled = handleScreenerKey("n", opts, tagName, isContentEditable);
+        const handled = handleScreenerKey(
+          "n",
+          opts,
+          tagName,
+          isContentEditable,
+        );
         expect(handled).toBe(false);
         expect(opts.onReject).not.toHaveBeenCalled();
       });
 
       it(`ignores Space shortcut when ${tagName}${isContentEditable ? " (contentEditable)" : ""} is focused`, () => {
-        const handled = handleScreenerKey(" ", opts, tagName, isContentEditable);
+        const handled = handleScreenerKey(
+          " ",
+          opts,
+          tagName,
+          isContentEditable,
+        );
         expect(handled).toBe(false);
         expect(opts.onTogglePreview).not.toHaveBeenCalled();
       });
@@ -408,7 +423,9 @@ describe("ScreenerKeyboardHandler", () => {
       expect(handleScreenerKey("n", opts)).toBe(false);
       expect(handleScreenerKey("h", opts)).toBe(false);
       expect(handleScreenerKey(" ", opts)).toBe(false);
-      expect(handleScreenerKey("Escape", { ...opts, isPreviewOpen: true })).toBe(false);
+      expect(
+        handleScreenerKey("Escape", { ...opts, isPreviewOpen: true }),
+      ).toBe(false);
     });
   });
 

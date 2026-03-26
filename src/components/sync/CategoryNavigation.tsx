@@ -50,8 +50,16 @@ const categoryConfigs: Record<EmailCategory, CategoryConfig> = {
 
 const syncStatusConfig = {
   synced: { label: "Synced", color: "text-green-600", bgColor: "bg-green-50" },
-  syncing: { label: "Syncing...", color: "text-blue-600", bgColor: "bg-blue-50" },
-  offline: { label: "Offline", color: "text-slate-500", bgColor: "bg-slate-50" },
+  syncing: {
+    label: "Syncing...",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+  },
+  offline: {
+    label: "Offline",
+    color: "text-slate-500",
+    bgColor: "bg-slate-50",
+  },
   error: { label: "Error", color: "text-red-600", bgColor: "bg-red-50" },
 };
 
@@ -70,7 +78,7 @@ export function CategoryNavigation({
       aria-label="Email categories"
       className={cn(
         "flex flex-col space-y-3 p-4 bg-paper border-r border-slate-200",
-        className
+        className,
       )}
     >
       <h2 id="categories-heading" className="sr-only">
@@ -81,7 +89,7 @@ export function CategoryNavigation({
       <div
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-lg",
-          statusConfig.bgColor
+          statusConfig.bgColor,
         )}
       >
         <div className="relative">
@@ -91,7 +99,7 @@ export function CategoryNavigation({
               syncStatus === "synced" && "bg-green-500",
               syncStatus === "syncing" && "bg-blue-500 animate-pulse",
               syncStatus === "offline" && "bg-slate-400",
-              syncStatus === "error" && "bg-red-500"
+              syncStatus === "error" && "bg-red-500",
             )}
           />
           {syncStatus === "syncing" && (
@@ -104,7 +112,11 @@ export function CategoryNavigation({
       </div>
 
       {/* Category List */}
-      <ul role="list" aria-labelledby="categories-heading" className="space-y-1">
+      <ul
+        role="list"
+        aria-labelledby="categories-heading"
+        className="space-y-1"
+      >
         {(Object.keys(categoryConfigs) as EmailCategory[]).map((categoryId) => {
           const category = categoryConfigs[categoryId];
           const count = counts[categoryId] || 0;
@@ -119,9 +131,7 @@ export function CategoryNavigation({
                 onClick={() => onCategoryChange(categoryId)}
                 className={cn(
                   "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 group",
-                  isActive
-                    ? "bg-slate-100 shadow-sm"
-                    : "hover:bg-slate-50"
+                  isActive ? "bg-slate-100 shadow-sm" : "hover:bg-slate-50",
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -136,7 +146,7 @@ export function CategoryNavigation({
                     <div
                       className={cn(
                         "font-medium",
-                        isActive ? "text-ink" : "text-slate-700"
+                        isActive ? "text-ink" : "text-slate-700",
                       )}
                     >
                       {category.name}
@@ -153,7 +163,7 @@ export function CategoryNavigation({
                       "inline-flex items-center justify-center min-w-[20px] h-5 px-2 text-xs font-semibold rounded-full",
                       isActive
                         ? "bg-primary text-primary-foreground"
-                        : "bg-slate-200 text-slate-700"
+                        : "bg-slate-200 text-slate-700",
                     )}
                     aria-label={`${count} emails in ${category.name}`}
                   >

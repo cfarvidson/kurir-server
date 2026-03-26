@@ -188,19 +188,19 @@ export function MobileSidebar({
                         badgeCounts[item.badgeKey] > 0 &&
                         badgePreferences[badgeKeyToPref[item.badgeKey]] !==
                           false && (
-                        <span
-                          className={cn(
-                            "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
-                            item.badgeKey === "followUp"
-                              ? "bg-amber-500 text-white dark:bg-amber-600"
-                              : "bg-primary text-primary-foreground",
-                          )}
-                        >
-                          {badgeCounts[item.badgeKey] > 99
-                            ? "99+"
-                            : badgeCounts[item.badgeKey]}
-                        </span>
-                      )}
+                          <span
+                            className={cn(
+                              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+                              item.badgeKey === "followUp"
+                                ? "bg-amber-500 text-white dark:bg-amber-600"
+                                : "bg-primary text-primary-foreground",
+                            )}
+                          >
+                            {badgeCounts[item.badgeKey] > 99
+                              ? "99+"
+                              : badgeCounts[item.badgeKey]}
+                          </span>
+                        )}
                     </Link>
                   );
                 })}

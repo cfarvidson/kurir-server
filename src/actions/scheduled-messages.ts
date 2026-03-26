@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { auth } from "@/lib/auth";
+import { auth, getConnectionCredentialsInternal } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { z } from "zod";
@@ -16,7 +16,8 @@ const createSchema = z.object({
   scheduledFor: z.string().transform((s) => {
     const date = new Date(s);
     if (isNaN(date.getTime())) throw new Error("Invalid date");
-    if (date <= new Date()) throw new Error("scheduledFor must be in the future");
+    if (date <= new Date())
+      throw new Error("scheduledFor must be in the future");
     return date;
   }),
   emailConnectionId: z.string(),
@@ -35,7 +36,8 @@ const editSchema = z.object({
     .transform((s) => {
       const date = new Date(s);
       if (isNaN(date.getTime())) throw new Error("Invalid date");
-      if (date <= new Date()) throw new Error("scheduledFor must be in the future");
+      if (date <= new Date())
+        throw new Error("scheduledFor must be in the future");
       return date;
     })
     .optional(),
@@ -61,9 +63,7 @@ export async function createScheduledMessage(
 
   // Encrypt body fields at rest
   const encryptedTextBody = encrypt(parsed.textBody);
-  const encryptedHtmlBody = parsed.htmlBody
-    ? encrypt(parsed.htmlBody)
-    : null;
+  const encryptedHtmlBody = parsed.htmlBody ? encrypt(parsed.htmlBody) : null;
 
   // Add 1–14 minutes of jitter so scheduled sends don't land exactly on the hour
   const jitterMs = (1 + Math.random() * 13) * 60_000;
@@ -99,7 +99,8 @@ export async function cancelScheduledMessage(id: string) {
     where: { id, userId },
   });
   if (!msg) throw new Error("Scheduled message not found");
-  if (msg.status !== "PENDING") throw new Error("Only PENDING messages can be cancelled");
+  if (msg.status !== "PENDING")
+    throw new Error("Only PENDING messages can be cancelled");
 
   await db.scheduledMessage.update({
     where: { id },
@@ -123,10 +124,14 @@ export async function editScheduledMessage(
     where: { id, userId },
   });
   if (!msg) throw new Error("Scheduled message not found");
-  if (msg.status !== "PENDING") throw new Error("Only PENDING messages can be edited");
+  if (msg.status !== "PENDING")
+    throw new Error("Only PENDING messages can be edited");
 
   // If connection changed, verify the new one belongs to user
-  if (parsed.emailConnectionId && parsed.emailConnectionId !== msg.emailConnectionId) {
+  if (
+    parsed.emailConnectionId &&
+    parsed.emailConnectionId !== msg.emailConnectionId
+  ) {
     const connection = await db.emailConnection.findFirst({
       where: { id: parsed.emailConnectionId, userId },
     });
@@ -137,17 +142,22 @@ export async function editScheduledMessage(
   const updateData: Record<string, unknown> = {};
   if (parsed.to !== undefined) updateData.to = parsed.to;
   if (parsed.subject !== undefined) updateData.subject = parsed.subject;
-  if (parsed.textBody !== undefined) updateData.textBody = encrypt(parsed.textBody);
-  if (parsed.htmlBody !== undefined) updateData.htmlBody = encrypt(parsed.htmlBody);
+  if (parsed.textBody !== undefined)
+    updateData.textBody = encrypt(parsed.textBody);
+  if (parsed.htmlBody !== undefined)
+    updateData.htmlBody = encrypt(parsed.htmlBody);
   if (parsed.scheduledFor !== undefined) {
     const jitterMs = (1 + Math.random() * 13) * 60_000;
-    updateData.scheduledFor = new Date(parsed.scheduledFor.getTime() + jitterMs);
+    updateData.scheduledFor = new Date(
+      parsed.scheduledFor.getTime() + jitterMs,
+    );
   }
   if (parsed.emailConnectionId !== undefined)
     updateData.emailConnectionId = parsed.emailConnectionId;
   if (parsed.inReplyToMessageId !== undefined)
     updateData.inReplyToMessageId = parsed.inReplyToMessageId;
-  if (parsed.references !== undefined) updateData.references = parsed.references;
+  if (parsed.references !== undefined)
+    updateData.references = parsed.references;
 
   await db.scheduledMessage.update({
     where: { id },
@@ -192,7 +202,16 @@ export async function sendScheduledMessageNow(id: string) {
       return;
     }
 
-    const result = await sendScheduledEmail(msg, msg.emailConnection);
+    const credentials = await getConnectionCredentialsInternal(
+      msg.emailConnectionId,
+    );
+    if (!credentials) throw new Error("Email credentials not found");
+
+    const result = await sendScheduledEmail(
+      msg,
+      msg.emailConnection,
+      credentials,
+    );
 
     // Record SMTP message ID and mark as SENT
     await db.scheduledMessage.update({
@@ -206,10 +225,15 @@ export async function sendScheduledMessageNow(id: string) {
 
     // Resolve thread context
     let threadId: string | null = null;
-    const refList = msg.references ? msg.references.split(" ").filter(Boolean) : [];
+    const refList = msg.references
+      ? msg.references.split(" ").filter(Boolean)
+      : [];
     if (msg.inReplyToMessageId || refList.length > 0) {
       const relatedIds = [...refList];
-      if (msg.inReplyToMessageId && !relatedIds.includes(msg.inReplyToMessageId)) {
+      if (
+        msg.inReplyToMessageId &&
+        !relatedIds.includes(msg.inReplyToMessageId)
+      ) {
         relatedIds.push(msg.inReplyToMessageId);
       }
       const existingThread = await db.message.findFirst({
@@ -226,7 +250,8 @@ export async function sendScheduledMessageNow(id: string) {
       threadId = existingThread?.threadId || relatedIds[0] || null;
     }
 
-    const fromAddress = msg.emailConnection.sendAsEmail || msg.emailConnection.email;
+    const fromAddress =
+      msg.emailConnection.sendAsEmail || msg.emailConnection.email;
 
     await createLocalSentMessage({
       userId,

@@ -33,9 +33,11 @@ Clone the pattern from `src/app/(mail)/imbox/[id]/page.tsx` with these differenc
 - **Reply target for sent-only threads** → Use `toAddresses[0]` of the last message instead of `fromAddress` when no incoming messages exist in the thread. Look up the `Sender` record by recipient email for `displayName`.
 
 **Reply target fix (pseudo-code):**
+
 ```typescript
 // src/app/(mail)/sent/[id]/page.tsx
-const lastIncoming = [...messages].reverse()
+const lastIncoming = [...messages]
+  .reverse()
   .find((m) => m.fromAddress !== currentUserEmail);
 
 if (lastIncoming) {
@@ -56,6 +58,7 @@ if (lastIncoming) {
 ```
 
 **Files:**
+
 - **NEW:** `src/app/(mail)/sent/[id]/page.tsx`
 
 ### 2. Update Sent List Page (Thread Collapsing + Recipient Display)
@@ -63,6 +66,7 @@ if (lastIncoming) {
 Update `src/app/(mail)/sent/page.tsx` to:
 
 **a) Add thread collapsing** — Follow the archive page pattern (`src/app/(mail)/archive/page.tsx`):
+
 - Call `getThreadCounts()` to compute per-thread message counts
 - Call `collapseToThreads()` to show one row per conversation
 - Pass `threadCount` to each `MessageItem` for the badge
@@ -70,12 +74,14 @@ Update `src/app/(mail)/sent/page.tsx` to:
 - Thread counts are cross-folder (consistent with archive) — a thread badge of "5" means 5 messages in the full conversation, not just 5 sent messages
 
 **b) Show recipient instead of sender** — Transform message data before passing to `MessageList`:
+
 - Map `fromName` → recipient's display name (look up from `Sender` table by `toAddresses[0]`, falling back to the raw email)
 - Map `fromAddress` → `toAddresses[0]`
 - **Set `sender: null`** in the mapping to prevent `MessageList`'s `sender?.displayName` priority from overriding the recipient name
 - This keeps `MessageList` unchanged — the transformation is scoped to the sent page
 
 **Files:**
+
 - **MODIFY:** `src/app/(mail)/sent/page.tsx`
 
 ## Acceptance Criteria

@@ -5,7 +5,11 @@ import { withImapConnection } from "./imap-client";
 // Inline echo suppression — plain Set + setTimeout
 const pendingEchoes = new Set<string>();
 
-export function suppressEcho(userId: string, folderId: string, uid: number): void {
+export function suppressEcho(
+  userId: string,
+  folderId: string,
+  uid: number,
+): void {
   const key = `${userId}:${folderId}:${uid}`;
   pendingEchoes.add(key);
   setTimeout(() => pendingEchoes.delete(key), 10_000);
@@ -25,7 +29,7 @@ export async function pushFlagsToImap(
   userId: string,
   messages: Array<{ uid: number; folderId: string }>,
   flag: string,
-  action: "add" | "remove"
+  action: "add" | "remove",
 ): Promise<void> {
   const imapMessages = messages.filter((m) => m.uid > 0);
   if (imapMessages.length === 0) return;
@@ -58,7 +62,7 @@ async function pushWithClient(
   client: import("imapflow").ImapFlow,
   messages: Array<{ uid: number; folderId: string }>,
   flag: string,
-  action: "add" | "remove"
+  action: "add" | "remove",
 ): Promise<void> {
   // Group by folderId to minimize mailbox lock switches
   const byFolder = new Map<string, number[]>();

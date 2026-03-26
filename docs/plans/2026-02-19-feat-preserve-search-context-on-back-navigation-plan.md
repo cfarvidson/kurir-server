@@ -80,6 +80,7 @@ Imbox's `SearchResults` is currently missing `basePath` — it works by accident
 **Files:** `src/app/(mail)/imbox/[id]/page.tsx`, `feed/[id]/page.tsx`, `paper-trail/[id]/page.tsx`, `archive/[id]/page.tsx`
 
 Each detail page needs to:
+
 1. Accept `searchParams: Promise<{ q?: string }>` in its props
 2. Construct a `returnPath` that includes `?q=` when present
 3. Use `returnPath` in the back link, ArchiveButton, and ArchiveKeyboardShortcut
@@ -138,15 +139,15 @@ Then pass the search-aware `returnPath` from `archive/[id]/page.tsx`.
 
 ## Files Changed (7 files)
 
-| File | Change |
-|------|--------|
-| `src/components/mail/message-list.tsx` | `MessageRow` reads `useSearchParams()`, appends `?q=` to link href |
-| `src/app/(mail)/imbox/page.tsx` | Fix missing `basePath="/imbox"` on SearchResults `MessageList` |
-| `src/components/mail/unarchive-button.tsx` | Add `returnPath` prop (matching ArchiveButton pattern) |
-| `src/app/(mail)/imbox/[id]/page.tsx` | Accept `searchParams`, construct `returnPath`, pass to back link + archive components |
-| `src/app/(mail)/feed/[id]/page.tsx` | Same |
-| `src/app/(mail)/paper-trail/[id]/page.tsx` | Same |
-| `src/app/(mail)/archive/[id]/page.tsx` | Same + pass `returnPath` to UnarchiveButton |
+| File                                       | Change                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `src/components/mail/message-list.tsx`     | `MessageRow` reads `useSearchParams()`, appends `?q=` to link href                    |
+| `src/app/(mail)/imbox/page.tsx`            | Fix missing `basePath="/imbox"` on SearchResults `MessageList`                        |
+| `src/components/mail/unarchive-button.tsx` | Add `returnPath` prop (matching ArchiveButton pattern)                                |
+| `src/app/(mail)/imbox/[id]/page.tsx`       | Accept `searchParams`, construct `returnPath`, pass to back link + archive components |
+| `src/app/(mail)/feed/[id]/page.tsx`        | Same                                                                                  |
+| `src/app/(mail)/paper-trail/[id]/page.tsx` | Same                                                                                  |
+| `src/app/(mail)/archive/[id]/page.tsx`     | Same + pass `returnPath` to UnarchiveButton                                           |
 
 ## Edge Cases
 

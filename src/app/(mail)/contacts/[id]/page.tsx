@@ -2,15 +2,31 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Mail, PenSquare, Inbox, Newspaper, Receipt } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  PenSquare,
+  Inbox,
+  Newspaper,
+  Receipt,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContactThreadList } from "@/components/contacts/contact-thread-list";
 import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
 
 const categoryConfig = {
   IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary bg-primary/10" },
-  FEED: { label: "Feed", icon: Newspaper, color: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30" },
-  PAPER_TRAIL: { label: "Paper Trail", icon: Receipt, color: "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30" },
+  FEED: {
+    label: "Feed",
+    icon: Newspaper,
+    color: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
+  },
+  PAPER_TRAIL: {
+    label: "Paper Trail",
+    icon: Receipt,
+    color:
+      "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30",
+  },
 } as const;
 
 async function getContact(userId: string, contactId: string) {
@@ -23,10 +39,7 @@ async function getConversations(userId: string, email: string) {
   const messages = await db.message.findMany({
     where: {
       userId,
-      OR: [
-        { fromAddress: email },
-        { toAddresses: { has: email } },
-      ],
+      OR: [{ fromAddress: email }, { toAddresses: { has: email } }],
     },
     include: {
       sender: { select: { displayName: true, email: true } },
@@ -110,12 +123,18 @@ export default async function ContactDetailPage({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-tight md:text-xl">{name}</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{contact.email}</p>
+            <h1 className="text-lg font-semibold tracking-tight md:text-xl">
+              {name}
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {contact.email}
+            </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
               {/* Category badge */}
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${cat.color}`}>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${cat.color}`}
+              >
                 <CatIcon className="h-3 w-3" />
                 {cat.label}
               </span>
@@ -123,7 +142,8 @@ export default async function ContactDetailPage({
               {/* Message count */}
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mail className="h-3 w-3" />
-                {contact.messageCount} message{contact.messageCount !== 1 ? "s" : ""}
+                {contact.messageCount} message
+                {contact.messageCount !== 1 ? "s" : ""}
               </span>
 
               {/* Domain */}

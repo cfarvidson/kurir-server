@@ -9,12 +9,7 @@ const nextConfig: NextConfig = {
     },
   },
   // Don't bundle these Node.js packages - they run server-side only
-  serverExternalPackages: [
-    "imapflow",
-    "nodemailer",
-    "mailparser",
-    "web-push",
-  ],
+  serverExternalPackages: ["imapflow", "nodemailer", "mailparser", "web-push"],
   devIndicators: {
     buildActivityPosition: "bottom-right",
   },
@@ -23,9 +18,18 @@ const nextConfig: NextConfig = {
       {
         source: "/sw.js",
         headers: [
-          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
-          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
-          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self'",
+          },
         ],
       },
     ];

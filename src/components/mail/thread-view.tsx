@@ -4,7 +4,14 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { Archive, ChevronDown, Forward, MoreHorizontal, Paperclip, Printer } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  Forward,
+  MoreHorizontal,
+  Paperclip,
+  Printer,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
@@ -76,9 +83,7 @@ function buildEmailHtml(message: ThreadMessage) {
   const fromAddress = escapeHtml(message.fromAddress);
   const toAddresses = escapeHtml(message.toAddresses.join(", "));
   const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
-  const date = new Date(
-    message.sentAt || message.receivedAt,
-  ).toLocaleString();
+  const date = new Date(message.sentAt || message.receivedAt).toLocaleString();
   const body = message.htmlBody
     ? sanitizeEmailHtml(message.htmlBody)
     : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
@@ -129,10 +134,10 @@ function MessageBubble({
 
   const hasHtmlQuotes =
     /<blockquote|class="gmail_quote"|class="moz-cite-prefix"/.test(
-      message.htmlBody ?? ""
+      message.htmlBody ?? "",
     );
   const { body: plainBody, quoted: plainQuoted } = splitPlainTextQuotes(
-    message.textBody ?? ""
+    message.textBody ?? "",
   );
   const hasQuotes = message.htmlBody ? hasHtmlQuotes : !!plainQuoted;
 
@@ -153,16 +158,14 @@ function MessageBubble({
       )}
 
       {/* Mobile divider between messages */}
-      {!isFirst && (
-        <div className="mb-2 border-t border-border/30 md:hidden" />
-      )}
+      {!isFirst && <div className="mb-2 border-t border-border/30 md:hidden" />}
 
       <div className="flex gap-0 md:gap-3">
         {/* Avatar — desktop only */}
         <div
           className={cn(
             "relative z-10 hidden shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background md:flex md:h-10 md:w-10 md:text-sm",
-            avatarColor
+            avatarColor,
           )}
         >
           {senderName.charAt(0).toUpperCase()}
@@ -192,13 +195,16 @@ function MessageBubble({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              <time className="text-[11px] tabular-nums text-muted-foreground/70" suppressHydrationWarning>
+              <time
+                className="text-[11px] tabular-nums text-muted-foreground/70"
+                suppressHydrationWarning
+              >
                 {formatDate(new Date(message.sentAt || message.receivedAt))}
               </time>
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-                  !collapsed && "rotate-180"
+                  !collapsed && "rotate-180",
                 )}
               />
             </div>
@@ -317,7 +323,11 @@ function MessageBubble({
   );
 }
 
-export function ThreadView({ messages, currentUserEmail, userEmails }: ThreadViewProps) {
+export function ThreadView({
+  messages,
+  currentUserEmail,
+  userEmails,
+}: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
   return (
     <div className="space-y-0">

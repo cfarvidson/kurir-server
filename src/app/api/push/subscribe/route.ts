@@ -41,7 +41,10 @@ export async function POST(request: Request) {
     select: { userId: true },
   });
   if (existing && existing.userId !== session.user.id) {
-    return NextResponse.json({ error: "Endpoint already registered" }, { status: 409 });
+    return NextResponse.json(
+      { error: "Endpoint already registered" },
+      { status: 409 },
+    );
   }
 
   await db.pushSubscription.upsert({

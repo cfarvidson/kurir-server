@@ -37,11 +37,16 @@ describe("WebAuthn registration options generation", () => {
   });
 
   it("generates options with correct RP name and ID", async () => {
-    const { generateRegistrationOptions } = await import("@simplewebauthn/server");
+    const { generateRegistrationOptions } =
+      await import("@simplewebauthn/server");
     vi.mocked(generateRegistrationOptions).mockResolvedValue({
       challenge: "base64-challenge",
       rp: { name: "Kurir", id: "localhost" },
-      user: { id: "user-id-bytes", name: "user@example.com", displayName: "User" },
+      user: {
+        id: "user-id-bytes",
+        name: "user@example.com",
+        displayName: "User",
+      },
       pubKeyCredParams: [],
       timeout: 60000,
       attestation: "none",
@@ -68,12 +73,13 @@ describe("WebAuthn registration options generation", () => {
           residentKey: "required",
           userVerification: "required",
         }),
-      })
+      }),
     );
   });
 
   it("excludes already-registered credentials to prevent duplicate registration", async () => {
-    const { generateRegistrationOptions } = await import("@simplewebauthn/server");
+    const { generateRegistrationOptions } =
+      await import("@simplewebauthn/server");
     vi.mocked(generateRegistrationOptions).mockResolvedValue({} as any);
 
     const existingCredentials = [
@@ -92,10 +98,8 @@ describe("WebAuthn registration options generation", () => {
 
     expect(generateRegistrationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
-        excludeCredentials: [
-          expect.objectContaining({ id: "cred-id-1" }),
-        ],
-      })
+        excludeCredentials: [expect.objectContaining({ id: "cred-id-1" })],
+      }),
     );
   });
 });
@@ -106,7 +110,8 @@ describe("WebAuthn registration verification", () => {
   });
 
   it("accepts valid registration response and returns verified credential", async () => {
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: true,
       registrationInfo: {
@@ -133,7 +138,8 @@ describe("WebAuthn registration verification", () => {
   });
 
   it("rejects registration with wrong challenge", async () => {
-    const { verifyRegistrationResponse } = await import("@simplewebauthn/server");
+    const { verifyRegistrationResponse } =
+      await import("@simplewebauthn/server");
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
       verified: false,
     } as any);

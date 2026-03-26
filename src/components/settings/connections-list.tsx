@@ -66,11 +66,18 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
             <Mail className="h-5 w-5 text-muted-foreground" />
           </div>
-          <p className="mt-3 text-sm font-medium">No email accounts connected</p>
+          <p className="mt-3 text-sm font-medium">
+            No email accounts connected
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Add an email account to start using Kurir.
           </p>
-          <Button asChild className="mt-4 gap-1.5" size="sm" aria-label="Add another email account">
+          <Button
+            asChild
+            className="mt-4 gap-1.5"
+            size="sm"
+            aria-label="Add another email account"
+          >
             <Link href="/setup">
               <PlusCircle className="h-4 w-4" />
               Add email account

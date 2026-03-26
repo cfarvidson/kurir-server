@@ -113,10 +113,7 @@ function UserRow({
           ))}
 
           {showAddForm ? (
-            <AddConnectionForm
-              userId={user.id}
-              onClose={onToggleAddForm}
-            />
+            <AddConnectionForm userId={user.id} onClose={onToggleAddForm} />
           ) : (
             <Button
               variant="ghost"
@@ -188,9 +185,7 @@ function ConnectionRow({ connection }: { connection: ConnectionInfo }) {
                 await triggerSyncForConnection(connection.id);
                 toast.success("Sync triggered");
               } catch (err) {
-                toast.error(
-                  err instanceof Error ? err.message : "Sync failed",
-                );
+                toast.error(err instanceof Error ? err.message : "Sync failed");
               } finally {
                 setSyncing(false);
               }

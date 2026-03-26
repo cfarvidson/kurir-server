@@ -10,7 +10,10 @@ const { auth } = NextAuth(authConfig);
  * Using req.nextUrl directly would generate http:// redirects, dropping the user
  * out of the TLS tunnel. NEXTAUTH_URL reflects the real browser-facing origin.
  */
-function redirect(req: Parameters<Parameters<typeof auth>[0]>[0], path: string) {
+function redirect(
+  req: Parameters<Parameters<typeof auth>[0]>[0],
+  path: string,
+) {
   const base = process.env.NEXTAUTH_URL || req.nextUrl.origin;
   return NextResponse.redirect(new URL(path, base));
 }
@@ -47,5 +50,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|.*\\.png|.*\\.svg).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|.*\\.png|.*\\.svg).*)",
+  ],
 };

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
+import { buildImapAuth } from "@/lib/mail/auth-helpers";
 
 /**
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
@@ -682,10 +683,7 @@ export async function processMessage(
       where: {
         userId,
         threadId,
-        OR: [
-          { followUpAt: { not: null } },
-          { isFollowUp: true },
-        ],
+        OR: [{ followUpAt: { not: null } }, { isFollowUp: true }],
       },
       data: {
         followUpAt: null,
@@ -853,10 +851,7 @@ export async function syncEmailConnection(
     host: credentials.imap.host,
     port: credentials.imap.port,
     secure: true,
-    auth: {
-      user: credentials.email,
-      pass: credentials.password,
-    },
+    auth: buildImapAuth(credentials),
     logger: false,
   });
 

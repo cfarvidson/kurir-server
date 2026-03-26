@@ -2,7 +2,17 @@
 title: "Sync silently fails on large mailboxes (5k-50k messages)"
 date: 2026-02-16
 category: performance-issues
-tags: [imap, sync, batching, imapflow, progress-ui, react-query, concurrency, syncstate]
+tags:
+  [
+    imap,
+    sync,
+    batching,
+    imapflow,
+    progress-ui,
+    react-query,
+    concurrency,
+    syncstate,
+  ]
 module: mail/sync, api/mail/sync, components/mail/auto-sync
 symptoms:
   - Sync returns JSON response but imports zero historical messages
@@ -52,9 +62,9 @@ interface SyncResult {
   folderId: string;
   newMessages: number;
   errors: string[];
-  remaining: number;       // newUids.length - batch.length
-  totalOnServer: number;   // allUids.length (from IMAP search)
-  totalCached: number;     // existingUids.size + newMessages
+  remaining: number; // newUids.length - batch.length
+  totalOnServer: number; // allUids.length (from IMAP search)
+  totalCached: number; // existingUids.size + newMessages
 }
 ```
 
@@ -97,12 +107,12 @@ The transition is automatic — no user action needed. AutoSync detects `remaini
 
 ## Key Decisions and Why
 
-| Decision | Reasoning |
-|----------|-----------|
-| Same endpoint, not separate `/api/mail/import` | One code path. AutoSync already calls `/api/mail/sync` every 5s. Adding a second endpoint means two code paths to maintain and coordinate. |
-| `batchSize` as query param, not request body | GET requests work for testing. AutoSync can switch between modes by changing the URL. |
-| Progress computed per-call, not persisted in DB | The UID delta IS the progress. `totalOnServer - totalCached = remaining`. No schema migration needed for progress fields. |
-| Deferred first-run auto-trigger (YAGNI) | The manual "Import All" button in Settings is sufficient for v1. AutoSync will also naturally detect remaining messages on any page load. |
+| Decision                                        | Reasoning                                                                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Same endpoint, not separate `/api/mail/import`  | One code path. AutoSync already calls `/api/mail/sync` every 5s. Adding a second endpoint means two code paths to maintain and coordinate. |
+| `batchSize` as query param, not request body    | GET requests work for testing. AutoSync can switch between modes by changing the URL.                                                      |
+| Progress computed per-call, not persisted in DB | The UID delta IS the progress. `totalOnServer - totalCached = remaining`. No schema migration needed for progress fields.                  |
+| Deferred first-run auto-trigger (YAGNI)         | The manual "Import All" button in Settings is sufficient for v1. AutoSync will also naturally detect remaining messages on any page load.  |
 
 ## Prevention
 

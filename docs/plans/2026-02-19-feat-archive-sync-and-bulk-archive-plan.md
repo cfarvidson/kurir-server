@@ -46,7 +46,11 @@ if (isFromSelf) {
   await processMessage(msg, userId, folderId, { isInbox: false, userEmail });
 } else {
   // Received message NOT in INBOX (dedup already skipped inbox messages)
-  await processMessage(msg, userId, folderId, { isInbox: false, isArchived: true, userEmail });
+  await processMessage(msg, userId, folderId, {
+    isInbox: false,
+    isArchived: true,
+    userEmail,
+  });
 }
 ```
 
@@ -64,7 +68,7 @@ export async function processMessage(
   userId: string,
   folderId: string,
   options: ProcessMessageOptions,
-)
+);
 ```
 
 3. When `isArchived` is true in `processMessage`:
@@ -99,6 +103,7 @@ export async function archiveConversations(messageIds: string[]) {
 The parameter is `messageIds` — the representative message ID from each selected thread row (same as what `archiveConversation` takes today). The action resolves threads internally.
 
 Key design:
+
 - **Single IMAP connection** for all moves (not N connections). Critical for performance.
 - **Best-effort per-message:** Each `messageMove` is wrapped in try/catch (same pattern as single archive). If one UID fails, continue with the rest.
 - **Single `updateMany`** for all DB flag changes.
@@ -119,10 +124,10 @@ Track by `threadId || message.id` (same key used in the `threads` memo in `infin
 
 #### Activation Methods (v1)
 
-| Method | Trigger | Behavior |
-|--------|---------|----------|
-| Toolbar button | Click "Välj" in list header | Toggle selection mode. When toggled off, clear selection. |
-| Shift-click | Shift + click on row | Enter selection mode, toggle clicked row. No range selection in v1. |
+| Method         | Trigger                     | Behavior                                                            |
+| -------------- | --------------------------- | ------------------------------------------------------------------- |
+| Toolbar button | Click "Välj" in list header | Toggle selection mode. When toggled off, clear selection.           |
+| Shift-click    | Shift + click on row        | Enter selection mode, toggle clicked row. No range selection in v1. |
 
 **Deferred to v2:** Long-press (mobile touch). Touch event handling conflicts with scroll and needs testing on actual devices.
 
@@ -131,6 +136,7 @@ Track by `threadId || message.id` (same key used in the `threads` memo in `infin
 #### UI Components
 
 **Modified `InfiniteMessageList`:**
+
 - Owns `selectedIds` state
 - Renders "Välj" toggle button in a list header area
 - Passes `isSelectionMode`, `isSelected`, `onToggleSelect` to each `MessageRow`
@@ -138,12 +144,14 @@ Track by `threadId || message.id` (same key used in the `threads` memo in `infin
 - Handles Escape key to clear selection
 
 **Modified `MessageRow`:**
+
 - Accept `isSelected?: boolean`, `isSelectionMode?: boolean`, `onToggleSelect?: () => void` props
 - When `isSelectionMode`: show checkbox, click toggles selection (no navigation)
 - When not `isSelectionMode`: existing behavior (click navigates)
 - Highlight row background when selected
 
 **New `SelectionActionBar` component** (`src/components/mail/selection-action-bar.tsx`):
+
 - Fixed at bottom center of viewport
 - Shows count: "Arkivera (N) konversationer"
 - Archive button calls `archiveConversations`

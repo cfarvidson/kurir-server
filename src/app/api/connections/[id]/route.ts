@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
 
-async function checkSelfService(userRole: string): Promise<NextResponse | null> {
+async function checkSelfService(
+  userRole: string,
+): Promise<NextResponse | null> {
   const settings = await db.systemSettings.findUnique({
     where: { id: "singleton" },
   });
@@ -33,7 +35,7 @@ const updateConnectionSchema = z.object({
 // PATCH /api/connections/[id] — update an email connection
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -46,7 +48,10 @@ export async function PATCH(
   const { id } = await params;
   const connection = await getEmailConnection(id, session.user.id);
   if (!connection) {
-    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Connection not found" },
+      { status: 404 },
+    );
   }
 
   let body;
@@ -59,33 +64,49 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  const { password, imapHost, imapPort, smtpHost, smtpPort, displayName, sendAsEmail, aliases, isDefault } =
-    parsed.data;
+  const {
+    password,
+    imapHost,
+    imapPort,
+    smtpHost,
+    smtpPort,
+    displayName,
+    sendAsEmail,
+    aliases,
+    isDefault,
+  } = parsed.data;
 
-  // Re-verify IMAP when password, host, or port changes
+  // Re-verify IMAP when password, host, or port changes (skip for OAuth connections)
+  const isOAuth = !!connection.oauthProvider;
   const hostOrPortChanged =
     (imapHost !== undefined && imapHost !== connection.imapHost) ||
     (imapPort !== undefined && imapPort !== connection.imapPort);
-  if (password || hostOrPortChanged) {
+  if (!isOAuth && (password || hostOrPortChanged)) {
     const effectiveImapHost = imapHost ?? connection.imapHost;
     const effectiveImapPort = imapPort ?? connection.imapPort;
     const { verifyImapCredentials } = await import("@/lib/mail/imap-verify");
     const { decrypt: decryptPassword } = await import("@/lib/crypto");
-    const effectivePassword = password || decryptPassword(connection.encryptedPassword);
+    const effectivePassword =
+      password ||
+      (connection.encryptedPassword
+        ? decryptPassword(connection.encryptedPassword)
+        : "");
     const isValid = await verifyImapCredentials(
       connection.email,
       effectivePassword,
       effectiveImapHost,
-      effectiveImapPort
+      effectiveImapPort,
     );
     if (!isValid) {
       return NextResponse.json(
-        { error: "Could not connect to IMAP server with the provided settings." },
-        { status: 422 }
+        {
+          error: "Could not connect to IMAP server with the provided settings.",
+        },
+        { status: 422 },
       );
     }
   }
@@ -120,7 +141,7 @@ export async function PATCH(
 // DELETE /api/connections/[id] — remove an email connection
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -133,7 +154,10 @@ export async function DELETE(
   const { id } = await params;
   const connection = await getEmailConnection(id, session.user.id);
   if (!connection) {
-    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Connection not found" },
+      { status: 404 },
+    );
   }
 
   const userId = session.user.id;
@@ -165,7 +189,7 @@ export async function DELETE(
     if (err instanceof Error && err.message === "LAST_CONNECTION") {
       return NextResponse.json(
         { error: "Cannot remove your only email connection." },
-        { status: 409 }
+        { status: 409 },
       );
     }
     throw err;

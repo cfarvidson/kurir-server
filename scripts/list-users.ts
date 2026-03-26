@@ -6,7 +6,9 @@
  *   pnpm list-users
  */
 
-try { await import("dotenv/config"); } catch {}
+try {
+  await import("dotenv/config");
+} catch {}
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();
@@ -59,7 +61,7 @@ async function main() {
 
     for (const conn of user.emailConnections) {
       console.log(
-        `  ${conn.isDefault ? "★" : " "} ${conn.email}  IMAP: ${conn.imapHost}  SMTP: ${conn.smtpHost}`
+        `  ${conn.isDefault ? "★" : " "} ${conn.email}  IMAP: ${conn.imapHost}  SMTP: ${conn.smtpHost}`,
       );
     }
   }

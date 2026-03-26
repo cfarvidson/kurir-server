@@ -27,15 +27,18 @@ Add the `SchedulePicker` component to the `ReplyComposer` footer, mirroring the 
 `ThreadDetailView` (server component) already has `lastMessage` with all fields from Prisma (`messageId`, `references`, `emailConnectionId`). Pass these down through `ThreadPageContent` as new props.
 
 **`src/components/mail/thread-detail-view.tsx`:**
+
 - Pass to `ThreadPageContent`: `subject`, `emailConnectionId` (from `targetMessage`), `rfcMessageId` (from `lastMessage.messageId`), `references` (from `lastMessage.references`), `userTimezone` (from `userInfo.timezone`)
 
 **`src/components/mail/thread-page-content.tsx`:**
+
 - Add new props to interface: `subject`, `emailConnectionId`, `rfcMessageId`, `references`, `userTimezone`
 - Pass them through to `ReplyComposer`
 
 ### 2. Add SchedulePicker to `ReplyComposer`
 
 **`src/components/mail/reply-composer.tsx`:**
+
 - Add new props: `subject`, `emailConnectionId`, `rfcMessageId`, `references`, `userTimezone`
 - Import `SchedulePicker` and `createScheduledMessage`
 - Add `handleScheduleSend(scheduledFor: Date)` handler that:

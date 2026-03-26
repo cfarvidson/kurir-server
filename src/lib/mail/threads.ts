@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
  */
 export async function getThreadCounts(
   userId: string,
-  messages: { id: string; threadId: string | null }[]
+  messages: { id: string; threadId: string | null }[],
 ): Promise<Map<string, number>> {
   const threadIds = messages
     .map((m) => m.threadId)
@@ -48,7 +48,9 @@ export async function getThreadCounts(
 
 const threadInclude = {
   sender: { select: { displayName: true, email: true } },
-  attachments: { select: { id: true, filename: true, size: true, contentId: true } },
+  attachments: {
+    select: { id: true, filename: true, size: true, contentId: true },
+  },
 } as const;
 
 /**
@@ -136,7 +138,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
     }
   }
   const deduped = allMessages.filter(
-    (m) => !m.messageId || seen.get(m.messageId) === m
+    (m) => !m.messageId || seen.get(m.messageId) === m,
   );
 
   // Mark unread messages as read
@@ -153,12 +155,15 @@ export async function getThreadMessages(userId: string, messageId: string) {
   const sorted = [...deduped].sort(
     (a, b) =>
       (a.sentAt ?? a.receivedAt).getTime() -
-      (b.sentAt ?? b.receivedAt).getTime()
+      (b.sentAt ?? b.receivedAt).getTime(),
   );
 
   return {
     messages: sorted,
-    markedRead: unreadMessages.map((m) => ({ uid: m.uid, folderId: m.folderId })),
+    markedRead: unreadMessages.map((m) => ({
+      uid: m.uid,
+      folderId: m.folderId,
+    })),
   };
 }
 

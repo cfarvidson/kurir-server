@@ -35,6 +35,8 @@ export interface EmailConnection {
   smtpHost: string;
   isDefault: boolean;
   createdAt: string;
+  oauthProvider?: string | null;
+  oauthError?: string | null;
   syncStatus?: "synced" | "syncing" | "error" | "idle";
   lastSyncedAt?: string | null;
   syncError?: string | null;
@@ -174,7 +176,7 @@ export function ConnectionCard({
     startTransition(async () => {
       await onUpdateAliases(
         connection.id,
-        connection.aliases.filter((a) => a !== alias)
+        connection.aliases.filter((a) => a !== alias),
       );
       setLocalStatus("idle");
     });
@@ -198,10 +200,13 @@ export function ConnectionCard({
     if (connection.syncStatus === "syncing") return "Syncing...";
     if (connection.syncStatus === "error") return "Sync error";
     if (connection.syncStatus === "synced" && connection.lastSyncedAt) {
-      return `Synced ${new Date(connection.lastSyncedAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
+      return `Synced ${new Date(connection.lastSyncedAt).toLocaleTimeString(
+        [],
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+        },
+      )}`;
     }
     return "Not yet synced";
   };
@@ -211,7 +216,7 @@ export function ConnectionCard({
       aria-label={`Email connection: ${connection.email}`}
       className={cn(
         "rounded-lg border bg-card transition-shadow",
-        connection.isDefault && "ring-1 ring-primary/20"
+        connection.isDefault && "ring-1 ring-primary/20",
       )}
     >
       {/* Header row */}
@@ -253,7 +258,9 @@ export function ConnectionCard({
           {/* Sync status */}
           <div className="mt-1 flex items-center gap-1.5">
             {statusIcon()}
-            <span className="text-xs text-muted-foreground">{statusLabel()}</span>
+            <span className="text-xs text-muted-foreground">
+              {statusLabel()}
+            </span>
           </div>
         </div>
 
@@ -271,8 +278,9 @@ export function ConnectionCard({
             <RefreshCw
               className={cn(
                 "h-4 w-4",
-                (localStatus === "syncing" || connection.syncStatus === "syncing") &&
-                  "animate-spin"
+                (localStatus === "syncing" ||
+                  connection.syncStatus === "syncing") &&
+                  "animate-spin",
               )}
             />
           </Button>
@@ -312,7 +320,7 @@ export function ConnectionCard({
                     disabled={isBusy}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed",
                     )}
                   >
                     <Send className="h-4 w-4" />
@@ -330,7 +338,7 @@ export function ConnectionCard({
                     disabled={isBusy}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed",
                     )}
                   >
                     <Mail className="h-4 w-4" />
@@ -349,7 +357,7 @@ export function ConnectionCard({
                     disabled={connection.isDefault || isBusy}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      "hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed",
                     )}
                   >
                     {connection.isDefault ? (
@@ -357,7 +365,9 @@ export function ConnectionCard({
                     ) : (
                       <StarOff className="h-4 w-4" />
                     )}
-                    {connection.isDefault ? "Already default" : "Set as default"}
+                    {connection.isDefault
+                      ? "Already default"
+                      : "Set as default"}
                   </button>
 
                   <div className="my-1 border-t" />
@@ -393,11 +403,42 @@ export function ConnectionCard({
       {/* Server details */}
       <div className="border-t px-4 py-2.5 flex items-center gap-4">
         <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-        <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>IMAP: {connection.imapHost}</span>
-          <span>SMTP: {connection.smtpHost}</span>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {connection.oauthProvider ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                OAuth
+              </span>
+              {connection.oauthProvider === "microsoft"
+                ? "Microsoft"
+                : "Google"}
+            </span>
+          ) : (
+            <>
+              <span>IMAP: {connection.imapHost}</span>
+              <span>SMTP: {connection.smtpHost}</span>
+            </>
+          )}
         </div>
       </div>
+
+      {/* OAuth error — reconnect CTA */}
+      {connection.oauthError && (
+        <div className="border-t px-4 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+            <p className="text-xs text-destructive">
+              Authentication expired. Please reconnect your account.
+            </p>
+          </div>
+          <a
+            href={`/api/auth/oauth/${connection.oauthProvider}?mode=add`}
+            className="shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+          >
+            Reconnect
+          </a>
+        </div>
+      )}
 
       {/* Sync error */}
       {connection.syncStatus === "error" && connection.syncError && (
@@ -431,8 +472,8 @@ export function ConnectionCard({
             <div className="border-t bg-muted/30 px-4 py-3">
               <p className="text-sm font-medium">Send-as address</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Outgoing emails will use this address in the From field.
-                SMTP authentication still uses {connection.email}.
+                Outgoing emails will use this address in the From field. SMTP
+                authentication still uses {connection.email}.
               </p>
               <div className="mt-2 flex gap-2">
                 <input
@@ -449,11 +490,7 @@ export function ConnectionCard({
                 />
               </div>
               <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleSendAsSave}
-                  disabled={isBusy}
-                >
+                <Button size="sm" onClick={handleSendAsSave} disabled={isBusy}>
                   {localStatus === "saving-send-as" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (

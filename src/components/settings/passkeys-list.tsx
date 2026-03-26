@@ -32,7 +32,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
 
       if (!optionsRes.ok) {
@@ -42,7 +42,9 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
       const options = await optionsRes.json();
       const { startRegistration } = await import("@simplewebauthn/browser");
       // v13 API: startRegistration expects { optionsJSON }; server returns { options }
-      const credential = await startRegistration({ optionsJSON: options.options });
+      const credential = await startRegistration({
+        optionsJSON: options.options,
+      });
 
       const verifyRes = await fetch(
         "/api/auth/webauthn/register/verify?addPasskey=true",
@@ -50,7 +52,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ credential }),
-        }
+        },
       );
 
       if (!verifyRes.ok) {
@@ -66,7 +68,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
         setError("This device already has a passkey registered.");
       } else {
         setError(
-          err instanceof Error ? err.message : "An unexpected error occurred."
+          err instanceof Error ? err.message : "An unexpected error occurred.",
         );
       }
     } finally {
@@ -94,9 +96,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
 
   return (
     <div className="space-y-2">
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       {passkeys.map((pk) => (
         <PasskeyCard

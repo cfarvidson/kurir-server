@@ -11,6 +11,7 @@ deepened: 2026-03-16
 
 **Deepened on:** 2026-03-16
 **Key improvements from research:**
+
 1. Primary coral darkened from `56%` to `44%` lightness for WCAG AA compliance (4.6:1 contrast with white)
 2. Complete dark mode warm variable set with lower saturation (avoids garish dark backgrounds)
 3. Warm-tinted shadow system using hue 25 instead of pure black
@@ -27,6 +28,7 @@ Replace the current purple-themed design with a warm coral/terracotta/amber pale
 **New file:** `src/components/logo.tsx`
 
 Create a React component rendering the stylized "K" logo as inline SVG. The logo consists of 4 organic rounded shapes:
+
 - **Top-left:** Coral/salmon (#E8756A)
 - **Middle-right:** Terracotta swooping shape (#C0704A)
 - **Bottom-left:** Amber/golden (#DBA044)
@@ -35,6 +37,7 @@ Create a React component rendering the stylized "K" logo as inline SVG. The logo
 Accept `className` prop for sizing (like Lucide icons).
 
 **Implementation details:**
+
 - Use `viewBox="0 0 32 32"` — never hardcode width/height in the SVG
 - Accept `className` prop, apply to outer `<svg>` element for Tailwind sizing
 - Use `<path>` with cubic bezier curves for organic shapes (not rect/circle)
@@ -55,7 +58,7 @@ Accept `className` prop for sizing (like Lucide icons).
 --card-foreground: 25 15% 8%;
 --popover: 30 25% 99.5%;
 --popover-foreground: 25 15% 8%;
---primary: 12 76% 44%;          /* Deep coral — 4.6:1 contrast with white (AA pass) */
+--primary: 12 76% 44%; /* Deep coral — 4.6:1 contrast with white (AA pass) */
 --primary-foreground: 0 0% 100%;
 --secondary: 30 30% 96%;
 --secondary-foreground: 25 20% 14%;
@@ -63,7 +66,7 @@ Accept `className` prop for sizing (like Lucide icons).
 --muted-foreground: 25 10% 46%;
 --accent: 30 30% 96%;
 --accent-foreground: 25 20% 14%;
---destructive: 355 80% 52%;    /* Shifted cooler to stay distinct from coral */
+--destructive: 355 80% 52%; /* Shifted cooler to stay distinct from coral */
 --destructive-foreground: 0 0% 98%;
 --border: 28 15% 89%;
 --input: 28 15% 89%;
@@ -80,7 +83,7 @@ Accept `className` prop for sizing (like Lucide icons).
 --card-foreground: 30 10% 95%;
 --popover: 25 12% 9%;
 --popover-foreground: 30 10% 95%;
---primary: 12 80% 60%;          /* Lightened for dark bg — ~6:1 contrast */
+--primary: 12 80% 60%; /* Lightened for dark bg — ~6:1 contrast */
 --primary-foreground: 25 15% 8%;
 --secondary: 25 10% 16%;
 --secondary-foreground: 30 10% 95%;
@@ -96,6 +99,7 @@ Accept `className` prop for sizing (like Lucide icons).
 ```
 
 **Key decisions:**
+
 - Primary `12 76% 44%` passes WCAG AA (4.6:1) with white text
 - Dark mode primary lightened to `60%` for readability on dark backgrounds
 - Dark mode saturation kept lower than light mode (avoids garish look)
@@ -105,10 +109,10 @@ Accept `className` prop for sizing (like Lucide icons).
 
 **Files:** `src/app/(auth)/login/page.tsx`, `register/page.tsx`, `setup/page.tsx`
 
-| Change | From | To |
-|--------|------|-----|
-| Background gradient | `from-purple-50 to-white` | `from-orange-50 via-amber-50/50 to-stone-50/30` |
-| Decorative icon | `<Mail>` in `bg-primary/10` circle | `<KurirLogo>` component (sized h-8 w-8) |
+| Change              | From                               | To                                              |
+| ------------------- | ---------------------------------- | ----------------------------------------------- |
+| Background gradient | `from-purple-50 to-white`          | `from-orange-50 via-amber-50/50 to-stone-50/30` |
+| Decorative icon     | `<Mail>` in `bg-primary/10` circle | `<KurirLogo>` component (sized h-8 w-8)         |
 
 The `bg-primary/10` and `text-primary` classes automatically pick up the new coral color.
 
@@ -134,8 +138,8 @@ Remove `Mail` from lucide imports in both files (no longer used in sidebar).
 
 **File:** `src/app/globals.css`
 
-| Variable | Current | New |
-|----------|---------|-----|
+| Variable   | Current  | New       |
+| ---------- | -------- | --------- |
 | `--radius` | `0.5rem` | `0.75rem` |
 
 At 0.75rem: `lg` = 12px, `md` = 10px, `sm` = 8px. Comfortable range — beyond 1rem risks pill-shaped small elements.
@@ -148,16 +152,16 @@ Change card shadow from `shadow` to `shadow-sm` for a softer feel. The warm-tint
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/logo.tsx` | **NEW** — SVG logo component |
-| `src/app/globals.css` | All CSS variables (primary, neutrals, radius) for light + dark |
-| `src/components/layout/sidebar.tsx` | Replace Mail icon with KurirLogo |
-| `src/components/layout/mobile-sidebar.tsx` | Replace Mail icon with KurirLogo |
-| `src/app/(auth)/login/page.tsx` | Gradient + decorative icon |
-| `src/app/(auth)/register/page.tsx` | Gradient + decorative icon |
-| `src/app/(auth)/setup/page.tsx` | Gradient + decorative icon |
-| `src/components/ui/card.tsx` | Softer shadow |
+| File                                       | Changes                                                        |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `src/components/logo.tsx`                  | **NEW** — SVG logo component                                   |
+| `src/app/globals.css`                      | All CSS variables (primary, neutrals, radius) for light + dark |
+| `src/components/layout/sidebar.tsx`        | Replace Mail icon with KurirLogo                               |
+| `src/components/layout/mobile-sidebar.tsx` | Replace Mail icon with KurirLogo                               |
+| `src/app/(auth)/login/page.tsx`            | Gradient + decorative icon                                     |
+| `src/app/(auth)/register/page.tsx`         | Gradient + decorative icon                                     |
+| `src/app/(auth)/setup/page.tsx`            | Gradient + decorative icon                                     |
+| `src/components/ui/card.tsx`               | Softer shadow                                                  |
 
 ## Acceptance Criteria
 

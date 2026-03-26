@@ -116,20 +116,25 @@ kamal rollback
 ## Troubleshooting
 
 ### Database Connection Errors
+
 - Verify `KAMAL_DATABASE_URL` uses `kurir-db` as the host (Docker container name on the `kamal` network)
 - Check that the database service is running: `kamal accessory details db`
 - Confirm Tailscale is connected: `tailscale status`
 
 ### Authentication Issues
+
 - Ensure `KAMAL_NEXTAUTH_SECRET` is set correctly
 - Check `WEBAUTHN_RP_ID` matches the hostname you're accessing the app from
 
 ### Docker Registry Access
+
 - Confirm `DOCKER_REGISTRY_TOKEN` is valid
 - Test registry access: `docker login docker-registry.banded-beta.ts.net`
 
 ### Stuck Sync Lock
+
 If IMAP sync crashes, the lock stays active for 5 minutes. To clear immediately:
+
 ```bash
 kamal accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
 ```

@@ -12,7 +12,10 @@ interface ArchiveButtonProps {
   returnPath?: string;
 }
 
-export function ArchiveButton({ messageId, returnPath = "/imbox" }: ArchiveButtonProps) {
+export function ArchiveButton({
+  messageId,
+  returnPath = "/imbox",
+}: ArchiveButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const queryClient = useQueryClient();

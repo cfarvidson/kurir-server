@@ -25,19 +25,28 @@ const ORIGIN =
 export async function POST(req: NextRequest) {
   const sessionKey = req.cookies.get("wa_auth_session")?.value;
   if (!sessionKey) {
-    return NextResponse.json({ error: "Missing authentication session" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing authentication session" },
+      { status: 400 },
+    );
   }
 
   const expectedChallenge = consumeChallenge(sessionKey);
   if (!expectedChallenge) {
-    return NextResponse.json({ error: "Challenge expired or invalid" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Challenge expired or invalid" },
+      { status: 400 },
+    );
   }
 
   let body: AuthenticationResponseJSON;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   // Look up the passkey by credentialId
@@ -72,7 +81,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verification.verified) {
-    return NextResponse.json({ error: "Authentication not verified" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Authentication not verified" },
+      { status: 401 },
+    );
   }
 
   const { newCounter, credentialDeviceType, credentialBackedUp } =
@@ -91,7 +103,10 @@ export async function POST(req: NextRequest) {
   // Issue a NextAuth JWT session
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server misconfiguration" },
+      { status: 500 },
+    );
   }
 
   const cookieName =

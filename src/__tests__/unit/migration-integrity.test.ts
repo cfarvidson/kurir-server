@@ -40,7 +40,7 @@ interface EmailConnection {
 
 function simulateMigration(
   users: LegacyUser[],
-  existingConnections: EmailConnection[]
+  existingConnections: EmailConnection[],
 ): {
   connectionsCreated: EmailConnection[];
   foldersBackfilled: number;
@@ -53,7 +53,7 @@ function simulateMigration(
   for (const user of users) {
     // Skip if already migrated (idempotency)
     const alreadyMigrated = existingConnections.some(
-      (c) => c.userId === user.id && c.email === user.email
+      (c) => c.userId === user.id && c.email === user.email,
     );
     if (alreadyMigrated) continue;
 
@@ -142,7 +142,9 @@ describe("migration data integrity", () => {
     ];
 
     const result = simulateMigration(users, []);
-    expect(result.connectionsCreated[0].encryptedPassword).toBe(originalEncrypted);
+    expect(result.connectionsCreated[0].encryptedPassword).toBe(
+      originalEncrypted,
+    );
   });
 
   it("is idempotent: skips users already migrated", () => {

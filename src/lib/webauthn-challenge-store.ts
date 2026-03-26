@@ -19,8 +19,7 @@ const globalForChallenges = globalThis as unknown as {
 };
 
 const challengeStore: Map<string, ChallengeEntry> =
-  globalForChallenges.webauthnChallenges ??
-  new Map<string, ChallengeEntry>();
+  globalForChallenges.webauthnChallenges ?? new Map<string, ChallengeEntry>();
 
 if (!globalForChallenges.webauthnChallenges) {
   globalForChallenges.webauthnChallenges = challengeStore;
@@ -38,7 +37,10 @@ export function setChallenge(sessionKey: string, challenge: string): void {
     }
   }
 
-  challengeStore.set(sessionKey, { challenge, expiresAt: now + CHALLENGE_TTL_MS });
+  challengeStore.set(sessionKey, {
+    challenge,
+    expiresAt: now + CHALLENGE_TTL_MS,
+  });
 }
 
 /**

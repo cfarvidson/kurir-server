@@ -1,9 +1,6 @@
 import Link from "next/link";
 import { Mail, Calendar, ExternalLink } from "lucide-react";
-import {
-  getContactContext,
-  getThreadRoute,
-} from "@/lib/mail/contact-context";
+import { getContactContext, getThreadRoute } from "@/lib/mail/contact-context";
 import { CategoryPicker } from "@/components/mail/category-picker";
 
 function getInitialColor(str: string): string {
@@ -60,8 +57,7 @@ export async function ContactSidebar({
     return null;
   }
 
-  const name =
-    context.sender?.displayName || contactEmail.split("@")[0];
+  const name = context.sender?.displayName || contactEmail.split("@")[0];
 
   return (
     <div className="hidden w-[280px] shrink-0 border-l lg:block">
@@ -83,8 +79,7 @@ export async function ContactSidebar({
 
         {/* Category badge and stats */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {context.sender?.status === "APPROVED" &&
-          context.sender.category ? (
+          {context.sender?.status === "APPROVED" && context.sender.category ? (
             <CategoryPicker
               senderId={context.sender.id}
               currentCategory={context.sender.category}

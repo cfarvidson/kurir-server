@@ -49,6 +49,10 @@ env:
     - ENCRYPTION_KEY
     - VAPID_PRIVATE_KEY
     - REDIS_URL
+    - MICROSOFT_CLIENT_ID
+    - MICROSOFT_CLIENT_SECRET
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
 
 # Use accessory services (secrets come from .kamal/secrets).
 accessories:

@@ -8,6 +8,7 @@
 When a user searches within a category (Imbox, Feed, Paper Trail, Archive) and clicks into a message from the search results, all "return" navigation should bring them back to their search results — not the unfiltered category list.
 
 This applies to:
+
 - The in-app back link (ArrowLeft) on message detail pages
 - The browser's back button
 - The return path after actions like archive/unarchive
@@ -19,6 +20,7 @@ This applies to:
 When navigating from search results to a message detail, the search query is encoded into the URL as query params. The back link and action return paths read these params and construct the correct return URL with the search query preserved.
 
 This was chosen over:
+
 - **`router.back()`** — fragile, breaks on new tabs, archive flows, and direct links
 - **React context / sessionStorage** — invisible state that gets stale, doesn't survive refresh or new tabs
 

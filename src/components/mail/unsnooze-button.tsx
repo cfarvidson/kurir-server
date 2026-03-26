@@ -11,7 +11,10 @@ interface UnsnoozeButtonProps {
   returnPath?: string;
 }
 
-export function UnsnoozeButton({ messageId, returnPath = "/snoozed" }: UnsnoozeButtonProps) {
+export function UnsnoozeButton({
+  messageId,
+  returnPath = "/snoozed",
+}: UnsnoozeButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const queryClient = useQueryClient();

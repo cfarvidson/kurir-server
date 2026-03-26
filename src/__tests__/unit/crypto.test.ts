@@ -26,7 +26,9 @@ describe("crypto", () => {
     });
 
     it("throws on corrupted ciphertext (wrong format)", () => {
-      expect(() => decrypt("not-valid")).toThrow("Invalid encrypted text format");
+      expect(() => decrypt("not-valid")).toThrow(
+        "Invalid encrypted text format",
+      );
     });
 
     it("throws on tampered auth tag (integrity check)", () => {
@@ -58,7 +60,9 @@ describe("crypto", () => {
       const original = process.env.ENCRYPTION_KEY;
       delete process.env.ENCRYPTION_KEY;
       try {
-        expect(() => encrypt("test")).toThrow("ENCRYPTION_KEY environment variable is not set");
+        expect(() => encrypt("test")).toThrow(
+          "ENCRYPTION_KEY environment variable is not set",
+        );
       } finally {
         process.env.ENCRYPTION_KEY = original;
       }

@@ -48,7 +48,11 @@ describe("Email body edge cases", () => {
     });
 
     it("does not fall back when html is present", () => {
-      const body: EmailBody = { html: "<p>Rich</p>", text: null, sizeBytes: 50 };
+      const body: EmailBody = {
+        html: "<p>Rich</p>",
+        text: null,
+        sizeBytes: 50,
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.mode).not.toBe("empty");
       expect(resolved.mode).not.toBe("text");
@@ -84,7 +88,11 @@ describe("Email body edge cases", () => {
 
     it("preserves newlines in text-only emails", () => {
       const textBody = "Line 1\nLine 2\nLine 3";
-      const body: EmailBody = { html: null, text: textBody, sizeBytes: textBody.length };
+      const body: EmailBody = {
+        html: null,
+        text: textBody,
+        sizeBytes: textBody.length,
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.content).toContain("\n");
       expect(resolved.content.split("\n")).toHaveLength(3);
@@ -92,7 +100,11 @@ describe("Email body edge cases", () => {
 
     it("handles very long text-only email without truncating content string", () => {
       const longText = "a".repeat(1000);
-      const body: EmailBody = { html: null, text: longText, sizeBytes: longText.length };
+      const body: EmailBody = {
+        html: null,
+        text: longText,
+        sizeBytes: longText.length,
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.content).toHaveLength(1000);
     });
@@ -135,7 +147,11 @@ describe("Email body edge cases", () => {
   describe("RTL content", () => {
     it("html body with dir=rtl attribute is preserved as-is for sanitizer", () => {
       const rtlHtml = '<div dir="rtl"><p>مرحبا بالعالم</p></div>';
-      const body: EmailBody = { html: rtlHtml, text: null, sizeBytes: rtlHtml.length };
+      const body: EmailBody = {
+        html: rtlHtml,
+        text: null,
+        sizeBytes: rtlHtml.length,
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.mode).toBe("html");
       // The content should contain the RTL directive — sanitizer handles preservation
@@ -144,7 +160,11 @@ describe("Email body edge cases", () => {
 
     it("text body with RTL unicode characters is preserved", () => {
       const rtlText = "مرحبا بالعالم"; // Arabic: "Hello World"
-      const body: EmailBody = { html: null, text: rtlText, sizeBytes: Buffer.byteLength(rtlText) };
+      const body: EmailBody = {
+        html: null,
+        text: rtlText,
+        sizeBytes: Buffer.byteLength(rtlText),
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.mode).toBe("text");
       expect(resolved.content).toBe(rtlText);
@@ -152,7 +172,11 @@ describe("Email body edge cases", () => {
 
     it("html body with Hebrew text and RTL markup", () => {
       const hebrewHtml = '<p dir="rtl" lang="he">שלום עולם</p>';
-      const body: EmailBody = { html: hebrewHtml, text: null, sizeBytes: hebrewHtml.length };
+      const body: EmailBody = {
+        html: hebrewHtml,
+        text: null,
+        sizeBytes: hebrewHtml.length,
+      };
       const resolved = resolveBodyContent(body);
       expect(resolved.mode).toBe("html");
       expect(resolved.content).toContain("שלום עולם");
@@ -160,7 +184,11 @@ describe("Email body edge cases", () => {
 
     it("mixed LTR/RTL content is handled without error", () => {
       const mixedHtml = '<p>Hello</p><p dir="rtl">مرحبا</p>';
-      const body: EmailBody = { html: mixedHtml, text: null, sizeBytes: mixedHtml.length };
+      const body: EmailBody = {
+        html: mixedHtml,
+        text: null,
+        sizeBytes: mixedHtml.length,
+      };
       expect(() => resolveBodyContent(body)).not.toThrow();
       const resolved = resolveBodyContent(body);
       expect(resolved.mode).toBe("html");
@@ -369,7 +397,8 @@ describe("CSS url() stripping edge cases in inline styles", () => {
   });
 
   it("preserves safe properties alongside stripped url() declarations", () => {
-    const style = "color: blue; background-image: url(https://tracker.com/px); font-weight: bold";
+    const style =
+      "color: blue; background-image: url(https://tracker.com/px); font-weight: bold";
     const result = stripUrlFromStyle(style);
     expect(result).not.toContain("url(");
     expect(result).toContain("color: blue");

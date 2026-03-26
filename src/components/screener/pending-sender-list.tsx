@@ -3,11 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  approveSender,
-  rejectSender,
-  skipSender,
-} from "@/actions/senders";
+import { approveSender, rejectSender, skipSender } from "@/actions/senders";
 import {
   Inbox,
   Newspaper,
@@ -44,11 +40,7 @@ const CATEGORY_CONFIG = {
   },
 } as const;
 
-export function PendingSenderList({
-  senders,
-}: {
-  senders: PendingSender[];
-}) {
+export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -98,9 +90,7 @@ export function PendingSenderList({
           <div key={sender.id} className="border-b">
             <div className="flex items-center gap-3 px-6 py-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                {(sender.displayName || sender.email)
-                  .charAt(0)
-                  .toUpperCase()}
+                {(sender.displayName || sender.email).charAt(0).toUpperCase()}
               </div>
 
               <div className="min-w-0 flex-1">

@@ -70,9 +70,7 @@ async function processSyncJob(job: Job<SyncJobData>): Promise<void> {
   // Claim DB lock (defense-in-depth alongside BullMQ's job uniqueness)
   const locked = await claimSyncLock(emailConnectionId);
   if (!locked) {
-    console.log(
-      `[sync-worker] Lock held for ${emailConnectionId}, skipping`,
-    );
+    console.log(`[sync-worker] Lock held for ${emailConnectionId}, skipping`);
     return;
   }
 
@@ -159,10 +157,7 @@ export async function startSyncWorker(): Promise<void> {
   });
 
   syncWorker.on("failed", (job, err) => {
-    console.error(
-      `[sync-worker] Job ${job?.id} failed:`,
-      err.message,
-    );
+    console.error(`[sync-worker] Job ${job?.id} failed:`, err.message);
   });
 
   console.log("[sync-worker] Started with concurrency 5");

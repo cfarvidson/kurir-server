@@ -162,7 +162,9 @@ export function FollowUpButton({
             ) : (
               <Bell className="h-3.5 w-3.5" />
             )}
-            <span className="hidden md:inline">{formatRelativeDate(new Date(followUpAt))}</span>
+            <span className="hidden md:inline">
+              {formatRelativeDate(new Date(followUpAt))}
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-0">

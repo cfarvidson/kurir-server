@@ -61,7 +61,7 @@ export async function moveToArchiveViaImap(
   userId: string,
   connectionId: string,
   folderId: string,
-  uids: number[]
+  uids: number[],
 ) {
   for (const uid of uids) {
     suppressEcho(userId, folderId, uid);
@@ -112,7 +112,7 @@ export async function moveToInboxViaImap(
   userId: string,
   connectionId: string,
   folderId: string,
-  uids: number[]
+  uids: number[],
 ) {
   for (const uid of uids) {
     suppressEcho(userId, folderId, uid);
@@ -141,7 +141,10 @@ export async function moveToInboxViaImap(
   });
 }
 
-export async function archiveConversation(messageId: string, sourcePath?: string) {
+export async function archiveConversation(
+  messageId: string,
+  sourcePath?: string,
+) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -149,7 +152,13 @@ export async function archiveConversation(messageId: string, sourcePath?: string
 
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    select: { id: true, threadId: true, emailConnectionId: true, uid: true, folderId: true },
+    select: {
+      id: true,
+      threadId: true,
+      emailConnectionId: true,
+      uid: true,
+      folderId: true,
+    },
   });
 
   if (!message) throw new Error("Message not found");
@@ -205,13 +214,16 @@ export async function archiveConversation(messageId: string, sourcePath?: string
         userId,
         connectionId,
         inboxFolder.id,
-        inboxMessageUids
-      ).catch((err) => console.error("IMAP archive move failed:", err))
+        inboxMessageUids,
+      ).catch((err) => console.error("IMAP archive move failed:", err)),
     );
   }
 }
 
-export async function archiveConversations(messageIds: string[], sourcePath?: string) {
+export async function archiveConversations(
+  messageIds: string[],
+  sourcePath?: string,
+) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -300,7 +312,7 @@ export async function archiveConversations(messageIds: string[], sourcePath?: st
     after(async () => {
       for (const { connectionId, folderId, uids } of imapWork) {
         await moveToArchiveViaImap(userId, connectionId, folderId, uids).catch(
-          (err) => console.error("IMAP archive move failed:", err)
+          (err) => console.error("IMAP archive move failed:", err),
         );
       }
     });
@@ -380,8 +392,8 @@ export async function unarchiveConversation(messageId: string) {
         userId,
         connectionId,
         archiveFolder.id,
-        archiveMessageUids
-      ).catch((err) => console.error("IMAP unarchive move failed:", err))
+        archiveMessageUids,
+      ).catch((err) => console.error("IMAP unarchive move failed:", err)),
     );
   }
 }
@@ -492,7 +504,7 @@ export async function unarchiveConversations(messageIds: string[]) {
     after(async () => {
       for (const { connectionId, folderId, uids } of imapWork) {
         await moveToInboxViaImap(userId, connectionId, folderId, uids).catch(
-          (err) => console.error("IMAP unarchive move failed:", err)
+          (err) => console.error("IMAP unarchive move failed:", err),
         );
       }
     });

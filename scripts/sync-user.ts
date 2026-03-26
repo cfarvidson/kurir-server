@@ -7,7 +7,9 @@
  *   pnpm sync-user --all
  */
 
-try { await import("dotenv/config"); } catch {}
+try {
+  await import("dotenv/config");
+} catch {}
 import { PrismaClient } from "@prisma/client";
 import { syncEmailConnection } from "../src/lib/mail/sync-service";
 
@@ -25,7 +27,7 @@ async function syncConnection(connectionId: string, email: string) {
 
   for (const r of result.results) {
     console.log(
-      `  ${r.folderId}: ${r.newMessages} new (${r.totalCached}/${r.totalOnServer} cached)`
+      `  ${r.folderId}: ${r.newMessages} new (${r.totalCached}/${r.totalOnServer} cached)`,
     );
     if (r.errors.length > 0) {
       for (const err of r.errors) {

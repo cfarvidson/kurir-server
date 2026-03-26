@@ -84,10 +84,18 @@ const globalForImap = globalThis as unknown as {
 class ConnectionManager {
   private connections: Map<string, UserConnection> = new Map();
 
-  async startUser(userId: string): Promise<void> { /* ... */ }
-  async stopUser(userId: string): Promise<void> { /* ... */ }
-  async stopAll(): Promise<void> { /* ... */ }
-  getClient(userId: string): ImapFlow | null { /* ... */ }
+  async startUser(userId: string): Promise<void> {
+    /* ... */
+  }
+  async stopUser(userId: string): Promise<void> {
+    /* ... */
+  }
+  async stopAll(): Promise<void> {
+    /* ... */
+  }
+  getClient(userId: string): ImapFlow | null {
+    /* ... */
+  }
 }
 
 export const connectionManager =
@@ -107,7 +115,7 @@ interface UserConnection {
   folderId: string;
   lock: MailboxLockObject | null;
   reconnectTimer: NodeJS.Timeout | null;
-  debounceTimers: Map<string, NodeJS.Timeout>;  // cleared in stopUser()
+  debounceTimers: Map<string, NodeJS.Timeout>; // cleared in stopUser()
   isGmail: boolean;
 }
 ```
@@ -121,11 +129,12 @@ const client = new ImapFlow({
   secure: true,
   auth: { user: credentials.email, pass: credentials.password },
   logger: false,
-  qresync: true,  // CRITICAL: enables UID in expunge/flags events
+  qresync: true, // CRITICAL: enables UID in expunge/flags events
 });
 ```
 
 **Lifecycle:**
+
 - `startUser()` — called from `(mail)/layout.tsx` Server Component on first authenticated render. Creates client, connects, acquires INBOX lock, registers event handlers.
 - `stopUser()` — called on logout or `SIGTERM`. Clears all debounce timers, releases lock, calls `client.logout()`.
 - `stopAll()` — registered via `process.on("SIGTERM", () => connectionManager.stopAll())`.
@@ -139,7 +148,10 @@ In `syncMailbox()`, around line 114 where `client.status()` is called:
 
 ```typescript
 const status = await client.status(mailboxPath, {
-  messages: true, uidNext: true, uidValidity: true, highestModseq: true,
+  messages: true,
+  uidNext: true,
+  uidValidity: true,
+  highestModseq: true,
 });
 ```
 
@@ -167,19 +179,28 @@ function safeAsync<T>(fn: (data: T) => Promise<void>) {
 }
 
 // In ConnectionManager.startUser(), after acquiring lock:
-client.on("exists", safeAsync(async ({ count, prevCount }) => {
-  await handleNewMessages(userId, folderId, client);
-}));
+client.on(
+  "exists",
+  safeAsync(async ({ count, prevCount }) => {
+    await handleNewMessages(userId, folderId, client);
+  }),
+);
 
-client.on("expunge", safeAsync(async ({ uid }) => {
-  if (!uid) return;  // should not happen with qresync, but guard
-  await handleExpunge(userId, folderId, uid);
-}));
+client.on(
+  "expunge",
+  safeAsync(async ({ uid }) => {
+    if (!uid) return; // should not happen with qresync, but guard
+    await handleExpunge(userId, folderId, uid);
+  }),
+);
 
-client.on("flags", safeAsync(async ({ uid, flags, modseq }) => {
-  if (!uid) return;
-  await handleFlagChange(userId, folderId, uid, flags, modseq);
-}));
+client.on(
+  "flags",
+  safeAsync(async ({ uid, flags, modseq }) => {
+    if (!uid) return;
+    await handleFlagChange(userId, folderId, uid, flags, modseq);
+  }),
+);
 
 client.on("close", () => {
   scheduleReconnect(userId);
@@ -187,6 +208,7 @@ client.on("close", () => {
 ```
 
 **`handleNewMessages`** — on `exists` event:
+
 1. Debounce with 200ms window (batch rapid arrivals).
 2. Check `SyncState.isSyncing` — skip if full sync is running.
 3. Fetch only UIDs > last known UID for this folder via existing sync logic.
@@ -194,12 +216,14 @@ client.on("close", () => {
 5. Emit SSE event to browser.
 
 **`handleExpunge`** — on `expunge` event:
+
 1. Look up message by `(folderId, uid)` in DB. If not found, ignore.
 2. Check echo suppression — skip if this is our own change.
 3. Set `isDeleted: true` in DB. (Simplification: don't attempt archive-vs-delete disambiguation. The next poll cycle reconciles if the message actually moved to Archive. The worst case is a 30s window where a moved message appears deleted.)
 4. Emit SSE event.
 
 **`handleFlagChange`** — on `flags` event:
+
 1. Look up message by `(folderId, uid)` in DB. If not found, ignore.
 2. Check echo suppression — skip if this is our own change.
 3. Map IMAP flags to DB fields:
@@ -209,6 +233,7 @@ client.on("close", () => {
 6. If `modseq` is present and higher than stored `Folder.highestModSeq`, update it.
 
 **Event debouncing:**
+
 - `exists` events: 200ms debounce window. Clear timer in `stopUser()`.
 - `flags` and `expunge`: process individually (they carry specific UID data).
 
@@ -218,15 +243,19 @@ When the Connection Manager reconnects after a disconnection:
 
 ```typescript
 async function catchUpAfterReconnect(
-  client: ImapFlow, userId: string, folderId: string
+  client: ImapFlow,
+  userId: string,
+  folderId: string,
 ): Promise<void> {
   const folder = await db.folder.findUnique({ where: { id: folderId } });
-  if (!folder?.highestModSeq) return;  // no stored modseq, skip
+  if (!folder?.highestModSeq) return; // no stored modseq, skip
 
   // Fetch only messages changed since last known modseq
   let maxModSeq = folder.highestModSeq;
   for await (const msg of client.fetch("1:*", {
-    uid: true, flags: true, changedSince: folder.highestModSeq,
+    uid: true,
+    flags: true,
+    changedSince: folder.highestModSeq,
   })) {
     await updateMessageFlags(userId, folderId, msg.uid, msg.flags);
     // Track max modseq from fetch responses (not from a separate STATUS call)
@@ -250,11 +279,11 @@ If `highestModSeq` is null (never stored), the catch-up is skipped — the next 
 
 #### Files changed — Phase 1
 
-| File | Action | Purpose |
-|------|--------|---------|
+| File                                 | Action | Purpose                                        |
+| ------------------------------------ | ------ | ---------------------------------------------- |
 | `src/lib/mail/connection-manager.ts` | Create | Singleton, lifecycle, reconnect, `getClient()` |
-| `src/lib/mail/idle-handlers.ts` | Create | Event handlers with `safeAsync` wrapper |
-| `src/lib/mail/sync-service.ts` | Edit | Store `highestModSeq` in status call |
+| `src/lib/mail/idle-handlers.ts`      | Create | Event handlers with `safeAsync` wrapper        |
+| `src/lib/mail/sync-service.ts`       | Edit   | Store `highestModSeq` in status call           |
 
 ---
 
@@ -270,7 +299,11 @@ Prefer the ConnectionManager's persistent client; fall back to `withImapConnecti
 // Inline echo suppression — plain Set + setTimeout (no separate file)
 const pendingEchoes = new Set<string>();
 
-export function suppressEcho(userId: string, folderId: string, uid: number): void {
+export function suppressEcho(
+  userId: string,
+  folderId: string,
+  uid: number,
+): void {
   const key = `${userId}:${folderId}:${uid}`;
   pendingEchoes.add(key);
   setTimeout(() => pendingEchoes.delete(key), 10_000);
@@ -278,7 +311,7 @@ export function suppressEcho(userId: string, folderId: string, uid: number): voi
 
 export function isEcho(userId: string, folderId: string, uid: number): boolean {
   const key = `${userId}:${folderId}:${uid}`;
-  return pendingEchoes.delete(key);  // returns true if was present
+  return pendingEchoes.delete(key); // returns true if was present
 }
 
 export async function pushFlagsToImap(
@@ -287,7 +320,7 @@ export async function pushFlagsToImap(
   flag: string,
   action: "add" | "remove",
 ): Promise<void> {
-  const imapMessages = messages.filter(m => m.uid > 0);  // skip local placeholders
+  const imapMessages = messages.filter((m) => m.uid > 0); // skip local placeholders
   if (imapMessages.length === 0) return;
 
   // Register echo suppression before push
@@ -301,14 +334,20 @@ export async function pushFlagsToImap(
   if (persistentClient) {
     // Use persistent connection — no connect/logout overhead
     for (const msg of imapMessages) {
-      const folder = await db.folder.findUnique({ where: { id: msg.folderId } });
+      const folder = await db.folder.findUnique({
+        where: { id: msg.folderId },
+      });
       if (!folder) continue;
       const lock = await persistentClient.getMailboxLock(folder.path);
       try {
         if (action === "add") {
-          await persistentClient.messageFlagsAdd(String(msg.uid), [flag], { uid: true });
+          await persistentClient.messageFlagsAdd(String(msg.uid), [flag], {
+            uid: true,
+          });
         } else {
-          await persistentClient.messageFlagsRemove(String(msg.uid), [flag], { uid: true });
+          await persistentClient.messageFlagsRemove(String(msg.uid), [flag], {
+            uid: true,
+          });
         }
       } finally {
         lock.release();
@@ -316,7 +355,9 @@ export async function pushFlagsToImap(
     }
   } else {
     // Fallback: ephemeral connection
-    await withImapConnection(userId, async (client) => { /* same logic */ });
+    await withImapConnection(userId, async (client) => {
+      /* same logic */
+    });
   }
 }
 ```
@@ -361,7 +402,10 @@ for (const uid of inboxMessageUids) {
 
 export type MailEvent =
   | { type: "new-messages"; data: { folderId: string; count: number } }
-  | { type: "flags-changed"; data: { messageId: string; flags: Record<string, boolean> } }
+  | {
+      type: "flags-changed";
+      data: { messageId: string; flags: Record<string, boolean> };
+    }
   | { type: "message-deleted"; data: { messageId: string } };
 
 type EventCallback = (event: MailEvent) => void;
@@ -382,7 +426,7 @@ IDLE handlers import `emitToUser` directly. No class needed.
 #### 2.5 SSE endpoint — `src/app/api/mail/events/route.ts` (new)
 
 ```typescript
-export const runtime = "nodejs";  // not edge — needs access to sseSubscribers
+export const runtime = "nodejs"; // not edge — needs access to sseSubscribers
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -395,9 +439,11 @@ export async function GET(request: NextRequest) {
     start(controller) {
       const encoder = new TextEncoder();
       const send = (event: MailEvent) => {
-        controller.enqueue(encoder.encode(
-          `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`
-        ));
+        controller.enqueue(
+          encoder.encode(
+            `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`,
+          ),
+        );
       };
 
       // Register subscriber
@@ -439,7 +485,9 @@ Inline the EventSource directly (no separate hook file — single use):
 ```typescript
 // Stable ref to avoid reconnect on every render
 const routerRef = useRef(router);
-useLayoutEffect(() => { routerRef.current = router; });
+useLayoutEffect(() => {
+  routerRef.current = router;
+});
 
 useEffect(() => {
   const es = new EventSource("/api/mail/events");
@@ -452,24 +500,24 @@ useEffect(() => {
   es.onerror = () => console.warn("[sse] reconnecting...");
 
   return () => es.close();
-}, []);  // stable — no dependency on router
+}, []); // stable — no dependency on router
 ```
 
 Increase React Query poll fallback from 5s to 30s (SSE handles the realtime path).
 
 #### Files changed — Phase 2
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/lib/mail/flag-push.ts` | Create | Flag push + inline echo suppression |
-| `src/lib/mail/sse-subscribers.ts` | Create | Module-scoped SSE subscriber Map + `emitToUser` |
-| `src/app/api/mail/events/route.ts` | Create | SSE endpoint |
-| `src/app/(mail)/imbox/[id]/page.tsx` | Edit | Push `\Seen` after thread load |
-| `src/app/(mail)/feed/[id]/page.tsx` | Edit | Push `\Seen` after thread load |
-| `src/app/(mail)/paper-trail/[id]/page.tsx` | Edit | Push `\Seen` after thread load |
-| `src/app/(mail)/archive/[id]/page.tsx` | Edit | Push `\Seen` after thread load |
-| `src/actions/archive.ts` | Edit | Add echo suppression before IMAP move |
-| `src/components/mail/auto-sync.tsx` | Edit | Inline SSE + increase poll to 30s |
+| File                                       | Action | Purpose                                         |
+| ------------------------------------------ | ------ | ----------------------------------------------- |
+| `src/lib/mail/flag-push.ts`                | Create | Flag push + inline echo suppression             |
+| `src/lib/mail/sse-subscribers.ts`          | Create | Module-scoped SSE subscriber Map + `emitToUser` |
+| `src/app/api/mail/events/route.ts`         | Create | SSE endpoint                                    |
+| `src/app/(mail)/imbox/[id]/page.tsx`       | Edit   | Push `\Seen` after thread load                  |
+| `src/app/(mail)/feed/[id]/page.tsx`        | Edit   | Push `\Seen` after thread load                  |
+| `src/app/(mail)/paper-trail/[id]/page.tsx` | Edit   | Push `\Seen` after thread load                  |
+| `src/app/(mail)/archive/[id]/page.tsx`     | Edit   | Push `\Seen` after thread load                  |
+| `src/actions/archive.ts`                   | Edit   | Add echo suppression before IMAP move           |
+| `src/components/mail/auto-sync.tsx`        | Edit   | Inline SSE + increase poll to 30s               |
 
 ---
 
@@ -491,6 +539,7 @@ This is ~30 lines of branching logic, not a separate file.
 ## Implementation Checklist
 
 ### Phase 1: Foundation + IDLE
+
 - [x] 1. Create `src/lib/mail/connection-manager.ts` — `globalThis` singleton, INBOX-only, `getClient()`, `stopAll()` on SIGTERM
 - [x] 2. Store `highestModSeq` in `syncMailbox()` status call
 - [x] 3. Create `src/lib/mail/idle-handlers.ts` — `safeAsync` wrapper + `handleNewMessages` (200ms debounce)
@@ -500,6 +549,7 @@ This is ~30 lines of branching logic, not a separate file.
 - [x] 7. Initialize ConnectionManager from `(mail)/layout.tsx` Server Component
 
 ### Phase 2: Push Layer + SSE
+
 - [x] 8. Create `src/lib/mail/flag-push.ts` — flag push with inline echo suppression (Set + setTimeout)
 - [x] 9. Push `\Seen` from thread page Server Components (not `getThreadMessages`)
 - [x] 10. Add echo suppression to `archiveConversation()` in `archive.ts`
@@ -508,37 +558,44 @@ This is ~30 lines of branching logic, not a separate file.
 - [x] 13. Integrate SSE inline in `auto-sync.tsx` (useRef for stable callback), increase poll to 30s
 
 ### Phase 3: Gmail (when needed)
+
 - [ ] 14. Gmail detection from IMAP host, store on UserConnection
 - [ ] 15. Gmail archive via label removal in `archive.ts`
 
 ## Acceptance Criteria
 
 ### Flag Sync (IMAP → Kurir)
+
 - [ ] Reading a message on phone marks it read in Kurir within seconds
 - [ ] Flagging a message on phone marks it flagged in Kurir
 - [ ] Deleting a message on phone removes it from Kurir
 
 ### Flag Sync (Kurir → IMAP)
+
 - [ ] Opening a thread in Kurir sets `\Seen` on the IMAP server
 - [ ] Archiving in Kurir moves message on IMAP server
 
 ### Realtime Updates
+
 - [ ] New messages appear in Kurir within 2s of IMAP delivery (via IDLE + SSE)
 - [ ] Flag changes appear within 2s
 - [ ] SSE auto-reconnects on connection drop
 - [ ] React Query poll continues as 30s fallback
 
 ### CONDSTORE
+
 - [ ] `Folder.highestModSeq` is stored after every sync
 - [ ] After reconnect, only changed flags are fetched (not full mailbox scan)
 
 ### Connection Management
+
 - [ ] Persistent connections survive indefinitely (auto-IDLE cycling)
 - [ ] Reconnection with exponential backoff on connection drop
 - [ ] Graceful shutdown on `SIGTERM`
 - [ ] No connection leaks during Next.js dev hot reload (`globalThis` pattern)
 
 ### Echo Suppression
+
 - [ ] Kurir-initiated changes are not re-processed from IDLE
 - [ ] Redundant DB updates from missed suppressions are harmless (idempotent)
 
@@ -556,13 +613,13 @@ This is ~30 lines of branching logic, not a separate file.
 
 ## Risk Analysis
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| IMAP server rate-limits persistent connections | Connection dropped, missed events | Exponential backoff, poll fallback at 30s |
-| Multi-process deployment breaks in-process state | Missed events, echo failures | Document single-process constraint; Docker Compose is single-process |
-| `globalThis` pattern fails in edge runtime | No persistent connections | Explicit `runtime = "nodejs"` on SSE route; init from layout, not middleware |
-| SSE connections accumulate without cleanup | Memory leak | AbortSignal cleanup, heartbeat timeout |
-| Hot reload connection leak in dev | Orphaned IMAP connections | `globalThis` preserves singleton across HMR |
+| Risk                                             | Impact                            | Mitigation                                                                   |
+| ------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
+| IMAP server rate-limits persistent connections   | Connection dropped, missed events | Exponential backoff, poll fallback at 30s                                    |
+| Multi-process deployment breaks in-process state | Missed events, echo failures      | Document single-process constraint; Docker Compose is single-process         |
+| `globalThis` pattern fails in edge runtime       | No persistent connections         | Explicit `runtime = "nodejs"` on SSE route; init from layout, not middleware |
+| SSE connections accumulate without cleanup       | Memory leak                       | AbortSignal cleanup, heartbeat timeout                                       |
+| Hot reload connection leak in dev                | Orphaned IMAP connections         | `globalThis` preserves singleton across HMR                                  |
 
 ## Dependencies
 

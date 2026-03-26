@@ -13,12 +13,14 @@ deepened: 2026-03-18
 **Research agents used:** architecture-strategist, code-simplicity-reviewer, performance-oracle, kieran-typescript-reviewer, Context7 (Next.js, ImapFlow)
 
 ### Key Improvements
+
 1. Confirmed `after()` is stable in Next.js 15.1 — no experimental flag needed
 2. Identified silent failure mode: `moveToArchiveViaImap` logs success even when IMAP connection returns null
 3. Simplified from 3 phases to 2 — dropped IDLE handler phase (YAGNI)
 4. Dropped `movedIds` partial-batch tracking — self-healing re-sync makes it unnecessary
 
 ### New Considerations Discovered
+
 - `moveToArchiveViaImap()` has no way to signal failure — `withImapConnection` swallows errors and returns null
 - Archive folder discovery logic is duplicated in 3 places — extract into shared helper
 - The 60-second sync cycle via `moveRejectedToArchive()` is a sufficient safety net for IDLE-path messages
@@ -116,6 +118,7 @@ async function moveRejectedToArchive(
 ~~Handle IDLE path for rejected senders~~
 
 **Why dropped:** The 60-second background sync already catches rejected-sender messages via `moveRejectedToArchive()`. A rejected-sender email sitting in the IMAP inbox for up to 60 seconds is invisible in Kurir (the DB already has `isArchived: true`). Adding IMAP move logic to the IDLE handler would:
+
 - Create a second code path doing the same thing as `moveRejectedToArchive()`
 - Require the IDLE handler to resolve archive folder paths (currently not its concern)
 - Break the IDLE handler's read-only IMAP pattern for a 60-second latency improvement no user will notice
@@ -123,6 +126,7 @@ async function moveRejectedToArchive(
 ### Optional: Extract shared archive folder discovery
 
 The pattern `mailboxes.find(mb => mb.specialUse === "\\Archive" || ...) ?? mailboxes.find(mb => mb.specialUse === "\\All")` appears in 3 places:
+
 - `moveToArchiveViaImap()` (archive.ts:72-77)
 - `moveToInboxViaImap()` (archive.ts:123-127)
 - `moveRejectedToArchive()` (sync-service.ts:688-693)
@@ -131,10 +135,13 @@ Extract into a shared helper to prevent drift:
 
 ```typescript
 // src/lib/mail/imap-client.ts
-export function findArchiveMailbox(mailboxes: Awaited<ReturnType<ImapFlow["list"]>>) {
+export function findArchiveMailbox(
+  mailboxes: Awaited<ReturnType<ImapFlow["list"]>>,
+) {
   return (
     mailboxes.find(
-      (mb) => mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive"
+      (mb) =>
+        mb.specialUse === "\\Archive" || mb.path.toLowerCase() === "archive",
     ) ?? mailboxes.find((mb) => mb.specialUse === "\\All")
   );
 }

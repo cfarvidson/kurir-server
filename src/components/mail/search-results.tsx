@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { BookUser, ChevronRight, Inbox, Newspaper, Receipt } from "lucide-react";
+import {
+  BookUser,
+  ChevronRight,
+  Inbox,
+  Newspaper,
+  Receipt,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchMessages } from "@/lib/mail/search";
 import {

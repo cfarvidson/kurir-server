@@ -30,8 +30,16 @@ interface ContactListProps {
 
 const categoryConfig = {
   IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
-  FEED: { label: "Feed", icon: Newspaper, color: "text-blue-600 dark:text-blue-400" },
-  PAPER_TRAIL: { label: "Paper Trail", icon: Receipt, color: "text-amber-600 dark:text-amber-400" },
+  FEED: {
+    label: "Feed",
+    icon: Newspaper,
+    color: "text-blue-600 dark:text-blue-400",
+  },
+  PAPER_TRAIL: {
+    label: "Paper Trail",
+    icon: Receipt,
+    color: "text-amber-600 dark:text-amber-400",
+  },
 } as const;
 
 type FilterCategory = "ALL" | "IMBOX" | "FEED" | "PAPER_TRAIL";
@@ -68,7 +76,7 @@ function ContactCard({ contact }: { contact: Contact }) {
       <div
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-transform duration-150 group-hover:scale-105",
-          getInitialColor(contact.email)
+          getInitialColor(contact.email),
         )}
       >
         {name.charAt(0).toUpperCase()}
@@ -114,7 +122,7 @@ export function ContactList({ contacts }: ContactListProps) {
         (c) =>
           c.email.toLowerCase().includes(q) ||
           c.displayName?.toLowerCase().includes(q) ||
-          c.domain.toLowerCase().includes(q)
+          c.domain.toLowerCase().includes(q),
       );
     }
 
@@ -182,7 +190,7 @@ export function ContactList({ contacts }: ContactListProps) {
                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 filter === opt.key
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {opt.label}

@@ -12,13 +12,11 @@ import { describe, it, expect } from "vitest";
 // Test the routing decision logic in isolation
 // (middleware itself is an edge function and hard to unit-test directly)
 
-type RoutingDecision =
-  | { action: "next" }
-  | { action: "redirect"; to: string };
+type RoutingDecision = { action: "next" } | { action: "redirect"; to: string };
 
 function evaluateMiddleware(
   pathname: string,
-  isLoggedIn: boolean
+  isLoggedIn: boolean,
 ): RoutingDecision {
   const isOnLoginPage = pathname === "/login";
   const isOnSetupPage = pathname === "/setup";
@@ -36,7 +34,14 @@ function evaluateMiddleware(
 describe("middleware route protection", () => {
   describe("unauthenticated user", () => {
     it("redirects to /login for protected routes", () => {
-      const routes = ["/imbox", "/feed", "/paper-trail", "/archive", "/compose", "/settings"];
+      const routes = [
+        "/imbox",
+        "/feed",
+        "/paper-trail",
+        "/archive",
+        "/compose",
+        "/settings",
+      ];
       for (const route of routes) {
         const result = evaluateMiddleware(route, false);
         expect(result).toEqual({ action: "redirect", to: "/login" });
@@ -48,7 +53,9 @@ describe("middleware route protection", () => {
     });
 
     it("allows access to /register without redirect", () => {
-      expect(evaluateMiddleware("/register", false)).toEqual({ action: "next" });
+      expect(evaluateMiddleware("/register", false)).toEqual({
+        action: "next",
+      });
     });
 
     it("allows access to /setup without redirect", () => {
@@ -71,7 +78,13 @@ describe("middleware route protection", () => {
 
   describe("authenticated user", () => {
     it("allows access to protected routes", () => {
-      const routes = ["/imbox", "/feed", "/paper-trail", "/compose", "/settings"];
+      const routes = [
+        "/imbox",
+        "/feed",
+        "/paper-trail",
+        "/compose",
+        "/settings",
+      ];
       for (const route of routes) {
         expect(evaluateMiddleware(route, true)).toEqual({ action: "next" });
       }
@@ -94,7 +107,9 @@ describe("middleware route protection", () => {
     });
 
     it("allows /api/auth/* through", () => {
-      expect(evaluateMiddleware("/api/auth/session", true)).toEqual({ action: "next" });
+      expect(evaluateMiddleware("/api/auth/session", true)).toEqual({
+        action: "next",
+      });
     });
   });
 

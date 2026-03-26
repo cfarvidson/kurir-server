@@ -3,7 +3,13 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
-import { BookUser, ChevronRight, Inbox, Newspaper, Receipt } from "lucide-react";
+import {
+  BookUser,
+  ChevronRight,
+  Inbox,
+  Newspaper,
+  Receipt,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MessageList } from "@/components/mail/message-list";
 import { SearchInput } from "@/components/mail/search-input";
@@ -94,7 +100,7 @@ async function getSentMessages(userId: string, folderId: string) {
  */
 async function getRecipientNames(
   userId: string,
-  emails: string[]
+  emails: string[],
 ): Promise<Map<string, string>> {
   const unique = [...new Set(emails.filter(Boolean))];
   if (unique.length === 0) return new Map();
@@ -146,15 +152,13 @@ export default async function SentPage({
   const isSearching = !!(q && q.length >= 2);
 
   // Search contacts alongside messages
-  const contacts = isSearching
-    ? await searchContacts(session.user.id, q)
-    : [];
+  const contacts = isSearching ? await searchContacts(session.user.id, q) : [];
 
   const rawMessages = isSearching
     ? await searchMessages(
         session.user.id,
         q,
-        Prisma.sql`AND "folderId" = ${sentFolder.id}`
+        Prisma.sql`AND "folderId" = ${sentFolder.id}`,
       )
     : await getSentMessages(session.user.id, sentFolder.id);
 
@@ -164,7 +168,7 @@ export default async function SentPage({
     .filter(Boolean) as string[];
   const recipientNames = await getRecipientNames(
     session.user.id,
-    recipientEmails
+    recipientEmails,
   );
 
   const messages = rawMessages.map((m) => {
@@ -238,7 +242,11 @@ export default async function SentPage({
               </div>
             )}
             {messages.length > 0 && (
-              <MessageList messages={messages} basePath="/sent" showFollowUpAction />
+              <MessageList
+                messages={messages}
+                basePath="/sent"
+                showFollowUpAction
+              />
             )}
           </div>
         )}

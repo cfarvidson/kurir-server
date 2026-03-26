@@ -18,6 +18,7 @@ Scale Kurir from a single-user deployment to support 10-30 users (small group/or
 The biggest bottleneck is the sequential sync loop — with 30 users it could take 15+ minutes per cycle. In-memory singletons (ConnectionManager, SSE, echo suppression) are a secondary concern that works fine at this scale in a single process.
 
 The hybrid approach:
+
 1. Fix in-process bottlenecks first (parallel sync, connection caps, memory limits)
 2. Add Redis + BullMQ only for the sync job queue
 3. Keep SSE and ConnectionManager in-process (they work fine single-process at this scale)
@@ -29,6 +30,7 @@ This avoids over-engineering while solving the real problem.
 ### 1. Sync Architecture: BullMQ Job Queue via Redis
 
 Replace the `setInterval` sync loop with BullMQ jobs:
+
 - Per-user sync jobs with configurable intervals
 - Concurrency limit (e.g., 5 concurrent syncs)
 - Proper retries, backoff, and dead-letter handling
@@ -38,6 +40,7 @@ Replace the `setInterval` sync loop with BullMQ jobs:
 ### 2. IDLE Connection Management: Cap and Lazy-Connect
 
 Don't keep IDLE connections open for all users:
+
 - Cap at N concurrent IDLE connections (e.g., 20-30)
 - Prioritize users who are currently online (have active SSE connections)
 - Lazy-reconnect IDLE for users who open the app

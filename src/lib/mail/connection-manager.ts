@@ -2,6 +2,7 @@ import { ImapFlow, MailboxLockObject } from "imapflow";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sseSubscribers } from "./sse-subscribers";
+import { buildImapAuth } from "@/lib/mail/auth-helpers";
 
 // Single-process constraint: ConnectionManager, sseSubscribers, and echo
 // suppression must all live in the same Node.js process. See plan doc for details.
@@ -43,11 +44,15 @@ class ConnectionManager {
     if (this.connections.size >= MAX_IDLE_CONNECTIONS) {
       const evicted = this.findEvictionCandidate();
       if (evicted) {
-        console.log(`[idle] Cap reached (${MAX_IDLE_CONNECTIONS}), evicting ${evicted}`);
+        console.log(
+          `[idle] Cap reached (${MAX_IDLE_CONNECTIONS}), evicting ${evicted}`,
+        );
         await this.stopConnection(evicted);
       } else {
         // All connections belong to active users — skip this one
-        console.log(`[idle] Cap reached, all connections active, skipping ${connectionId}`);
+        console.log(
+          `[idle] Cap reached, all connections active, skipping ${connectionId}`,
+        );
         return;
       }
     }
@@ -84,7 +89,7 @@ class ConnectionManager {
       host: credentials.imap.host,
       port: credentials.imap.port,
       secure: true,
-      auth: { user: credentials.email, pass: credentials.password },
+      auth: buildImapAuth(credentials),
       logger: false,
       qresync: true,
     });
@@ -110,7 +115,8 @@ class ConnectionManager {
       conn.lock = lock;
 
       // Import and register IDLE event handlers
-      const { registerIdleHandlers, catchUpAfterReconnect } = await import("./idle-handlers");
+      const { registerIdleHandlers, catchUpAfterReconnect } =
+        await import("./idle-handlers");
       registerIdleHandlers(conn);
 
       // CONDSTORE catch-up: fetch flag changes missed during disconnection
@@ -126,7 +132,9 @@ class ConnectionManager {
         }
       });
 
-      console.log(`[idle] Started IDLE for connection ${connectionId}${isGmail ? " (Gmail)" : ""}`);
+      console.log(
+        `[idle] Started IDLE for connection ${connectionId}${isGmail ? " (Gmail)" : ""}`,
+      );
     } catch (err) {
       console.error("[idle] Failed to start for connection", connectionId, err);
       this.connections.delete(connectionId);
@@ -137,7 +145,8 @@ class ConnectionManager {
   private scheduleReconnect(connectionId: string) {
     const conn = this.connections.get(connectionId);
     const attempt = conn?.reconnectAttempt ?? 0;
-    const delay = BACKOFF_SCHEDULE[Math.min(attempt, BACKOFF_SCHEDULE.length - 1)];
+    const delay =
+      BACKOFF_SCHEDULE[Math.min(attempt, BACKOFF_SCHEDULE.length - 1)];
 
     // Clean up old connection
     if (conn) {
@@ -147,7 +156,9 @@ class ConnectionManager {
 
     if (this.stopping) return;
 
-    console.log(`[idle] Reconnecting connection ${connectionId} in ${delay}ms (attempt ${attempt + 1})`);
+    console.log(
+      `[idle] Reconnecting connection ${connectionId} in ${delay}ms (attempt ${attempt + 1})`,
+    );
 
     const timer = setTimeout(async () => {
       this.pendingReconnects.delete(connectionId);
@@ -177,11 +188,19 @@ class ConnectionManager {
     }
 
     if (conn.lock) {
-      try { conn.lock.release(); } catch { /* ignore */ }
+      try {
+        conn.lock.release();
+      } catch {
+        /* ignore */
+      }
       conn.lock = null;
     }
 
-    try { conn.client.close(); } catch { /* ignore */ }
+    try {
+      conn.client.close();
+    } catch {
+      /* ignore */
+    }
   }
 
   /**
@@ -228,7 +247,9 @@ class ConnectionManager {
 
     try {
       await conn.client.logout();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     console.log(`[idle] Stopped IDLE for connection ${connectionId}`);
   }
@@ -243,7 +264,7 @@ class ConnectionManager {
     }
 
     const promises = Array.from(this.connections.keys()).map((id) =>
-      this.stopConnection(id)
+      this.stopConnection(id),
     );
     await Promise.allSettled(promises);
     console.log("[idle] All connections stopped");
@@ -268,7 +289,7 @@ class ConnectionManager {
       select: { id: true },
     });
     await Promise.allSettled(
-      emailConns.map((ec) => this.startConnection(ec.id))
+      emailConns.map((ec) => this.startConnection(ec.id)),
     );
   }
 
