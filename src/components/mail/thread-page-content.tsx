@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
 
@@ -63,7 +63,6 @@ export function ThreadPageContent({
     [userEmails],
   );
   const [messages, setMessages] = useState(initialMessages);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
@@ -89,11 +88,6 @@ export function ThreadPageContent({
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
-
-    // Scroll to the new message
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
   };
 
   return (
@@ -104,7 +98,7 @@ export function ThreadPageContent({
         userEmails={userEmailSet}
       />
 
-      <div className="mt-6 pb-8" ref={bottomRef}>
+      <div className="mt-6 pb-8">
         <ReplyComposer
           messageId={replyToMessageId}
           replyToAddress={replyToAddress}
