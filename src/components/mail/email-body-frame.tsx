@@ -40,6 +40,9 @@ export function EmailBodyFrame({
   const [height, setHeight] = useState(0);
   const [scale, setScale] = useState(1);
   const [mounted, setMounted] = useState(false);
+  // Track whether initial measurement has been painted so we can enable
+  // CSS transitions only for *subsequent* resizes (e.g. image load).
+  const canTransition = useRef(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -79,6 +82,11 @@ export function EmailBodyFrame({
       if (!body) return;
 
       measure();
+      // Enable transitions AFTER the first measurement has been committed
+      // to the DOM, so the initial appearance is instant (no layout shift).
+      requestAnimationFrame(() => {
+        canTransition.current = true;
+      });
 
       observer = new ResizeObserver(() => measure());
       observer.observe(body);
@@ -101,8 +109,8 @@ export function EmailBodyFrame({
       ref={wrapperRef}
       className="overflow-hidden"
       style={{
-        height: visualHeight,
-        transition: "height 0.15s ease-out",
+        height: visualHeight || undefined,
+        transition: canTransition.current ? "height 0.15s ease-out" : undefined,
       }}
     >
       <iframe
