@@ -111,6 +111,9 @@ export function EmailBodyFrame({
       style={{
         height: visualHeight || undefined,
         transition: canTransition.current ? "height 0.15s ease-out" : undefined,
+        // Prevent browser scroll anchoring from adjusting scroll position
+        // when this element resizes — that adjustment looks like a scroll jump.
+        overflowAnchor: "none",
       }}
     >
       <iframe
