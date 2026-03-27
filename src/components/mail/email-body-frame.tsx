@@ -145,7 +145,7 @@ const BASE_STYLES = `
     word-break: break-word;
     overflow-wrap: break-word;
   }
-  body { padding: 0 4px; max-width: 100%; overflow-x: hidden; }
+  body { padding: 4px; max-width: 100%; overflow-x: hidden; }
   img { max-width: 100% !important; height: auto !important; }
   a { color: #2563eb; }
   pre, code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
