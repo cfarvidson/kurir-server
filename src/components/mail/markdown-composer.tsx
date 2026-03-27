@@ -60,6 +60,14 @@ export function MarkdownComposer({
   const valueRef = useRef(value);
   valueRef.current = value;
 
+  // Focus without scrolling the page (native autoFocus causes scroll jumps)
+  useEffect(() => {
+    if (autoFocus) {
+      textareaRef.current?.focus({ preventScroll: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-resize textarea
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -236,7 +244,6 @@ export function MarkdownComposer({
         <TabsContent value="write" className="mt-2 md:mt-2">
           <textarea
             ref={textareaRef}
-            autoFocus={autoFocus}
             spellCheck={false}
             value={value}
             onChange={(e) => {
