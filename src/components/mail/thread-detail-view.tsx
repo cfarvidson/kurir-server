@@ -182,7 +182,7 @@ export async function ThreadDetailView({
 
       {/* Thread + optional contact sidebar */}
       <div className="flex min-h-0 flex-1">
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" data-thread-scroll>
           <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
             <h1 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
               {subject}

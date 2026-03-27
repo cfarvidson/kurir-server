@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
 
@@ -63,10 +63,26 @@ export function ThreadPageContent({
     [userEmails],
   );
   const [messages, setMessages] = useState(initialMessages);
+  const scrollRef = useRef<number | null>(null);
 
+  // When server sends new messages (via revalidation), save scroll position
+  // before React updates the DOM, then restore it after paint.
   useEffect(() => {
+    const el = document.querySelector(
+      "[data-thread-scroll]",
+    ) as HTMLElement | null;
+    if (el) scrollRef.current = el.scrollTop;
     setMessages(initialMessages);
   }, [initialMessages]);
+
+  useLayoutEffect(() => {
+    if (scrollRef.current === null) return;
+    const el = document.querySelector(
+      "[data-thread-scroll]",
+    ) as HTMLElement | null;
+    if (el) el.scrollTop = scrollRef.current;
+    scrollRef.current = null;
+  }, [messages]);
 
   const handleReplySent = (body: string) => {
     const optimisticMessage: ThreadMessage = {
