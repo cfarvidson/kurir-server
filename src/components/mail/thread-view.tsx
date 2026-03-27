@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import {
@@ -211,113 +211,104 @@ function MessageBubble({
           </button>
 
           {/* Expanded content */}
-          <AnimatePresence initial={false}>
-            {!collapsed && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="overflow-hidden"
-                style={{ overflowAnchor: "none" }}
-              >
-                <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-sm md:px-4 md:py-4">
-                  {/* Recipients + actions */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="text-xs text-muted-foreground">
-                      to {message.toAddresses.join(", ")}
-                      {message.ccAddresses.length > 0 && (
-                        <span>, cc: {message.ccAddresses.join(", ")}</span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/compose?forward=${message.id}`);
-                        }}
-                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                        title="Forward this email"
-                      >
-                        <Forward className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          printEmail(message);
-                        }}
-                        className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                        title="Print this email"
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+          {!collapsed && (
+            <div style={{ overflowAnchor: "none" }}>
+              <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-sm md:px-4 md:py-4">
+                {/* Recipients + actions */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-xs text-muted-foreground">
+                    to {message.toAddresses.join(", ")}
+                    {message.ccAddresses.length > 0 && (
+                      <span>, cc: {message.ccAddresses.join(", ")}</span>
+                    )}
                   </div>
-
-                  {/* Attachments */}
-                  {message.attachments.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {message.attachments.map((att) => (
-                        <a
-                          key={att.id}
-                          href={`/api/attachments/${att.id}`}
-                          download={att.filename}
-                          className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
-                        >
-                          <Paperclip className="h-3 w-3 text-primary/60" />
-                          <span className="max-w-[200px] truncate font-medium">
-                            {att.filename}
-                          </span>
-                          <span className="text-muted-foreground/60">
-                            {att.size < 1024
-                              ? `${att.size}B`
-                              : `${Math.round(att.size / 1024)}KB`}
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Body */}
-                  <div className="mt-4">
-                    {message.htmlBody ? (
-                      <EmailBodyFrame
-                        html={message.htmlBody}
-                        collapseQuotes={quotesCollapsed && hasHtmlQuotes}
-                        attachments={message.attachments}
-                      />
-                    ) : (
-                      <div>
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                          {plainBody || "No content"}
-                        </pre>
-                        {plainQuoted && !quotesCollapsed && (
-                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
-                            {plainQuoted}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                    {hasQuotes && (
-                      <button
-                        onClick={() => setQuotesCollapsed(!quotesCollapsed)}
-                        aria-label={
-                          quotesCollapsed
-                            ? "Show quoted text"
-                            : "Hide quoted text"
-                        }
-                        aria-expanded={!quotesCollapsed}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <MoreHorizontal className="h-3 w-3" />
-                        {quotesCollapsed ? "Show quoted text" : "Hide"}
-                      </button>
-                    )}
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/compose?forward=${message.id}`);
+                      }}
+                      className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Forward this email"
+                    >
+                      <Forward className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        printEmail(message);
+                      }}
+                      className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Print this email"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
+                {/* Attachments */}
+                {message.attachments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {message.attachments.map((att) => (
+                      <a
+                        key={att.id}
+                        href={`/api/attachments/${att.id}`}
+                        download={att.filename}
+                        className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
+                      >
+                        <Paperclip className="h-3 w-3 text-primary/60" />
+                        <span className="max-w-[200px] truncate font-medium">
+                          {att.filename}
+                        </span>
+                        <span className="text-muted-foreground/60">
+                          {att.size < 1024
+                            ? `${att.size}B`
+                            : `${Math.round(att.size / 1024)}KB`}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Body */}
+                <div className="mt-4">
+                  {message.htmlBody ? (
+                    <EmailBodyFrame
+                      html={message.htmlBody}
+                      collapseQuotes={quotesCollapsed && hasHtmlQuotes}
+                      attachments={message.attachments}
+                    />
+                  ) : (
+                    <div>
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                        {plainBody || "No content"}
+                      </pre>
+                      {plainQuoted && !quotesCollapsed && (
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
+                          {plainQuoted}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                  {hasQuotes && (
+                    <button
+                      onClick={() => setQuotesCollapsed(!quotesCollapsed)}
+                      aria-label={
+                        quotesCollapsed
+                          ? "Show quoted text"
+                          : "Hide quoted text"
+                      }
+                      aria-expanded={!quotesCollapsed}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <MoreHorizontal className="h-3 w-3" />
+                      {quotesCollapsed ? "Show quoted text" : "Hide"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
