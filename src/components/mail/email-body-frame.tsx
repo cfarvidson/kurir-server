@@ -37,12 +37,9 @@ export function EmailBodyFrame({
 }: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(0);
+  const [height, setHeight] = useState<number | null>(null);
   const [scale, setScale] = useState(1);
   const [mounted, setMounted] = useState(false);
-  // Track whether initial measurement has been painted so we can enable
-  // CSS transitions only for *subsequent* resizes (e.g. image load).
-  const canTransition = useRef(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -82,11 +79,6 @@ export function EmailBodyFrame({
       if (!body) return;
 
       measure();
-      // Enable transitions AFTER the first measurement has been committed
-      // to the DOM, so the initial appearance is instant (no layout shift).
-      requestAnimationFrame(() => {
-        canTransition.current = true;
-      });
 
       observer = new ResizeObserver(() => measure());
       observer.observe(body);
@@ -102,17 +94,15 @@ export function EmailBodyFrame({
 
   if (!mounted) return null;
 
-  const visualHeight = height * scale;
+  const measured = height !== null;
+  const visualHeight = measured ? height * scale : undefined;
 
   return (
     <div
       ref={wrapperRef}
       className="overflow-hidden"
       style={{
-        height: visualHeight || undefined,
-        transition: canTransition.current ? "height 0.15s ease-out" : undefined,
-        // Prevent browser scroll anchoring from adjusting scroll position
-        // when this element resizes — that adjustment looks like a scroll jump.
+        height: visualHeight,
         overflowAnchor: "none",
       }}
     >
@@ -124,7 +114,7 @@ export function EmailBodyFrame({
         title="Email content"
         aria-label="Email body"
         style={{
-          height,
+          height: height ?? undefined,
           width: scale < 1 ? `${100 / scale}%` : "100%",
           transform: scale < 1 ? `scale(${scale})` : undefined,
           transformOrigin: "top left",
