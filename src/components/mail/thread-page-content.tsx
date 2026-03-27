@@ -63,25 +63,36 @@ export function ThreadPageContent({
     [userEmails],
   );
   const [messages, setMessages] = useState(initialMessages);
-  const scrollRef = useRef<number | null>(null);
+  const scrollRef = useRef(0);
 
-  // When server sends new messages (via revalidation), save scroll position
-  // before React updates the DOM, then restore it after paint.
+  // Continuously track scroll position so we have it when router.refresh()
+  // re-renders the page (which can reset the scroll container).
   useEffect(() => {
     const el = document.querySelector(
       "[data-thread-scroll]",
     ) as HTMLElement | null;
-    if (el) scrollRef.current = el.scrollTop;
+    if (!el) return;
+    const handler = () => {
+      scrollRef.current = el.scrollTop;
+    };
+    scrollRef.current = el.scrollTop;
+    el.addEventListener("scroll", handler, { passive: true });
+    return () => el.removeEventListener("scroll", handler);
+  }, [messages]);
+
+  // Sync messages from server (triggered by router.refresh / revalidation)
+  useEffect(() => {
     setMessages(initialMessages);
   }, [initialMessages]);
 
+  // Restore scroll position BEFORE paint when messages change
   useLayoutEffect(() => {
-    if (scrollRef.current === null) return;
     const el = document.querySelector(
       "[data-thread-scroll]",
     ) as HTMLElement | null;
-    if (el) el.scrollTop = scrollRef.current;
-    scrollRef.current = null;
+    if (el && scrollRef.current > 0 && el.scrollTop !== scrollRef.current) {
+      el.scrollTop = scrollRef.current;
+    }
   }, [messages]);
 
   const handleReplySent = (body: string) => {
