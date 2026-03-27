@@ -37,7 +37,7 @@ export function EmailBodyFrame({
 }: EmailBodyFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(200);
+  const [height, setHeight] = useState(0);
   const [scale, setScale] = useState(1);
   const [mounted, setMounted] = useState(false);
 
@@ -100,7 +100,10 @@ export function EmailBodyFrame({
     <div
       ref={wrapperRef}
       className="overflow-hidden"
-      style={{ height: visualHeight }}
+      style={{
+        height: visualHeight,
+        transition: "height 0.15s ease-out",
+      }}
     >
       <iframe
         ref={iframeRef}
