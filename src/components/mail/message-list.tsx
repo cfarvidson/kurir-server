@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useTransition, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -128,7 +128,7 @@ export function MessageRow({
   onToggleSelect?: () => void;
   isFocused?: boolean;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [actionPending, setActionPending] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const isDragging = useRef(false);
@@ -166,6 +166,7 @@ export function MessageRow({
 
   const doArchive = () => {
     onArchived?.(message.id);
+    setActionPending(true);
 
     const subject =
       message.subject ||
@@ -181,18 +182,14 @@ export function MessageRow({
       },
     });
 
-    startTransition(async () => {
-      await archiveConversation(message.id, basePath);
-      router.refresh();
-    });
+    // Fire-and-forget: don't block UI with startTransition
+    archiveConversation(message.id, basePath).then(() => router.refresh());
   };
 
   const doUnarchive = () => {
     onArchived?.(message.id);
-    startTransition(async () => {
-      await unarchiveConversation(message.id);
-      router.refresh();
-    });
+    setActionPending(true);
+    unarchiveConversation(message.id).then(() => router.refresh());
   };
 
   const handleArchive = (e: React.MouseEvent) => {
@@ -209,10 +206,8 @@ export function MessageRow({
 
   const handleSnooze = (until: Date) => {
     onArchived?.(message.id);
-    startTransition(async () => {
-      await snoozeConversation(message.id, until);
-      router.refresh();
-    });
+    setActionPending(true);
+    snoozeConversation(message.id, until).then(() => router.refresh());
   };
 
   const handleFollowUp = (until: Date) => {
@@ -226,10 +221,8 @@ export function MessageRow({
     toast.success(
       `Following up ${diffDays === 1 ? "tomorrow" : `in ${diffDays} days`}`,
     );
-    startTransition(async () => {
-      await setFollowUp(message.id, until);
-      router.refresh();
-    });
+    setActionPending(true);
+    setFollowUp(message.id, until).then(() => router.refresh());
   };
 
   // Swipe config — derived from action props
@@ -366,7 +359,7 @@ export function MessageRow({
             {showFollowUpAction && (
               <FollowUpPicker
                 onFollowUp={handleFollowUp}
-                isPending={isPending}
+                isPending={actionPending}
                 side="bottom"
                 align="end"
                 trigger={
@@ -390,7 +383,7 @@ export function MessageRow({
             {showSnoozeAction && (
               <SnoozePicker
                 onSnooze={handleSnooze}
-                isPending={isPending}
+                isPending={actionPending}
                 side="bottom"
                 align="end"
                 trigger={
@@ -412,7 +405,7 @@ export function MessageRow({
                 className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 title="Archive"
               >
-                {isPending ? (
+                {actionPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
@@ -430,7 +423,7 @@ export function MessageRow({
                 className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 title="Unarchive"
               >
-                {isPending ? (
+                {actionPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <ArchiveRestore className="h-4 w-4" />
@@ -444,7 +437,7 @@ export function MessageRow({
       {showSnoozeAction && !isSelectionMode && snoozeOpen && (
         <SnoozePicker
           onSnooze={handleSnooze}
-          isPending={isPending}
+          isPending={actionPending}
           side="bottom"
           align="center"
           open={snoozeOpen}
@@ -457,7 +450,7 @@ export function MessageRow({
       {showFollowUpAction && !isSelectionMode && followUpOpen && (
         <FollowUpPicker
           onFollowUp={handleFollowUp}
-          isPending={isPending}
+          isPending={actionPending}
           side="bottom"
           align="center"
           open={followUpOpen}
@@ -480,7 +473,7 @@ export function MessageRow({
           "group relative flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           !message.isRead && "bg-primary/5",
           isSelected && "bg-primary/10",
-          isPending && "opacity-50 pointer-events-none",
+          actionPending && "opacity-50 pointer-events-none",
           focusRing,
         )}
       >
@@ -495,7 +488,7 @@ export function MessageRow({
       onSwipeLeft={showSnoozeAction ? () => setSnoozeOpen(true) : undefined}
       swipeRightIcon={swipeRightIcon}
       swipeRightColor={swipeRightColor}
-      disabled={isPending}
+      disabled={actionPending}
       onDragStateChange={(dragging) => {
         isDragging.current = dragging;
       }}
@@ -507,7 +500,7 @@ export function MessageRow({
         className={cn(
           "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           !message.isRead && "bg-primary/5",
-          isPending && "opacity-50 pointer-events-none",
+          actionPending && "opacity-50 pointer-events-none",
           focusRing,
         )}
       >

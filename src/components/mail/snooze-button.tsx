@@ -1,9 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Clock, Loader2 } from "lucide-react";
+import { Clock } from "lucide-react";
 import { snoozeConversation } from "@/actions/snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 
@@ -18,34 +17,24 @@ export function SnoozeButton({
   returnPath = "/imbox",
   timezone = "UTC",
 }: SnoozeButtonProps) {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const handleSnooze = (until: Date) => {
-    startTransition(async () => {
-      await snoozeConversation(messageId, until);
-      queryClient.removeQueries({ queryKey: ["messages"] });
-      router.push(returnPath);
-    });
+    // Fire-and-forget: don't block navigation on server action
+    snoozeConversation(messageId, until);
+    queryClient.removeQueries({ queryKey: ["messages"] });
+    router.push(returnPath);
   };
 
   return (
     <SnoozePicker
       onSnooze={handleSnooze}
-      isPending={isPending}
       timezone={timezone}
       align="end"
       trigger={
-        <button
-          disabled={isPending}
-          className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 md:px-3"
-        >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Clock className="h-3.5 w-3.5" />
-          )}
+        <button className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 md:px-3">
+          <Clock className="h-3.5 w-3.5" />
           <span className="hidden md:inline">Snooze</span>
           <kbd className="hidden h-[18px] min-w-[18px] items-center justify-center rounded border border-border/50 bg-muted/30 px-1 font-mono text-[10px] text-muted-foreground/50 lg:inline-flex">
             S

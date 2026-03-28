@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -127,13 +127,13 @@ function UndoScreenToastContent({
 export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const router = useRouter();
   const [senders, setSenders] = useState(initialSenders);
-  const [isPending, startTransition] = useTransition();
+  const actionInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (!isPending) {
+    if (!actionInFlightRef.current) {
       setSenders(initialSenders);
     }
-  }, [initialSenders, isPending]);
+  }, [initialSenders]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(
     null,
@@ -219,15 +219,12 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               toast.dismiss(id);
               setSenders(prevSenders);
               badgeUpdate("screener", 1);
-              startTransition(async () => {
-                try {
-                  await undoScreenAction(senderId);
-                } catch {
+              undoScreenAction(senderId)
+                .catch(() => {
                   setSenders((prev) => prev.filter((s) => s.id !== senderId));
                   badgeUpdate("screener", -1);
-                }
-                router.refresh();
-              });
+                })
+                .finally(() => router.refresh());
             }}
             onComplete={() => {
               toast.dismiss(id);
@@ -241,7 +238,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         },
       );
     },
-    [router, startTransition],
+    [router],
   );
 
   const handleApprove = async (
@@ -259,16 +256,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
     showUndoToast(senderId, senderName, "in", prevSenders);
 
-    startTransition(async () => {
-      try {
-        await approveSender(senderId, category);
-      } catch {
+    actionInFlightRef.current = true;
+    approveSender(senderId, category)
+      .catch(() => {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
-      }
-      setProcessingId((prev) => (prev === senderId ? null : prev));
-      router.refresh();
-    });
+      })
+      .finally(() => {
+        actionInFlightRef.current = false;
+        setProcessingId((prev) => (prev === senderId ? null : prev));
+        router.refresh();
+      });
   };
 
   const handleReject = async (senderId: string) => {
@@ -282,16 +280,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
 
     showUndoToast(senderId, senderName, "out", prevSenders);
 
-    startTransition(async () => {
-      try {
-        await rejectSender(senderId);
-      } catch {
+    actionInFlightRef.current = true;
+    rejectSender(senderId)
+      .catch(() => {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
-      }
-      setProcessingId((prev) => (prev === senderId ? null : prev));
-      router.refresh();
-    });
+      })
+      .finally(() => {
+        actionInFlightRef.current = false;
+        setProcessingId((prev) => (prev === senderId ? null : prev));
+        router.refresh();
+      });
   };
 
   const handleSkip = async (senderId: string) => {
@@ -300,16 +299,17 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     setSenders((prev) => prev.filter((s) => s.id !== senderId));
     badgeUpdate("screener", -1);
 
-    startTransition(async () => {
-      try {
-        await skipSender(senderId);
-      } catch {
+    actionInFlightRef.current = true;
+    skipSender(senderId)
+      .catch(() => {
         setSenders(prevSenders);
         badgeUpdate("screener", 1);
-      }
-      setProcessingId((prev) => (prev === senderId ? null : prev));
-      router.refresh();
-    });
+      })
+      .finally(() => {
+        actionInFlightRef.current = false;
+        setProcessingId((prev) => (prev === senderId ? null : prev));
+        router.refresh();
+      });
   };
 
   if (!currentSender) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
@@ -17,11 +17,14 @@ export function ArchiveKeyboardShortcut({
   returnPath,
   action = "archive",
 }: ArchiveKeyboardShortcutProps) {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const actingRef = useRef(false);
 
   const handleAction = useCallback(() => {
+    if (actingRef.current) return;
+    actingRef.current = true;
+
     if (action === "archive") {
       showUndoToast({
         id: `archive-${messageId}`,
@@ -32,16 +35,15 @@ export function ArchiveKeyboardShortcut({
       });
     }
 
-    startTransition(async () => {
-      if (action === "unarchive") {
-        await unarchiveConversation(messageId);
-      } else {
-        await archiveConversation(messageId, returnPath);
-      }
-      queryClient.removeQueries({ queryKey: ["messages"] });
-      router.push(returnPath);
-    });
-  }, [messageId, returnPath, action, router, queryClient, startTransition]);
+    // Fire-and-forget: don't block navigation on server action
+    if (action === "unarchive") {
+      unarchiveConversation(messageId);
+    } else {
+      archiveConversation(messageId, returnPath);
+    }
+    queryClient.removeQueries({ queryKey: ["messages"] });
+    router.push(returnPath);
+  }, [messageId, returnPath, action, router, queryClient]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,11 +55,11 @@ export function ArchiveKeyboardShortcut({
       )
         return;
       if (el.isContentEditable) return;
-      if (e.key === "e" && !isPending) handleAction();
+      if (e.key === "e") handleAction();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleAction, isPending]);
+  }, [handleAction]);
 
   return null;
 }
