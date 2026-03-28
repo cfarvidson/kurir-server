@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useTransition } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 const THRESHOLD = 64;
@@ -16,6 +17,7 @@ const DIRECTION_LOCK_DISTANCE = 10;
  */
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spinnerRef = useRef<HTMLDivElement>(null);
@@ -83,10 +85,11 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       svg.classList.add("ptr-spinning");
     }
 
+    queryClient.invalidateQueries({ queryKey: ["messages"] });
     startTransition(() => {
       router.refresh();
     });
-  }, [applyTransform, router, startTransition]);
+  }, [applyTransform, queryClient, router, startTransition]);
 
   // Reset to resting position
   const reset = useCallback(

@@ -59,6 +59,7 @@ export function AutoSync() {
       if (document.visibilityState === "visible") {
         void (async () => {
           await refreshSidebarCounts();
+          queryClient.invalidateQueries({ queryKey: ["messages"] });
           routerRef.current.refresh();
         })();
       }
@@ -74,6 +75,7 @@ export function AutoSync() {
     const handleEvent = async () => {
       await refreshSidebarCounts();
       queryClient.invalidateQueries({ queryKey: ["sync-status"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       routerRef.current.refresh();
     };
     es.addEventListener("new-messages", () => void handleEvent());
@@ -84,6 +86,7 @@ export function AutoSync() {
       toast.success("Scheduled message sent");
       void (async () => {
         await refreshSidebarCounts();
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
         routerRef.current.refresh();
       })();
     });
@@ -92,13 +95,14 @@ export function AutoSync() {
       toast.error("Scheduled send failed: " + data.error);
       void (async () => {
         await refreshSidebarCounts();
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
         routerRef.current.refresh();
       })();
     });
 
     es.onerror = () => console.warn("[sse] reconnecting...");
     return () => es.close();
-  }, []);
+  }, [queryClient]);
 
   // Listen for import trigger from ImportButton
   useEffect(() => {
@@ -158,6 +162,7 @@ export function AutoSync() {
       setProgress({ synced, total, remaining });
 
       if (remaining === 0) {
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
         router.refresh();
         if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
         dismissTimerRef.current = setTimeout(() => {
@@ -166,9 +171,10 @@ export function AutoSync() {
         }, 2_000);
         return;
       }
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     }
-  }, [data, router, importing]);
+  }, [data, router, importing, queryClient]);
 
   // Progress bar (only visible during import)
   if (!importing) return null;
