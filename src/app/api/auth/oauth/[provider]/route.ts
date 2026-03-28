@@ -6,12 +6,13 @@ import {
   getProviderConfig,
   type OAuthProviderType,
 } from "@/lib/oauth-providers";
+import { getConfig } from "@/lib/config";
 
 const VALID_PROVIDERS = ["microsoft", "google"] as const;
 
 function getRedirectUri() {
-  const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  return `${base}/api/auth/oauth/callback`;
+  const appConfig = getConfig();
+  return `${appConfig.baseUrl}/api/auth/oauth/callback`;
 }
 
 /**
@@ -48,7 +49,8 @@ export async function GET(
   const mode = request.nextUrl.searchParams.get("mode") || "setup";
   const nonce = randomBytes(16).toString("hex");
   const payload = `${nonce}:${provider}:${mode}:${session.user.id}`;
-  const secret = process.env.ENCRYPTION_KEY!;
+  const appConfig = getConfig();
+  const secret = appConfig.encryptionKey!;
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
   const state = `${payload}:${signature}`;
 
@@ -59,7 +61,7 @@ export async function GET(
   const response = NextResponse.redirect(authUrl);
   response.cookies.set("oauth_state", state, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: appConfig.isProduction,
     sameSite: "lax",
     maxAge: 600, // 10 minutes
     path: "/",

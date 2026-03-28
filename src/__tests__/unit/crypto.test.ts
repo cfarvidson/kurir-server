@@ -56,15 +56,18 @@ describe("crypto", () => {
   });
 
   describe("error cases", () => {
-    it("throws when ENCRYPTION_KEY is missing", () => {
+    it("throws when ENCRYPTION_KEY is missing", async () => {
+      const { resetConfig } = await import("@/lib/config");
       const original = process.env.ENCRYPTION_KEY;
       delete process.env.ENCRYPTION_KEY;
+      resetConfig(); // clear cached config so missing key is detected
       try {
         expect(() => encrypt("test")).toThrow(
           "ENCRYPTION_KEY environment variable is not set",
         );
       } finally {
         process.env.ENCRYPTION_KEY = original;
+        resetConfig(); // restore cached config
       }
     });
   });

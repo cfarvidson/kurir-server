@@ -4,6 +4,7 @@ import {
   randomBytes,
   scryptSync,
 } from "crypto";
+import { getConfig } from "@/lib/config";
 
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
@@ -11,13 +12,14 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
 function getKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY;
+  const config = getConfig();
+  const secret = config.encryptionKey;
   if (!secret) {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
   // Derive a key from the secret using scrypt.
   // ENCRYPTION_SALT can be set per-deployment for stronger isolation.
-  const salt = process.env.ENCRYPTION_SALT || "kurir-salt";
+  const salt = config.encryptionSalt;
   return scryptSync(secret, salt, KEY_LENGTH);
 }
 

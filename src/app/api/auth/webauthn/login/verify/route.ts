@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { consumeChallenge } from "@/lib/webauthn-challenge-store";
 import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 
-const RP_ID = process.env.WEBAUTHN_RP_ID ?? "localhost";
-const ORIGIN =
-  process.env.NEXTAUTH_URL ??
-  (process.env.NODE_ENV === "production"
-    ? `https://${RP_ID}`
-    : `http://localhost:3000`);
+const config = getConfig();
 
 /**
  * POST /api/auth/webauthn/login/verify
@@ -64,8 +60,8 @@ export async function POST(req: NextRequest) {
     verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: config.webauthn.origin,
+      expectedRPID: config.webauthn.rpId,
       credential: {
         id: passkey.credentialId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +97,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Issue a NextAuth JWT session
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = config.nextauthSecret;
   if (!secret) {
     return NextResponse.json(
       { error: "Server misconfiguration" },
@@ -109,10 +105,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const cookieName =
-    process.env.NODE_ENV === "production"
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token";
+  const cookieName = config.isProduction
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
 
   // NextAuth v5 uses the cookie name as the salt for JWT encryption
   const token = await encode({
@@ -130,7 +125,7 @@ export async function POST(req: NextRequest) {
   // Set the NextAuth session cookie
   response.cookies.set(cookieName, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: config.isProduction,
     sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60, // 30 days
     path: "/",

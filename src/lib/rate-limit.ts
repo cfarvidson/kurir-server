@@ -1,7 +1,8 @@
 import { Redis } from "ioredis";
 import { NextResponse } from "next/server";
+import { getConfig } from "@/lib/config";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = getConfig().redisUrl;
 
 let redis: Redis | null = null;
 

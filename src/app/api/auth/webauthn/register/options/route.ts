@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { auth } from "@/lib/auth";
 import { setChallenge } from "@/lib/webauthn-challenge-store";
 import { randomBytes } from "crypto";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 import { rateLimitRegistration, tooManyRequests } from "@/lib/rate-limit";
 
-const RP_NAME = process.env.WEBAUTHN_RP_NAME ?? "Kurir";
-const RP_ID = process.env.WEBAUTHN_RP_ID ?? "localhost";
+const config = getConfig();
 
 /**
  * POST /api/auth/webauthn/register/options
@@ -91,8 +91,8 @@ export async function POST(req: NextRequest) {
   }
 
   const options = await generateRegistrationOptions({
-    rpName: RP_NAME,
-    rpID: RP_ID,
+    rpName: config.webauthn.rpName,
+    rpID: config.webauthn.rpId,
     userID: userIdBytes,
     userName,
     userDisplayName,
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
   // Store the session key in a short-lived httpOnly cookie
   response.cookies.set("wa_reg_session", sessionKey, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: config.isProduction,
     sameSite: "strict",
     maxAge: 5 * 60, // 5 minutes
     path: "/",

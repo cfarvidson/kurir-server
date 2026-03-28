@@ -1,5 +1,6 @@
 import { encrypt, decrypt } from "./crypto";
 import { db } from "./db";
+import { getConfig } from "@/lib/config";
 
 export type OAuthProviderType = "microsoft" | "google";
 
@@ -40,8 +41,7 @@ export function getProviderConfig(
   provider: OAuthProviderType,
 ): ProviderConfig | null {
   if (provider === "microsoft") {
-    const clientId = process.env.MICROSOFT_CLIENT_ID;
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+    const { clientId, clientSecret } = getConfig().oauth.microsoft;
     if (!clientId || !clientSecret) return null;
     return {
       authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
@@ -57,8 +57,7 @@ export function getProviderConfig(
   }
 
   if (provider === "google") {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const { clientId, clientSecret } = getConfig().oauth.google;
     if (!clientId || !clientSecret) return null;
     return {
       authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
