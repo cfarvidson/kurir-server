@@ -172,16 +172,16 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     "starting" | "syncing" | "done" | "error"
   >("starting");
   const [syncMessage, setSyncMessage] = useState("");
-  const syncPolling = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider);
   const useOAuth =
     selectedProvider?.oauthKey && oauthEnabled?.[selectedProvider.oauthKey];
 
-  // Cleanup polling on unmount
+  // Cancel sync polling on unmount
   useEffect(() => {
     return () => {
-      if (syncPolling.current) clearInterval(syncPolling.current);
+      cancelledRef.current = true;
     };
   }, []);
 
@@ -388,10 +388,14 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const pollForMoreSync = useCallback(() => {
     // Continue syncing by triggering another batch
     const doNextBatch = async () => {
+      if (cancelledRef.current) return;
+
       try {
         const res = await fetch("/api/mail/sync?batchSize=500", {
           method: "POST",
         });
+        if (cancelledRef.current) return;
+
         if (!res.ok) {
           setSyncStatus("done");
           setSyncMessage("Initial sync complete.");
@@ -423,7 +427,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
           0,
         );
 
-        if (totalRemaining > 0) {
+        if (totalRemaining > 0 && !cancelledRef.current) {
           setSyncMessage(
             `Synced ${totalCached} of ${totalOnServer} messages. ${totalRemaining} remaining...`,
           );
