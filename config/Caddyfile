@@ -1,7 +1,12 @@
 {$DOMAIN} {
-	reverse_proxy app:3000
-
 	encode gzip zstd
+
+	handle /_next/static/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		reverse_proxy app:3000
+	}
+
+	reverse_proxy app:3000
 
 	header {
 		# Security headers
