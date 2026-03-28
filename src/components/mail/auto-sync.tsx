@@ -67,7 +67,7 @@ export function AutoSync() {
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+  }, [queryClient]);
 
   // SSE: realtime updates from IDLE
   useEffect(() => {
