@@ -24,7 +24,7 @@ export default auth((req) => {
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
   const isOnRegisterPage = req.nextUrl.pathname === "/register";
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
-  const isSetupApi = req.nextUrl.pathname.startsWith("/api/setup");
+  const isSetupApi = req.nextUrl.pathname === "/api/setup/check";
   const isHealthCheck = req.nextUrl.pathname === "/api/up";
 
   // Allow auth, setup check, and health check routes

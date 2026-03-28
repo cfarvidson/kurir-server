@@ -172,7 +172,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     "starting" | "syncing" | "done" | "error"
   >("starting");
   const [syncMessage, setSyncMessage] = useState("");
-  const cancelledRef = useRef(false);
+  const syncCancelledRef = useRef(false);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider);
   const useOAuth =
@@ -181,8 +181,14 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   // Cancel sync polling on unmount
   useEffect(() => {
     return () => {
-      cancelledRef.current = true;
+      syncCancelledRef.current = true;
     };
+  }, []);
+
+  // Cancel sync polling when leaving the syncing step
+  const leaveSync = useCallback((nextStep: WizardStep) => {
+    syncCancelledRef.current = true;
+    setStep(nextStep);
   }, []);
 
   // ----- Step: Welcome → Passkey -----
@@ -252,7 +258,10 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     if (!domain) return;
 
     for (const p of PROVIDERS) {
-      if (p.domain && domain.includes(p.domain.split(".")[0])) {
+      if (
+        p.domain &&
+        (domain === p.domain || domain.endsWith("." + p.domain))
+      ) {
         setProvider(p.id);
         return;
       }
@@ -321,6 +330,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
 
   const triggerSync = useCallback(async () => {
     setSyncStatus("starting");
+    syncCancelledRef.current = false;
     setSyncMessage("Starting initial sync...");
     setError(null);
 
@@ -388,13 +398,13 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const pollForMoreSync = useCallback(() => {
     // Continue syncing by triggering another batch
     const doNextBatch = async () => {
-      if (cancelledRef.current) return;
+      if (syncCancelledRef.current) return;
 
       try {
         const res = await fetch("/api/mail/sync?batchSize=500", {
           method: "POST",
         });
-        if (cancelledRef.current) return;
+        if (syncCancelledRef.current) return;
 
         if (!res.ok) {
           setSyncStatus("done");
@@ -427,7 +437,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
           0,
         );
 
-        if (totalRemaining > 0 && !cancelledRef.current) {
+        if (totalRemaining > 0 && !syncCancelledRef.current) {
           setSyncMessage(
             `Synced ${totalCached} of ${totalOnServer} messages. ${totalRemaining} remaining...`,
           );
@@ -909,7 +919,10 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                   )}
 
                   {syncStatus === "done" && (
-                    <Button className="w-full" onClick={() => setStep("done")}>
+                    <Button
+                      className="w-full"
+                      onClick={() => leaveSync("done")}
+                    >
                       Continue
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -918,7 +931,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                   {(syncStatus === "starting" || syncStatus === "syncing") && (
                     <button
                       type="button"
-                      onClick={() => setStep("done")}
+                      onClick={() => leaveSync("done")}
                       className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       Skip — sync in background
