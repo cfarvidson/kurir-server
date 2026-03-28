@@ -24,47 +24,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { KurirLogo } from "@/components/logo";
-
-const PROVIDERS: {
-  id: string;
-  name: string;
-  domain: string | null;
-  oauthKey?: "microsoft" | "google";
-  imap?: { host: string; port: number };
-  smtp?: { host: string; port: number };
-}[] = [
-  {
-    id: "gmail",
-    name: "Gmail",
-    domain: "gmail.com",
-    oauthKey: "google",
-    imap: { host: "imap.gmail.com", port: 993 },
-    smtp: { host: "smtp.gmail.com", port: 587 },
-  },
-  {
-    id: "outlook",
-    name: "Outlook / Hotmail",
-    domain: "outlook.com",
-    oauthKey: "microsoft",
-    imap: { host: "outlook.office365.com", port: 993 },
-    smtp: { host: "smtp.office365.com", port: 587 },
-  },
-  {
-    id: "icloud",
-    name: "iCloud",
-    domain: "icloud.com",
-    imap: { host: "imap.mail.me.com", port: 993 },
-    smtp: { host: "smtp.mail.me.com", port: 587 },
-  },
-  {
-    id: "yahoo",
-    name: "Yahoo",
-    domain: "yahoo.com",
-    imap: { host: "imap.mail.yahoo.com", port: 993 },
-    smtp: { host: "smtp.mail.yahoo.com", port: 465 },
-  },
-  { id: "custom", name: "Other / Custom", domain: null },
-];
+import {
+  EMAIL_PROVIDERS,
+  detectProviderFromEmail,
+} from "@/lib/mail/providers";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
@@ -100,21 +63,12 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");
   const [error, setError] = useState<string | null>(oauthError);
 
-  const selectedProvider = PROVIDERS.find((p) => p.id === provider);
+  const selectedProvider = EMAIL_PROVIDERS.find((p) => p.id === provider);
   const useOAuth =
     selectedProvider?.oauthKey && oauthEnabled?.[selectedProvider.oauthKey];
 
   const detectProvider = (emailValue: string) => {
-    const domain = emailValue.split("@")[1]?.toLowerCase();
-    if (!domain) return;
-
-    for (const p of PROVIDERS) {
-      if (p.domain && domain.includes(p.domain.split(".")[0])) {
-        setProvider(p.id);
-        return;
-      }
-    }
-    setProvider("custom");
+    setProvider(detectProviderFromEmail(emailValue));
   };
 
   const handleOAuthConnect = () => {
@@ -136,7 +90,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
       };
 
       // Resolve server addresses from provider or custom input
-      const providerConfig = PROVIDERS.find((p) => p.id === provider);
+      const providerConfig = EMAIL_PROVIDERS.find((p) => p.id === provider);
       if (provider === "custom") {
         body.imapHost = imapHost;
         body.imapPort = imapPort;
@@ -242,7 +196,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
                   }}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  {PROVIDERS.map((p) => (
+                  {EMAIL_PROVIDERS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
