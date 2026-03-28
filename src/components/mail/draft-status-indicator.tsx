@@ -2,8 +2,7 @@
 
 import { Cloud, CloudOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-export type DraftStatus = "idle" | "saving" | "saved" | "error";
+import type { DraftStatus } from "@/hooks/use-draft";
 
 interface DraftStatusIndicatorProps {
   status: DraftStatus;

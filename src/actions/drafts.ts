@@ -83,13 +83,3 @@ export async function getDraft(type: DraftType, contextMessageId: string) {
     },
   });
 }
-
-export async function getUserDrafts() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  return db.draft.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-  });
-}

@@ -143,31 +143,35 @@ export function ComposeClientPage({
   }, []);
 
   // Restore draft on mount
+  const draftRestoredRef = useRef(false);
   useEffect(() => {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
 
     loadDraft().then((draft) => {
-      if (!draft) return;
+      if (!draft) {
+        draftRestoredRef.current = true;
+        return;
+      }
       // Draft wins if body differs from forward pre-population (user made edits)
       const isStaleForward = forwardData && draft.body === forwardData.body;
-      if (isStaleForward) return;
+      if (isStaleForward) {
+        draftRestoredRef.current = true;
+        return;
+      }
 
       if (draft.to) setTo(draft.to);
       if (draft.subject) setSubject(draft.subject);
       if (draft.body) setBody(draft.body);
       if (draft.emailConnectionId) setFromConnectionId(draft.emailConnectionId);
+      draftRestoredRef.current = true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-save on content change (skip initial render)
-  const initialRenderRef = useRef(true);
+  // Auto-save on content change (gated on draft restoration completing)
   useEffect(() => {
-    if (initialRenderRef.current) {
-      initialRenderRef.current = false;
-      return;
-    }
+    if (!draftRestoredRef.current) return;
     const attachmentIds = attachments
       .filter((a) => a.status === "done")
       .map((a) => a.id);
@@ -179,42 +183,6 @@ export function ComposeClientPage({
       attachmentIds,
     });
   }, [to, subject, body, fromConnectionId, attachments, saveDraft]);
-
-  // Flush draft to localStorage on beforeunload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const attachmentIds = attachments
-        .filter((a) => a.status === "done")
-        .map((a) => a.id);
-      const key = `kurir:draft:${userId}:${draftType.toLowerCase()}:${draftContextId}`;
-      try {
-        localStorage.setItem(
-          key,
-          JSON.stringify({
-            to,
-            subject,
-            body,
-            emailConnectionId: fromConnectionId,
-            attachmentIds,
-            updatedAt: Date.now(),
-          }),
-        );
-      } catch {
-        // Best effort
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [
-    to,
-    subject,
-    body,
-    fromConnectionId,
-    attachments,
-    userId,
-    draftType,
-    draftContextId,
-  ]);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);

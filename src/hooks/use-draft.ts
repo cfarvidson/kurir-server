@@ -33,7 +33,7 @@ export function useDraft(
   const [status, setStatus] = useState<DraftStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const saveSeqRef = useRef(0);
   const latestDataRef = useRef<DraftData | null>(null);
   const key = draftKey(userId, type, contextMessageId);
 
@@ -44,9 +44,12 @@ export function useDraft(
       const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Strip updatedAt before returning
         const { updatedAt: _, ...data } = parsed;
-        return data as DraftData;
+        if (typeof data.body === "string" && typeof data.to === "string") {
+          return data as DraftData;
+        }
+        // Corrupt data — remove it
+        localStorage.removeItem(key);
       }
     } catch {
       // localStorage unavailable or corrupt
@@ -69,9 +72,7 @@ export function useDraft(
             key,
             JSON.stringify({ ...data, updatedAt: Date.now() }),
           );
-        } catch {
-          // QuotaExceededError — server is the backup
-        }
+        } catch {}
         return data;
       }
     } catch {
@@ -113,16 +114,11 @@ export function useDraft(
             key,
             JSON.stringify({ ...data, updatedAt: Date.now() }),
           );
-        } catch {
-          // QuotaExceededError — rely on server sync
-        }
+        } catch {}
 
-        // 2. Server action (async)
+        // 2. Server action (async) with sequence counter to discard stale saves
         setStatus("saving");
-
-        // Abort any in-flight save
-        abortRef.current?.abort();
-        abortRef.current = new AbortController();
+        const thisSeq = ++saveSeqRef.current;
 
         try {
           await saveDraftAction({
@@ -134,16 +130,17 @@ export function useDraft(
             emailConnectionId: data.emailConnectionId,
             attachmentIds: data.attachmentIds,
           });
+          // Only update status if this is still the latest save
+          if (saveSeqRef.current !== thisSeq) return;
           setStatus("saved");
           if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
           savedTimerRef.current = setTimeout(
             () => setStatus("idle"),
             SAVED_DISPLAY_MS,
           );
-        } catch (err) {
-          if ((err as Error).name !== "AbortError") {
-            setStatus("error");
-          }
+        } catch {
+          if (saveSeqRef.current !== thisSeq) return;
+          setStatus("error");
         }
       }, DEBOUNCE_MS);
     },
@@ -161,26 +158,24 @@ export function useDraft(
   // Delete draft from both stores
   const removeDraft = useCallback(async () => {
     cancelPendingSave();
+    saveSeqRef.current++; // Poison any in-flight save
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     try {
       localStorage.removeItem(key);
-    } catch {
-      // localStorage unavailable
-    }
+    } catch {}
     try {
       await deleteDraftAction(type, contextMessageId);
-    } catch {
-      // Server error — localStorage already cleared
-    }
+    } catch {}
     setStatus("idle");
     latestDataRef.current = null;
   }, [key, type, contextMessageId, cancelPendingSave]);
 
-  // Flush to localStorage on unmount (crash recovery for in-debounce content)
+  // Flush to localStorage on unmount + beforeunload (crash recovery)
   useEffect(() => {
-    return () => {
+    const flushToLocalStorage = () => {
       if (latestDataRef.current && timerRef.current) {
         clearTimeout(timerRef.current);
+        timerRef.current = null;
         try {
           localStorage.setItem(
             key,
@@ -189,10 +184,15 @@ export function useDraft(
               updatedAt: Date.now(),
             }),
           );
-        } catch {
-          // Best effort
-        }
+        } catch {}
       }
+    };
+
+    window.addEventListener("beforeunload", flushToLocalStorage);
+    return () => {
+      window.removeEventListener("beforeunload", flushToLocalStorage);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      flushToLocalStorage();
     };
   }, [key]);
 
