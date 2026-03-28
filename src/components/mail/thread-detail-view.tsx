@@ -190,6 +190,7 @@ export async function ThreadDetailView({
 
             <div className="mt-3 md:mt-6">
               <ThreadPageContent
+                userId={session.user.id}
                 initialMessages={messages}
                 currentUserEmail={currentUserEmail}
                 userEmails={[...userEmails]}

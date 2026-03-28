@@ -91,6 +91,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
 
   return (
     <ComposeClientPage
+      userId={session.user.id}
       connections={fromConnections}
       userTimezone={user?.timezone ?? "UTC"}
       forwardData={forwardData}

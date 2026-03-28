@@ -46,6 +46,7 @@ model User {
   scheduledMessages ScheduledMessage[]
   invitesCreated    Invite[]
   attachments       Attachment[]
+  drafts            Draft[]
 }
 
 model Passkey {
@@ -477,4 +478,42 @@ model ScheduledMessage {
   @@index([userId, status, scheduledFor])
   @@index([status, scheduledFor])
   @@index([status, nextRetryAt])
+}
+
+// ============================================
+// DRAFTS (Auto-Save)
+// ============================================
+
+enum DraftType {
+  NEW
+  REPLY
+  FORWARD
+}
+
+model Draft {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Draft type and context
+  type             DraftType
+  contextMessageId String    @default("__new__") // messageId for REPLY/FORWARD, "__new__" for NEW
+
+  // Email content
+  to      String   @default("")
+  subject String   @default("")
+  body    String   @default("") @db.Text
+
+  // Optional connection selection (not a FK — graceful fallback if deleted)
+  emailConnectionId String?
+
+  // Attachment references (not FKs — verified at send time)
+  attachmentIds String[] @default([])
+
+  // Ownership
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, contextMessageId])
+  @@index([userId])
 }

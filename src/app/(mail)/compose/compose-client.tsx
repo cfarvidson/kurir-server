@@ -18,6 +18,9 @@ import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { useBeforeUnload } from "@/hooks/use-before-unload";
 import { createScheduledMessage } from "@/actions/scheduled-messages";
 import { toast } from "sonner";
+import { useDraft } from "@/hooks/use-draft";
+import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
+import { DraftType } from "@prisma/client";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -77,6 +80,8 @@ export interface ForwardData {
 }
 
 interface ComposeClientPageProps {
+  /** Current user's ID for draft keying */
+  userId: string;
   /** All email connections for the current user */
   connections: FromConnection[];
   /** The connection ID to pre-select (e.g. from reply context) */
@@ -88,6 +93,7 @@ interface ComposeClientPageProps {
 }
 
 export function ComposeClientPage({
+  userId,
   connections,
   defaultConnectionId,
   userTimezone = "UTC",
@@ -95,6 +101,7 @@ export function ComposeClientPage({
 }: ComposeClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const forwardMessageId = searchParams.get("forward");
   const [to, setTo] = useState(searchParams.get("to") || "");
   const [subject, setSubject] = useState(forwardData?.subject || "");
   const [body, setBody] = useState(forwardData?.body || "");
@@ -115,6 +122,18 @@ export function ComposeClientPage({
   } = useAttachments();
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
 
+  // Draft auto-save
+  const draftType = forwardMessageId ? DraftType.FORWARD : DraftType.NEW;
+  const draftContextId = forwardMessageId ?? "__new__";
+  const {
+    loadDraft,
+    saveDraft,
+    removeDraft,
+    cancelPendingSave,
+    status: draftStatus,
+  } = useDraft(userId, draftType, draftContextId);
+  const draftLoadedRef = useRef(false);
+
   // Pre-load forward attachments
   useEffect(() => {
     if (forwardData?.attachments?.length) {
@@ -122,6 +141,80 @@ export function ComposeClientPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+
+    loadDraft().then((draft) => {
+      if (!draft) return;
+      // Draft wins if body differs from forward pre-population (user made edits)
+      const isStaleForward = forwardData && draft.body === forwardData.body;
+      if (isStaleForward) return;
+
+      if (draft.to) setTo(draft.to);
+      if (draft.subject) setSubject(draft.subject);
+      if (draft.body) setBody(draft.body);
+      if (draft.emailConnectionId) setFromConnectionId(draft.emailConnectionId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save on content change (skip initial render)
+  const initialRenderRef = useRef(true);
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    const attachmentIds = attachments
+      .filter((a) => a.status === "done")
+      .map((a) => a.id);
+    saveDraft({
+      to,
+      subject,
+      body,
+      emailConnectionId: fromConnectionId,
+      attachmentIds,
+    });
+  }, [to, subject, body, fromConnectionId, attachments, saveDraft]);
+
+  // Flush draft to localStorage on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const attachmentIds = attachments
+        .filter((a) => a.status === "done")
+        .map((a) => a.id);
+      const key = `kurir:draft:${userId}:${draftType.toLowerCase()}:${draftContextId}`;
+      try {
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            to,
+            subject,
+            body,
+            emailConnectionId: fromConnectionId,
+            attachmentIds,
+            updatedAt: Date.now(),
+          }),
+        );
+      } catch {
+        // Best effort
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [
+    to,
+    subject,
+    body,
+    fromConnectionId,
+    attachments,
+    userId,
+    draftType,
+    draftContextId,
+  ]);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -205,6 +298,8 @@ export function ComposeClientPage({
         emailConnectionId: fromConnectionId,
         attachmentIds,
       });
+      cancelPendingSave();
+      await removeDraft();
       toast.success("Message scheduled");
       router.push("/scheduled");
     } catch (err) {
@@ -225,6 +320,7 @@ export function ComposeClientPage({
     }
 
     setError(null);
+    cancelPendingSave();
 
     const sendId = `send_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const attachmentIds = attachments
@@ -264,6 +360,9 @@ export function ComposeClientPage({
         const data = await response.json();
         throw new Error(data.error || "Failed to send email");
       }
+
+      // Delete draft after successful send (undo window has expired)
+      await removeDraft();
     };
 
     const onSuccess = () => {
@@ -304,7 +403,16 @@ export function ComposeClientPage({
       <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">New Message</h1>
         <div className="flex items-center gap-1 md:gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+          <DraftStatusIndicator status={draftStatus} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              cancelPendingSave();
+              removeDraft();
+              router.back();
+            }}
+          >
             <X className="h-4 w-4" />
             <span className="hidden sm:inline">Cancel</span>
           </Button>

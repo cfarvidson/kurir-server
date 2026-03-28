@@ -16,10 +16,14 @@ import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
 import { createScheduledMessage } from "@/actions/scheduled-messages";
 import { toast } from "sonner";
+import { useDraft } from "@/hooks/use-draft";
+import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
+import { DraftType } from "@prisma/client";
 
 const UNDO_DELAY_MS = 5000;
 
 interface ReplyComposerProps {
+  userId: string;
   messageId: string;
   replyToAddress: string;
   replyToName: string;
@@ -29,9 +33,11 @@ interface ReplyComposerProps {
   rfcMessageId?: string;
   references: string[];
   userTimezone: string;
+  hasDraft?: boolean;
 }
 
 export function ReplyComposer({
+  userId,
   messageId,
   replyToAddress,
   replyToName,
@@ -41,8 +47,9 @@ export function ReplyComposer({
   rfcMessageId,
   references,
   userTimezone,
+  hasDraft: hasDraftProp = false,
 }: ReplyComposerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(hasDraftProp);
   const [body, setBody] = useState("");
   const [to, setTo] = useState(replyToAddress);
   const [isEditingTo, setIsEditingTo] = useState(false);
@@ -56,6 +63,7 @@ export function ReplyComposer({
   const savedBodyRef = useRef("");
   const savedToRef = useRef("");
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
+  const restoredFromDraftRef = useRef(false);
 
   const {
     attachments,
@@ -66,9 +74,51 @@ export function ReplyComposer({
     getSnapshot,
   } = useAttachments();
 
+  // Draft auto-save
+  const {
+    loadDraft,
+    saveDraft,
+    removeDraft,
+    cancelPendingSave,
+    status: draftStatus,
+  } = useDraft(userId, DraftType.REPLY, messageId);
+  const draftLoadedRef = useRef(false);
+
+  // Restore draft on mount
   useEffect(() => {
+    if (draftLoadedRef.current || !hasDraftProp) return;
+    draftLoadedRef.current = true;
+
+    loadDraft().then((draft) => {
+      if (!draft) return;
+      if (draft.body) setBody(draft.body);
+      if (draft.to && draft.to !== replyToAddress) {
+        setTo(draft.to);
+        restoredFromDraftRef.current = true;
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Skip reset if to was restored from a draft with a custom recipient
+    if (restoredFromDraftRef.current) return;
     if (!isEditingTo) setTo(replyToAddress);
   }, [replyToAddress, isEditingTo]);
+
+  // Auto-save on content change
+  const initialRenderRef = useRef(true);
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    if (!isOpen) return;
+    const attachmentIds = attachments
+      .filter((a) => a.status === "done")
+      .map((a) => a.id);
+    saveDraft({ to, subject: "", body, attachmentIds });
+  }, [to, body, attachments, isOpen, saveDraft]);
 
   // Listen for keyboard shortcut "r" to focus/open the reply composer
   useEffect(() => {
@@ -121,6 +171,8 @@ export function ReplyComposer({
         references: refsString || undefined,
         attachmentIds,
       });
+      cancelPendingSave();
+      await removeDraft();
       toast.success("Reply scheduled");
       setBody("");
       setAttachments([]);
@@ -135,6 +187,7 @@ export function ReplyComposer({
   const handleSend = () => {
     if (!body.trim() || sendingRef.current || scheduling || isUploading) return;
     sendingRef.current = true;
+    cancelPendingSave();
 
     const sentBody = body.trim();
     const sentTo = to;
@@ -164,6 +217,7 @@ export function ReplyComposer({
       },
       async () => {
         await replyToMessage(messageId, sentBody, sentTo, attachmentIds);
+        await removeDraft();
         onSent?.(sentBody);
       },
       () => {
@@ -262,11 +316,15 @@ export function ReplyComposer({
               onClick={() => {
                 if (body.trim() || attachments.length > 0) {
                   if (confirm("Discard reply?")) {
+                    cancelPendingSave();
+                    removeDraft();
                     setBody("");
                     setAttachments([]);
                     setIsOpen(false);
                   }
                 } else {
+                  cancelPendingSave();
+                  removeDraft();
                   setIsOpen(false);
                 }
               }}
@@ -314,13 +372,16 @@ export function ReplyComposer({
 
           {/* Footer */}
           <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
-            <span className="text-[11px] text-muted-foreground/50">
-              {typeof navigator !== "undefined" &&
-              navigator.platform.includes("Mac")
-                ? "Cmd"
-                : "Ctrl"}
-              +Enter to send
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground/50">
+                {typeof navigator !== "undefined" &&
+                navigator.platform.includes("Mac")
+                  ? "Cmd"
+                  : "Ctrl"}
+                +Enter to send
+              </span>
+              <DraftStatusIndicator status={draftStatus} />
+            </div>
             <div className="flex items-center gap-1">
               <SchedulePicker
                 onSchedule={handleScheduleSend}

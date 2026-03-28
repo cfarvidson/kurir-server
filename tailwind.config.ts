@@ -121,6 +121,7 @@ const config: Config = {
         "slide-in-right": "slideInRight 0.3s ease-out",
         "pulse-slow": "pulse 2s infinite",
         shimmer: "shimmer 2s infinite",
+        "fade-out": "fadeOut 0.5s ease-out 1.5s forwards",
       },
       keyframes: {
         fadeInUp: {
@@ -134,6 +135,10 @@ const config: Config = {
         shimmer: {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
+        },
+        fadeOut: {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0" },
         },
       },
       borderRadius: {

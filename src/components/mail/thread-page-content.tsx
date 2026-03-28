@@ -3,6 +3,8 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
+import { hasDraftInLocalStorage } from "@/hooks/use-draft";
+import { DraftType } from "@prisma/client";
 
 interface ThreadMessage {
   id: string;
@@ -32,6 +34,7 @@ interface ThreadMessage {
 }
 
 interface ThreadPageContentProps {
+  userId: string;
   initialMessages: ThreadMessage[];
   currentUserEmail: string;
   userEmails: string[];
@@ -46,6 +49,7 @@ interface ThreadPageContentProps {
 }
 
 export function ThreadPageContent({
+  userId,
   initialMessages,
   currentUserEmail,
   userEmails,
@@ -63,6 +67,12 @@ export function ThreadPageContent({
     [userEmails],
   );
   const [messages, setMessages] = useState(initialMessages);
+
+  // Check for saved draft (synchronous localStorage read)
+  const [hasDraft] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return hasDraftInLocalStorage(userId, DraftType.REPLY, replyToMessageId);
+  });
   const scrollRef = useRef(0);
 
   // Continuously track scroll position so we have it when router.refresh()
@@ -127,6 +137,7 @@ export function ThreadPageContent({
 
       <div className="mt-6 pb-8">
         <ReplyComposer
+          userId={userId}
           messageId={replyToMessageId}
           replyToAddress={replyToAddress}
           replyToName={replyToName}
@@ -136,6 +147,7 @@ export function ThreadPageContent({
           rfcMessageId={rfcMessageId}
           references={references}
           userTimezone={userTimezone}
+          hasDraft={hasDraft}
         />
       </div>
     </>
