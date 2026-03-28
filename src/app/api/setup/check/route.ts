@@ -10,5 +10,8 @@ import { db } from "@/lib/db";
 export async function GET() {
   const userCount = await db.user.count({ take: 1 });
 
-  return NextResponse.json({ needsSetup: userCount === 0 });
+  return NextResponse.json(
+    { needsSetup: userCount === 0 },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { credential: RegistrationResponseJSON } | RegistrationResponseJSON;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
@@ -54,11 +54,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Extract optional displayName (sent by setup wizard alongside the credential)
+  const bodyDisplayName =
+    typeof body.displayName === "string" ? body.displayName : undefined;
+
   // passkeys-list.tsx sends { credential } wrapped; new-user register sends the credential directly
   const registrationResponse: RegistrationResponseJSON =
     "credential" in body
       ? (body as { credential: RegistrationResponseJSON }).credential
-      : body;
+      : (body as unknown as RegistrationResponseJSON);
 
   let verification;
   try {
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
         const newUser = await tx.user.create({
           data: {
             role,
-            displayName: invite?.displayName || null,
+            displayName: invite?.displayName || bodyDisplayName || null,
             passkeys: {
               create: {
                 credentialId: credential.id,

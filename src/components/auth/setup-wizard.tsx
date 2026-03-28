@@ -27,6 +27,10 @@ import {
   Inbox,
 } from "lucide-react";
 import { KurirLogo } from "@/components/logo";
+import {
+  EMAIL_PROVIDERS,
+  detectProviderFromEmail,
+} from "@/lib/mail/providers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,50 +42,12 @@ interface SetupWizardProps {
   oauthEnabled?: { microsoft: boolean; google: boolean };
 }
 
-// ---------------------------------------------------------------------------
-// Provider presets (shared with setup-form.tsx)
-// ---------------------------------------------------------------------------
-
-const PROVIDERS: {
-  id: string;
-  name: string;
-  domain: string | null;
-  oauthKey?: "microsoft" | "google";
-  imap?: { host: string; port: number };
-  smtp?: { host: string; port: number };
-}[] = [
-  {
-    id: "gmail",
-    name: "Gmail",
-    domain: "gmail.com",
-    oauthKey: "google",
-    imap: { host: "imap.gmail.com", port: 993 },
-    smtp: { host: "smtp.gmail.com", port: 587 },
-  },
-  {
-    id: "outlook",
-    name: "Outlook / Hotmail",
-    domain: "outlook.com",
-    oauthKey: "microsoft",
-    imap: { host: "outlook.office365.com", port: 993 },
-    smtp: { host: "smtp.office365.com", port: 587 },
-  },
-  {
-    id: "icloud",
-    name: "iCloud",
-    domain: "icloud.com",
-    imap: { host: "imap.mail.me.com", port: 993 },
-    smtp: { host: "smtp.mail.me.com", port: 587 },
-  },
-  {
-    id: "yahoo",
-    name: "Yahoo",
-    domain: "yahoo.com",
-    imap: { host: "imap.mail.yahoo.com", port: 993 },
-    smtp: { host: "smtp.mail.yahoo.com", port: 465 },
-  },
-  { id: "custom", name: "Other / Custom", domain: null },
-];
+interface SyncResultEntry {
+  newMessages?: number;
+  remaining?: number;
+  totalOnServer?: number;
+  totalCached?: number;
+}
 
 // ---------------------------------------------------------------------------
 // Step indicator
@@ -174,7 +140,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const [syncMessage, setSyncMessage] = useState("");
   const syncCancelledRef = useRef(false);
 
-  const selectedProvider = PROVIDERS.find((p) => p.id === provider);
+  const selectedProvider = EMAIL_PROVIDERS.find((p) => p.id === provider);
   const useOAuth =
     selectedProvider?.oauthKey && oauthEnabled?.[selectedProvider.oauthKey];
 
@@ -225,7 +191,10 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
       const verifyRes = await fetch("/api/auth/webauthn/register/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credential),
+        body: JSON.stringify({
+          ...credential,
+          displayName: displayName.trim(),
+        }),
       });
 
       if (!verifyRes.ok) {
@@ -254,19 +223,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   // ----- Step: Email connection -----
 
   const detectProvider = (emailValue: string) => {
-    const domain = emailValue.split("@")[1]?.toLowerCase();
-    if (!domain) return;
-
-    for (const p of PROVIDERS) {
-      if (
-        p.domain &&
-        (domain === p.domain || domain.endsWith("." + p.domain))
-      ) {
-        setProvider(p.id);
-        return;
-      }
-    }
-    setProvider("custom");
+    setProvider(detectProviderFromEmail(emailValue));
   };
 
   const handleOAuthConnect = () => {
@@ -286,7 +243,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         displayName: email,
       };
 
-      const providerConfig = PROVIDERS.find((p) => p.id === provider);
+      const providerConfig = EMAIL_PROVIDERS.find((p) => p.id === provider);
       if (provider === "custom") {
         body.imapHost = imapHost;
         body.imapPort = imapPort;
@@ -352,23 +309,17 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         );
       }
 
-      // Calculate total messages synced
-      interface SyncResultEntry {
-        newMessages?: number;
-        remaining?: number;
-        totalOnServer?: number;
-      }
       const results = (data.results?.[0]?.results || []) as SyncResultEntry[];
       const totalNew = results.reduce(
-        (sum: number, r: SyncResultEntry) => sum + (r.newMessages || 0),
+        (sum, r) => sum + (r.newMessages || 0),
         0,
       );
       const totalRemaining = results.reduce(
-        (sum: number, r: SyncResultEntry) => sum + (r.remaining || 0),
+        (sum, r) => sum + (r.remaining || 0),
         0,
       );
       const totalOnServer = results.reduce(
-        (sum: number, r: SyncResultEntry) => sum + (r.totalOnServer || 0),
+        (sum, r) => sum + (r.totalOnServer || 0),
         0,
       );
 
@@ -406,6 +357,17 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         });
         if (syncCancelledRef.current) return;
 
+        // Handle rate limiting — wait and retry
+        if (res.status === 429) {
+          const retryAfter = parseInt(
+            res.headers.get("Retry-After") || "30",
+            10,
+          );
+          setSyncMessage("Waiting for rate limit to reset...");
+          setTimeout(doNextBatch, retryAfter * 1000);
+          return;
+        }
+
         if (!res.ok) {
           setSyncStatus("done");
           setSyncMessage("Initial sync complete.");
@@ -413,27 +375,21 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         }
 
         const data = await res.json();
-        interface SyncResultEntry {
-          newMessages?: number;
-          remaining?: number;
-          totalOnServer?: number;
-          totalCached?: number;
-        }
         const results = (data.results?.[0]?.results || []) as SyncResultEntry[];
         const totalNew = results.reduce(
-          (sum: number, r: SyncResultEntry) => sum + (r.newMessages || 0),
+          (sum, r) => sum + (r.newMessages || 0),
           0,
         );
         const totalRemaining = results.reduce(
-          (sum: number, r: SyncResultEntry) => sum + (r.remaining || 0),
+          (sum, r) => sum + (r.remaining || 0),
           0,
         );
         const totalCached = results.reduce(
-          (sum: number, r: SyncResultEntry) => sum + (r.totalCached || 0),
+          (sum, r) => sum + (r.totalCached || 0),
           0,
         );
         const totalOnServer = results.reduce(
-          (sum: number, r: SyncResultEntry) => sum + (r.totalOnServer || 0),
+          (sum, r) => sum + (r.totalOnServer || 0),
           0,
         );
 
@@ -458,10 +414,6 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     // Start after a short delay to avoid rate limiting
     setTimeout(doNextBatch, 2000);
   }, []);
-
-  const handleRetrySync = () => {
-    triggerSync();
-  };
 
   // ----- Step: Done -----
 
@@ -660,7 +612,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                         }}
                         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
-                        {PROVIDERS.map((p) => (
+                        {EMAIL_PROVIDERS.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
                           </option>
@@ -911,7 +863,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                     <Button
                       className="w-full"
                       variant="outline"
-                      onClick={handleRetrySync}
+                      onClick={triggerSync}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Retry sync
