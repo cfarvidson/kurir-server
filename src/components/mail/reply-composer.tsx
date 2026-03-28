@@ -84,14 +84,17 @@ export function ReplyComposer({
   } = useDraft(userId, DraftType.REPLY, messageId);
   const draftLoadedRef = useRef(false);
 
-  // Restore draft on mount
+  // Restore draft on mount (always attempt, regardless of hasDraftProp)
   useEffect(() => {
-    if (draftLoadedRef.current || !hasDraftProp) return;
+    if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
 
     loadDraft().then((draft) => {
       if (!draft) return;
-      if (draft.body) setBody(draft.body);
+      if (draft.body) {
+        setBody(draft.body);
+        setIsOpen(true);
+      }
       if (draft.to && draft.to !== replyToAddress) {
         setTo(draft.to);
         restoredFromDraftRef.current = true;

@@ -3,8 +3,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
-import { hasDraftInLocalStorage } from "@/hooks/use-draft";
-import { DraftType } from "@prisma/client";
 
 interface ThreadMessage {
   id: string;
@@ -68,13 +66,6 @@ export function ThreadPageContent({
   );
   const [messages, setMessages] = useState(initialMessages);
 
-  // Check for saved draft (defer to avoid hydration mismatch)
-  const [hasDraft, setHasDraft] = useState(false);
-  useEffect(() => {
-    setHasDraft(
-      hasDraftInLocalStorage(userId, DraftType.REPLY, replyToMessageId),
-    );
-  }, [userId, replyToMessageId]);
   const scrollRef = useRef(0);
 
   // Continuously track scroll position so we have it when router.refresh()
@@ -149,7 +140,6 @@ export function ThreadPageContent({
           rfcMessageId={rfcMessageId}
           references={references}
           userTimezone={userTimezone}
-          hasDraft={hasDraft}
         />
       </div>
     </>
