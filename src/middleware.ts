@@ -24,10 +24,11 @@ export default auth((req) => {
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
   const isOnRegisterPage = req.nextUrl.pathname === "/register";
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
+  const isSetupApi = req.nextUrl.pathname.startsWith("/api/setup");
   const isHealthCheck = req.nextUrl.pathname === "/api/up";
 
-  // Allow auth and health check routes
-  if (isAuthRoute || isHealthCheck) {
+  // Allow auth, setup check, and health check routes
+  if (isAuthRoute || isSetupApi || isHealthCheck) {
     return NextResponse.next();
   }
 
