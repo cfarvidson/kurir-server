@@ -2,7 +2,7 @@ import { Worker, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { sendDueScheduledMessages } from "@/lib/mail/scheduled-send";
 import {
-  redisConnection,
+  getRedisConnection,
   MAINTENANCE_QUEUE,
   getMaintenanceQueue,
 } from "./queue";
@@ -134,7 +134,7 @@ export async function startMaintenanceWorker(): Promise<void> {
     MAINTENANCE_QUEUE,
     processMaintenanceJob,
     {
-      connection: redisConnection,
+      connection: getRedisConnection(),
       concurrency: 1,
       removeOnComplete: { count: 50 },
       removeOnFail: { count: 100 },

@@ -1,6 +1,5 @@
 import { Queue, Worker, type ConnectionOptions } from "bullmq";
-
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+import { getConfig } from "@/lib/config";
 
 function parseRedisUrl(url: string): ConnectionOptions {
   const parsed = new URL(url);
@@ -12,7 +11,13 @@ function parseRedisUrl(url: string): ConnectionOptions {
   };
 }
 
-export const redisConnection = parseRedisUrl(REDIS_URL);
+let _redisConnection: ConnectionOptions | null = null;
+export function getRedisConnection(): ConnectionOptions {
+  if (!_redisConnection) {
+    _redisConnection = parseRedisUrl(getConfig().redisUrl);
+  }
+  return _redisConnection;
+}
 
 // Queue names
 export const SYNC_QUEUE = "sync-connection";
@@ -24,7 +29,7 @@ let maintenanceQueue: Queue | null = null;
 
 export function getSyncQueue(): Queue {
   if (!syncQueue) {
-    syncQueue = new Queue(SYNC_QUEUE, { connection: redisConnection });
+    syncQueue = new Queue(SYNC_QUEUE, { connection: getRedisConnection() });
   }
   return syncQueue;
 }
@@ -32,7 +37,7 @@ export function getSyncQueue(): Queue {
 export function getMaintenanceQueue(): Queue {
   if (!maintenanceQueue) {
     maintenanceQueue = new Queue(MAINTENANCE_QUEUE, {
-      connection: redisConnection,
+      connection: getRedisConnection(),
     });
   }
   return maintenanceQueue;

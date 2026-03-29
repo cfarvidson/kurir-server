@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { auth } from "@/lib/auth";
 import { consumeChallenge } from "@/lib/webauthn-challenge-store";
 import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
-
-const RP_ID = process.env.WEBAUTHN_RP_ID ?? "localhost";
-const ORIGIN =
-  process.env.NEXTAUTH_URL ??
-  (process.env.NODE_ENV === "production"
-    ? `https://${RP_ID}`
-    : `http://localhost:3000`);
 
 /**
  * POST /api/auth/webauthn/register/verify
@@ -25,6 +19,7 @@ const ORIGIN =
  * - With addPasskey: creates only a Passkey record for the current user (no new session).
  */
 export async function POST(req: NextRequest) {
+  const config = getConfig();
   const url = new URL(req.url);
   const addPasskey = url.searchParams.get("addPasskey") === "true";
 
@@ -69,8 +64,8 @@ export async function POST(req: NextRequest) {
     verification = await verifyRegistrationResponse({
       response: registrationResponse,
       expectedChallenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: config.webauthn.origin,
+      expectedRPID: config.webauthn.rpId,
       requireUserVerification: true,
     });
   } catch (err) {
@@ -193,7 +188,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Issue a NextAuth JWT session so the user is immediately logged in
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = config.nextauthSecret;
   if (!secret) {
     return NextResponse.json(
       { error: "Server misconfiguration" },
@@ -201,10 +196,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const cookieName =
-    process.env.NODE_ENV === "production"
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token";
+  const cookieName = config.isProduction
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
 
   // NextAuth v5 uses the cookie name as the salt for JWT encryption
   const token = await encode({
@@ -222,7 +216,7 @@ export async function POST(req: NextRequest) {
   // Set the auth session cookie
   response.cookies.set(cookieName, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: config.isProduction,
     sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60, // 30 days
     path: "/",

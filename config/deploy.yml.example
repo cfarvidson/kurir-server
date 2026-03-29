@@ -39,13 +39,11 @@ builder:
 env:
   clear:
     NODE_ENV: production
-    WEBAUTHN_RP_NAME: Kurir
-    WEBAUTHN_RP_ID: your-server.example.com
-    NEXTAUTH_URL: https://your-server.example.com
+    KURIR_DOMAIN: your-server.example.com
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
   secret:
     - DATABASE_URL
-    - NEXTAUTH_SECRET
+    - AUTH_SECRET
     - ENCRYPTION_KEY
     - VAPID_PRIVATE_KEY
     - REDIS_URL

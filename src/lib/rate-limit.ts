@@ -1,13 +1,13 @@
 import { Redis } from "ioredis";
 import { NextResponse } from "next/server";
-
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+import { getConfig } from "@/lib/config";
 
 let redis: Redis | null = null;
 
 function getRedis(): Redis | null {
   if (!redis) {
     try {
+      const REDIS_URL = getConfig().redisUrl;
       redis = new Redis(REDIS_URL, {
         maxRetriesPerRequest: 1,
         lazyConnect: true,

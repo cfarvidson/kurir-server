@@ -4,7 +4,7 @@ import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 import { pushToUser } from "@/lib/mail/push-sender";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { sseSubscribers, emitToUser } from "@/lib/mail/sse-subscribers";
-import { redisConnection, SYNC_QUEUE, getSyncQueue } from "./queue";
+import { getRedisConnection, SYNC_QUEUE, getSyncQueue } from "./queue";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -150,7 +150,7 @@ export async function startSyncWorker(): Promise<void> {
   if (syncWorker) return;
 
   syncWorker = new Worker<SyncJobData>(SYNC_QUEUE, processSyncJob, {
-    connection: redisConnection,
+    connection: getRedisConnection(),
     concurrency: 5,
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 500 },
