@@ -71,7 +71,7 @@ Your Kurir-specific data (Screener decisions, categories, read state) lives in y
 Kurir runs comfortably on a small VPS:
 
 - **CPU**: 1 core minimum, 2 recommended
-- **RAM**: 2 GB minimum (the Docker Compose setup allocates ~2 GB across all containers)
+- **RAM**: 1 GB minimum, 2 GB recommended (the Docker Compose setup can use ~2 GB across all containers)
 - **Disk**: 10 GB minimum, more depending on email volume
 - **OS**: Ubuntu 22.04+ or Debian 12+ (other Linux distributions work but are untested)
 - **Docker**: 20+ with the Compose plugin

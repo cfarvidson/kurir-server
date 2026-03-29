@@ -9,6 +9,7 @@ build
 
 # Astro (documentation site)
 site/dist
+site/.astro
 
 # Environment
 .env

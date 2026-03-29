@@ -17,4 +17,27 @@ import Footer from "../components/Footer.astro";
     <SystemRequirements />
   </main>
   <Footer />
+
+  <script>
+    document
+      .querySelectorAll<HTMLButtonElement>("[data-cmd]")
+      .forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const cmd = btn.dataset.cmd;
+          if (!cmd) return;
+          try {
+            await navigator.clipboard.writeText(cmd);
+            const label = btn.querySelector(".copy-label");
+            if (label) {
+              label.textContent = "Copied!";
+              setTimeout(() => {
+                label.textContent = "Copy";
+              }, 2000);
+            }
+          } catch {
+            /* clipboard API unavailable */
+          }
+        });
+      });
+  </script>
 </BaseLayout>

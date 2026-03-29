@@ -1,7 +1,7 @@
 ---
 const base = import.meta.env.BASE_URL;
 const installCmd =
-  "curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | bash";
+  "curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh";
 ---
 
 <section class="bg-surface-50 px-6 py-24 md:py-32">
@@ -70,7 +70,7 @@ const installCmd =
 
       <div class="mt-10 text-center">
         <a
-          href={`${base}/docs/getting-started`}
+          href={`${base}docs/getting-started`}
           class="inline-flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-dark"
         >
           Read the installation guide
@@ -80,29 +80,3 @@ const installCmd =
     </div>
   </div>
 </section>
-
-<script>
-  function initCopyButton(btn: HTMLButtonElement) {
-    btn.addEventListener("click", async () => {
-      const cmd = btn.dataset.cmd;
-      if (!cmd) return;
-      try {
-        await navigator.clipboard.writeText(cmd);
-        const label = btn.querySelector(".copy-label");
-        if (label) {
-          label.textContent = "Copied!";
-          setTimeout(() => {
-            label.textContent = "Copy";
-          }, 2000);
-        }
-      } catch {
-        /* clipboard API unavailable */
-      }
-    });
-  }
-
-  const installBtn = document.getElementById(
-    "install-copy-btn",
-  ) as HTMLButtonElement | null;
-  if (installBtn) initCopyButton(installBtn);
-</script>
