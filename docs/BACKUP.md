@@ -92,7 +92,7 @@ Set up a cron job on the Docker host for automatic daily backups:
 crontab -e
 
 # Daily backup at 2 AM, keep last 7 days
-0 2 * * * docker compose -f /path/to/docker-compose.production.yml exec -T app sh scripts/kurir-backup.sh --quiet && find /path/to/backups -name 'kurir-backup-*.tar.gz' -mtime +7 -delete
+0 2 * * * docker compose -f /path/to/docker-compose.production.yml exec -T app sh -c 'sh scripts/kurir-backup.sh --quiet && find /app/backups -name "kurir-backup-*.tar.gz" -mtime +7 -delete'
 ```
 
 The `-T` flag disables TTY allocation (required for cron).

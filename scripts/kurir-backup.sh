@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+umask 077
 
 # Kurir Backup — dumps PostgreSQL + Redis + env into a timestamped .tar.gz
 # Usage: kurir-backup.sh [--output-dir DIR] [--no-redis] [--no-env] [--quiet]
@@ -43,7 +44,6 @@ log() { [ "$QUIET" = true ] || echo "==> $*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 sha256() {
-  # Works on both Alpine (sha256sum) and macOS (shasum)
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | cut -d' ' -f1
   else
@@ -53,6 +53,11 @@ sha256() {
 
 file_size() {
   wc -c < "$1" | tr -d ' '
+}
+
+# Strip Prisma-specific query params (e.g. ?connection_limit=10) from DATABASE_URL
+db_url_clean() {
+  echo "$DATABASE_URL" | sed 's/?.*//'
 }
 
 # ── Validate environment ─────────────────────────────────────────────
@@ -84,7 +89,7 @@ pg_dump \
   --no-acl \
   --clean \
   --if-exists \
-  "$DATABASE_URL" > "${TEMP_DIR}/database.sql"
+  "$(db_url_clean)" > "${TEMP_DIR}/database.sql"
 
 DB_SIZE=$(file_size "${TEMP_DIR}/database.sql")
 DB_HASH=$(sha256 "${TEMP_DIR}/database.sql")
@@ -96,16 +101,8 @@ REDIS_HASH=""
 if [ "$INCLUDE_REDIS" = true ]; then
   log "Dumping Redis data..."
 
-  # Parse REDIS_URL: redis://:password@host:port or redis://host:port
-  REDIS_HOST=$(echo "$REDIS_URL" | sed -E 's|redis://([^:]*:[^@]*@)?||; s|:.*||; s|/.*||')
-  REDIS_PORT=$(echo "$REDIS_URL" | sed -E 's|.*:([0-9]+).*|\1|')
-  REDIS_PASS=$(echo "$REDIS_URL" | sed -nE 's|redis://:([^@]+)@.*|\1|p')
-
-  REDIS_CLI_ARGS="-h ${REDIS_HOST:-127.0.0.1} -p ${REDIS_PORT:-6379}"
-  [ -n "$REDIS_PASS" ] && REDIS_CLI_ARGS="$REDIS_CLI_ARGS -a $REDIS_PASS --no-auth-warning"
-
-  # shellcheck disable=SC2086
-  redis-cli $REDIS_CLI_ARGS --rdb "${TEMP_DIR}/redis.rdb" >/dev/null 2>&1 || {
+  # Use redis-cli -u for URL parsing (handles auth, host, port natively)
+  redis-cli -u "$REDIS_URL" --no-auth-warning --rdb "${TEMP_DIR}/redis.rdb" >/dev/null 2>&1 || {
     log "WARNING: Redis RDB dump failed, skipping Redis backup"
     INCLUDE_REDIS=false
   }
@@ -122,6 +119,7 @@ ENV_SIZE=0
 ENV_HASH=""
 if [ "$INCLUDE_ENV" = true ]; then
   log "Saving environment variables..."
+  # NOTE: Update this list when adding env vars to docker-compose.production.yml
   env | grep -E '^(DATABASE_URL|REDIS_URL|NEXTAUTH_SECRET|NEXTAUTH_URL|ENCRYPTION_KEY|WEBAUTHN_RP_NAME|WEBAUTHN_RP_ID|DOMAIN|POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|REDIS_PASSWORD|VAPID_PRIVATE_KEY|NEXT_PUBLIC_VAPID_PUBLIC_KEY|MICROSOFT_CLIENT_ID|MICROSOFT_CLIENT_SECRET|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET)=' \
     | sort > "${TEMP_DIR}/env.backup" 2>/dev/null || true
 
@@ -133,7 +131,7 @@ if [ "$INCLUDE_ENV" = true ]; then
   fi
 fi
 
-# ── 4. Write manifest ────────────────────────────────────────────────
+# ── 4. Write manifest (flat keys to avoid ambiguous JSON parsing) ────
 log "Writing manifest..."
 cat > "${TEMP_DIR}/manifest.json" << MANIFEST_EOF
 {
@@ -141,25 +139,17 @@ cat > "${TEMP_DIR}/manifest.json" << MANIFEST_EOF
   "tool": "kurir-backup",
   "timestamp": "${TIMESTAMP}",
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "contents": {
-    "database": {
-      "file": "database.sql",
-      "size": ${DB_SIZE},
-      "sha256": "${DB_HASH}"
-    },
-    "redis": {
-      "included": ${INCLUDE_REDIS},
-      "file": "redis.rdb",
-      "size": ${REDIS_SIZE},
-      "sha256": "${REDIS_HASH}"
-    },
-    "env": {
-      "included": ${INCLUDE_ENV},
-      "file": "env.backup",
-      "size": ${ENV_SIZE},
-      "sha256": "${ENV_HASH}"
-    }
-  }
+  "db_file": "database.sql",
+  "db_size": ${DB_SIZE},
+  "db_sha256": "${DB_HASH}",
+  "redis_included": ${INCLUDE_REDIS},
+  "redis_file": "redis.rdb",
+  "redis_size": ${REDIS_SIZE},
+  "redis_sha256": "${REDIS_HASH}",
+  "env_included": ${INCLUDE_ENV},
+  "env_file": "env.backup",
+  "env_size": ${ENV_SIZE},
+  "env_sha256": "${ENV_HASH}"
 }
 MANIFEST_EOF
 
