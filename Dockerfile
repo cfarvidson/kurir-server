@@ -42,6 +42,12 @@ RUN adduser --system --uid 1001 nextjs
 # tsx for running CLI scripts, prisma for runtime migrations
 RUN npm install -g tsx prisma@6
 
+# Backup/restore tools (pg_dump, psql, redis-cli)
+RUN apk add --no-cache postgresql16-client redis
+
+# Backup output directory
+RUN mkdir -p /app/backups && chown nextjs:nodejs /app/backups
+
 # Static assets
 COPY --from=builder /app/public ./public
 
@@ -57,7 +63,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
-RUN chmod +x scripts/docker-entrypoint.sh
+RUN chmod +x scripts/docker-entrypoint.sh scripts/kurir-backup.sh scripts/kurir-restore.sh
 
 USER nextjs
 EXPOSE 3000

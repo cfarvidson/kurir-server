@@ -117,6 +117,29 @@ kamal app exec -i node
 kamal accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
 ```
 
+## Backup & Restore
+
+See [docs/BACKUP.md](docs/BACKUP.md) for full documentation.
+
+```bash
+# Create a backup (Kamal)
+kamal app exec "sh scripts/kurir-backup.sh"
+
+# Create a backup (Docker Compose production)
+docker compose -f docker-compose.production.yml exec app sh scripts/kurir-backup.sh
+
+# Copy backup to host
+kamal app exec "cat /app/backups/kurir-backup-TIMESTAMP.tar.gz" > backup.tar.gz
+
+# Restore from backup
+kamal app exec -i "sh scripts/kurir-restore.sh /app/backups/kurir-backup-TIMESTAMP.tar.gz"
+
+# Restart after restore
+kamal app boot
+```
+
+Backups include: PostgreSQL dump, Redis snapshot, environment variables.
+
 ## Rollback
 
 ```bash
