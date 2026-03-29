@@ -6,6 +6,7 @@ import { HealthSection } from "@/components/admin/health-section";
 import { SyncSection } from "@/components/admin/sync-section";
 import { UsersSection } from "@/components/admin/users-section";
 import { LogsSection } from "@/components/admin/logs-section";
+import { UpdatesSection } from "@/components/admin/updates-section";
 import pkg from "@/../package.json";
 
 export default async function AdminDashboardPage() {
@@ -129,6 +130,7 @@ export default async function AdminDashboardPage() {
           }))}
         />
       }
+      updatesContent={<UpdatesSection versionInfo={versionInfo} />}
       logsContent={<LogsSection />}
     />
   );
