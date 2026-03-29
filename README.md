@@ -161,11 +161,41 @@ Both providers use `NEXTAUTH_URL` as the base for the redirect URI. Token refres
 
 ## Production Deployment
 
-Two deployment options are available:
+Three deployment options are available:
 
-### Option A: Docker Compose (Self-Hosting)
+### Option A: One-Command Installer (Recommended)
 
-All-in-one single-server deployment with automatic HTTPS. No external dependencies.
+Provisions a fresh Ubuntu 22.04+ or Debian 12+ server with a single command. Handles secrets, HTTPS, and everything.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh
+```
+
+The installer will:
+
+- Verify prerequisites (Docker, ports 80/443)
+- Generate all secrets (auth, encryption, database, VAPID keys)
+- Prompt for your domain name and email (for Let's Encrypt)
+- Write configuration to `/opt/kurir/`
+- Pull images and start all services
+- Set up automatic HTTPS via Caddy + Let's Encrypt
+
+Once running, open `https://your-domain.com` to complete the first-run setup wizard.
+
+The script is idempotent — re-running it preserves existing secrets and lets you update the domain/email.
+
+**Manage your installation:**
+
+```bash
+cd /opt/kurir
+docker compose logs -f              # Tail logs
+docker compose pull && docker compose up -d  # Update to latest
+docker compose restart app           # Restart the app
+```
+
+### Option B: Docker Compose (Manual)
+
+All-in-one single-server deployment with automatic HTTPS. Same stack as the installer, configured manually.
 
 ```bash
 # Configure
@@ -178,7 +208,7 @@ docker compose -f docker-compose.production.yml up -d
 
 This starts Caddy (reverse proxy with auto Let's Encrypt), the Next.js app, PostgreSQL, and Redis. Database migrations run automatically on startup. See `.env.production.example` for all configuration options.
 
-### Option B: Kamal (Multi-Host)
+### Option C: Kamal (Multi-Host)
 
 For deploying across multiple Tailscale-connected servers with a private Docker registry. See [DEPLOY.md](DEPLOY.md) for the full guide.
 
