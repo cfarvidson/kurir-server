@@ -8,7 +8,7 @@ order: 8
 
 ## Is Kurir free?
 
-Yes. Kurir is open source and released under the [MIT license](https://github.com/cfarvidson/kurir-server/blob/main/LICENSE). You can use it, modify it, and self-host it at no cost. The only expense is your own server.
+Yes. Kurir is open source and released under the [O'Saasy license](https://github.com/cfarvidson/kurir-server/blob/main/LICENSE). You can use it, modify it, and self-host it at no cost. The only expense is your own server.
 
 ## Which email providers are supported?
 
@@ -45,7 +45,7 @@ Yes. Kurir is a web application that works in any modern browser on any device. 
 Kurir takes a different approach to email -- the Screener, the Imbox, the Feed, and the Paper Trail. The key differences:
 
 - **Self-hosted**: You run it on your own server. No subscription required.
-- **Open source**: MIT license. You can read, modify, and contribute to the code.
+- **Open source**: O'Saasy license. You can read, modify, and contribute to the code.
 - **Your data**: Emails live in your database, not on someone else's servers.
 - **Your provider**: Kurir connects to your existing email account. You keep your email address and provider.
 - **Free**: No monthly fee. Just the cost of a server (a $5-10/month VPS is plenty).
