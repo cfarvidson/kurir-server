@@ -1,0 +1,100 @@
+---
+const base = import.meta.env.BASE_URL;
+const installCmd =
+  "curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | bash";
+---
+
+<section class="px-6 py-24 md:py-32">
+  <div class="mx-auto max-w-landing">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1
+        class="text-5xl font-bold leading-[1.08] tracking-tight text-ink md:text-6xl"
+      >
+        Your email, your server,
+        <br class="hidden sm:block" />
+        your rules
+      </h1>
+      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink-light">
+        A Hey.com-style email client you host yourself. Open source,
+        self-hosted, completely under your control. Your data never leaves your
+        server.
+      </p>
+    </div>
+
+    <div class="mx-auto mt-12 max-w-2xl">
+      <div
+        class="group relative overflow-hidden rounded-lg border border-surface-200 bg-surface-50"
+      >
+        <div
+          class="flex items-center justify-between border-b border-surface-200 px-4 py-2.5"
+        >
+          <span class="font-mono text-xs text-ink-muted">terminal</span>
+          <button
+            id="hero-copy-btn"
+            class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-200 hover:text-ink"
+            data-cmd={installCmd}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="copy-icon"
+              aria-hidden="true"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
+              ></path>
+            </svg>
+            <span class="copy-label">Copy</span>
+          </button>
+        </div>
+        <div class="p-4">
+          <pre
+            class="overflow-x-auto font-mono text-sm leading-relaxed text-ink"><span class="select-none text-ink-muted">$ </span>{installCmd}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="mx-auto mt-16 max-w-4xl md:mt-20">
+      <div
+        class="flex aspect-video items-center justify-center rounded-2xl border border-surface-200 bg-surface-100"
+      >
+        <div class="text-center">
+          <div class="text-4xl text-ink-muted/40">&#9634;</div>
+          <p class="mt-2 text-sm font-medium text-ink-muted">Screenshot</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function initCopyButton(btn: HTMLButtonElement) {
+    btn.addEventListener("click", async () => {
+      const cmd = btn.dataset.cmd;
+      if (!cmd) return;
+      try {
+        await navigator.clipboard.writeText(cmd);
+        const label = btn.querySelector(".copy-label");
+        if (label) {
+          label.textContent = "Copied!";
+          setTimeout(() => {
+            label.textContent = "Copy";
+          }, 2000);
+        }
+      } catch {
+        /* clipboard API unavailable */
+      }
+    });
+  }
+
+  const heroBtn = document.getElementById(
+    "hero-copy-btn",
+  ) as HTMLButtonElement | null;
+  if (heroBtn) initCopyButton(heroBtn);
+</script>

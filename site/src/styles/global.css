@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-white text-ink antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold tracking-tight text-ink;
+  }
+
+  /* Prose styles for documentation markdown */
+  .prose {
+    @apply text-ink-light leading-relaxed;
+  }
+
+  .prose h1 {
+    @apply text-3xl font-semibold text-ink mt-0 mb-6;
+  }
+
+  .prose h2 {
+    @apply text-2xl font-semibold text-ink mt-12 mb-4;
+  }
+
+  .prose h3 {
+    @apply text-xl font-semibold text-ink mt-8 mb-3;
+  }
+
+  .prose p {
+    @apply mb-4;
+  }
+
+  .prose a {
+    @apply text-accent hover:text-accent-dark underline underline-offset-2;
+  }
+
+  .prose ul,
+  .prose ol {
+    @apply mb-4 pl-6;
+  }
+
+  .prose ul {
+    @apply list-disc;
+  }
+
+  .prose ol {
+    @apply list-decimal;
+  }
+
+  .prose li {
+    @apply mb-1;
+  }
+
+  .prose code {
+    @apply font-mono text-sm bg-surface-100 px-1.5 py-0.5 rounded;
+  }
+
+  .prose pre {
+    @apply bg-surface-100 rounded-lg p-4 overflow-x-auto mb-4;
+  }
+
+  .prose pre code {
+    @apply bg-transparent p-0 rounded-none;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-surface-200 pl-4 italic text-ink-muted;
+  }
+
+  .prose table {
+    @apply w-full mb-4 text-sm;
+  }
+
+  .prose th {
+    @apply text-left font-semibold text-ink border-b-2 border-surface-200 pb-2;
+  }
+
+  .prose td {
+    @apply border-b border-surface-100 py-2;
+  }
+
+  .prose strong {
+    @apply text-ink font-semibold;
+  }
+
+  .prose hr {
+    @apply border-surface-200 my-8;
+  }
+}

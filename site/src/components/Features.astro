@@ -1,0 +1,61 @@
+---
+const features = [
+  {
+    icon: "\u{1F6E1}",
+    title: "Screener",
+    description:
+      "New senders don't reach your inbox. You decide who gets in.",
+  },
+  {
+    icon: "\u{2709}",
+    title: "Imbox",
+    description:
+      "Only mail from people you've approved. The important stuff.",
+  },
+  {
+    icon: "\u{1F4F0}",
+    title: "The Feed",
+    description: "Newsletters and subscriptions in a browsable feed.",
+  },
+  {
+    icon: "\u{1F4CB}",
+    title: "Paper Trail",
+    description: "Receipts and notifications, kept neatly separate.",
+  },
+  {
+    icon: "\u{1F50D}",
+    title: "Search",
+    description: "Full-text search across every email, instantly.",
+  },
+  {
+    icon: "\u{1F3E0}",
+    title: "Self-hosted",
+    description:
+      "Runs on your server. Your data never leaves your control.",
+  },
+];
+---
+
+<section class="px-6 py-24 md:py-32">
+  <div class="mx-auto max-w-landing">
+    <h2 class="text-center text-3xl font-bold tracking-tight text-ink md:text-4xl">
+      A calmer way to email
+    </h2>
+
+    <div
+      class="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3"
+    >
+      {
+        features.map((f) => (
+          <div class="rounded-xl bg-surface-50 p-6 md:p-8">
+            <div class="text-2xl" aria-hidden="true">
+              {f.icon}
+            </div>
+            <h3 class="mt-4 text-lg font-semibold text-ink">{f.title}</h3>
+            <p class="mt-2 leading-relaxed text-ink-light">{f.description}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
