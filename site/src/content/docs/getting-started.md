@@ -6,7 +6,7 @@ order: 1
 
 # Getting Started
 
-Kurir is a self-hosted email client inspired by [Hey.com](https://hey.com). It connects to your existing email provider via IMAP and SMTP, giving you a calmer, more focused email experience -- without handing your data to a third party.
+Kurir is a self-hosted email client that gives you a calmer, more focused email experience. It connects to your existing email provider via IMAP and SMTP -- without handing your data to a third party.
 
 ## How it works
 

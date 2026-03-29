@@ -40,9 +40,9 @@ The only write operations are sending emails (via SMTP) and IMAP flag changes (m
 
 Yes. Kurir is a web application that works in any modern browser on any device. It supports Progressive Web App (PWA) installation, so you can add it to your home screen for an app-like experience. Push notifications are supported when VAPID keys are configured.
 
-## How is this different from Hey.com?
+## How is Kurir different from other email clients?
 
-Kurir is inspired by Hey.com's email philosophy -- the Screener, the Imbox, the Feed, and the Paper Trail. The key differences:
+Kurir takes a different approach to email -- the Screener, the Imbox, the Feed, and the Paper Trail. The key differences:
 
 - **Self-hosted**: You run it on your own server. No subscription required.
 - **Open source**: MIT license. You can read, modify, and contribute to the code.

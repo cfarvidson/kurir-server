@@ -1,10 +1,12 @@
 ---
+import "../styles/global.css";
+
 interface Props {
   title: string;
   description?: string;
 }
 
-const { title, description = "A Hey.com-inspired email client you host yourself. Own your data, own your email." } = Astro.props;
+const { title, description = "A focused email client you host yourself. Own your data, own your email." } = Astro.props;
 const base = import.meta.env.BASE_URL;
 ---
 
