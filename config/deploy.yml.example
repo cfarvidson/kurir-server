@@ -2,13 +2,13 @@
 service: kurir
 
 # Name of the container image.
-image: cfarvidson/kurir
+image: your-registry-username/kurir
 
 # Deploy to these servers.
 servers:
   web:
     hosts:
-      - kurir-app-1.banded-beta.ts.net
+      - your-server.example.com
     options:
       memory: 8192m
 
@@ -21,7 +21,7 @@ proxy:
 
 # Credentials for your image host.
 registry:
-  server: docker-registry.banded-beta.ts.net
+  server: your-registry.example.com
   username:
     - DOCKER_REGISTRY_TOKEN
   password:
@@ -33,16 +33,16 @@ builder:
   dockerfile: ./Dockerfile
   context: .
   args:
-    NEXT_PUBLIC_VAPID_PUBLIC_KEY: BPaSrHVytY_NJEq5tdKs9COC0bXzovmSn0Wl8VbeAMrYZIGY6Iy2y8F4bc9sGjA5B_Vd9VDO6e0zKXyCOvXX2sg
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   clear:
     NODE_ENV: production
     WEBAUTHN_RP_NAME: Kurir
-    WEBAUTHN_RP_ID: kurir-app-1.banded-beta.ts.net
-    NEXTAUTH_URL: https://kurir-app-1.banded-beta.ts.net
-    NEXT_PUBLIC_VAPID_PUBLIC_KEY: BPaSrHVytY_NJEq5tdKs9COC0bXzovmSn0Wl8VbeAMrYZIGY6Iy2y8F4bc9sGjA5B_Vd9VDO6e0zKXyCOvXX2sg
+    WEBAUTHN_RP_ID: your-server.example.com
+    NEXTAUTH_URL: https://your-server.example.com
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
   secret:
     - DATABASE_URL
     - NEXTAUTH_SECRET
@@ -58,7 +58,7 @@ env:
 accessories:
   db:
     image: postgres:16-alpine
-    host: kurir-app-1.banded-beta.ts.net
+    host: your-server.example.com
     port: 5432
     env:
       clear:
@@ -70,7 +70,7 @@ accessories:
       - data:/var/lib/postgresql/data
   redis:
     image: redis:7-alpine
-    host: kurir-redis-1.banded-beta.ts.net
+    host: your-redis-server.example.com
     port: 6379
     cmd: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     directories:

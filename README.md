@@ -159,6 +159,34 @@ Requires a free Azure account which creates an Entra ID tenant. App registration
 
 Both providers use `NEXTAUTH_URL` as the base for the redirect URI. Token refresh is handled automatically.
 
+## Production Deployment
+
+Two deployment options are available:
+
+### Option A: Docker Compose (Self-Hosting)
+
+All-in-one single-server deployment with automatic HTTPS. No external dependencies.
+
+```bash
+# Configure
+cp .env.production.example .env
+# Edit .env — set DOMAIN, generate secrets with: openssl rand -base64 32
+
+# Deploy
+docker compose -f docker-compose.production.yml up -d
+```
+
+This starts Caddy (reverse proxy with auto Let's Encrypt), the Next.js app, PostgreSQL, and Redis. Database migrations run automatically on startup. See `.env.production.example` for all configuration options.
+
+### Option B: Kamal (Multi-Host)
+
+For deploying across multiple Tailscale-connected servers with a private Docker registry. See [DEPLOY.md](DEPLOY.md) for the full guide.
+
+```bash
+kamal setup    # First deploy
+kamal deploy   # Subsequent deploys
+```
+
 ## Project Structure
 
 ```

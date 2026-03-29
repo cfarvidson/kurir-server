@@ -10,7 +10,14 @@ build
 # Environment
 .env
 .env.local
+.env.production
 .env.*.local
+
+# Deployment (use .example files as templates)
+config/deploy.yml
+!config/deploy.yml.example
+.kamal/secrets
+!.kamal/secrets.example
 
 # Debug
 npm-debug.log*
@@ -41,5 +48,6 @@ postgres_data/
 
 # Kamal destination-specific secrets (may contain real values)
 .kamal/secrets.*
+!.kamal/secrets.example
 
 !CLAUDE.md
