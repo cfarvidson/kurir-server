@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  RefreshCw,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { triggerSyncForConnection } from "@/actions/admin-connections";
 import { toast } from "sonner";
@@ -51,7 +45,11 @@ function getSyncStatus(syncState: SyncConnection["syncState"]): {
   pulse: boolean;
 } {
   if (!syncState || !syncState.lastFullSync) {
-    return { color: "bg-gray-400", label: "Never synced", pulse: false };
+    return {
+      color: "bg-muted-foreground",
+      label: "Never synced",
+      pulse: false,
+    };
   }
 
   if (syncState.isSyncing) {

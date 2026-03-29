@@ -1,11 +1,9 @@
 import * as os from "os";
 import { NextResponse } from "next/server";
-import { Redis } from "ioredis";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { getSyncQueue, getMaintenanceQueue } from "@/lib/jobs/queue";
-import { getConfig } from "@/lib/config";
 
 function formatBytes(bytes: number): string {
   const mb = bytes / 1024 / 1024;
@@ -39,7 +37,7 @@ export async function GET() {
 
     postgres = {
       connected: true,
-      version: versionResult[0]?.version ?? null,
+      version: versionResult[0]?.version?.split(",")[0] ?? null,
       size: sizeResult[0]?.pg_size_pretty ?? null,
     };
   } catch {
@@ -64,30 +62,16 @@ export async function GET() {
     syncStats = syncCounts as typeof syncStats;
     maintenanceStats = maintenanceCounts as typeof maintenanceStats;
     redisConnected = true;
-  } catch {
-    // Redis unavailable via BullMQ
-  }
 
-  // Redis memory info via ioredis
-  try {
-    const redis = new Redis(getConfig().redisUrl, {
-      maxRetriesPerRequest: 1,
-      lazyConnect: true,
-      retryStrategy: () => null,
-    });
-
-    await redis.connect();
-    const info = await redis.info("memory");
-    redisConnected = true;
-
+    // Reuse BullMQ's Redis connection for memory info
+    const client = await syncQueue.client;
+    const info = await client.info("memory");
     const match = info.match(/used_memory_human:(\S+)/);
     if (match) {
       redisMemoryUsed = match[1];
     }
-
-    await redis.quit();
   } catch {
-    // Redis memory info unavailable
+    // Redis unavailable
   }
 
   return NextResponse.json({

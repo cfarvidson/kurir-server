@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 import { AdminTabs } from "@/components/admin/admin-tabs";
@@ -9,7 +9,7 @@ import { LogsSection } from "@/components/admin/logs-section";
 import pkg from "@/../package.json";
 
 export default async function AdminDashboardPage() {
-  const session = await auth();
+  const session = await requireAdmin();
 
   const [users, settings, invites] = await Promise.all([
     db.user.findMany({
@@ -39,10 +39,7 @@ export default async function AdminDashboardPage() {
               },
             },
           },
-          orderBy: [
-            { isDefault: "desc" as const },
-            { createdAt: "asc" as const },
-          ],
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
         },
       },
     }),
@@ -100,7 +97,7 @@ export default async function AdminDashboardPage() {
       syncContent={<SyncSection connections={syncConnections} />}
       usersContent={
         <UsersSection
-          currentUserId={session!.user.id}
+          currentUserId={session.user.id}
           signupsEnabled={settings.signupsEnabled}
           selfServiceAccountManagement={settings.selfServiceAccountManagement}
           users={users.map((u) => ({
