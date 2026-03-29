@@ -54,8 +54,11 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json();
   const { updateMode } = body;
 
-  if (updateMode && !["off", "notify", "auto"].includes(updateMode)) {
-    return NextResponse.json({ error: "Invalid update mode" }, { status: 400 });
+  if (!updateMode || !["off", "notify", "auto"].includes(updateMode)) {
+    return NextResponse.json(
+      { error: "Invalid update mode. Must be one of: off, notify, auto" },
+      { status: 400 },
+    );
   }
 
   const settings = await db.systemSettings.upsert({

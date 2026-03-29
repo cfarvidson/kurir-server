@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
 import { DEFAULT_MANIFEST_URL } from "./constants";
@@ -9,6 +10,28 @@ export interface VersionManifest {
   changelog: string;
   minVersion: string;
   releasedAt: string;
+}
+
+const manifestSchema = z.object({
+  version: z.string().regex(/^\d+\.\d+\.\d+/),
+  image: z.string().min(1),
+  releaseUrl: z.string().url(),
+  changelog: z.string(),
+  minVersion: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+/)
+    .optional()
+    .default("0.0.0"),
+  releasedAt: z.string(),
+});
+
+function isValidManifestUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -48,12 +71,20 @@ export async function checkForUpdates(): Promise<{
     const settings = await db.systemSettings.findFirst();
     const manifestUrl = settings?.updateManifestUrl ?? DEFAULT_MANIFEST_URL;
 
+    if (!isValidManifestUrl(manifestUrl)) {
+      throw new Error(`Invalid manifest URL: ${manifestUrl}`);
+    }
+
     // Fetch with a 10-second timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    const response = await fetch(manifestUrl, { signal: controller.signal });
-    clearTimeout(timeout);
+    let response: Response;
+    try {
+      response = await fetch(manifestUrl, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw new Error(
@@ -61,7 +92,8 @@ export async function checkForUpdates(): Promise<{
       );
     }
 
-    const manifest: VersionManifest = await response.json();
+    const raw = await response.json();
+    const manifest = manifestSchema.parse(raw);
     const latestVersion = manifest.version;
     const updateAvailable = compareSemver(currentVersion, latestVersion) < 0;
 

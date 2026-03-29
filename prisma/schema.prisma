@@ -543,4 +543,6 @@ model UpdateLog {
   durationMs  Int?
   triggeredBy String   // "manual" | "auto"
   completedAt DateTime?
+
+  @@index([status])
 }
