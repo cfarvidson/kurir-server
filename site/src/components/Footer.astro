@@ -3,28 +3,51 @@ const base = import.meta.env.BASE_URL;
 const year = new Date().getFullYear();
 ---
 
-<footer class="border-t border-surface-200 bg-surface-50 px-6 py-12">
+<footer class="border-t border-surface-200 bg-surface-50 px-6 py-16">
   <div class="mx-auto max-w-landing">
-    <div class="flex flex-col items-center gap-4 text-center">
-      <p class="text-sm text-ink-light">
-        Kurir is open source under the <a href="https://github.com/cfarvidson/kurir-server/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="underline hover:text-ink">O'Saasy license</a>.
+    <div class="flex flex-col items-center gap-6 text-center">
+      <!-- Logo -->
+      <div class="flex items-center gap-2">
+        <img src={`${base}logo.png`} alt="" width="24" height="24" class="rounded-md" />
+        <span class="text-lg font-bold text-ink">Kurir</span>
+      </div>
+
+      <p class="max-w-md text-sm leading-relaxed text-ink-light">
+        <strong class="text-ink">Kurir</strong> is open source under the
+        <a
+          href="https://github.com/cfarvidson/kurir-server/blob/main/LICENSE"
+          class="text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-accent-dark hover:decoration-accent"
+          target="_blank"
+          rel="noopener noreferrer"
+        >O'Saasy license</a>.
+        Built by Carl-Fredrik Arvidson.
       </p>
-      <div class="flex items-center gap-6">
+
+      <nav class="flex items-center gap-6 text-sm">
         <a
           href="https://github.com/cfarvidson/kurir-server"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-sm text-ink-muted transition-colors hover:text-ink"
+          class="text-ink-muted transition-colors hover:text-ink"
         >
           GitHub
         </a>
         <a
           href={`${base}docs/getting-started`}
-          class="text-sm text-ink-muted transition-colors hover:text-ink"
+          class="text-ink-muted transition-colors hover:text-ink"
         >
-          Documentation
+          Docs
         </a>
-      </div>
+        <a
+          href="https://github.com/cfarvidson/kurir-server/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-ink-muted transition-colors hover:text-ink"
+        >
+          License
+        </a>
+      </nav>
+
       <p class="text-xs text-ink-muted">
         &copy; {year} Kurir
       </p>

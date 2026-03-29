@@ -3,60 +3,74 @@ const features = [
   {
     title: "Screener",
     description:
-      "New senders don't reach your inbox. You decide who gets in.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+      "New senders don't reach your inbox. You decide who gets in, who gets filed, and who gets blocked.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
   },
   {
     title: "Imbox",
     description:
-      "Only mail from people you've approved. The important stuff.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+      "Only mail from senders you've approved. The important stuff, and nothing else.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
   },
   {
     title: "The Feed",
-    description: "Newsletters and subscriptions in a browsable feed.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/></svg>`,
+    description:
+      "Newsletters and subscriptions in a browsable feed. Browse when you want, not when they arrive.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/></svg>`,
   },
   {
     title: "Paper Trail",
-    description: "Receipts and notifications, kept neatly separate.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13h4"/><path d="M10 17h4"/></svg>`,
-  },
-  {
-    title: "Search",
-    description: "Full-text search across every email, instantly.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
-  },
-  {
-    title: "Self-hosted",
     description:
-      "Runs on your server. Your data never leaves your control.",
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>`,
+      "Receipts, confirmations, and notifications. Kept neatly separate so they're there when you need them.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13h4"/><path d="M10 17h4"/></svg>`,
+  },
+  {
+    title: "Full-text search",
+    description:
+      "PostgreSQL-powered search across every email. Find anything, instantly.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  },
+  {
+    title: "Your server",
+    description:
+      "Runs on your hardware. Your data stays on your server. No third parties, ever.",
+    icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>`,
   },
 ];
 ---
 
-<section class="px-6 py-24 md:py-32">
+<section class="px-6 py-24 md:py-32" id="features">
   <div class="mx-auto max-w-landing">
-    <h2
-      class="text-center text-3xl font-bold tracking-tight text-ink md:text-4xl"
-    >
-      A calmer way to email
-    </h2>
+    <div class="reveal text-center">
+      <h2
+        class="text-3xl font-bold tracking-tight text-ink md:text-[2.75rem] md:leading-[1.15]"
+      >
+        Little things, big difference.
+      </h2>
+      <p class="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-light">
+        <strong class="text-ink">Screener</strong> blocks unknown senders.
+        <strong class="text-ink">The Feed</strong> collects newsletters.
+        <strong class="text-ink">Paper Trail</strong> files receipts.
+        <strong class="text-ink">Search</strong> finds everything.
+        Everything in its right place.
+      </p>
+    </div>
 
     <div
-      class="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3"
+      class="mt-16 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-surface-200 bg-surface-200 md:grid-cols-2 lg:grid-cols-3"
     >
       {
-        features.map((f) => (
-          <div class="rounded-xl bg-surface-50 p-6 md:p-8">
+        features.map((f, i) => (
+          <div
+            class={`reveal reveal-delay-${(i % 3) + 1} flex flex-col bg-white p-8 md:p-10`}
+          >
             <div
-              class="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-accent"
+              class="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-light text-accent"
               aria-hidden="true"
               set:html={f.icon}
             />
-            <h3 class="mt-4 text-lg font-semibold text-ink">{f.title}</h3>
-            <p class="mt-2 leading-relaxed text-ink-light">
+            <h3 class="mt-5 text-xl font-bold text-ink font-sans">{f.title}</h3>
+            <p class="mt-2.5 leading-relaxed text-ink-light">
               {f.description}
             </p>
           </div>

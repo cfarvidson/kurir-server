@@ -5,29 +5,29 @@ export default {
     extend: {
       colors: {
         surface: {
-          50: "#fafaf9",
-          100: "#f5f5f4",
-          200: "#e7e5e4",
+          50: "#faf9f7",
+          100: "#f5f4f1",
+          200: "#e8e6e1",
         },
         ink: {
-          DEFAULT: "#1a1a1a",
-          light: "#525252",
-          muted: "#a3a3a3",
+          DEFAULT: "#1a1510",
+          light: "#57534e",
+          muted: "#a8a29e",
         },
         accent: {
-          DEFAULT: "#e85d04",
-          dark: "#c2410c",
+          DEFAULT: "#c54b15",
+          dark: "#9a3412",
           light: "#fed7aa",
+          glow: "#fb923c",
         },
       },
       fontFamily: {
+        display: ["DM Serif Display", "Georgia", "serif"],
         sans: [
+          "system-ui",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
-          "Roboto",
-          "Helvetica Neue",
-          "Arial",
           "sans-serif",
         ],
         mono: ["SF Mono", "Fira Code", "Cascadia Code", "Menlo", "monospace"],
@@ -35,6 +35,20 @@ export default {
       maxWidth: {
         content: "720px",
         landing: "1120px",
+      },
+      animation: {
+        "fade-in": "fadeIn 0.8s ease-out both",
+        "slide-up": "slideUp 0.8s ease-out both",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
     },
   },

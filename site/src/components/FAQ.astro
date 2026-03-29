@@ -1,0 +1,78 @@
+---
+const questions = [
+  {
+    q: "Is Kurir really free?",
+    a: "Yes. Kurir is 100% open source and free to self-host. There's no paid tier, no premium features behind a paywall. You get the whole thing.",
+  },
+  {
+    q: "What email providers work with Kurir?",
+    a: "Any provider that supports IMAP and SMTP — Gmail, Outlook, Fastmail, your own Postfix server, you name it. Kurir connects to your existing email account over standard protocols.",
+  },
+  {
+    q: "Do I need to move my email to a new server?",
+    a: "No. Kurir is a client, not a mail server. It syncs with your existing email account via IMAP. Your mail stays where it is — Kurir just gives you a better way to read and organize it.",
+  },
+  {
+    q: "Can I really run Kurir on my own server?",
+    a: "Absolutely. One curl command installs Docker, PostgreSQL, Redis, and Kurir itself on any Ubuntu or Debian server. The whole setup takes about two minutes.",
+  },
+  {
+    q: "What's the Screener?",
+    a: "When someone you've never heard from emails you, they land in the Screener instead of your Imbox. You can approve them (and choose where their mail goes), or block them entirely. You'll never see unwanted email again.",
+  },
+  {
+    q: "What's the license?",
+    a: 'Kurir uses the O\'Saasy License — essentially MIT, but with one extra clause: you can\'t take it and offer it as a competing hosted service. Self-hosting for personal or business use is completely fine.',
+  },
+];
+---
+
+<section class="px-6 py-24 md:py-32" id="questions">
+  <div class="mx-auto max-w-2xl">
+    <h2
+      class="reveal text-center text-3xl font-bold tracking-tight text-ink md:text-[2.75rem]"
+    >
+      Common questions.
+    </h2>
+
+    <div class="mt-12 space-y-0 divide-y divide-surface-200">
+      {
+        questions.map((item, i) => (
+          <details
+            class={`reveal reveal-delay-${Math.min(i + 1, 5)} group`}
+          >
+            <summary class="flex cursor-pointer items-center justify-between py-5 text-left text-lg font-medium text-ink transition-colors hover:text-accent [&::-webkit-details-marker]:hidden">
+              <span>{item.q}</span>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="ml-4 flex-shrink-0 text-ink-muted transition-transform group-open:rotate-45"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </summary>
+            <div class="pb-5 text-ink-light leading-relaxed">
+              {item.a}
+            </div>
+          </details>
+        ))
+      }
+    </div>
+
+    <p class="reveal mt-10 text-center text-ink-light">
+      Need help? Check out the
+      <a
+        href="docs/getting-started"
+        class="font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-accent-dark hover:decoration-accent"
+      >documentation</a>.
+    </p>
+  </div>
+</section>
