@@ -92,6 +92,7 @@ export default async function MailLayout({
           feedUnreadCount={feedUnreadCount}
           paperTrailUnreadCount={paperTrailUnreadCount}
           badgePreferences={badgePreferences}
+          isAdmin={session.user.role === "ADMIN"}
         />
         <MobileSidebar
           screenerCount={screenerCount}
@@ -101,6 +102,7 @@ export default async function MailLayout({
           feedUnreadCount={feedUnreadCount}
           paperTrailUnreadCount={paperTrailUnreadCount}
           badgePreferences={badgePreferences}
+          isAdmin={session.user.role === "ADMIN"}
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />
