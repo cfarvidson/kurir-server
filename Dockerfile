@@ -33,7 +33,7 @@ RUN pnpm build
 FROM base AS runner
 LABEL org.opencontainers.image.source="https://github.com/cfarvidson/kurir-server"
 LABEL org.opencontainers.image.description="Kurir — Hey.com-inspired email client"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.licenses="LicenseRef-OSaasy"
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
