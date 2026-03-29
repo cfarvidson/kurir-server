@@ -14,9 +14,15 @@ export async function register() {
       await import("@/lib/mail/background-sync");
     startBackgroundSync();
 
-    // Graceful shutdown: stop BullMQ workers + IDLE connections
+    // Start background update checker
+    const { startUpdateChecker, stopUpdateChecker } =
+      await import("@/lib/updates/update-cron");
+    startUpdateChecker();
+
+    // Graceful shutdown: stop BullMQ workers + IDLE connections + update checker
     process.on("SIGTERM", () => {
       console.log("[instrumentation] SIGTERM received, shutting down...");
+      stopUpdateChecker();
       stopBackgroundSync().catch(console.error);
     });
   }

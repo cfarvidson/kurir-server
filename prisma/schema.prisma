@@ -368,6 +368,16 @@ model SystemSettings {
   id                           String  @id @default("singleton")
   signupsEnabled               Boolean @default(true)
   selfServiceAccountManagement Boolean @default(true)
+
+  // Auto-update settings
+  updateMode        String    @default("notify") // "off" | "notify" | "auto"
+  updateManifestUrl String    @default("https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json")
+  lastUpdateCheck   DateTime?
+  latestVersion     String?
+  latestImageTag    String?
+  latestReleaseUrl  String?
+  latestChangelog   String?
+  updateAvailable   Boolean   @default(false)
 }
 
 // ============================================
@@ -516,4 +526,21 @@ model Draft {
 
   @@unique([userId, type, contextMessageId])
   @@index([userId])
+}
+
+// ============================================
+// UPDATE LOG
+// ============================================
+
+model UpdateLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  fromVersion String
+  toVersion   String
+  status      String   // "started" | "pulling" | "restarting" | "verifying" | "success" | "failed" | "rolled_back"
+  error       String?
+  durationMs  Int?
+  triggeredBy String   // "manual" | "auto"
+  completedAt DateTime?
 }
