@@ -312,6 +312,9 @@ model Message {
 
   attachments Attachment[]
 
+  // Full-text search (managed by prisma/migrations/search_vector.sql, not Prisma)
+  search_vector Unsupported("tsvector")?
+
   @@unique([folderId, uid])
   @@index([userId, isInScreener])
   @@index([userId, isInImbox, isRead])

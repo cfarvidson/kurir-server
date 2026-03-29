@@ -31,16 +31,16 @@ export async function generateSecrets(): Promise<void> {
   }
 
   // VAPID keys
-  if (
-    !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-    !process.env.VAPID_PRIVATE_KEY
-  ) {
+  // Use bracket notation for NEXT_PUBLIC_* to prevent webpack from inlining
+  // the env var reference as a string literal (which breaks minification).
+  const VAPID_PUB_KEY = "NEXT_PUBLIC_VAPID_PUBLIC_KEY";
+  if (!process.env[VAPID_PUB_KEY] || !process.env.VAPID_PRIVATE_KEY) {
     // Dynamic import to avoid loading web-push at module level
     const webpush = await import("web-push");
     const vapidKeys = webpush.generateVAPIDKeys();
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = vapidKeys.publicKey;
+    process.env[VAPID_PUB_KEY] = vapidKeys.publicKey;
     process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
-    generated["NEXT_PUBLIC_VAPID_PUBLIC_KEY"] = vapidKeys.publicKey;
+    generated[VAPID_PUB_KEY] = vapidKeys.publicKey;
     generated["VAPID_PRIVATE_KEY"] = vapidKeys.privateKey;
     console.log("[generate-secrets] Generated VAPID keypair");
   }
