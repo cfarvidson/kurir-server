@@ -92,7 +92,7 @@ export async function addConnectionForUser(
     },
   });
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function deleteConnectionForUser(connectionId: string) {
@@ -117,7 +117,7 @@ export async function deleteConnectionForUser(connectionId: string) {
     db.emailConnection.delete({ where: { id: connectionId } }),
   ]);
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function triggerSyncForConnection(connectionId: string) {
@@ -144,5 +144,5 @@ export async function triggerSyncForConnection(connectionId: string) {
     },
   );
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }

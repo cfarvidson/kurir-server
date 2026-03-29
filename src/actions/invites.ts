@@ -27,7 +27,7 @@ export async function createInvite(displayName: string, emailHint?: string) {
     },
   });
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
   return { id: invite.id, token: invite.token };
 }
 
@@ -35,7 +35,7 @@ export async function revokeInvite(inviteId: string) {
   await requireAdmin();
 
   await db.invite.delete({ where: { id: inviteId } });
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function listInvites() {

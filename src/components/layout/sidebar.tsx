@@ -5,7 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Settings, PenSquare, LogOut, Keyboard, Command } from "lucide-react";
+import {
+  Settings,
+  PenSquare,
+  LogOut,
+  Keyboard,
+  Command,
+  Shield,
+} from "lucide-react";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -26,6 +33,7 @@ interface SidebarProps {
   feedUnreadCount?: number;
   paperTrailUnreadCount?: number;
   badgePreferences?: BadgePreferences;
+  isAdmin?: boolean;
 }
 
 /**
@@ -60,6 +68,7 @@ export function Sidebar({
   feedUnreadCount = 0,
   paperTrailUnreadCount = 0,
   badgePreferences = defaultBadgePreferences,
+  isAdmin = false,
 }: SidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const pathname = usePathname();
@@ -191,6 +200,20 @@ export function Sidebar({
           <Settings className="h-5 w-5" />
           Settings
         </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
+              pathname.startsWith("/admin")
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Shield className="h-5 w-5" />
+            Admin
+          </Link>
+        )}
         <button
           onClick={openCommandPalette}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

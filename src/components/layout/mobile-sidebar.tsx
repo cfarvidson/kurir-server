@@ -6,7 +6,15 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Menu, X, Settings, PenSquare, LogOut, Keyboard } from "lucide-react";
+import {
+  Menu,
+  X,
+  Settings,
+  PenSquare,
+  LogOut,
+  Keyboard,
+  Shield,
+} from "lucide-react";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import {
@@ -24,6 +32,7 @@ interface MobileSidebarProps {
   feedUnreadCount?: number;
   paperTrailUnreadCount?: number;
   badgePreferences?: BadgePreferences;
+  isAdmin?: boolean;
 }
 
 export function MobileSidebar({
@@ -34,6 +43,7 @@ export function MobileSidebar({
   feedUnreadCount = 0,
   paperTrailUnreadCount = 0,
   badgePreferences = defaultBadgePreferences,
+  isAdmin = false,
 }: MobileSidebarProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
@@ -221,6 +231,21 @@ export function MobileSidebar({
                   <Settings className="h-5 w-5" />
                   Settings
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
+                      pathname.startsWith("/admin")
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <Shield className="h-5 w-5" />
+                    Admin
+                  </Link>
+                )}
                 <button
                   onClick={() => {
                     setOpen(false);

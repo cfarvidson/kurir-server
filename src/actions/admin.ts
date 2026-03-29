@@ -11,7 +11,7 @@ export async function toggleSignups(enabled: boolean) {
     create: { signupsEnabled: enabled },
     update: { signupsEnabled: enabled },
   });
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function toggleSelfServiceAccountManagement(enabled: boolean) {
@@ -21,7 +21,7 @@ export async function toggleSelfServiceAccountManagement(enabled: boolean) {
     create: { selfServiceAccountManagement: enabled },
     update: { selfServiceAccountManagement: enabled },
   });
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function updateUserDisplayName(
@@ -39,7 +39,7 @@ export async function updateUserDisplayName(
     data: { displayName: trimmed },
   });
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
 
 export async function updateUserRole(
@@ -72,5 +72,5 @@ export async function updateUserRole(
     { isolationLevel: "Serializable" },
   );
 
-  revalidatePath("/settings/admin");
+  revalidatePath("/admin");
 }
