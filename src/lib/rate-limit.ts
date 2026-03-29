@@ -2,13 +2,12 @@ import { Redis } from "ioredis";
 import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
 
-const REDIS_URL = getConfig().redisUrl;
-
 let redis: Redis | null = null;
 
 function getRedis(): Redis | null {
   if (!redis) {
     try {
+      const REDIS_URL = getConfig().redisUrl;
       redis = new Redis(REDIS_URL, {
         maxRetriesPerRequest: 1,
         lazyConnect: true,

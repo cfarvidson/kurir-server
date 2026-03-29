@@ -64,10 +64,7 @@ function buildConfig(env: Env) {
     domain,
     baseUrl,
     isProduction: env.NODE_ENV === "production",
-    isDevelopment: env.NODE_ENV === "development",
-    isTest: env.NODE_ENV === "test",
 
-    databaseUrl: env.DATABASE_URL,
     redisUrl: env.REDIS_URL,
 
     nextauthSecret,
@@ -90,12 +87,10 @@ function buildConfig(env: Env) {
       microsoft: {
         clientId: env.MICROSOFT_CLIENT_ID,
         clientSecret: env.MICROSOFT_CLIENT_SECRET,
-        configured: !!(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET),
       },
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
-        configured: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
       },
     },
 

@@ -4,8 +4,6 @@ import { getConfig } from "@/lib/config";
 import { setChallenge } from "@/lib/webauthn-challenge-store";
 import { randomBytes } from "crypto";
 
-const config = getConfig();
-
 /**
  * POST /api/auth/webauthn/login/options
  *
@@ -16,6 +14,7 @@ const config = getConfig();
  * The challenge is stored server-side keyed by a cookie.
  */
 export async function POST() {
+  const config = getConfig();
   const options = await generateAuthenticationOptions({
     rpID: config.webauthn.rpId,
     userVerification: "preferred",

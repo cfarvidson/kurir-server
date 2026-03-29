@@ -60,7 +60,8 @@ function encrypt(text: string): string {
     throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
 
-  const key = scryptSync(secret, "kurir-salt", 32);
+  const salt = process.env.ENCRYPTION_SALT || "kurir-salt";
+  const key = scryptSync(secret, salt, 32);
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
 

@@ -57,7 +57,12 @@ export async function GET(request: NextRequest) {
 
   const [nonce, provider, mode, userId, signature] = parts;
   const payload = `${nonce}:${provider}:${mode}:${userId}`;
-  const secret = getConfig().encryptionKey!;
+  const secret = getConfig().encryptionKey;
+  if (!secret) {
+    return NextResponse.redirect(
+      new URL("/setup?error=Server+misconfiguration", request.url),
+    );
+  }
   const expectedSig = createHmac("sha256", secret)
     .update(payload)
     .digest("hex");

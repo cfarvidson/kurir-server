@@ -8,8 +8,6 @@ import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 
-const config = getConfig();
-
 /**
  * POST /api/auth/webauthn/login/verify
  *
@@ -19,6 +17,7 @@ const config = getConfig();
  * updates the counter, and issues a NextAuth JWT session cookie.
  */
 export async function POST(req: NextRequest) {
+  const config = getConfig();
   const sessionKey = req.cookies.get("wa_auth_session")?.value;
   if (!sessionKey) {
     return NextResponse.json(

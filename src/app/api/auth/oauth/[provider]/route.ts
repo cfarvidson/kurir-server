@@ -50,7 +50,13 @@ export async function GET(
   const nonce = randomBytes(16).toString("hex");
   const payload = `${nonce}:${provider}:${mode}:${session.user.id}`;
   const appConfig = getConfig();
-  const secret = appConfig.encryptionKey!;
+  const secret = appConfig.encryptionKey;
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Server misconfiguration" },
+      { status: 500 },
+    );
+  }
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
   const state = `${payload}:${signature}`;
 

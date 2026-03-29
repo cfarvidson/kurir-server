@@ -8,8 +8,6 @@ import { randomBytes } from "crypto";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 import { rateLimitRegistration, tooManyRequests } from "@/lib/rate-limit";
 
-const config = getConfig();
-
 /**
  * POST /api/auth/webauthn/register/options
  *
@@ -24,6 +22,7 @@ const config = getConfig();
  * /api/auth/webauthn/register/verify.
  */
 export async function POST(req: NextRequest) {
+  const config = getConfig();
   const url = new URL(req.url);
   const addPasskey = url.searchParams.get("addPasskey") === "true";
 

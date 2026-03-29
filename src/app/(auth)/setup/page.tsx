@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import SetupForm from "@/components/auth/setup-form";
 import SetupWizard from "@/components/auth/setup-wizard";
 
@@ -13,9 +14,10 @@ export default async function SetupPage() {
     db.user.count({ take: 1 }),
   ]);
 
+  const { oauth } = getConfig();
   const oauthEnabled = {
-    microsoft: !!process.env.MICROSOFT_CLIENT_ID,
-    google: !!process.env.GOOGLE_CLIENT_ID,
+    microsoft: !!(oauth.microsoft.clientId && oauth.microsoft.clientSecret),
+    google: !!(oauth.google.clientId && oauth.google.clientSecret),
   };
 
   // First-run: no users exist → show the setup wizard

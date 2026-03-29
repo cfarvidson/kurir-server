@@ -8,8 +8,6 @@ import { consumeChallenge } from "@/lib/webauthn-challenge-store";
 import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
-const config = getConfig();
-
 /**
  * POST /api/auth/webauthn/register/verify
  *
@@ -21,6 +19,7 @@ const config = getConfig();
  * - With addPasskey: creates only a Passkey record for the current user (no new session).
  */
 export async function POST(req: NextRequest) {
+  const config = getConfig();
   const url = new URL(req.url);
   const addPasskey = url.searchParams.get("addPasskey") === "true";
 

@@ -72,7 +72,9 @@ function persistToEnvFile(vars: Record<string, string>): void {
     }
 
     if (lines.length > 1) {
-      writeFileSync(ENV_PATH, content + lines.join("\n") + "\n");
+      writeFileSync(ENV_PATH, content + lines.join("\n") + "\n", {
+        mode: 0o600,
+      });
       console.log(`[generate-secrets] Persisted secrets to ${ENV_PATH}`);
     }
   } catch (err) {

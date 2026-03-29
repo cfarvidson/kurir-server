@@ -2,18 +2,22 @@ import webpush from "web-push";
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 
-const { vapid, adminEmail } = getConfig();
-
-if (vapid.configured) {
-  webpush.setVapidDetails(
-    adminEmail ? `mailto:${adminEmail}` : "mailto:admin@kurir.app",
-    vapid.publicKey!,
-    vapid.privateKey!,
-  );
-} else {
-  console.warn(
-    "[push] VAPID keys not configured — push notifications disabled",
-  );
+let vapidInitialized = false;
+function ensureVapid() {
+  if (vapidInitialized) return;
+  vapidInitialized = true;
+  const { vapid, adminEmail } = getConfig();
+  if (vapid.configured) {
+    webpush.setVapidDetails(
+      adminEmail ? `mailto:${adminEmail}` : "mailto:admin@kurir.app",
+      vapid.publicKey!,
+      vapid.privateKey!,
+    );
+  } else {
+    console.warn(
+      "[push] VAPID keys not configured — push notifications disabled",
+    );
+  }
 }
 
 interface PushPayload {
@@ -28,7 +32,8 @@ const recentlyNotified = new Set<string>();
 const DEDUP_TTL_MS = 120_000; // 2 minutes
 
 export async function pushToUser(userId: string, payload: PushPayload) {
-  if (!vapid.configured) return;
+  ensureVapid();
+  if (!getConfig().vapid.configured) return;
 
   // Dedup by URL (contains the message ID)
   const dedupeKey = `${userId}:${payload.url}`;
