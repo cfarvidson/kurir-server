@@ -325,4 +325,4 @@ When you screen in a sender, choose where their emails go:
 
 ## License
 
-MIT
+[O'Saasy License](LICENSE) — open source, but no competing SaaS. You can use, modify, and self-host freely. You cannot take this code and offer it as a hosted email service.
