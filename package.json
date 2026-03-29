@@ -18,7 +18,9 @@
     "add-user": "tsx scripts/add-user.ts",
     "list-users": "tsx scripts/list-users.ts",
     "sync-user": "tsx scripts/sync-user.ts",
-    "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts"
+    "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts",
+    "backup": "sh scripts/kurir-backup.sh",
+    "restore": "sh scripts/kurir-restore.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

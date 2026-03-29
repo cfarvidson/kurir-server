@@ -13,6 +13,8 @@ pnpm db:generate  # Regenerate Prisma client
 pnpm db:studio    # Prisma Studio GUI
 pnpm add-user     # CLI: add user with IMAP/SMTP config
 pnpm sync-user    # CLI: trigger sync for user(s)
+pnpm backup       # Create backup archive (pg + redis + env)
+pnpm restore      # Restore from backup archive
 ```
 
 ## Architecture
