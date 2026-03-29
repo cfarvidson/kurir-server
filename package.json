@@ -20,7 +20,10 @@
     "sync-user": "tsx scripts/sync-user.ts",
     "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts",
     "backup": "sh scripts/kurir-backup.sh",
-    "restore": "sh scripts/kurir-restore.sh"
+    "restore": "sh scripts/kurir-restore.sh",
+    "site:dev": "npm --prefix site run dev",
+    "site:build": "npm --prefix site run build",
+    "site:preview": "npm --prefix site run preview"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

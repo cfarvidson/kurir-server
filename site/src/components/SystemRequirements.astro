@@ -1,0 +1,37 @@
+---
+const requirements = [
+  { label: "Ubuntu 22.04+ or Debian 12+" },
+  { label: "Docker Engine 20+" },
+  { label: "1 GB RAM minimum" },
+  { label: "Ports 80 and 443 available" },
+  { label: "A domain name (for HTTPS)" },
+];
+---
+
+<section class="px-6 py-24 md:py-32">
+  <div class="mx-auto max-w-landing">
+    <div class="mx-auto max-w-xl">
+      <h2
+        class="text-center text-3xl font-bold tracking-tight text-ink md:text-4xl"
+      >
+        System requirements
+      </h2>
+
+      <ul class="mt-12 space-y-4">
+        {
+          requirements.map((req) => (
+            <li class="flex items-center gap-3 rounded-lg border border-surface-200 bg-white px-5 py-3.5">
+              <span
+                class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs text-accent"
+                aria-hidden="true"
+              >
+                &#10003;
+              </span>
+              <span class="text-ink-light">{req.label}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

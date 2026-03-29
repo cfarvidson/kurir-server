@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-white text-ink antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold text-ink;
+  }
+}
+
+/* Prose styles — outside @layer so they beat Tailwind's preflight reset */
+.prose {
+  font-size: 1rem;
+  line-height: 1.85;
+  color: #525252;
+}
+
+.prose h1 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1a1a1a;
+  margin-top: 0;
+  margin-bottom: 2rem;
+}
+
+.prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #1a1a1a;
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #1a1a1a;
+  margin-top: 2.25rem;
+  margin-bottom: 1rem;
+}
+
+.prose p {
+  margin-bottom: 1.25rem;
+}
+
+.prose a {
+  color: #e85d04;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: #c2410c;
+}
+
+.prose ul,
+.prose ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.75rem;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin-bottom: 0.5rem;
+  line-height: 1.75;
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", "Menlo", monospace;
+  font-size: 0.875rem;
+  background: #f5f5f4;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.prose pre {
+  background: #f5f5f4;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  line-height: 1.7;
+}
+
+.prose blockquote {
+  border-left: 4px solid #e7e5e4;
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: #a3a3a3;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.prose th {
+  text-align: left;
+  font-weight: 600;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e7e5e4;
+  padding-bottom: 0.75rem;
+  padding-right: 1rem;
+}
+
+.prose td {
+  border-bottom: 1px solid #f5f5f4;
+  padding: 0.75rem 1rem 0.75rem 0;
+}
+
+.prose strong {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.prose hr {
+  border-color: #e7e5e4;
+  margin: 2.5rem 0;
+}
