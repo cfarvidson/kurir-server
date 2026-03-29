@@ -5,9 +5,20 @@ Deploying Kurir using Kamal to Tailscale-connected servers.
 ## Prerequisites
 
 - [Kamal](https://kamal-deploy.org/) installed (`gem install kamal`)
-- Access to the Docker registry at `docker-registry.banded-beta.ts.net`
-- Tailscale connected to the `banded-beta` tailnet
+- A Docker registry (e.g., Docker Hub, GitHub Container Registry, or self-hosted)
+- Server(s) accessible via SSH
 - Required environment variables set up (see below)
+
+## Configuration
+
+Copy the example files and fill in your values:
+
+```bash
+cp config/deploy.yml.example config/deploy.yml
+cp .kamal/secrets.example .kamal/secrets
+```
+
+Edit `config/deploy.yml` with your server hostnames, registry, and domain. Edit `.kamal/secrets` to reference your environment variables.
 
 ## Environment Setup
 
