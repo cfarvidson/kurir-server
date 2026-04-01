@@ -10,7 +10,7 @@ import { buildImapAuth } from "@/lib/mail/auth-helpers";
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
  * These MIME part IDs (e.g. "1.2", "2") are what ImapFlow.download() expects.
  */
-function extractAttachmentParts(
+export function extractAttachmentParts(
   node: any,
   path: string = "",
 ): Array<{ partId: string; type: string; filename: string; size: number }> {
@@ -58,14 +58,14 @@ export interface SyncResult {
 /**
  * Extract domain from email address
  */
-function extractDomain(email: string): string {
+export function extractDomain(email: string): string {
   return email.split("@")[1] || email;
 }
 
 /**
  * Create a preview snippet from email body
  */
-function createSnippet(
+export function createSnippet(
   text: string | undefined,
   maxLength = 150,
 ): string | null {
