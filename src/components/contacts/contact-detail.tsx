@@ -424,29 +424,27 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                     {emailEntry.email}
                   </span>
 
-                  {/* Action icons - visible on hover */}
-                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/email:opacity-100">
-                    {/* Primary star */}
-                    <button
-                      onClick={() => handleSetPrimary(emailEntry)}
-                      className="rounded p-1 hover:bg-muted"
-                      title={
-                        emailEntry.isPrimary
-                          ? "Primary email"
-                          : "Set as primary"
-                      }
-                    >
-                      <Star
-                        className={`h-3.5 w-3.5 ${
+                  {/* Action icons - visible on hover, only for multi-email contacts */}
+                  {contact.emails.length >= 2 && (
+                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/email:opacity-100">
+                      <button
+                        onClick={() => handleSetPrimary(emailEntry)}
+                        className="rounded p-1 hover:bg-muted"
+                        title={
                           emailEntry.isPrimary
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
+                            ? "Primary email"
+                            : "Set as primary"
+                        }
+                      >
+                        <Star
+                          className={`h-3.5 w-3.5 ${
+                            emailEntry.isPrimary
+                              ? "fill-amber-400 text-amber-400"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                      </button>
 
-                    {/* Split/unlink - only if 2+ emails */}
-                    {contact.emails.length >= 2 && (
                       <button
                         onClick={() => handleUnlink(emailEntry)}
                         className="rounded p-1 hover:bg-muted"
@@ -454,10 +452,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                       >
                         <Split className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                    )}
 
-                    {/* Remove - only if 2+ emails */}
-                    {contact.emails.length >= 2 && (
                       <button
                         onClick={() => setRemoveEmailId(emailEntry.id)}
                         className="rounded p-1 hover:bg-destructive/10"
@@ -465,12 +460,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                       >
                         <X className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                    )}
-                  </div>
-
-                  {/* Primary indicator - always visible */}
-                  {emailEntry.isPrimary && (
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 group-hover/email:hidden" />
+                    </div>
                   )}
                 </div>
               ))}
