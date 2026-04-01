@@ -16,7 +16,11 @@
  *   pnpm tsx scripts/migrate-senders-to-contacts.ts --dry-run
  */
 
-import "dotenv/config";
+try {
+  require("dotenv/config");
+} catch {
+  // dotenv not available in production — env vars come from host
+}
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
