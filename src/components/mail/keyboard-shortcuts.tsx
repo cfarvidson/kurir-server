@@ -13,8 +13,8 @@ interface ShortcutEntry {
 }
 
 const listShortcuts: ShortcutEntry[] = [
-  { keys: ["j"], description: "Next conversation" },
-  { keys: ["k"], description: "Previous conversation" },
+  { keys: ["j", "↓"], description: "Next conversation" },
+  { keys: ["k", "↑"], description: "Previous conversation" },
   { keys: ["Enter"], description: "Open conversation" },
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
@@ -27,8 +27,8 @@ const listShortcuts: ShortcutEntry[] = [
 
 const threadShortcuts: ShortcutEntry[] = [
   { keys: ["r"], description: "Reply" },
-  { keys: ["j"], description: "Next thread" },
-  { keys: ["k"], description: "Previous thread" },
+  { keys: ["j", "↓"], description: "Next thread" },
+  { keys: ["k", "↑"], description: "Previous thread" },
   { keys: ["Esc"], description: "Back to list" },
 ];
 

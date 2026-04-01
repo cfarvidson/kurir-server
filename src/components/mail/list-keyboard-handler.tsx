@@ -62,14 +62,16 @@ export function ListKeyboardHandler({
       const msg = getFocusedMessage();
 
       switch (e.key) {
-        case "j": {
+        case "j":
+        case "ArrowDown": {
           e.preventDefault();
           moveFocus(1, threads.length);
           scrollFocusedIntoView();
           break;
         }
 
-        case "k": {
+        case "k":
+        case "ArrowUp": {
           e.preventDefault();
           moveFocus(-1, threads.length);
           scrollFocusedIntoView();

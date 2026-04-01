@@ -41,7 +41,8 @@ export function ThreadKeyboardHandler({
           break;
         }
 
-        case "j": {
+        case "j":
+        case "ArrowDown": {
           // Next thread
           e.preventDefault();
           const currentIndex = threadIds.indexOf(messageId);
@@ -53,7 +54,8 @@ export function ThreadKeyboardHandler({
           break;
         }
 
-        case "k": {
+        case "k":
+        case "ArrowUp": {
           // Previous thread
           e.preventDefault();
           const idx = threadIds.indexOf(messageId);
