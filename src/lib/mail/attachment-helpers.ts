@@ -28,7 +28,13 @@ export async function loadAttachmentsForSend(
   }
 
   const attachments = await db.attachment.findMany({
-    where: { id: { in: attachmentIds }, userId },
+    where: {
+      id: { in: attachmentIds },
+      OR: [
+        { userId }, // uploaded by user
+        { message: { userId } }, // IMAP-synced, owned via message
+      ],
+    },
     select: {
       id: true,
       filename: true,
