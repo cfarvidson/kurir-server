@@ -1,0 +1,8 @@
+{
+  "version": "2026.04.01",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.01",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.01",
+  "changelog": "Contact management with multi-email support, linking, and auto-creation. Keyboard shortcuts. Attachment forwarding fix. Release tooling.",
+  "minVersion": "0.0.0",
+  "releasedAt": "2026-04-01T00:00:00Z"
+}
