@@ -17,3 +17,4 @@ postgres_data
 npm-debug.log*
 .pnpm-debug.log*
 .kamal
+site
