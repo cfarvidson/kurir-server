@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Clock, CalendarDays, CalendarRange, Loader2 } from "lucide-react";
+import { keyboardState } from "@/lib/keyboard-state";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
@@ -68,21 +70,70 @@ export function FollowUpPicker({
     onOpenChange?.(o);
   };
 
+  const [focusedOption, setFocusedOption] = useState(0);
+
   const handleSelect = (option: FollowUpOption) => {
     handleOpenChange(false);
     const until = new Date(Date.now() + option.getDuration());
     onFollowUp(until);
   };
 
-  // Number key shortcuts: 1-4 select corresponding option
+  // Reset focused option when opening
+  useEffect(() => {
+    if (isOpen) {
+      setFocusedOption(0);
+    }
+  }, [isOpen]);
+
+  // Set popoverOpen flag so list keyboard handler defers
+  useEffect(() => {
+    keyboardState.popoverOpen = isOpen;
+    return () => {
+      keyboardState.popoverOpen = false;
+    };
+  }, [isOpen]);
+
+  const selectOption = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < FOLLOW_UP_OPTIONS.length) {
+        handleSelect(FOLLOW_UP_OPTIONS[index]);
+      }
+    },
+    [handleSelect],
+  );
+
+  // Keyboard navigation: j/k, arrows, Enter, number keys
   useEffect(() => {
     if (!isOpen || isPending) return;
     const handler = (e: KeyboardEvent) => {
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= FOLLOW_UP_OPTIONS.length) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSelect(FOLLOW_UP_OPTIONS[num - 1]);
+      switch (e.key) {
+        case "j":
+        case "ArrowDown": {
+          e.preventDefault();
+          setFocusedOption((prev) =>
+            Math.min(prev + 1, FOLLOW_UP_OPTIONS.length - 1),
+          );
+          break;
+        }
+        case "k":
+        case "ArrowUp": {
+          e.preventDefault();
+          setFocusedOption((prev) => Math.max(prev - 1, 0));
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          selectOption(focusedOption);
+          break;
+        }
+        default: {
+          const num = parseInt(e.key);
+          if (num >= 1 && num <= FOLLOW_UP_OPTIONS.length) {
+            e.preventDefault();
+            selectOption(num - 1);
+          }
+          break;
+        }
       }
     };
     window.addEventListener("keydown", handler);
@@ -103,8 +154,12 @@ export function FollowUpPicker({
               <button
                 key={option.label}
                 onClick={() => handleSelect(option)}
+                onMouseEnter={() => setFocusedOption(index)}
                 disabled={isPending}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+                className={cn(
+                  "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
+                  focusedOption === index ? "bg-muted" : "hover:bg-muted",
+                )}
               >
                 {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

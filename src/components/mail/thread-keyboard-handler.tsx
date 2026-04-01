@@ -32,6 +32,7 @@ export function ThreadKeyboardHandler({
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
       if (keyboardState.gSequenceActive) return;
+      if (keyboardState.popoverOpen) return;
 
       switch (e.key) {
         case "r": {

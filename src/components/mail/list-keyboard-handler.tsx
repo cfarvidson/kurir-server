@@ -57,6 +57,7 @@ export function ListKeyboardHandler({
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
       if (keyboardState.gSequenceActive) return;
+      if (keyboardState.popoverOpen) return;
 
       const msg = getFocusedMessage();
 

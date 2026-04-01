@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { keyboardState } from "@/lib/keyboard-state";
 import {
   Clock,
   Sun,
@@ -163,19 +164,63 @@ export function SnoozePicker({
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const options = getSnoozeOptions(now, timezone);
+  const [focusedOption, setFocusedOption] = useState(0);
 
-  // Number key shortcuts: 1-N select corresponding option
+  // Reset focused option when opening
+  useEffect(() => {
+    if (isOpen) {
+      setFocusedOption(0);
+    }
+  }, [isOpen]);
+
+  // Set popoverOpen flag so list keyboard handler defers
+  useEffect(() => {
+    keyboardState.popoverOpen = isOpen;
+    return () => {
+      keyboardState.popoverOpen = false;
+    };
+  }, [isOpen]);
+
+  const selectOption = useCallback(
+    (index: number) => {
+      const date = options[index]?.getDate(now, timezone);
+      if (date) {
+        handleOpenChange(false);
+        onSnooze(date);
+      }
+    },
+    [options, now, timezone, handleOpenChange, onSnooze],
+  );
+
+  // Keyboard navigation: j/k, arrows, Enter, number keys
   useEffect(() => {
     if (!isOpen || showCustom || isPending) return;
     const handler = (e: KeyboardEvent) => {
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= options.length) {
-        e.preventDefault();
-        e.stopPropagation();
-        const date = options[num - 1].getDate(now, timezone);
-        if (date) {
-          handleOpenChange(false);
-          onSnooze(date);
+      switch (e.key) {
+        case "j":
+        case "ArrowDown": {
+          e.preventDefault();
+          setFocusedOption((prev) => Math.min(prev + 1, options.length - 1));
+          break;
+        }
+        case "k":
+        case "ArrowUp": {
+          e.preventDefault();
+          setFocusedOption((prev) => Math.max(prev - 1, 0));
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          selectOption(focusedOption);
+          break;
+        }
+        default: {
+          const num = parseInt(e.key);
+          if (num >= 1 && num <= options.length) {
+            e.preventDefault();
+            selectOption(num - 1);
+          }
+          break;
         }
       }
     };
@@ -234,8 +279,12 @@ export function SnoozePicker({
                     const date = option.getDate(now, timezone);
                     if (date) handleSnooze(date);
                   }}
+                  onMouseEnter={() => setFocusedOption(index)}
                   disabled={isPending}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+                  className={cn(
+                    "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
+                    focusedOption === index ? "bg-muted" : "hover:bg-muted",
+                  )}
                 >
                   <Icon className="h-4 w-4 text-muted-foreground" />
                   <div className="flex-1">

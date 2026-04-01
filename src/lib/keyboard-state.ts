@@ -6,4 +6,6 @@
 export const keyboardState = {
   /** True when waiting for the second key of a g+X sequence */
   gSequenceActive: false,
+  /** True when a popover/picker is open and should capture keyboard input */
+  popoverOpen: false,
 };
