@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
       expectedRPID: config.webauthn.rpId,
       credential: {
         id: passkey.credentialId,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         publicKey: isoBase64URL.toBuffer(passkey.publicKey) as any,
         counter: Number(passkey.counter),
         transports: passkey.transports as AuthenticatorTransportFuture[],
