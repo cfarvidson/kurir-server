@@ -18,7 +18,6 @@ import { Plus, X } from "lucide-react";
 interface EmailRow {
   id: string;
   email: string;
-  label: string;
 }
 
 interface AddContactDialogProps {
@@ -32,7 +31,7 @@ function makeId() {
 }
 
 function freshRow(): EmailRow {
-  return { id: makeId(), email: "", label: "personal" };
+  return { id: makeId(), email: "" };
 }
 
 export function AddContactDialog({
@@ -56,9 +55,9 @@ export function AddContactDialog({
     onOpenChange(open);
   }
 
-  function updateEmail(id: string, field: "email" | "label", value: string) {
+  function updateEmail(id: string, value: string) {
     setEmailRows((rows) =>
-      rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+      rows.map((r) => (r.id === id ? { ...r, email: value } : r)),
     );
   }
 
@@ -91,7 +90,7 @@ export function AddContactDialog({
         name: trimmedName,
         emails: validEmails.map((r) => ({
           email: r.email.trim(),
-          label: r.label,
+          label: "personal",
         })),
       });
       toast.success(`${trimmedName} added to contacts`);
@@ -133,22 +132,9 @@ export function AddContactDialog({
                     type="email"
                     placeholder="jane@example.com"
                     value={row.email}
-                    onChange={(e) =>
-                      updateEmail(row.id, "email", e.target.value)
-                    }
+                    onChange={(e) => updateEmail(row.id, e.target.value)}
                     className="flex-1"
                   />
-                  <select
-                    value={row.label}
-                    onChange={(e) =>
-                      updateEmail(row.id, "label", e.target.value)
-                    }
-                    className="h-9 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="personal">Personal</option>
-                    <option value="work">Work</option>
-                    <option value="other">Other</option>
-                  </select>
                   {emailRows.length > 1 && (
                     <button
                       type="button"

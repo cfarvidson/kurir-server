@@ -38,7 +38,6 @@ import {
   deleteContact,
   addContactEmail,
   removeContactEmail,
-  updateContactEmailLabel,
   setContactEmailPrimary,
   linkContacts,
   unlinkContactEmail,
@@ -109,8 +108,6 @@ const categoryConfig: Record<
   },
 };
 
-const labelOrder = ["personal", "work", "other"] as const;
-
 function getInitialColor(str: string): string {
   const palettes = [
     "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
@@ -129,11 +126,6 @@ function getInitialColor(str: string): string {
   return palettes[Math.abs(hash) % palettes.length];
 }
 
-function nextLabel(current: string): string {
-  const idx = labelOrder.indexOf(current as (typeof labelOrder)[number]);
-  return labelOrder[(idx + 1) % labelOrder.length];
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -149,7 +141,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
   // --- Add email form ---
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
-  const [newEmailLabel, setNewEmailLabel] = useState("personal");
   const [isAddingEmail, setIsAddingEmail] = useState(false);
   const addEmailInputRef = useRef<HTMLInputElement>(null);
 
@@ -220,18 +211,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
     }
   };
 
-  // --- Email label cycling ---
-  const handleCycleLabel = async (emailEntry: ContactEmail) => {
-    const next = nextLabel(emailEntry.label);
-    try {
-      await updateContactEmailLabel(emailEntry.id, next);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update label",
-      );
-    }
-  };
-
   // --- Set primary ---
   const handleSetPrimary = async (emailEntry: ContactEmail) => {
     if (emailEntry.isPrimary) return;
@@ -285,9 +264,8 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
 
     setIsAddingEmail(true);
     try {
-      await addContactEmail(contact.id, trimmed, newEmailLabel);
+      await addContactEmail(contact.id, trimmed, "personal");
       setNewEmail("");
-      setNewEmailLabel("personal");
       setShowAddEmail(false);
       toast.success("Email added");
     } catch (err) {
@@ -446,15 +424,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                     {emailEntry.email}
                   </span>
 
-                  {/* Label badge - clickable to cycle */}
-                  <button
-                    onClick={() => handleCycleLabel(emailEntry)}
-                    className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/80"
-                    title={`Click to change label (${emailEntry.label})`}
-                  >
-                    {emailEntry.label}
-                  </button>
-
                   {/* Action icons - visible on hover */}
                   <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/email:opacity-100">
                     {/* Primary star */}
@@ -527,12 +496,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                     className="h-7 max-w-[240px] text-sm"
                     disabled={isAddingEmail}
                   />
-                  <button
-                    onClick={() => setNewEmailLabel(nextLabel(newEmailLabel))}
-                    className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/80"
-                  >
-                    {newEmailLabel}
-                  </button>
                   <Button
                     size="sm"
                     variant="ghost"
