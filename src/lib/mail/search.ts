@@ -18,7 +18,7 @@ export interface MessageSearchResult {
  * "some thing" → "some:* & thing:*"
  * This enables partial matching: "some" finds "someparts".
  */
-function buildPrefixQuery(input: string): string {
+export function buildPrefixQuery(input: string): string {
   const words = input
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .trim()
