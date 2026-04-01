@@ -82,11 +82,14 @@ export function parseCursor(cursor: string) {
   };
 }
 
-function encodeChronoCursor(msg: { receivedAt: Date; id: string }): string {
+export function encodeChronoCursor(msg: {
+  receivedAt: Date;
+  id: string;
+}): string {
   return `${msg.receivedAt.toISOString()}_${msg.id}`;
 }
 
-function parseChronoCursor(cursor: string) {
+export function parseChronoCursor(cursor: string) {
   // Format: {isoDate}_{cuid}
   const lastUnderscore = cursor.lastIndexOf("_");
   if (lastUnderscore === -1) return null;
