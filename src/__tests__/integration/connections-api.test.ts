@@ -28,6 +28,9 @@ vi.mock("@/lib/db", () => ({
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
+    systemSettings: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
     $transaction: vi.fn(),
   },
 }));
