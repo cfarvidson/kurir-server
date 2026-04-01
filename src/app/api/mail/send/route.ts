@@ -12,6 +12,7 @@ import {
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
+import { findOrCreateContactForEmail } from "@/actions/contacts";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -180,6 +181,11 @@ export async function POST(request: Request) {
       text,
       html: displayHtml,
       attachmentIds: loaded.ids,
+    });
+
+    // Auto-create contact for recipient (fire-and-forget)
+    findOrCreateContactForEmail(session.user.id, to).catch((err) => {
+      console.error("Auto-create contact failed:", err);
     });
 
     // Append to IMAP Sent folder (fire-and-forget)

@@ -47,6 +47,7 @@ model User {
   invitesCreated    Invite[]
   attachments       Attachment[]
   drafts            Draft[]
+  contacts          Contact[]
 }
 
 model Passkey {
@@ -180,6 +181,9 @@ model Sender {
 
   // Messages from this sender
   messages Message[]
+
+  // Contact link (reverse relation)
+  contactEmails ContactEmail[]
 
   // Unique per connection (same external sender may email different accounts)
   @@unique([emailConnectionId, email])
@@ -548,4 +552,48 @@ model UpdateLog {
   completedAt DateTime?
 
   @@index([status])
+}
+
+// ============================================
+// CONTACTS (Address Book)
+// ============================================
+
+model Contact {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name  String
+  notes String?
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Emails
+  emails ContactEmail[]
+
+  @@index([userId])
+}
+
+model ContactEmail {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  email     String
+  label     String  @default("personal") // "personal", "work", "other"
+  isPrimary Boolean @default(false)
+
+  // Contact relation
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // Optional link to Sender (for category info)
+  senderId String?
+  sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@unique([contactId, email])
+  @@index([email])
+  @@index([contactId])
+  @@index([senderId])
 }

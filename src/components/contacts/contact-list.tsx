@@ -6,22 +6,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Search,
-  Mail,
   ChevronRight,
   Inbox,
   Newspaper,
   Receipt,
   X,
+  Plus,
+  CircleDashed,
+  BookUser,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AddContactDialog } from "@/components/contacts/add-contact-dialog";
+
+interface ContactEmail {
+  id: string;
+  email: string;
+  label: string;
+  isPrimary: boolean;
+  sender: { category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null } | null;
+}
 
 interface Contact {
   id: string;
-  email: string;
-  displayName: string | null;
-  domain: string;
-  category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null;
-  messageCount: number;
-  decidedAt: Date | null;
+  name: string;
+  emails: ContactEmail[];
 }
 
 interface ContactListProps {
@@ -42,7 +50,12 @@ const categoryConfig = {
   },
 } as const;
 
-type FilterCategory = "ALL" | "IMBOX" | "FEED" | "PAPER_TRAIL";
+type FilterCategory =
+  | "ALL"
+  | "IMBOX"
+  | "FEED"
+  | "PAPER_TRAIL"
+  | "UNCATEGORIZED";
 
 function getInitialColor(str: string): string {
   const palettes = [
@@ -62,10 +75,38 @@ function getInitialColor(str: string): string {
   return palettes[Math.abs(hash) % palettes.length];
 }
 
+/** Derive the "primary" category for display from a contact's emails. */
+function getPrimaryCategory(
+  contact: Contact,
+): "IMBOX" | "FEED" | "PAPER_TRAIL" | null {
+  const primary = contact.emails.find((e) => e.isPrimary);
+  if (primary?.sender?.category) return primary.sender.category;
+  // Fall back to the first email that has a sender category
+  for (const e of contact.emails) {
+    if (e.sender?.category) return e.sender.category;
+  }
+  return null;
+}
+
+/** Check if any email on the contact matches a given category. */
+function contactMatchesCategory(
+  contact: Contact,
+  category: FilterCategory,
+): boolean {
+  if (category === "ALL") return true;
+  if (category === "UNCATEGORIZED") {
+    return contact.emails.every((e) => !e.sender?.category);
+  }
+  return contact.emails.some((e) => e.sender?.category === category);
+}
+
 function ContactCard({ contact }: { contact: Contact }) {
-  const name = contact.displayName || contact.email.split("@")[0];
-  const cat = categoryConfig[contact.category ?? "IMBOX"];
-  const CatIcon = cat.icon;
+  const primaryEmail = contact.emails.find((e) => e.isPrimary);
+  const emailDisplay = primaryEmail?.email ?? contact.emails[0]?.email ?? "";
+  const extraCount = contact.emails.length - 1;
+  const category = getPrimaryCategory(contact);
+  const cat = category ? categoryConfig[category] : null;
+  const CatIcon = cat?.icon;
 
   return (
     <Link
@@ -76,29 +117,32 @@ function ContactCard({ contact }: { contact: Contact }) {
       <div
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-transform duration-150 group-hover:scale-105",
-          getInitialColor(contact.email),
+          getInitialColor(contact.name),
         )}
       >
-        {name.charAt(0).toUpperCase()}
+        {contact.name.charAt(0).toUpperCase()}
       </div>
 
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{name}</span>
-          <CatIcon className={cn("h-3.5 w-3.5 shrink-0", cat.color)} />
+          <span className="truncate text-sm font-medium">{contact.name}</span>
+          {CatIcon && (
+            <CatIcon className={cn("h-3.5 w-3.5 shrink-0", cat!.color)} />
+          )}
         </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {contact.email}
+        <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <span className="truncate">{emailDisplay}</span>
+          {extraCount > 0 && (
+            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none">
+              +{extraCount}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Stats + Arrow */}
-      <div className="flex shrink-0 items-center gap-3">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Mail className="h-3 w-3" />
-          <span className="tabular-nums">{contact.messageCount}</span>
-        </div>
+      {/* Arrow */}
+      <div className="flex shrink-0 items-center">
         <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
       </div>
     </Link>
@@ -108,34 +152,33 @@ function ContactCard({ contact }: { contact: Contact }) {
 export function ContactList({ contacts }: ContactListProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterCategory>("ALL");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const filtered = useMemo(() => {
     let result = contacts;
 
     if (filter !== "ALL") {
-      result = result.filter((c) => c.category === filter);
+      result = result.filter((c) => contactMatchesCategory(c, filter));
     }
 
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (c) =>
-          c.email.toLowerCase().includes(q) ||
-          c.displayName?.toLowerCase().includes(q) ||
-          c.domain.toLowerCase().includes(q),
+          c.name.toLowerCase().includes(q) ||
+          c.emails.some((e) => e.email.toLowerCase().includes(q)),
       );
     }
 
     return result;
   }, [contacts, search, filter]);
 
-  // Group by first letter of display name or email
+  // Group by first letter of name
   const grouped = useMemo(() => {
     const groups = new Map<string, Contact[]>();
 
     for (const contact of filtered) {
-      const name = contact.displayName || contact.email;
-      const letter = name.charAt(0).toUpperCase();
+      const letter = contact.name.charAt(0).toUpperCase();
       const key = /[A-Z]/.test(letter) ? letter : "#";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(contact);
@@ -154,30 +197,39 @@ export function ContactList({ contacts }: ContactListProps) {
     { key: "IMBOX", label: "Imbox" },
     { key: "FEED", label: "Feed" },
     { key: "PAPER_TRAIL", label: "Paper Trail" },
+    { key: "UNCATEGORIZED", label: "Uncategorized" },
   ];
 
   return (
     <div>
       {/* Search + Filter bar */}
       <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contacts..."
-            className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground/60 hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search contacts..."
+              className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Add button */}
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add</span>
+          </Button>
         </div>
 
         {/* Filter tabs */}
@@ -210,14 +262,32 @@ export function ContactList({ contacts }: ContactListProps) {
               exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center px-6 py-16 text-center"
             >
-              <div className="rounded-full bg-muted p-4">
-                <Search className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {search
-                  ? "No contacts match your search"
-                  : "No contacts in this category"}
-              </p>
+              {contacts.length === 0 && !search && filter === "ALL" ? (
+                <>
+                  <div className="rounded-full bg-muted p-4">
+                    <BookUser className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium">No contacts yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Add one or approve senders in the Screener.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-full bg-muted p-4">
+                    {filter === "UNCATEGORIZED" ? (
+                      <CircleDashed className="h-6 w-6 text-muted-foreground" />
+                    ) : (
+                      <Search className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {search
+                      ? "No contacts match your search"
+                      : "No contacts in this category"}
+                  </p>
+                </>
+              )}
             </motion.div>
           ) : (
             grouped.map(([letter, groupContacts]) => (
@@ -252,6 +322,9 @@ export function ContactList({ contacts }: ContactListProps) {
           {filtered.length} contact{filtered.length !== 1 ? "s" : ""}
         </div>
       )}
+
+      {/* Add Contact Dialog */}
+      <AddContactDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

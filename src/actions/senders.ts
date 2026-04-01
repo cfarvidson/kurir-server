@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToArchiveViaImap } from "@/actions/archive";
+import { findOrCreateContactForEmail } from "@/actions/contacts";
 import { SenderCategory } from "@prisma/client";
 
 export async function approveSender(
@@ -48,11 +49,25 @@ export async function approveSender(
     }),
   ]);
 
+  // Auto-create contact for approved sender
+  const approvedSender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { email: true, displayName: true },
+  });
+  if (approvedSender) {
+    await findOrCreateContactForEmail(
+      session.user.id,
+      approvedSender.email,
+      approvedSender.displayName,
+    );
+  }
+
   revalidateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/screener");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
+  revalidatePath("/contacts");
 }
 
 export async function rejectSender(senderId: string) {

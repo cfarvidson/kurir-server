@@ -20,6 +20,7 @@
     "list-users": "tsx scripts/list-users.ts",
     "sync-user": "tsx scripts/sync-user.ts",
     "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts",
+    "migrate-contacts": "tsx scripts/migrate-senders-to-contacts.ts",
     "backup": "sh scripts/kurir-backup.sh",
     "restore": "sh scripts/kurir-restore.sh",
     "site:dev": "npm --prefix site run dev",
@@ -28,6 +29,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.13",
