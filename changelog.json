@@ -1,0 +1,16 @@
+[
+  {
+    "version": "2026.04.01",
+    "date": "2026-04-01",
+    "changes": [
+      "Contact management with multi-email support, linking, and auto-creation",
+      "Complete keyboard shortcuts with vim-style navigation",
+      "Attachment forwarding for IMAP-synced messages",
+      "Admin dashboard with system health monitoring",
+      "Auto-update mechanism with rollback support",
+      "Landing page and documentation site",
+      "One-command installer script",
+      "CalVer release tooling"
+    ]
+  }
+]

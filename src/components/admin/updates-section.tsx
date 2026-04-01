@@ -12,6 +12,14 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+import changelog from "@/../changelog.json";
+
+interface ChangelogEntry {
+  version: string;
+  date: string;
+  changes: string[];
+}
 
 interface UpdateStatus {
   currentVersion: string;
@@ -368,6 +376,46 @@ export function UpdatesSection({
                     )}
                     <RelativeTime date={entry.createdAt} />
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Changelog */}
+        {(changelog as ChangelogEntry[]).length > 0 && (
+          <div className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2 text-sm font-medium mb-3">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Changelog
+            </div>
+            <div className="space-y-4">
+              {(changelog as ChangelogEntry[]).map((release) => (
+                <div key={release.version}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-xs font-medium">
+                      v{release.version}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {release.date}
+                    </span>
+                    {release.version === versionInfo.version && (
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        current
+                      </span>
+                    )}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {release.changes.map((change, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-xs text-muted-foreground"
+                      >
+                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
