@@ -209,11 +209,22 @@ describe("sanitizeEmailHtml", () => {
       );
     });
 
-    it("allows cid: image sources (inline attachments)", () => {
+    it("rewrites cid: image sources to attachment URLs", () => {
+      const result = sanitizeEmailHtml(
+        '<img src="cid:image001@example.com" />',
+        {
+          attachments: [{ id: "att-123", contentId: "image001@example.com" }],
+        },
+      );
+      expect(result).toContain('src="/api/attachments/att-123"');
+    });
+
+    it("removes cid: image sources when no matching attachment exists", () => {
       const result = sanitizeEmailHtml(
         '<img src="cid:image001@example.com" />',
       );
-      expect(result).toContain('src="cid:image001@example.com"');
+      expect(result).toContain("<img");
+      expect(result).not.toContain("cid:");
     });
 
     it("blocks data: URI image sources", () => {
