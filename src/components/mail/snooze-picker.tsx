@@ -192,6 +192,10 @@ export function SnoozePicker({
     [options, now, timezone, handleOpenChange, onSnooze],
   );
 
+  // Total items: preset options + "Pick date & time"
+  const totalItems = options.length + 1;
+  const customIndex = options.length;
+
   // Keyboard navigation: j/k, arrows, Enter, number keys
   useEffect(() => {
     if (!isOpen || showCustom || isPending) return;
@@ -200,7 +204,7 @@ export function SnoozePicker({
         case "j":
         case "ArrowDown": {
           e.preventDefault();
-          setFocusedOption((prev) => Math.min(prev + 1, options.length - 1));
+          setFocusedOption((prev) => Math.min(prev + 1, totalItems - 1));
           break;
         }
         case "k":
@@ -211,7 +215,11 @@ export function SnoozePicker({
         }
         case "Enter": {
           e.preventDefault();
-          selectOption(focusedOption);
+          if (focusedOption === customIndex) {
+            setShowCustom(true);
+          } else {
+            selectOption(focusedOption);
+          }
           break;
         }
         default: {
@@ -302,8 +310,12 @@ export function SnoozePicker({
             <div className="border-t" />
             <button
               onClick={() => setShowCustom(true)}
+              onMouseEnter={() => setFocusedOption(customIndex)}
               disabled={isPending}
-              className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+              className={cn(
+                "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
+                focusedOption === customIndex ? "bg-muted" : "hover:bg-muted",
+              )}
             >
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">Pick date &amp; time</span>
