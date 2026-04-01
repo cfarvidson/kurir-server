@@ -59,6 +59,11 @@ vi.mock("next-auth/jwt", () => ({
   encode: vi.fn().mockResolvedValue("mock-jwt-token"),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimitRegistration: vi.fn().mockResolvedValue({ allowed: true }),
+  tooManyRequests: vi.fn(),
+}));
+
 /**
  * Build a minimal NextRequest-compatible mock with cookie support.
  * For addPasskey routes the request URL must include ?addPasskey=true.
@@ -66,6 +71,7 @@ vi.mock("next-auth/jwt", () => ({
 function makeRequest(body: unknown, sessionKey?: string, query = ""): any {
   return {
     url: `http://localhost/api/auth/webauthn/register/options${query}`,
+    headers: new Headers(),
     cookies: {
       get: (name: string) => {
         if (name === "wa_reg_session" && sessionKey) {
