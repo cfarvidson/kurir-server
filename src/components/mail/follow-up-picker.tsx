@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Clock, CalendarDays, CalendarRange, Loader2 } from "lucide-react";
 import {
   Popover,
@@ -74,6 +74,21 @@ export function FollowUpPicker({
     onFollowUp(until);
   };
 
+  // Number key shortcuts: 1-4 select corresponding option
+  useEffect(() => {
+    if (!isOpen || isPending) return;
+    const handler = (e: KeyboardEvent) => {
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= FOLLOW_UP_OPTIONS.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSelect(FOLLOW_UP_OPTIONS[num - 1]);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -82,7 +97,7 @@ export function FollowUpPicker({
           <div className="px-3 py-2">
             <p className="text-sm font-medium">Follow up if no reply in...</p>
           </div>
-          {FOLLOW_UP_OPTIONS.map((option) => {
+          {FOLLOW_UP_OPTIONS.map((option, index) => {
             const Icon = option.icon;
             return (
               <button
@@ -102,6 +117,9 @@ export function FollowUpPicker({
                 <span className="text-xs text-muted-foreground">
                   {option.description}
                 </span>
+                <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50">
+                  {index + 1}
+                </kbd>
               </button>
             );
           })}

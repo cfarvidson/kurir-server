@@ -54,6 +54,10 @@ const NAV_SHORTCUTS: Record<string, string> = {
   "/screener": "N",
   "/sent": "S",
   "/archive": "A",
+  "/follow-up": "U",
+  "/snoozed": "Z",
+  "/scheduled": "D",
+  "/contacts": "C",
 };
 
 function openCommandPalette() {

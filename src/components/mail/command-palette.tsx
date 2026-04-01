@@ -45,6 +45,7 @@ const LISTING_PATHS = [
   "/sent",
   "/snoozed",
   "/follow-up",
+  "/scheduled",
   "/contacts",
 ];
 
@@ -162,6 +163,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       id: "go-snoozed",
       label: "Go to Snoozed",
       icon: <Clock className="h-4 w-4" />,
+      shortcut: ["G", "Z"],
       group: "navigation",
       onSelect: () => go("/snoozed"),
     },
@@ -177,6 +179,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       id: "go-scheduled",
       label: "Go to Scheduled",
       icon: <CalendarClock className="h-4 w-4" />,
+      shortcut: ["G", "D"],
       group: "navigation",
       onSelect: () => go("/scheduled"),
     },
@@ -184,6 +187,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       id: "go-contacts",
       label: "Go to Contacts",
       icon: <BookUser className="h-4 w-4" />,
+      shortcut: ["G", "C"],
       group: "navigation",
       onSelect: () => go("/contacts"),
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Clock,
   Sun,
@@ -164,6 +164,25 @@ export function SnoozePicker({
 
   const options = getSnoozeOptions(now, timezone);
 
+  // Number key shortcuts: 1-N select corresponding option
+  useEffect(() => {
+    if (!isOpen || showCustom || isPending) return;
+    const handler = (e: KeyboardEvent) => {
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= options.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        const date = options[num - 1].getDate(now, timezone);
+        if (date) {
+          handleOpenChange(false);
+          onSnooze(date);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   const handleSnooze = (until: Date) => {
     handleOpenChange(false);
     onSnooze(until);
@@ -206,7 +225,7 @@ export function SnoozePicker({
             <div className="px-3 py-2">
               <p className="text-sm font-medium">Snooze until...</p>
             </div>
-            {options.map((option) => {
+            {options.map((option, index) => {
               const Icon = option.icon;
               return (
                 <button
@@ -225,6 +244,9 @@ export function SnoozePicker({
                   <span className="text-xs text-muted-foreground">
                     {option.description}
                   </span>
+                  <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50">
+                    {index + 1}
+                  </kbd>
                 </button>
               );
             })}

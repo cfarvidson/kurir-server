@@ -50,6 +50,9 @@ const navigationShortcuts: ShortcutEntry[] = [
   { keys: ["g", "a"], description: "Archive", mode: "sequence" },
   { keys: ["g", "n"], description: "Screener", mode: "sequence" },
   { keys: ["g", "u"], description: "Follow Up", mode: "sequence" },
+  { keys: ["g", "z"], description: "Snoozed", mode: "sequence" },
+  { keys: ["g", "d"], description: "Scheduled", mode: "sequence" },
+  { keys: ["g", "c"], description: "Contacts", mode: "sequence" },
 ];
 
 const screenerShortcuts: ShortcutEntry[] = [
@@ -193,6 +196,8 @@ const LISTING_PATHS = new Set([
   "/sent",
   "/snoozed",
   "/follow-up",
+  "/scheduled",
+  "/contacts",
 ]);
 
 const GOTO_MAP: Record<string, string> = {
@@ -203,6 +208,9 @@ const GOTO_MAP: Record<string, string> = {
   a: "/archive",
   n: "/screener",
   u: "/follow-up",
+  z: "/snoozed",
+  d: "/scheduled",
+  c: "/contacts",
 };
 
 const GOTO_TIMEOUT = 1000;
@@ -263,6 +271,7 @@ export function KeyboardShortcuts() {
           break;
 
         case "c":
+          // Don't trigger compose when in g-sequence (g+c → contacts)
           if (LISTING_PATHS.has(pathname)) {
             e.preventDefault();
             router.push("/compose");

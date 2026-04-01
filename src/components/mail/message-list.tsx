@@ -349,7 +349,7 @@ export function MessageRow({
         showFollowUpAction) &&
         !isSelectionMode && (
           <div
-            className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:right-5"
+            className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-data-[keyboard-focused]:opacity-100 md:right-5"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
