@@ -83,6 +83,10 @@ Registry: `docker-registry.banded-beta.ts.net`. Postgres on separate Tailscale h
 
 Post-deploy hook auto-runs `prisma db push`. Search vector migration must be run manually once: `kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"`.
 
+## Releasing
+
+CalVer `YYYY.MM.DD` (e.g., `2026.04.01`). Use `/bump` to create a release. See `docs/releasing.md` for details.
+
 ## Gotchas
 
 - **ImapFlow comma-separated UIDs:** `client.fetch("256,255", {uid:true})` returns empty. Use `"minUid:*"` range + filter in loop.
