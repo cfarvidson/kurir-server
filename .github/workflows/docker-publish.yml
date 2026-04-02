@@ -4,6 +4,19 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "Dockerfile"
+      - "next.config.*"
+      - "tailwind.config.*"
+      - "postcss.config.*"
+      - "tsconfig.json"
+      - ".github/workflows/docker-publish.yml"
 
 concurrency:
   group: docker-publish-${{ github.ref }}
