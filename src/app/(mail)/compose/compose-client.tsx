@@ -378,7 +378,7 @@ export function ComposeClientPage({
             onClick={() => {
               cancelPendingSave();
               removeDraft();
-              router.back();
+              router.push("/imbox");
             }}
           >
             <X className="h-4 w-4" />
@@ -525,7 +525,7 @@ export function ComposeClientPage({
               onFileRemove={remove}
               onSubmit={handleSend}
               onSchedule={() => setScheduleOpen(true)}
-              onCancel={() => router.back()}
+              onCancel={() => router.push("/imbox")}
               minHeight={300}
             />
           </div>

@@ -175,6 +175,12 @@ export function MobileSidebar({
       const dx = touch.clientX - s.startX;
       const dy = touch.clientY - s.startY;
 
+      // For edge-initiated gestures, prevent default IMMEDIATELY
+      // to block iOS back gesture before direction lock kicks in
+      if (!s.isOpen && s.startX <= EDGE_ZONE) {
+        e.preventDefault();
+      }
+
       // Direction lock — decide horizontal vs vertical once
       if (s.direction === null) {
         const total = Math.abs(dx) + Math.abs(dy);

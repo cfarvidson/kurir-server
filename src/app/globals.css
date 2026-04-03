@@ -21,6 +21,14 @@
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Block iOS back/forward swipe gesture in standalone PWA */
+  @media (display-mode: standalone) {
+    html {
+      touch-action: pan-y pinch-zoom;
+    }
   }
 
   :root {
