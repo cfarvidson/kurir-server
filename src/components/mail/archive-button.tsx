@@ -27,8 +27,7 @@ export function ArchiveButton({
       },
     });
 
-    // Fire-and-forget: don't block navigation on server action
-    archiveConversation(messageId, returnPath);
+    archiveConversation(messageId, returnPath).then(() => router.refresh());
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
   };

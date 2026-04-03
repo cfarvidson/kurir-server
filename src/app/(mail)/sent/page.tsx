@@ -39,11 +39,8 @@ function ContactResultRow({ contact }: { contact: ContactSearchResult }) {
   const cat = categoryConfig[contact.category ?? "IMBOX"];
   const CatIcon = cat.icon;
 
-  return (
-    <Link
-      href={`/contacts/${contact.id}`}
-      className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60"
-    >
+  const content = (
+    <>
       <BookUser className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="truncate text-sm font-medium">{name}</span>
       <span className="truncate text-xs text-muted-foreground">
@@ -51,7 +48,24 @@ function ContactResultRow({ contact }: { contact: ContactSearchResult }) {
       </span>
       <CatIcon className={cn("ml-auto h-3.5 w-3.5 shrink-0", cat.color)} />
       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />
-    </Link>
+    </>
+  );
+
+  if (contact.contactId) {
+    return (
+      <Link
+        href={`/contacts/${contact.contactId}`}
+        className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground">
+      {content}
+    </div>
   );
 }
 

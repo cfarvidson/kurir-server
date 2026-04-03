@@ -35,11 +35,10 @@ export function ArchiveKeyboardShortcut({
       });
     }
 
-    // Fire-and-forget: don't block navigation on server action
     if (action === "unarchive") {
-      unarchiveConversation(messageId);
+      unarchiveConversation(messageId).then(() => router.refresh());
     } else {
-      archiveConversation(messageId, returnPath);
+      archiveConversation(messageId, returnPath).then(() => router.refresh());
     }
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
