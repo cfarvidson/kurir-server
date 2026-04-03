@@ -17,9 +17,8 @@ export function UnarchiveButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleUnarchive = () => {
-    // Fire-and-forget: don't block navigation on server action
-    unarchiveConversation(messageId);
+  const handleUnarchive = async () => {
+    await unarchiveConversation(messageId);
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
   };

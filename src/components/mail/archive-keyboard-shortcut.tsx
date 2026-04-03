@@ -21,7 +21,7 @@ export function ArchiveKeyboardShortcut({
   const queryClient = useQueryClient();
   const actingRef = useRef(false);
 
-  const handleAction = useCallback(() => {
+  const handleAction = useCallback(async () => {
     if (actingRef.current) return;
     actingRef.current = true;
 
@@ -36,9 +36,9 @@ export function ArchiveKeyboardShortcut({
     }
 
     if (action === "unarchive") {
-      unarchiveConversation(messageId).then(() => router.refresh());
+      await unarchiveConversation(messageId);
     } else {
-      archiveConversation(messageId, returnPath).then(() => router.refresh());
+      await archiveConversation(messageId, returnPath);
     }
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);

@@ -17,9 +17,8 @@ export function UnsnoozeButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleUnsnooze = () => {
-    // Fire-and-forget: don't block navigation on server action
-    unsnoozeConversation(messageId);
+  const handleUnsnooze = async () => {
+    await unsnoozeConversation(messageId);
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
   };

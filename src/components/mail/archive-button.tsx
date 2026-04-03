@@ -18,7 +18,7 @@ export function ArchiveButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleArchive = () => {
+  const handleArchive = async () => {
     showUndoToast({
       id: `archive-${messageId}`,
       label: "Archived",
@@ -27,7 +27,7 @@ export function ArchiveButton({
       },
     });
 
-    archiveConversation(messageId, returnPath).then(() => router.refresh());
+    await archiveConversation(messageId, returnPath);
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
   };

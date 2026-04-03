@@ -18,9 +18,8 @@ export function DismissFollowUpButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleDismiss = () => {
-    // Fire-and-forget: don't block navigation on server action
-    dismissFollowUp(messageId);
+  const handleDismiss = async () => {
+    await dismissFollowUp(messageId);
     toast.success("Follow-up dismissed");
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);

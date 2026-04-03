@@ -19,13 +19,12 @@ export function ExtendFollowUpButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleExtend = (until: Date) => {
+  const handleExtend = async (until: Date) => {
     const diffDays = Math.ceil(
       (until.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
     );
     toast.success(`Extended to ${diffDays} day${diffDays !== 1 ? "s" : ""}`);
-    // Fire-and-forget: don't block navigation on server action
-    extendFollowUp(messageId, until);
+    await extendFollowUp(messageId, until);
     queryClient.removeQueries({ queryKey: ["messages"] });
     router.push(returnPath);
   };
