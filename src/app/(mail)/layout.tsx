@@ -106,7 +106,7 @@ export default async function MailLayout({
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />
-          <main className="flex-1 overflow-auto overscroll-y-contain pb-[env(safe-area-inset-bottom)]">
+          <main className="flex-1 overflow-auto overscroll-contain touch-pan-y pb-[env(safe-area-inset-bottom)]">
             <PullToRefresh>{children}</PullToRefresh>
           </main>
         </div>
