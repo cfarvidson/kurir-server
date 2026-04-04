@@ -162,15 +162,15 @@ export async function ThreadDetailView({
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm md:px-6">
         <Link
           href={returnPath}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex min-w-0 flex-1 items-center gap-3 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full">
+            <ArrowLeft className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wider">
             {categoryLabel}
           </span>
-        </div>
+        </Link>
         {messages.length > 1 && (
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
             {messages.length}
