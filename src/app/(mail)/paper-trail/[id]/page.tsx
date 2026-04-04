@@ -20,6 +20,7 @@ export default async function PaperTrailDetailPage({
       categoryLabel="Paper Trail"
       returnPath="/paper-trail"
       searchQuery={q}
+      mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
       actions={({
         messageId,
         returnPath,

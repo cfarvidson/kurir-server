@@ -9,6 +9,7 @@ import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 import { ContactSidebar } from "@/components/mail/contact-sidebar";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
+import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 
 async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user] = await Promise.all([
@@ -46,6 +47,11 @@ interface ThreadDetailViewProps {
     isFollowUp: boolean;
   }) => React.ReactNode;
   isSentView?: boolean;
+  mobileActions?: {
+    showArchive?: boolean;
+    showSnooze?: boolean;
+    showFollowUp?: boolean;
+  };
 }
 
 export async function ThreadDetailView({
@@ -55,6 +61,7 @@ export async function ThreadDetailView({
   searchQuery,
   actions,
   isSentView = false,
+  mobileActions,
 }: ThreadDetailViewProps) {
   const session = await auth();
 
@@ -182,7 +189,7 @@ export async function ThreadDetailView({
 
       {/* Thread + optional contact sidebar */}
       <div className="flex min-h-0 flex-1">
-        <div className="flex-1 overflow-auto" data-thread-scroll>
+        <div className="flex-1 overflow-auto pb-16 md:pb-0" data-thread-scroll>
           <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
             <h1 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
               {subject}
@@ -213,6 +220,18 @@ export async function ThreadDetailView({
           />
         )}
       </div>
+
+      {/* Mobile bottom action bar */}
+      {mobileActions && (
+        <MobileThreadActions
+          messageId={messageId}
+          returnPath={returnPath}
+          timezone={userInfo.timezone}
+          showArchive={mobileActions.showArchive}
+          showSnooze={mobileActions.showSnooze}
+          showFollowUp={mobileActions.showFollowUp}
+        />
+      )}
     </div>
   );
 }

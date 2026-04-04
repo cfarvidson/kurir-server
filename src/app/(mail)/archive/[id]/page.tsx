@@ -19,6 +19,7 @@ export default async function ArchiveDetailPage({
       categoryLabel="Archive"
       returnPath="/archive"
       searchQuery={q}
+      mobileActions={{ showFollowUp: true }}
       actions={({ messageId, returnPath, followUpAt, isFollowUp }) => (
         <>
           <ArchiveKeyboardShortcut

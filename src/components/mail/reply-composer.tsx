@@ -247,6 +247,7 @@ export function ReplyComposer({
     <div className="relative">
       {!isOpen ? (
         <button
+          data-reply-composer-trigger
           onClick={() => setIsOpen(true)}
           className={cn(
             "flex w-full items-center gap-3 rounded-xl border bg-muted/30",

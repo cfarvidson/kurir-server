@@ -20,6 +20,7 @@ export default async function SentDetailPage({
       returnPath="/sent"
       searchQuery={q}
       isSentView
+      mobileActions={{ showArchive: true, showFollowUp: true }}
       actions={({ messageId, returnPath, followUpAt, isFollowUp }) => (
         <>
           <ArchiveKeyboardShortcut

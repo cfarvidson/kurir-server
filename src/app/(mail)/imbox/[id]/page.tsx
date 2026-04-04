@@ -20,6 +20,7 @@ export default async function ImboxDetailPage({
       categoryLabel="Imbox"
       returnPath="/imbox"
       searchQuery={q}
+      mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
       actions={({
         messageId,
         returnPath,

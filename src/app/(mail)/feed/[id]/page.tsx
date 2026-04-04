@@ -20,6 +20,7 @@ export default async function FeedDetailPage({
       categoryLabel="The Feed"
       returnPath="/feed"
       searchQuery={q}
+      mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
       actions={({
         messageId,
         returnPath,

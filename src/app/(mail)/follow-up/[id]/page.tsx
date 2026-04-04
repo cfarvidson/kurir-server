@@ -18,6 +18,7 @@ export default async function FollowUpDetailPage({
       categoryLabel="Follow Up"
       returnPath="/follow-up"
       searchQuery={q}
+      mobileActions={{ showFollowUp: true }}
       actions={({ messageId, returnPath }) => (
         <>
           <DismissFollowUpButton
