@@ -6,6 +6,15 @@
   animation: ptr-spin 0.75s linear infinite;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.4;
+  }
+}
+
 @keyframes ptr-spin {
   from {
     transform: rotate(0deg);

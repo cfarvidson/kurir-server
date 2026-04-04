@@ -162,6 +162,7 @@ export function MobileTabBar({
         sheet.style.transition = "none";
         sheet.style.transform = `translateY(${dy}px)`;
         if (backdropRef.current) {
+          backdropRef.current.style.animation = "none";
           backdropRef.current.style.transition = "none";
           backdropRef.current.style.opacity = String(
             Math.max(0, 0.4 - (dy / 400) * 0.4),
@@ -239,7 +240,7 @@ export function MobileTabBar({
                 )}
               >
                 <div className="relative">
-                  <tab.icon className={cn("h-5 w-5", isCompose && "h-6 w-6")} />
+                  <tab.icon className="h-5 w-5" />
                   {showBadge && (
                     <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
                       {count > 99 ? "99+" : count}
@@ -272,8 +273,8 @@ export function MobileTabBar({
         <div
           ref={backdropRef}
           onClick={closeSheet}
-          className="fixed inset-0 z-50 bg-black"
-          style={{ opacity: 0.4 }}
+          className="fixed inset-0 z-50 bg-black animate-[fadeIn_0.2s_ease-out_forwards]"
+          style={{ opacity: 0 }}
         />
       )}
 
