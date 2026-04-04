@@ -218,7 +218,6 @@ export function MobileTabBar({
         <div className="flex items-stretch">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
-            const isCompose = tab.badgeKey === null;
             const count = tab.badgeKey ? badgeCounts[tab.badgeKey] : 0;
             const prefKey = tab.badgeKey
               ? badgeKeyToPref[tab.badgeKey]
@@ -232,11 +231,9 @@ export function MobileTabBar({
                 href={tab.href}
                 className={cn(
                   "relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
-                  isCompose
+                  isActive
                     ? "text-primary"
-                    : isActive
-                      ? "text-primary"
-                      : "text-muted-foreground active:text-foreground",
+                    : "text-muted-foreground active:text-foreground",
                 )}
               >
                 <div className="relative">
