@@ -149,7 +149,7 @@ export default async function SentPage({
   if (!sentFolder) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+        <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
           <h1 className="text-xl font-semibold md:text-2xl">Sent</h1>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -199,7 +199,7 @@ export default async function SentPage({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">Sent</h1>
         <SearchInput />
       </div>

@@ -23,7 +23,7 @@ export default async function ContactsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b pl-14 pr-4 md:px-6">
+      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
         <h1 className="text-xl font-semibold md:text-2xl">Contacts</h1>
         <div className="text-sm text-muted-foreground">
           {contacts.length} {contacts.length === 1 ? "person" : "people"}

@@ -1,5 +1,4 @@
 import { Sidebar } from "@/components/layout/sidebar";
-import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { AutoSync } from "@/components/mail/auto-sync";
 import { SyncErrorBanner } from "@/components/mail/sync-error-banner";
@@ -96,16 +95,6 @@ export default async function MailLayout({
           badgePreferences={badgePreferences}
           isAdmin={session.user.role === "ADMIN"}
         />
-        <MobileSidebar
-          screenerCount={screenerCount}
-          imboxUnreadCount={imboxUnreadCount}
-          scheduledCount={scheduledCount}
-          followUpCount={followUpCount}
-          feedUnreadCount={feedUnreadCount}
-          paperTrailUnreadCount={paperTrailUnreadCount}
-          badgePreferences={badgePreferences}
-          isAdmin={session.user.role === "ADMIN"}
-        />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />
           <main className="flex-1 overflow-auto overscroll-contain touch-pan-y pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
@@ -117,7 +106,10 @@ export default async function MailLayout({
           imboxUnreadCount={imboxUnreadCount}
           feedUnreadCount={feedUnreadCount}
           paperTrailUnreadCount={paperTrailUnreadCount}
+          scheduledCount={scheduledCount}
+          followUpCount={followUpCount}
           badgePreferences={badgePreferences}
+          isAdmin={session.user.role === "ADMIN"}
         />
         <AutoSync />
         <BackGestureBlocker />
