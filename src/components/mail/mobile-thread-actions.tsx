@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Clock, Bell, CornerDownLeft } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
+import { setFollowUp } from "@/actions/follow-up";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
@@ -17,7 +18,6 @@ interface MobileThreadActionsProps {
   showArchive?: boolean;
   showSnooze?: boolean;
   showFollowUp?: boolean;
-  onReplyTap?: () => void;
 }
 
 export function MobileThreadActions({
@@ -27,7 +27,6 @@ export function MobileThreadActions({
   showArchive = true,
   showSnooze = true,
   showFollowUp = true,
-  onReplyTap,
 }: MobileThreadActionsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -52,10 +51,6 @@ export function MobileThreadActions({
   };
 
   const scrollToReply = () => {
-    if (onReplyTap) {
-      onReplyTap();
-      return;
-    }
     // Scroll to reply composer and focus it
     const replyButton = document.querySelector<HTMLButtonElement>(
       "[data-reply-composer-trigger]",
@@ -72,7 +67,10 @@ export function MobileThreadActions({
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="flex items-stretch">
-        <button onClick={scrollToReply} className={cn(buttonBase, "text-primary")}>
+        <button
+          onClick={scrollToReply}
+          className={cn(buttonBase, "text-primary")}
+        >
           <CornerDownLeft className="h-5 w-5" />
           <span>Reply</span>
         </button>
@@ -80,7 +78,6 @@ export function MobileThreadActions({
         {showFollowUp && (
           <FollowUpPicker
             onFollowUp={async (until) => {
-              const { setFollowUp } = await import("@/actions/follow-up");
               await setFollowUp(messageId, until);
               router.refresh();
             }}

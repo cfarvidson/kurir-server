@@ -17,7 +17,11 @@ export default async function SnoozedDetailPage({
       categoryLabel="Snoozed"
       returnPath="/snoozed"
       searchQuery={q}
-      mobileActions={{}}
+      mobileActions={{
+        showArchive: false,
+        showSnooze: false,
+        showFollowUp: false,
+      }}
       actions={({ messageId, returnPath }) => (
         <UnsnoozeButton messageId={messageId} returnPath={returnPath} />
       )}

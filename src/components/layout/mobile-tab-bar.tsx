@@ -21,13 +21,13 @@ import {
   Settings,
   Shield,
   LogOut,
-  X,
 } from "lucide-react";
 import {
   type BadgePreferences,
   badgeKeyToPref,
   defaultBadgePreferences,
 } from "./navigation";
+import { useBadgeCounts } from "@/hooks/use-badge-counts";
 
 interface MobileTabBarProps {
   screenerCount?: number;
@@ -95,53 +95,31 @@ export function MobileTabBar({
   badgePreferences = defaultBadgePreferences,
   isAdmin = false,
 }: MobileTabBarProps) {
-  const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [sheetOpen, setSheetOpen] = useState(false);
   const pathname = usePathname();
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   // Gesture state for drag-to-dismiss
-  const g = useRef({
+  const gestureState = useRef({
     startY: 0,
     currentY: 0,
     tracking: false,
   });
 
-  // Listen for optimistic badge updates
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { key, delta } = (e as CustomEvent).detail;
-      setDeltas((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + delta }));
-    };
-    window.addEventListener("badge-count-update", handler);
-    return () => window.removeEventListener("badge-count-update", handler);
-  }, []);
-
-  // Reset deltas when server props change
-  useEffect(() => {
-    setDeltas({});
-  }, [
+  const badgeCounts = useBadgeCounts({
     screenerCount,
     imboxUnreadCount,
     feedUnreadCount,
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
-  ]);
-
-  const badgeCounts: Record<string, number> = {
-    imbox: Math.max(0, imboxUnreadCount + (deltas.imbox ?? 0)),
-    screener: Math.max(0, screenerCount + (deltas.screener ?? 0)),
-    feed: Math.max(0, feedUnreadCount + (deltas.feed ?? 0)),
-    paperTrail: Math.max(0, paperTrailUnreadCount + (deltas.paperTrail ?? 0)),
-    scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
-    followUp: Math.max(0, followUpCount + (deltas.followUp ?? 0)),
-  };
+  });
 
   // Close sheet on route change
   useEffect(() => {
     setSheetOpen(false);
+    document.body.style.overflow = "";
   }, [pathname]);
 
   const openSheet = useCallback(() => {
@@ -169,15 +147,15 @@ export function MobileTabBar({
     if (!sheet) return;
 
     function onTouchStart(e: TouchEvent) {
-      g.current.startY = e.touches[0].clientY;
-      g.current.currentY = e.touches[0].clientY;
-      g.current.tracking = true;
+      gestureState.current.startY = e.touches[0].clientY;
+      gestureState.current.currentY = e.touches[0].clientY;
+      gestureState.current.tracking = true;
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (!g.current.tracking) return;
-      const dy = e.touches[0].clientY - g.current.startY;
-      g.current.currentY = e.touches[0].clientY;
+      if (!gestureState.current.tracking) return;
+      const dy = e.touches[0].clientY - gestureState.current.startY;
+      gestureState.current.currentY = e.touches[0].clientY;
 
       // Only allow dragging down
       if (dy > 0 && sheet) {
@@ -193,9 +171,9 @@ export function MobileTabBar({
     }
 
     function onTouchEnd() {
-      if (!g.current.tracking) return;
-      g.current.tracking = false;
-      const dy = g.current.currentY - g.current.startY;
+      if (!gestureState.current.tracking) return;
+      gestureState.current.tracking = false;
+      const dy = gestureState.current.currentY - gestureState.current.startY;
 
       if (dy > 80) {
         closeSheet();
@@ -227,11 +205,7 @@ export function MobileTabBar({
   if (isSubPage) return null;
 
   // Check if any "more" item is active (to highlight the More tab)
-  const moreHrefs = [
-    ...moreItems.map((i) => i.href),
-    "/settings",
-    "/admin",
-  ];
+  const moreHrefs = [...moreItems.map((i) => i.href), "/settings", "/admin"];
   const isMoreActive = moreHrefs.some(
     (href) => pathname === href || (href !== "/" && pathname.startsWith(href)),
   );
@@ -265,9 +239,7 @@ export function MobileTabBar({
                 )}
               >
                 <div className="relative">
-                  <tab.icon
-                    className={cn("h-5 w-5", isCompose && "h-6 w-6")}
-                  />
+                  <tab.icon className={cn("h-5 w-5", isCompose && "h-6 w-6")} />
                   {showBadge && (
                     <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
                       {count > 99 ? "99+" : count}
@@ -313,8 +285,7 @@ export function MobileTabBar({
           style={{
             transform: "translateY(0)",
             transition: TRANSITION,
-            paddingBottom:
-              "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
           }}
         >
           {/* Drag handle */}
@@ -325,10 +296,7 @@ export function MobileTabBar({
           {/* Navigation items */}
           <nav className="px-4 pb-2">
             {moreItems.map((item) => {
-              if (
-                item.badgeKey === "scheduled" &&
-                badgeCounts.scheduled === 0
-              )
+              if (item.badgeKey === "scheduled" && badgeCounts.scheduled === 0)
                 return null;
 
               const isActive =
