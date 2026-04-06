@@ -4,7 +4,7 @@ Thanks for your interest in Kurir. This document covers how to set up a developm
 
 ## Code of Conduct
 
-Be kind. Assume good intent. Disagree with ideas, not people. Harassment of any kind is not tolerated.
+This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). Be kind, be useful, and treat everyone with respect.
 
 ## Getting Started
 
