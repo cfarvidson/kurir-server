@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/cfarvidson/kurir-server/security/advisories/new
     about: Report a security vulnerability privately. Please do NOT open a public issue.
   - name: Documentation
-    url: https://cfarvidson.github.io/kurir-server/docs/getting-started
+    url: https://kurir.io/docs/getting-started
     about: Setup, deployment, and troubleshooting docs.

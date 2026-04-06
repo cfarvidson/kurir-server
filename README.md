@@ -2,7 +2,7 @@
 
 A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connects to your existing email via IMAP/SMTP and gives you a calmer, more focused experience. Open source under the [O'Saasy License](LICENSE).
 
-**[Website](https://cfarvidson.github.io/kurir-server/)** · **[Documentation](https://cfarvidson.github.io/kurir-server/docs/getting-started)** · **[GitHub Sponsors](https://github.com/sponsors/cfarvidson)**
+**[Website](https://kurir.io)** · **[Documentation](https://kurir.io/docs/getting-started)** · **[GitHub Sponsors](https://github.com/sponsors/cfarvidson)**
 
 ## Features
 
