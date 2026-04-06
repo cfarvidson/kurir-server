@@ -10,7 +10,8 @@ set -euo pipefail
 
 KURIR_DIR="/opt/kurir"
 REQUIRED_DOCKER_VERSION="20"
-MODE="public"  # public | tailscale | http
+MODE="public"      # public | tailscale | http
+MODE_FROM_FLAG=0   # set to 1 if --mode was passed on the command line
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,6 +39,62 @@ prompt_default() {
         read -r REPLY </dev/tty
     fi
     REPLY="${REPLY:-$default}"
+}
+
+prompt_mode() {
+    # Skip the prompt entirely if --mode was passed on the command line
+    [ "$MODE_FROM_FLAG" -eq 1 ] && return 0
+
+    # Compute a smart default:
+    # 1. If an existing .env has MODE set, use that (re-run preserves choice)
+    # 2. Else if tailscale CLI is present and the daemon is connected, suggest tailscale
+    # 3. Else default to public
+    local default_mode="public"
+    local detected_reason=""
+
+    if [ -f "$KURIR_DIR/.env" ]; then
+        local existing
+        existing=$(env_val MODE "$KURIR_DIR/.env")
+        if [ -n "${existing:-}" ]; then
+            default_mode="$existing"
+            detected_reason="existing install"
+        fi
+    fi
+
+    if [ -z "$detected_reason" ] && command -v tailscale >/dev/null 2>&1; then
+        if tailscale status >/dev/null 2>&1; then
+            default_mode="tailscale"
+            detected_reason="tailscale detected"
+        fi
+    fi
+
+    local default_num=1
+    case "$default_mode" in
+        public)    default_num=1 ;;
+        tailscale) default_num=2 ;;
+        http)      default_num=3 ;;
+    esac
+
+    echo ""
+    printf '%bSelect install mode:%b\n' "$BOLD" "$NC"
+    cat <<'MENUEOF'
+  1) public     — Caddy + Let's Encrypt for a publicly-resolvable domain
+  2) tailscale  — Tailscale Serve handles TLS for *.ts.net hostnames
+  3) http       — HTTP only, for local VM testing (passkeys won't work)
+MENUEOF
+    if [ -n "$detected_reason" ]; then
+        printf '%b(default: %s — %s)%b\n' "$CYAN" "$default_mode" "$detected_reason" "$NC"
+    fi
+    prompt_default "Mode [1-3 or name]" "$default_num"
+
+    case "$REPLY" in
+        1|public)    MODE="public" ;;
+        2|tailscale) MODE="tailscale" ;;
+        3|http)      MODE="http" ;;
+        *)
+            fatal "Invalid mode: $REPLY (expected 1/2/3 or public/tailscale/http)"
+            ;;
+    esac
 }
 
 banner() {
@@ -86,9 +143,11 @@ parse_args() {
             --mode)
                 shift
                 MODE="${1:-}"
+                MODE_FROM_FLAG=1
                 ;;
             --mode=*)
                 MODE="${1#--mode=}"
+                MODE_FROM_FLAG=1
                 ;;
             -h|--help)
                 usage
@@ -103,13 +162,15 @@ parse_args() {
         shift
     done
 
-    case "$MODE" in
-        public|tailscale|http) ;;
-        *)
-            error "Invalid --mode: $MODE (must be public, tailscale, or http)"
-            exit 2
-            ;;
-    esac
+    if [ "$MODE_FROM_FLAG" -eq 1 ]; then
+        case "$MODE" in
+            public|tailscale|http) ;;
+            *)
+                error "Invalid --mode: $MODE (must be public, tailscale, or http)"
+                exit 2
+                ;;
+        esac
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -781,6 +842,7 @@ main() {
     detect_os
     detect_arch
     check_docker
+    prompt_mode
     check_tailscale
     check_ports
     prompt_config
