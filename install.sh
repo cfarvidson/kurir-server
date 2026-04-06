@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Kurir — One-command installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh
+#        curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh -s -- --mode tailscale
 #
 # Installs Kurir on a fresh Ubuntu 22.04+ or Debian 12+ server.
 # Idempotent — safe to re-run. Existing secrets are preserved.
@@ -9,6 +10,7 @@ set -euo pipefail
 
 KURIR_DIR="/opt/kurir"
 REQUIRED_DOCKER_VERSION="20"
+MODE="public"  # public | tailscale | http
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,6 +53,63 @@ banner() {
 
 EOF
     printf '%b' "$NC"
+}
+
+usage() {
+    cat <<EOF
+Usage: install.sh [--mode public|tailscale|http] [--help]
+
+Modes:
+  public      (default) Caddy + Let's Encrypt for a publicly-resolvable domain.
+              Use this when you own a domain (e.g. mail.example.com) with an A
+              record pointing at this server's public IP.
+
+  tailscale   Skip Caddy. Tailscale Serve terminates TLS for a *.ts.net hostname.
+              Use this when the server lives on your tailnet and you don't want
+              to expose it to the public internet. Requires the 'tailscale' CLI
+              and HTTPS enabled in your tailnet (Admin Console → DNS).
+
+  http        Caddy on port 80 only, no TLS. Use ONLY for local VM testing
+              behind another reverse proxy. Passkeys (WebAuthn) require HTTPS,
+              so the setup wizard won't fully work in this mode.
+
+Examples:
+  sudo ./install.sh
+  sudo ./install.sh --mode tailscale
+  curl -fsSL https://.../install.sh | sudo sh -s -- --mode tailscale
+EOF
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --mode)
+                shift
+                MODE="${1:-}"
+                ;;
+            --mode=*)
+                MODE="${1#--mode=}"
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                error "Unknown argument: $1"
+                usage
+                exit 2
+                ;;
+        esac
+        shift
+    done
+
+    case "$MODE" in
+        public|tailscale|http) ;;
+        *)
+            error "Invalid --mode: $MODE (must be public, tailscale, or http)"
+            exit 2
+            ;;
+    esac
 }
 
 # ---------------------------------------------------------------------------
@@ -127,8 +186,20 @@ check_docker() {
 }
 
 check_ports() {
+    local ports_to_check=""
+    case "$MODE" in
+        public)    ports_to_check="80 443" ;;
+        http)      ports_to_check="80" ;;
+        tailscale) ports_to_check="" ;;  # tailscale serve handles its own ports
+    esac
+
+    if [ -z "$ports_to_check" ]; then
+        ok "Port check skipped (mode: $MODE)"
+        return
+    fi
+
     local blocked=""
-    for port in 80 443; do
+    for port in $ports_to_check; do
         if ss -tlnp 2>/dev/null | awk '{print $4}' | grep -qE "(:|^)${port}$"; then
             blocked="${blocked} ${port}"
         fi
@@ -137,13 +208,44 @@ check_ports() {
     if [ -n "$blocked" ]; then
         # If Caddy is already running from a previous install, that's fine
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "kurir.*proxy"; then
-            ok "Ports 80/443 in use by existing Kurir proxy (will be restarted)"
+            ok "Port(s)${blocked} in use by existing Kurir proxy (will be restarted)"
         else
             fatal "Port(s)${blocked} already in use. Stop the conflicting service first."
         fi
     else
-        ok "Ports 80 and 443 are available"
+        ok "Port(s)${ports_to_check:+ }${ports_to_check} are available"
     fi
+}
+
+check_tailscale() {
+    [ "$MODE" = "tailscale" ] || return 0
+
+    if ! command -v tailscale >/dev/null 2>&1; then
+        fatal "Tailscale CLI not found. Install it: https://tailscale.com/download/linux"
+    fi
+
+    if ! tailscale status >/dev/null 2>&1; then
+        fatal "Tailscale is not connected. Run 'sudo tailscale up' first."
+    fi
+
+    ok "Tailscale is connected"
+}
+
+# Detect this machine's *.ts.net hostname from `tailscale status --json`
+detect_tailscale_hostname() {
+    [ "$MODE" = "tailscale" ] || return 0
+    command -v tailscale >/dev/null 2>&1 || return 0
+    command -v python3 >/dev/null 2>&1 || return 0
+
+    DETECTED_TS_HOSTNAME=$(tailscale status --json 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    name = data.get('Self', {}).get('DNSName', '').rstrip('.')
+    print(name)
+except Exception:
+    pass
+" 2>/dev/null)
 }
 
 # ---------------------------------------------------------------------------
@@ -229,24 +331,52 @@ prompt_config() {
         info "Existing installation detected at $KURIR_DIR"
         EXISTING_DOMAIN=$(env_val DOMAIN "$KURIR_DIR/.env")
         EXISTING_EMAIL=$(env_val ACME_EMAIL "$KURIR_DIR/.env")
+        EXISTING_MODE=$(env_val MODE "$KURIR_DIR/.env")
+        # If user didn't pass --mode and the existing .env has a mode, preserve it
+        if [ -n "${EXISTING_MODE:-}" ] && [ "$MODE" = "public" ]; then
+            MODE="$EXISTING_MODE"
+            info "Using existing mode: $MODE"
+        fi
+    fi
+
+    # Default domain suggestion depends on mode
+    local domain_default="${EXISTING_DOMAIN:-}"
+    if [ -z "$domain_default" ] && [ "$MODE" = "tailscale" ]; then
+        detect_tailscale_hostname
+        domain_default="${DETECTED_TS_HOSTNAME:-}"
     fi
 
     echo ""
-    prompt_default "Domain name (e.g. mail.example.com)" "${EXISTING_DOMAIN:-}"
+    case "$MODE" in
+        public)
+            prompt_default "Domain name (e.g. mail.example.com)" "$domain_default"
+            ;;
+        tailscale)
+            prompt_default "Tailscale hostname (e.g. kurir.your-tailnet.ts.net)" "$domain_default"
+            ;;
+        http)
+            prompt_default "Hostname for the install (no TLS will be used)" "${domain_default:-localhost}"
+            ;;
+    esac
     DOMAIN="$REPLY"
     if [ -z "$DOMAIN" ]; then
-        fatal "Domain name is required"
+        fatal "Hostname is required"
     fi
 
-    prompt_default "Email for Let's Encrypt certificates" "${EXISTING_EMAIL:-admin@$DOMAIN}"
-    ACME_EMAIL="$REPLY"
-    if [ -z "$ACME_EMAIL" ]; then
-        fatal "Email is required for Let's Encrypt"
+    if [ "$MODE" = "public" ]; then
+        prompt_default "Email for Let's Encrypt certificates" "${EXISTING_EMAIL:-admin@$DOMAIN}"
+        ACME_EMAIL="$REPLY"
+        if [ -z "$ACME_EMAIL" ]; then
+            fatal "Email is required for Let's Encrypt"
+        fi
+    else
+        ACME_EMAIL=""
     fi
 
     echo ""
-    info "Domain:  $DOMAIN"
-    info "Email:   $ACME_EMAIL"
+    info "Mode:     $MODE"
+    info "Hostname: $DOMAIN"
+    [ -n "$ACME_EMAIL" ] && info "Email:    $ACME_EMAIL"
     echo ""
 }
 
@@ -287,6 +417,11 @@ write_env() {
         fi
     fi
 
+    # Scheme is http only for the http mode; tailscale and public both use https
+    local scheme="https"
+    [ "$MODE" = "http" ] && scheme="http"
+    APP_URL="${scheme}://${DOMAIN}"
+
     # Write .env atomically with restrictive permissions (never world-readable)
     local tmpenv
     tmpenv=$(mktemp "$KURIR_DIR/.env.XXXXXX")
@@ -295,7 +430,9 @@ write_env() {
 # Kurir — generated by install.sh on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Re-run the installer to update domain/email. Secrets are preserved.
 
+MODE=$MODE
 DOMAIN=$DOMAIN
+APP_URL=$APP_URL
 ACME_EMAIL=$ACME_EMAIL
 
 POSTGRES_USER=kurir
@@ -315,9 +452,38 @@ ENVEOF
 }
 
 write_caddyfile() {
+    if [ "$MODE" = "tailscale" ]; then
+        info "Skipping Caddyfile (tailscale mode — Tailscale Serve handles TLS)"
+        return
+    fi
+
     mkdir -p "$KURIR_DIR/config"
 
-    cat > "$KURIR_DIR/config/Caddyfile" <<'CADDYEOF'
+    if [ "$MODE" = "http" ]; then
+        # HTTP-only Caddy for local testing or when behind another reverse proxy.
+        # Note: passkeys (WebAuthn) require HTTPS in browsers; this mode is for
+        # smoke-testing the install only.
+        cat > "$KURIR_DIR/config/Caddyfile" <<'CADDYEOF'
+:80 {
+    encode gzip zstd
+
+    handle /_next/static/* {
+        header Cache-Control "public, max-age=31536000, immutable"
+        reverse_proxy app:3000
+    }
+
+    reverse_proxy app:3000
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}
+CADDYEOF
+    else
+        cat > "$KURIR_DIR/config/Caddyfile" <<'CADDYEOF'
 {$DOMAIN} {
     encode gzip zstd
 
@@ -339,18 +505,21 @@ write_caddyfile() {
     tls {$ACME_EMAIL}
 }
 CADDYEOF
+    fi
 
     ok "Wrote $KURIR_DIR/config/Caddyfile"
 }
 
 write_docker_compose() {
     mkdir -p "$KURIR_DIR"
-    cat > "$KURIR_DIR/docker-compose.yml" <<'COMPOSEEOF'
-# Kurir — Production Docker Compose (generated by install.sh)
-# Manage with: cd /opt/kurir && docker compose up -d
 
-services:
-  proxy:
+    # Build the proxy block based on mode
+    local proxy_block=""
+    local app_ports_block=""
+
+    case "$MODE" in
+        public)
+            proxy_block='  proxy:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
@@ -372,21 +541,63 @@ services:
         limits:
           memory: 128m
 
+'
+            ;;
+        http)
+            proxy_block='  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+'
+            ;;
+        tailscale)
+            # No proxy. Tailscale Serve forwards 443 → host:3000 → app container.
+            proxy_block=""
+            app_ports_block='    ports:
+      - "127.0.0.1:3000:3000"
+'
+            ;;
+    esac
+
+    {
+        cat <<HEADER
+# Kurir — Production Docker Compose (generated by install.sh, mode=$MODE)
+# Manage with: cd $KURIR_DIR && docker compose up -d
+
+services:
+HEADER
+
+        printf '%s' "$proxy_block"
+
+        cat <<APPEOF
   app:
     image: ghcr.io/cfarvidson/kurir-server:latest
     restart: unless-stopped
-    environment:
+${app_ports_block}    environment:
       NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=768
-      DATABASE_URL: postgresql://${POSTGRES_USER:-kurir}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kurir}?connection_limit=10
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: https://${DOMAIN}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      DATABASE_URL: postgresql://\${POSTGRES_USER:-kurir}:\${POSTGRES_PASSWORD}@postgres:5432/\${POSTGRES_DB:-kurir}?connection_limit=10
+      REDIS_URL: redis://:\${REDIS_PASSWORD}@redis:6379
+      NEXTAUTH_SECRET: \${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: \${APP_URL}
+      ENCRYPTION_KEY: \${ENCRYPTION_KEY}
       WEBAUTHN_RP_NAME: Kurir
-      WEBAUTHN_RP_ID: ${DOMAIN}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      WEBAUTHN_RP_ID: \${DOMAIN}
+      VAPID_PRIVATE_KEY: \${VAPID_PRIVATE_KEY:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: \${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -408,13 +619,13 @@ services:
     restart: unless-stopped
     shm_size: 256m
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-kurir}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-kurir}
+      POSTGRES_USER: \${POSTGRES_USER:-kurir}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      POSTGRES_DB: \${POSTGRES_DB:-kurir}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kurir}"]
+      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER:-kurir}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -431,11 +642,11 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass \${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"\${REDIS_PASSWORD}\" --no-auth-warning ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -447,11 +658,34 @@ services:
 volumes:
   postgres_data:
   redis_data:
+APPEOF
+
+        # Only declare caddy volumes when proxy is present
+        if [ -n "$proxy_block" ]; then
+            cat <<'VOLEOF'
   caddy_data:
   caddy_config:
-COMPOSEEOF
+VOLEOF
+        fi
+    } > "$KURIR_DIR/docker-compose.yml"
 
     ok "Wrote $KURIR_DIR/docker-compose.yml"
+}
+
+setup_tailscale_serve() {
+    [ "$MODE" = "tailscale" ] || return 0
+
+    info "Configuring Tailscale Serve to forward https://$DOMAIN → app:3000"
+
+    if ! tailscale serve --bg --https=443 http://localhost:3000 >/dev/null 2>&1; then
+        warn "Failed to configure Tailscale Serve automatically."
+        warn "Run this manually after the install completes:"
+        warn "  sudo tailscale serve --bg --https=443 http://localhost:3000"
+        warn "Make sure HTTPS is enabled in your tailnet (Admin Console → DNS → Enable HTTPS)."
+        return 1
+    fi
+
+    ok "Tailscale Serve is forwarding https://$DOMAIN → http://localhost:3000"
 }
 
 # ---------------------------------------------------------------------------
@@ -496,12 +730,29 @@ print_success() {
   ============================================
 EOF
     printf '%b\n' "$NC"
-    info "URL:        https://$DOMAIN"
+    info "Mode:       $MODE"
+    info "URL:        $APP_URL"
     info "Install:    $KURIR_DIR"
     info ""
-    info "Open https://$DOMAIN in your browser to complete setup."
-    info "The first-run wizard will guide you through creating"
-    info "your admin account and connecting your email."
+
+    case "$MODE" in
+        public)
+            info "Open $APP_URL in your browser to complete setup."
+            info "The first-run wizard will guide you through creating"
+            info "your admin account and connecting your email."
+            ;;
+        tailscale)
+            info "Open $APP_URL from any device on your tailnet."
+            info "TLS is terminated by Tailscale Serve. To inspect:"
+            info "  sudo tailscale serve status"
+            ;;
+        http)
+            warn "HTTP mode is for local testing only."
+            warn "Passkeys (WebAuthn) require HTTPS — the setup wizard"
+            warn "will fail at passkey registration in this mode unless"
+            warn "you access it via http://localhost from the same machine."
+            ;;
+    esac
     info ""
     info "Useful commands:"
     info "  cd $KURIR_DIR"
@@ -517,17 +768,20 @@ EOF
 # ---------------------------------------------------------------------------
 
 main() {
+    parse_args "$@"
     banner
     check_root
     detect_os
     detect_arch
     check_docker
+    check_tailscale
     check_ports
     prompt_config
     write_env
     write_caddyfile
     write_docker_compose
     start_services
+    setup_tailscale_serve
     print_success
 }
 

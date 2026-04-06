@@ -33,10 +33,17 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 Provisions a fresh Ubuntu 22.04+ or Debian 12+ server with everything:
 
 ```bash
+# Public domain (default) — Caddy + Let's Encrypt
 curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh
+
+# Tailscale-only deploy — Tailscale Serve handles TLS
+curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh -s -- --mode tailscale
+
+# HTTP-only (local VM testing — passkeys won't work)
+curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install.sh | sudo sh -s -- --mode http
 ```
 
-The installer handles Docker, PostgreSQL, Redis, HTTPS (via Caddy + Let's Encrypt), and all secrets. Once running, open your domain to complete the setup wizard.
+The installer handles Docker, PostgreSQL, Redis, TLS, and all secrets. Once running, open the URL to complete the setup wizard. Run with `--help` to see all options.
 
 ### Setup Wizard
 
