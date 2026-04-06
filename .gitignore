@@ -54,4 +54,8 @@ postgres_data/
 .kamal/secrets.*
 !.kamal/secrets.example
 
+# Local-only planning and brainstorm docs
+docs/plans/
+.playwright-mcp/
+
 !CLAUDE.md

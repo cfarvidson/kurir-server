@@ -79,7 +79,7 @@ kamal accessory exec db "psql -U kurir" # DB shell
 
 Config: `config/deploy.yml`. Secrets: `.kamal/secrets` (env var refs only, safe for git). Set `KAMAL_*` prefixed env vars locally (see `DEPLOY.md`).
 
-Registry: `docker-registry.banded-beta.ts.net`. Postgres on separate Tailscale host.
+Registry and Postgres host are configured per-environment in `config/deploy.yml` (see `config/deploy.yml.example`).
 
 Post-deploy hook auto-runs `prisma db push`. Search vector migration must be run manually once: `kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"`.
 

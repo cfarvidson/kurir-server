@@ -163,7 +163,7 @@ kamal rollback
 ### Docker Registry Access
 
 - Confirm `DOCKER_REGISTRY_TOKEN` is valid
-- Test registry access: `docker login docker-registry.banded-beta.ts.net`
+- Test registry access: `docker login your-registry.example.com`
 
 ### Stuck Sync Lock
 
