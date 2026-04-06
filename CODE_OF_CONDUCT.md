@@ -24,7 +24,7 @@ This applies to all project spaces — issues, pull requests, commits, discussio
 
 ### Reporting
 
-If you see behavior that crosses these lines, or you're on the receiving end of it, contact the maintainer privately at **conduct@arvidson.io**. Reports stay confidential. You won't be retaliated against for reporting in good faith.
+If you see behavior that crosses these lines, or you're on the receiving end of it, contact the maintainer privately at **carl-fredrik@arvidson.io**. Reports stay confidential. You won't be retaliated against for reporting in good faith.
 
 ### Enforcement
 

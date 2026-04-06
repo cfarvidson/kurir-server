@@ -9,7 +9,7 @@ Kurir handles email — one of the most sensitive things on a person's computer.
 Instead, please report privately via one of:
 
 1. **GitHub Security Advisories** (preferred): [Open a private advisory](https://github.com/cfarvidson/kurir-server/security/advisories/new)
-2. **Email**: `security@arvidson.io` (PGP key available on request)
+2. **Email**: `carl-fredrik@arvidson.io` (PGP key available on request)
 
 Please include:
 
