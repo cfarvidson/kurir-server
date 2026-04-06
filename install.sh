@@ -256,6 +256,13 @@ generate_secret() {
     openssl rand -base64 32
 }
 
+# URL-safe password (hex only). Use for credentials that go inside connection
+# URLs like DATABASE_URL and REDIS_URL — base64 contains '+' and '/' which break
+# URL parsing in clients like BullMQ's `new URL(redisUrl)`.
+generate_password() {
+    openssl rand -hex 32
+}
+
 generate_vapid_keys() {
     # Generate ECDSA P-256 key pair and extract raw bytes for web-push VAPID format
     if ! command -v openssl >/dev/null 2>&1; then
@@ -398,8 +405,8 @@ write_env() {
         _existing_vapid_pub=$(env_val NEXT_PUBLIC_VAPID_PUBLIC_KEY "$KURIR_DIR/.env")
     fi
 
-    POSTGRES_PASSWORD="${_existing_pg_pass:-$(generate_secret)}"
-    REDIS_PASSWORD="${_existing_redis_pass:-$(generate_secret)}"
+    POSTGRES_PASSWORD="${_existing_pg_pass:-$(generate_password)}"
+    REDIS_PASSWORD="${_existing_redis_pass:-$(generate_password)}"
     NEXTAUTH_SECRET="${_existing_nextauth:-$(generate_secret)}"
     ENCRYPTION_KEY="${_existing_enc_key:-$(generate_secret)}"
 
