@@ -1,7 +1,7 @@
 ---
 title: Backup & Restore
 description: How to back up and restore your Kurir instance, including scheduled automatic backups.
-order: 5
+order: 6
 ---
 
 # Backup & Restore

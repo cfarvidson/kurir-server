@@ -1,7 +1,7 @@
 ---
 title: FAQ
 description: Frequently asked questions about Kurir, including licensing, privacy, provider support, and more.
-order: 8
+order: 9
 ---
 
 # Frequently Asked Questions
@@ -38,7 +38,7 @@ The only write operations are sending emails (via SMTP) and IMAP flag changes (m
 
 ## Can I use Kurir on my phone?
 
-Yes. Kurir is a web application that works in any modern browser on any device. It supports Progressive Web App (PWA) installation, so you can add it to your home screen for an app-like experience. Push notifications are supported when VAPID keys are configured.
+Yes. Kurir is a web application that works in any modern browser on any device. It supports Progressive Web App (PWA) installation, so you can add it to your home screen for an app-like experience with push notifications. See the [Mobile App](mobile-app) docs for step-by-step install instructions for iOS and Android.
 
 ## How is Kurir different from other email clients?
 

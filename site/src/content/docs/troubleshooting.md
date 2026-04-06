@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Solutions for common issues with IMAP connections, sync, Docker, DNS, and more.
-order: 7
+order: 8
 ---
 
 # Troubleshooting
