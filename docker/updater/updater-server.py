@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-APP_URL = os.environ.get("APP_URL", "http://app:3000")
+APP_URL = os.environ.get("KURIR_INTERNAL_URL", "http://app:3000")
 UPDATER_TOKEN = os.environ.get("UPDATER_TOKEN", "")
 WORKDIR = os.environ.get("WORKDIR", "/workdir")
 COMPOSE_FILE = os.environ.get("COMPOSE_FILE", "docker-compose.yml")
@@ -61,6 +61,21 @@ def report_status(log_id: str, status: str, error: str | None = None) -> None:
         log(f"report_status({status}) failed: {exc}")
 
 
+def _compose_env() -> dict[str, str]:
+    """Build a clean env for docker compose — only PATH and HOME.
+
+    Docker compose inherits the caller's environment and uses it to
+    interpolate ${VAR} in the compose file, with shell env taking
+    precedence over .env file values. We must NOT leak the updater's own
+    vars (like the old APP_URL) into the app container's environment.
+    """
+    clean = {"PATH": os.environ.get("PATH", "/usr/bin:/usr/local/bin"), "HOME": "/root"}
+    # Pass through DOCKER_HOST if set (e.g. remote docker daemons)
+    if os.environ.get("DOCKER_HOST"):
+        clean["DOCKER_HOST"] = os.environ["DOCKER_HOST"]
+    return clean
+
+
 def run_compose(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     cmd = ["docker", "compose", "-f", COMPOSE_FILE, *args]
     log("$ " + " ".join(cmd))
@@ -69,6 +84,7 @@ def run_compose(*args: str, check: bool = True) -> subprocess.CompletedProcess:
         cwd=WORKDIR,
         capture_output=True,
         text=True,
+        env=_compose_env(),
     )
     if result.stdout:
         for line in result.stdout.rstrip().splitlines():
@@ -94,6 +110,7 @@ def current_app_image() -> str | None:
             capture_output=True,
             text=True,
             check=False,
+            env=_compose_env(),
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None

@@ -740,7 +740,7 @@ ${app_ports_block}    environment:
     image: ghcr.io/cfarvidson/kurir-updater:latest
     restart: unless-stopped
     environment:
-      APP_URL: http://app:3000
+      KURIR_INTERNAL_URL: http://app:3000
       UPDATER_TOKEN: \${UPDATER_TOKEN}
       WORKDIR: /workdir
       COMPOSE_FILE: docker-compose.yml
