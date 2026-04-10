@@ -97,8 +97,16 @@ def current_app_image() -> str | None:
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
-        data = json.loads(result.stdout)
-        # `docker compose images` can return a list or a single object depending on version
+        raw = result.stdout.strip()
+        # docker compose images --format json returns either:
+        #   - a JSON array: [{"Repository":…}]
+        #   - NDJSON (one object per line): {"Repository":…}\n{"Repository":…}
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # Try NDJSON — take the first line
+            first_line = raw.splitlines()[0]
+            data = json.loads(first_line)
         if isinstance(data, list):
             if not data:
                 return None

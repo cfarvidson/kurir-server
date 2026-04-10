@@ -26,9 +26,11 @@ export default auth((req) => {
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
   const isSetupApi = req.nextUrl.pathname === "/api/setup/check";
   const isHealthCheck = req.nextUrl.pathname === "/api/up";
+  const isUpdaterCallback =
+    req.nextUrl.pathname === "/api/admin/updates/status";
 
-  // Allow auth, setup check, and health check routes
-  if (isAuthRoute || isSetupApi || isHealthCheck) {
+  // Allow auth, setup check, health check, and updater callback routes
+  if (isAuthRoute || isSetupApi || isHealthCheck || isUpdaterCallback) {
     return NextResponse.next();
   }
 
