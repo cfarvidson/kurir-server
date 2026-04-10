@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.04.10",
+    "date": "2026-04-10",
+    "changes": [
+      "Fix self-hosted auto-update by moving to a companion sidecar container",
+      "Add mobile app install docs for iOS and Android PWA"
+    ]
+  },
+  {
     "version": "2026.04.01",
     "date": "2026-04-01",
     "changes": [

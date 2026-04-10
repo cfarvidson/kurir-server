@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.06.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.06.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.06.2",
-  "changelog": "Security: patch dompurify (XSS bypass), Next.js, and nodemailer vulnerabilities. Bump dev dependencies.",
+  "version": "2026.04.10",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.10",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.10",
+  "changelog": "Fix self-hosted auto-update by moving to a companion sidecar container; add mobile app install docs",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-06T14:50:00Z"
+  "releasedAt": "2026-04-10T14:20:00Z"
 }
