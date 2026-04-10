@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.04.10.3",
+    "date": "2026-04-10",
+    "changes": [
+      "Fix updater compose project name mismatch causing port conflict"
+    ]
+  },
+  {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
     "changes": ["Fix updater status callback blocked by auth middleware"]
