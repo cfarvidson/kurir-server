@@ -462,6 +462,7 @@ write_env() {
         _existing_redis_pass=$(env_val REDIS_PASSWORD "$KURIR_DIR/.env")
         _existing_nextauth=$(env_val NEXTAUTH_SECRET "$KURIR_DIR/.env")
         _existing_enc_key=$(env_val ENCRYPTION_KEY "$KURIR_DIR/.env")
+        _existing_updater_token=$(env_val UPDATER_TOKEN "$KURIR_DIR/.env")
         _existing_vapid_priv=$(env_val VAPID_PRIVATE_KEY "$KURIR_DIR/.env")
         _existing_vapid_pub=$(env_val NEXT_PUBLIC_VAPID_PUBLIC_KEY "$KURIR_DIR/.env")
     fi
@@ -470,6 +471,7 @@ write_env() {
     REDIS_PASSWORD="${_existing_redis_pass:-$(generate_password)}"
     NEXTAUTH_SECRET="${_existing_nextauth:-$(generate_secret)}"
     ENCRYPTION_KEY="${_existing_enc_key:-$(generate_secret)}"
+    UPDATER_TOKEN="${_existing_updater_token:-$(generate_password)}"
 
     # Generate VAPID keys if not preserved from existing install
     if [ -n "${_existing_vapid_priv:-}" ] && [ -n "${_existing_vapid_pub:-}" ]; then
@@ -511,6 +513,11 @@ REDIS_PASSWORD=$REDIS_PASSWORD
 
 NEXTAUTH_SECRET=$NEXTAUTH_SECRET
 ENCRYPTION_KEY=$ENCRYPTION_KEY
+
+# Shared secret between the app and the kurir-updater sidecar. Used to
+# authenticate the updater's callback to /api/admin/updates/status and to
+# authorize /apply + /rollback calls from the app.
+UPDATER_TOKEN=$UPDATER_TOKEN
 
 VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -666,6 +673,8 @@ ${app_ports_block}    environment:
       WEBAUTHN_RP_ID: \${DOMAIN}
       VAPID_PRIVATE_KEY: \${VAPID_PRIVATE_KEY:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: \${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      UPDATER_URL: http://updater:8080
+      UPDATER_TOKEN: \${UPDATER_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -722,6 +731,25 @@ ${app_ports_block}    environment:
       resources:
         limits:
           memory: 384m
+
+  # Out-of-band updater sidecar. Runs docker compose from outside the app
+  # container so restarting the app doesn't kill the update mid-flight.
+  updater:
+    image: ghcr.io/cfarvidson/kurir-updater:latest
+    restart: unless-stopped
+    environment:
+      APP_URL: http://app:3000
+      UPDATER_TOKEN: \${UPDATER_TOKEN}
+      WORKDIR: /workdir
+      COMPOSE_FILE: docker-compose.yml
+      APP_SERVICE: app
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - $KURIR_DIR:/workdir
+    deploy:
+      resources:
+        limits:
+          memory: 128m
 
 volumes:
   postgres_data:

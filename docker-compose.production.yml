@@ -47,6 +47,8 @@ services:
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      UPDATER_URL: http://updater:8080
+      UPDATER_TOKEN: ${UPDATER_TOKEN:?Set UPDATER_TOKEN in .env}
     volumes:
       - backups:/app/backups
     depends_on:
@@ -103,6 +105,28 @@ services:
       resources:
         limits:
           memory: 384m
+
+  updater:
+    build:
+      context: ./docker/updater
+    restart: unless-stopped
+    environment:
+      APP_URL: http://app:3000
+      UPDATER_TOKEN: ${UPDATER_TOKEN:?Set UPDATER_TOKEN in .env}
+      WORKDIR: /workdir
+      COMPOSE_FILE: docker-compose.production.yml
+      APP_SERVICE: app
+      # This compose file builds the app image locally, so pulling makes no
+      # sense — the admin "Update Now" button will recreate the container
+      # from the current build.
+      SKIP_PULL: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workdir
+    deploy:
+      resources:
+        limits:
+          memory: 128m
 
 volumes:
   postgres_data:

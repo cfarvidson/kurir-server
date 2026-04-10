@@ -14,6 +14,8 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key-change-in-production}
       - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-Kurir}
       - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}
+      - UPDATER_URL=http://updater:8080
+      - UPDATER_TOKEN=${UPDATER_TOKEN:-dev-updater-token-change-in-production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,6 +27,23 @@ services:
       - /app/.next
     stdin_open: true
     tty: true
+
+  updater:
+    build:
+      context: ./docker/updater
+    environment:
+      APP_URL: http://app:3000
+      UPDATER_TOKEN: ${UPDATER_TOKEN:-dev-updater-token-change-in-production}
+      WORKDIR: /workdir
+      COMPOSE_FILE: docker-compose.yml
+      APP_SERVICE: app
+      # Dev builds the app image locally, so skip the pull step — the
+      # "Update Now" button will just recreate the app container against the
+      # current build.
+      SKIP_PULL: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workdir
 
   postgres:
     image: postgres:16-alpine
