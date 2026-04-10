@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.04.10.4",
+    "date": "2026-04-10",
+    "changes": [
+      "Fix updater env var leaking into app container, breaking NEXTAUTH_URL"
+    ]
+  },
+  {
     "version": "2026.04.10.3",
     "date": "2026-04-10",
     "changes": [

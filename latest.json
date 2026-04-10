@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.10.3",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.10.3",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.10.3",
-  "changelog": "Fix updater compose project name mismatch causing port conflict",
+  "version": "2026.04.10.4",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.10.4",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.10.4",
+  "changelog": "Fix updater env var leaking into app container, breaking NEXTAUTH_URL",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-10T14:55:00Z"
+  "releasedAt": "2026-04-10T15:20:00Z"
 }
