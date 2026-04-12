@@ -6,15 +6,15 @@ import { z } from "zod";
 import { rateLimitConnections, tooManyRequests } from "@/lib/rate-limit";
 
 const createConnectionSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(1),
   imapHost: z.string().min(1),
   imapPort: z.coerce.number().int().min(1).max(65535).default(993),
   smtpHost: z.string().min(1),
   smtpPort: z.coerce.number().int().min(1).max(65535).default(587),
   displayName: z.string().optional(),
-  sendAsEmail: z.string().email().optional(),
-  aliases: z.array(z.string().email()).optional().default([]),
+  sendAsEmail: z.email().optional(),
+  aliases: z.array(z.email()).optional().default([]),
   isDefault: z.boolean().optional().default(false),
 });
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.flatten() },
+        { error: "Invalid request", details: z.treeifyError(parsed.error) },
         { status: 400 },
       );
     }

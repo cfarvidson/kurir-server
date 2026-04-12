@@ -7,7 +7,7 @@ import { z } from "zod";
 
 // Mirror the schema from /api/connections/route.ts
 const createConnectionSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(1),
   imapHost: z.string().min(1),
   imapPort: z.coerce.number().int().min(1).max(65535).default(993),
