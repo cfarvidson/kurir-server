@@ -17,7 +17,7 @@ import nodemailer from "nodemailer";
 import { z } from "zod";
 
 const sendSchema = z.object({
-  to: z.string().email(),
+  to: z.email(),
   subject: z.string().optional().default(""),
   text: z.string().optional().default(""),
   html: z.string().optional(),
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.flatten() },
+      { error: "Invalid request", details: z.treeifyError(parsed.error) },
       { status: 400 },
     );
   }

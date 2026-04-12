@@ -4,13 +4,13 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 
 const subscribeSchema = z.object({
-  endpoint: z.string().url().startsWith("https://"),
+  endpoint: z.url().startsWith("https://"),
   p256dh: z.string().min(1).max(128),
   auth: z.string().min(1).max(48),
 });
 
 const unsubscribeSchema = z.object({
-  endpoint: z.string().url(),
+  endpoint: z.url(),
 });
 
 export async function POST(request: Request) {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const parsed = subscribeSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid subscription", details: parsed.error.flatten() },
+      { error: "Invalid subscription", details: z.treeifyError(parsed.error) },
       { status: 400 },
     );
   }

@@ -15,7 +15,7 @@ export interface VersionManifest {
 const manifestSchema = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+/),
   image: z.string().min(1),
-  releaseUrl: z.string().url(),
+  releaseUrl: z.url(),
   changelog: z.string(),
   minVersion: z
     .string()

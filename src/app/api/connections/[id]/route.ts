@@ -27,8 +27,8 @@ const updateConnectionSchema = z.object({
   smtpHost: z.string().min(1).optional(),
   smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
   displayName: z.string().optional(),
-  sendAsEmail: z.string().email().nullable().optional(),
-  aliases: z.array(z.string().email()).optional(),
+  sendAsEmail: z.email().nullable().optional(),
+  aliases: z.array(z.email()).optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -63,7 +63,7 @@ export async function PATCH(
   const parsed = updateConnectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request", details: parsed.error.flatten() },
+      { error: "Invalid request", details: z.treeifyError(parsed.error) },
       { status: 400 },
     );
   }
