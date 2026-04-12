@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail, Calendar, ExternalLink } from "lucide-react";
-import { getContactContext, getThreadRoute } from "@/lib/mail/contact-context";
+import { getContactContext } from "@/lib/mail/contact-context";
+import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { CategoryPicker } from "@/components/mail/category-picker";
 
 function getInitialColor(str: string): string {
