@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Keyboard, X } from "lucide-react";
 
 const STORAGE_KEY = "kurir:screener-shortcuts-dismissed";
