@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -62,7 +62,7 @@ export async function approveSender(
     );
   }
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/screener");
   revalidatePath("/feed");
@@ -132,7 +132,7 @@ export async function rejectSender(senderId: string) {
     }),
   ]);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/screener");
   revalidatePath("/archive");
   revalidatePath("/imbox");
@@ -188,7 +188,7 @@ export async function skipSender(senderId: string) {
     data: { skippedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/screener");
 }
 
@@ -246,7 +246,7 @@ export async function undoScreenAction(senderId: string) {
     }),
   ]);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/screener");
   revalidatePath("/imbox");
   revalidatePath("/feed");
@@ -274,7 +274,7 @@ export async function unskipSender(senderId: string) {
     data: { skippedUntil: null },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/screener");
 }
 
@@ -327,7 +327,7 @@ export async function bulkApproveOldSenders(days: number = 90) {
     }),
   ]);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/screener");
   revalidatePath("/imbox");
 
@@ -373,7 +373,7 @@ export async function changeSenderCategory(
     }),
   ]);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");

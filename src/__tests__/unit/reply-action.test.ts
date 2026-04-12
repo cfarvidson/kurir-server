@@ -27,6 +27,7 @@ vi.mock("@/lib/mail/persist-sent", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }));
 
 const mockSendMail = vi

@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 export async function refreshSidebarCounts() {
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   // Also revalidate list pages so read status updates on back navigation
   revalidatePath("/imbox");
   revalidatePath("/feed");

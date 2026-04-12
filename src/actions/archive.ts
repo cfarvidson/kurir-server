@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -200,7 +200,7 @@ export async function archiveConversation(
 
   await autoRejectFullyArchivedSenders(messageIds);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/archive");
   if (sourcePath) {
     const basePath = sourcePath.split("?")[0];
@@ -300,7 +300,7 @@ export async function archiveConversations(
 
   await autoRejectFullyArchivedSenders(allMessageIds);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/archive");
   if (sourcePath) {
     const basePath = sourcePath.split("?")[0];
@@ -382,7 +382,7 @@ export async function unarchiveConversation(messageId: string) {
     },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath(categoryToPath(category));
 
   // Defer IMAP to after response
@@ -460,7 +460,7 @@ export async function unarchiveConversations(messageIds: string[]) {
     });
   }
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/archive");
   revalidatePath("/imbox");
   revalidatePath("/feed");

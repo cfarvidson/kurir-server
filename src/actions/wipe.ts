@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { connectionManager } from "@/lib/mail/connection-manager";
@@ -24,7 +24,7 @@ export async function wipeAllData() {
   // Delete all email connections (cascades to everything)
   await db.emailConnection.deleteMany({ where: { userId } });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/", "layout");
 
   return { success: true };
@@ -66,7 +66,7 @@ export async function wipeMailData() {
     ),
   ]);
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/", "layout");
 
   return { success: true };

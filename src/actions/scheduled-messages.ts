@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { auth, getConnectionCredentialsInternal } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
@@ -84,7 +84,7 @@ export async function createScheduledMessage(
     },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
 
   return { id: record.id };
 }
@@ -107,7 +107,7 @@ export async function cancelScheduledMessage(id: string) {
     data: { status: "CANCELLED" },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
 }
 
 export async function editScheduledMessage(
@@ -164,7 +164,7 @@ export async function editScheduledMessage(
     data: updateData,
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
 }
 
 export async function sendScheduledMessageNow(id: string) {
@@ -198,7 +198,7 @@ export async function sendScheduledMessageNow(id: string) {
         where: { id },
         data: { status: "SENT" },
       });
-      revalidateTag("sidebar-counts");
+      updateTag("sidebar-counts");
       return;
     }
 
@@ -267,7 +267,7 @@ export async function sendScheduledMessageNow(id: string) {
       html: htmlBody,
     });
 
-    revalidateTag("sidebar-counts");
+    updateTag("sidebar-counts");
   } catch (err) {
     // Roll back to PENDING so user can retry
     await db.scheduledMessage.update({

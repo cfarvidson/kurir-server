@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Enable server actions
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
@@ -17,9 +16,6 @@ const nextConfig: NextConfig = {
     "pg",
     "@prisma/adapter-pg",
   ],
-  devIndicators: {
-    buildActivityPosition: "bottom-right",
-  },
   async headers() {
     return [
       {

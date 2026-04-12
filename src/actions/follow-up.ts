@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -25,7 +25,7 @@ async function getThreadMessageIds(userId: string, messageId: string) {
 }
 
 function revalidateFollowUpPaths() {
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");

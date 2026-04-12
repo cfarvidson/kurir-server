@@ -12,11 +12,11 @@ export default [
         version: "19",
       },
     },
-    // New React Compiler rules from eslint-plugin-react-hooks v7 — downgrade to
-    // warnings so the upgrade doesn't break the build. Address these separately.
+    // React Compiler rules shipped with eslint-config-next v16.
+    // Downgrade to warnings until the codebase is incrementally updated.
     rules: {
-      "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
+      "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
     },
