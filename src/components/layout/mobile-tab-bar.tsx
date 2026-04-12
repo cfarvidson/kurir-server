@@ -214,7 +214,7 @@ export function MobileTabBar({
   return (
     <div className="md:hidden">
       {/* Tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-xs pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;

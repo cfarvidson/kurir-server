@@ -24,10 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { KurirLogo } from "@/components/logo";
-import {
-  EMAIL_PROVIDERS,
-  detectProviderFromEmail,
-} from "@/lib/mail/providers";
+import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
@@ -142,7 +139,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
   const isSuccess = verifyState === "success";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -194,7 +191,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
                     setProvider(e.target.value);
                     setError(null);
                   }}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {EMAIL_PROVIDERS.map((p) => (
                     <option key={p.id} value={p.id}>

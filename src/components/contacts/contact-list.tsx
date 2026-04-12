@@ -203,7 +203,7 @@ export function ContactList({ contacts }: ContactListProps) {
   return (
     <div>
       {/* Search + Filter bar */}
-      <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
+      <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur-sm supports-backdrop-filter:bg-background/60 md:px-6">
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative flex-1">
@@ -213,7 +213,7 @@ export function ContactList({ contacts }: ContactListProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search contacts..."
-              className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary/20"
             />
             {search && (
               <button
@@ -300,7 +300,7 @@ export function ContactList({ contacts }: ContactListProps) {
                 transition={{ duration: 0.15 }}
               >
                 {/* Letter header */}
-                <div className="sticky top-[105px] z-[5] px-4 py-1.5">
+                <div className="sticky top-[105px] z-5 px-4 py-1.5">
                   <span className="text-xs font-semibold tracking-wider text-muted-foreground/70">
                     {letter}
                   </span>

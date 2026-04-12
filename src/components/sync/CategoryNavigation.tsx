@@ -130,8 +130,8 @@ export function CategoryNavigation({
                 aria-controls={`${categoryId}-panel`}
                 onClick={() => onCategoryChange(categoryId)}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 group",
-                  isActive ? "bg-slate-100 shadow-sm" : "hover:bg-slate-50",
+                  "w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 group",
+                  isActive ? "bg-slate-100 shadow-xs" : "hover:bg-slate-50",
                 )}
               >
                 <div className="flex items-center gap-3">

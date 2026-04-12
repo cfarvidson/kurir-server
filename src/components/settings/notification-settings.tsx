@@ -61,7 +61,7 @@ export function NotificationSettings() {
         </div>
         {!isDenied && !iosPwa && (
           <Button
-            variant={isSubscribed ? "outline" : "default"}
+            variant={isSubscribed ? "outline-solid" : "default"}
             size="sm"
             onClick={handleToggle}
             disabled={loading}

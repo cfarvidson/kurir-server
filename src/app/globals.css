@@ -1,26 +1,200 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-.ptr-spinning {
-  animation: ptr-spin 0.75s linear infinite;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-paper: #fefefe;
+  --color-ink: #1a1a1a;
+
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  --color-imbox-50: #f3f0ff;
+  --color-imbox-100: #e9e5ff;
+  --color-imbox-200: #d6ccff;
+  --color-imbox-300: #b8a5ff;
+  --color-imbox-400: #9575ff;
+  --color-imbox-500: #7c3aed;
+  --color-imbox-600: #6d28d9;
+  --color-imbox-700: #5b21b6;
+  --color-imbox-800: #4c1d95;
+  --color-imbox-900: #3c1a78;
+
+  --color-feed-50: #ecfdf5;
+  --color-feed-100: #d1fae5;
+  --color-feed-200: #a7f3d0;
+  --color-feed-300: #6ee7b7;
+  --color-feed-400: #34d399;
+  --color-feed-500: #059669;
+  --color-feed-600: #047857;
+  --color-feed-700: #065f46;
+  --color-feed-800: #064e3b;
+  --color-feed-900: #022c22;
+
+  --color-screener-50: #fef2f2;
+  --color-screener-100: #fee2e2;
+  --color-screener-200: #fecaca;
+  --color-screener-300: #fca5a5;
+  --color-screener-400: #f87171;
+  --color-screener-500: #dc2626;
+  --color-screener-600: #b91c1c;
+  --color-screener-700: #991b1b;
+  --color-screener-800: #7f1d1d;
+  --color-screener-900: #581c87;
+
+  --color-paper-trail-50: #fff7ed;
+  --color-paper-trail-100: #ffedd5;
+  --color-paper-trail-200: #fed7aa;
+  --color-paper-trail-300: #fdba74;
+  --color-paper-trail-400: #fb923c;
+  --color-paper-trail-500: #ea580c;
+  --color-paper-trail-600: #dc2626;
+  --color-paper-trail-700: #b45309;
+  --color-paper-trail-800: #92400e;
+  --color-paper-trail-900: #78350f;
+
+  --font-serif:
+    Playfair Display, ui-serif, Georgia, Cambria, "Times New Roman", Times,
+    serif;
+  --font-sans:
+    Inter Variable, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono:
+    JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+
+  --animate-fade-in-up: fadeInUp 0.4s ease-out;
+  --animate-slide-in-right: slideInRight 0.3s ease-out;
+  --animate-pulse-slow: pulse 2s infinite;
+  --animate-shimmer: shimmer 2s infinite;
+  --animate-fade-out: fadeOut 0.5s ease-out 1.5s forwards;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes slideInRight {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.4;
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
   }
 }
 
-@keyframes ptr-spin {
-  from {
-    transform: rotate(0deg);
+@utility prose {
+  & a {
+    @apply text-primary no-underline hover:underline;
   }
-  to {
-    transform: rotate(360deg);
+  & img {
+    @apply rounded-md;
+  }
+  & blockquote {
+    @apply border-l-primary/30 text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .ptr-spinning {
+    animation: ptr-spin 0.75s linear infinite;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.4;
+    }
+  }
+
+  @keyframes ptr-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 }
 
@@ -94,17 +268,5 @@
   }
   body {
     @apply bg-background text-foreground;
-  }
-}
-
-@layer components {
-  .prose a {
-    @apply text-primary no-underline hover:underline;
-  }
-  .prose img {
-    @apply rounded-md;
-  }
-  .prose blockquote {
-    @apply border-l-primary/30 text-muted-foreground;
   }
 }

@@ -65,7 +65,7 @@ export function MobileThreadActions({
     "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors active:bg-muted";
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-xs pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="flex items-stretch">
         <button
           onClick={scrollToReply}
