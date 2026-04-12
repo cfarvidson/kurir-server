@@ -9,7 +9,7 @@ import {
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
 export async function replyToMessage(
@@ -131,5 +131,5 @@ export async function replyToMessage(
     data: { isAnswered: true },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
 }

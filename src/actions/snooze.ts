@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -46,7 +46,7 @@ export async function snoozeConversation(messageId: string, until: Date) {
     },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
@@ -91,7 +91,7 @@ export async function unsnoozeConversation(messageId: string) {
     },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
@@ -146,7 +146,7 @@ export async function snoozeConversations(messageIds: string[], until: Date) {
     },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -34,7 +34,7 @@ export async function toggleReadStatus(messageId: string) {
     data: { isRead: newStatus },
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
 
   return { isRead: newStatus };
 }

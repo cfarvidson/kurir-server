@@ -28,7 +28,7 @@ async function wakeExpiredSnoozes(userId: string): Promise<number> {
   });
 
   if (result.count > 0) {
-    revalidateTag("sidebar-counts");
+    revalidateTag("sidebar-counts", { expire: 0 });
     revalidatePath("/imbox");
     revalidatePath("/feed");
     revalidatePath("/paper-trail");
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
   const firedFollowUps = await checkExpiredFollowUps(userId);
 
   if (firedFollowUps > 0) {
-    revalidateTag("sidebar-counts");
+    revalidateTag("sidebar-counts", { expire: 0 });
     revalidatePath("/follow-up");
   }
 

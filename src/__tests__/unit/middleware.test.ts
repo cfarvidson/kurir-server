@@ -1,5 +1,5 @@
 /**
- * Tests for middleware.ts route protection logic.
+ * Tests for proxy.ts route protection logic.
  *
  * Invariants:
  * - /login, /setup, /register are public (no redirect when unauthenticated)

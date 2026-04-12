@@ -2,10 +2,8 @@
 
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import type { BadgePreferences } from "@/components/layout/navigation";
-
-export type { BadgePreferences };
 
 const BADGE_FIELDS = [
   "showImboxBadge",
@@ -61,6 +59,6 @@ export async function updateBadgePreferences(prefs: Partial<BadgePreferences>) {
     data,
   });
 
-  revalidateTag("sidebar-counts");
+  updateTag("sidebar-counts");
   revalidatePath("/settings");
 }
