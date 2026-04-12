@@ -499,7 +499,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                       <div className="relative overflow-hidden">
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-card to-transparent"
+                          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-linear-to-b from-card to-transparent"
                         />
                         <div className="max-h-[400px] overflow-x-hidden overflow-y-auto px-4 py-4 md:px-6">
                           {previewHtml ? (
@@ -512,7 +512,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                         </div>
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-card to-transparent"
+                          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-linear-to-t from-card to-transparent"
                         />
                       </div>
                     ) : (

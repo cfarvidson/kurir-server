@@ -129,7 +129,7 @@ Create a new Kurir account with a passkey. No email or password required for acc
 ### Responsive Behavior
 
 - **Mobile (< 640px):** Card fills full screen, no shadow. Padding 16px.
-- **Tablet/Desktop (>= 640px):** Card centered, max-width 448px, shadow. Background: `bg-gradient-to-br from-purple-50 to-white` (matches existing pattern).
+- **Tablet/Desktop (>= 640px):** Card centered, max-width 448px, shadow. Background: `bg-linear-to-br from-purple-50 to-white` (matches existing pattern).
 
 ---
 

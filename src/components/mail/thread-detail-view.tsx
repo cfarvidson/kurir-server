@@ -159,12 +159,12 @@ export async function ThreadDetailView({
       <ThreadKeyboardHandler messageId={messageId} returnPath={returnPath} />
       {markedRead.length > 0 && <SidebarRefresh />}
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm md:px-6">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xs md:px-6">
         <Link
           href={returnPath}
           className="flex min-w-0 flex-1 items-center gap-3 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
             <ArrowLeft className="h-4 w-4" />
           </div>
           <span className="text-xs font-medium uppercase tracking-wider">
@@ -176,7 +176,7 @@ export async function ThreadDetailView({
             {messages.length}
           </span>
         )}
-        <div className="flex flex-shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {actions({
             messageId,
             returnPath,

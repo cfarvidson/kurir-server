@@ -213,7 +213,7 @@ function MessageBubble({
           {/* Expanded content */}
           {!collapsed && (
             <div style={{ overflowAnchor: "none" }}>
-              <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-sm md:px-4 md:py-4">
+              <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-xs md:px-4 md:py-4">
                 {/* Recipients + actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-xs text-muted-foreground">

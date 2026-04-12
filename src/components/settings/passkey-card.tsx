@@ -99,7 +99,7 @@ export function PasskeyCard({
                   onKeyDown={handleKeyDown}
                   onBlur={handleRenameSubmit}
                   maxLength={100}
-                  className="h-6 w-40 rounded border bg-background px-1.5 text-sm font-medium outline-none focus:ring-1 focus:ring-ring"
+                  className="h-6 w-40 rounded border bg-background px-1.5 text-sm font-medium outline-hidden focus:ring-1 focus:ring-ring"
                   disabled={isPending}
                 />
                 {isPending && (

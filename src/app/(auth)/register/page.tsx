@@ -41,7 +41,7 @@ export default async function RegisterPage({
 
   if (!signupsEnabled && !invite) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
         <div className="w-full max-w-md">
           <Card>
             <CardHeader className="text-center pb-4">

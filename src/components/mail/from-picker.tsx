@@ -79,7 +79,7 @@ export function FromPicker({
         className={cn(
           "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors",
           "text-muted-foreground hover:bg-muted hover:text-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
           open && "bg-muted text-foreground",
         )}
       >

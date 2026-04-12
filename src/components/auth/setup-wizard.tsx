@@ -27,10 +27,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { KurirLogo } from "@/components/logo";
-import {
-  EMAIL_PROVIDERS,
-  detectProviderFromEmail,
-} from "@/lib/mail/providers";
+import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -425,7 +422,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   // ----- Render -----
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
       <div className="w-full max-w-md">
         <StepIndicator current={step} />
 
@@ -610,7 +607,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                           setProvider(e.target.value);
                           setError(null);
                         }}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         {EMAIL_PROVIDERS.map((p) => (
                           <option key={p.id} value={p.id}>
