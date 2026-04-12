@@ -6,7 +6,7 @@ import {
   useMotionValue,
   useTransform,
   type PanInfo,
-} from "framer-motion";
+} from "motion/react";
 import { Archive, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 

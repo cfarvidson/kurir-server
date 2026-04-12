@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
 import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
