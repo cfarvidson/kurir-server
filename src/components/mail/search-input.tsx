@@ -99,7 +99,7 @@ export function SearchInput() {
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className="h-9 w-40 rounded-md border border-input bg-transparent py-1 pl-8 pr-8 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:w-56"
+        className="h-9 w-40 rounded-md border border-input bg-transparent py-1 pl-8 pr-8 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring md:w-56"
       />
       {value ? (
         <button

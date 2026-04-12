@@ -99,7 +99,7 @@ export function ScreenerContent({
   return (
     <>
       {/* Search bar */}
-      <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
+      <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur-sm supports-backdrop-filter:bg-background/60 md:px-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <input
@@ -107,7 +107,7 @@ export function ScreenerContent({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search senders..."
-            className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/20"
+            className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary/20"
           />
           {search && (
             <button

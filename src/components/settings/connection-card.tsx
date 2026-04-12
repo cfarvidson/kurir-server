@@ -8,7 +8,7 @@
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -486,7 +486,7 @@ export function ConnectionCard({
                     if (e.key === "Escape") setShowSendAsForm(false);
                   }}
                   placeholder="you@yourdomain.com"
-                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-hidden focus:ring-1 focus:ring-primary/50"
                 />
               </div>
               <div className="mt-2 flex gap-2">
@@ -569,7 +569,7 @@ export function ConnectionCard({
                     if (e.key === "Escape") setShowAliasForm(false);
                   }}
                   placeholder="old-address@example.com"
-                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm outline-hidden focus:ring-1 focus:ring-primary/50"
                 />
               </div>
               <div className="mt-2 flex gap-2">

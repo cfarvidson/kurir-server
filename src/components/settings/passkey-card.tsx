@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Fingerprint,
@@ -99,7 +99,7 @@ export function PasskeyCard({
                   onKeyDown={handleKeyDown}
                   onBlur={handleRenameSubmit}
                   maxLength={100}
-                  className="h-6 w-40 rounded border bg-background px-1.5 text-sm font-medium outline-none focus:ring-1 focus:ring-ring"
+                  className="h-6 w-40 rounded border bg-background px-1.5 text-sm font-medium outline-hidden focus:ring-1 focus:ring-ring"
                   disabled={isPending}
                 />
                 {isPending && (

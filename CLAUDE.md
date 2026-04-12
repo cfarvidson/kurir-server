@@ -7,7 +7,7 @@ Hey.com-inspired email client. Next.js 15, NextAuth v5 beta, Prisma 6, PostgreSQ
 ```bash
 pnpm dev          # Dev server (Turbopack, port 3000)
 pnpm build        # Production build
-pnpm lint         # ESLint (Next.js defaults)
+pnpm lint         # ESLint 10 via flat config (eslint.config.mjs)
 pnpm db:push      # Push Prisma schema to DB
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:studio    # Prisma Studio GUI

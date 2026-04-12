@@ -340,7 +340,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <Command.Input
             ref={inputRef}
             placeholder="Type a command or search..."
-            className="flex h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex h-12 w-full bg-transparent text-sm outline-hidden placeholder:text-muted-foreground"
           />
         </div>
         <Command.List className="max-h-[320px] overflow-y-auto overscroll-contain p-1.5">
@@ -351,7 +351,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {groups.compose.length > 0 && (
             <Command.Group
               heading="Compose"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/50"
+              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
             >
               {groups.compose.map((action) => (
                 <Command.Item
@@ -371,7 +371,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {groups.actions.length > 0 && (
             <Command.Group
               heading="Actions"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/50"
+              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
             >
               {groups.actions.map((action) => (
                 <Command.Item
@@ -391,7 +391,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {groups.navigation.length > 0 && (
             <Command.Group
               heading="Navigation"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/50"
+              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
             >
               {groups.navigation.map((action) => (
                 <Command.Item

@@ -399,7 +399,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                 onChange={(e) => setNameValue(e.target.value)}
                 onBlur={saveName}
                 onKeyDown={handleNameKeyDown}
-                className="w-full border-b border-primary bg-transparent text-lg font-semibold tracking-tight outline-none md:text-xl"
+                className="w-full border-b border-primary bg-transparent text-lg font-semibold tracking-tight outline-hidden md:text-xl"
               />
             ) : (
               <button

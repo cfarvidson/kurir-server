@@ -40,7 +40,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # tsx for running CLI scripts, prisma for runtime migrations
-RUN npm install -g tsx prisma@6
+RUN npm install -g tsx prisma@7
 
 # Backup/restore tools (pg_dump, psql, redis-cli)
 RUN apk add --no-cache postgresql16-client redis

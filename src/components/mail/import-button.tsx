@@ -49,7 +49,7 @@ export function ImportButton({ mode = "import" }: ImportButtonProps) {
 
   return (
     <Button
-      variant={mode === "resync" ? "destructive" : "outline"}
+      variant={mode === "resync" ? "destructive" : "outline-solid"}
       onClick={handleImport}
       disabled={isPending || triggered}
     >

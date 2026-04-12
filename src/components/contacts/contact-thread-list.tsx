@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { getThreadRoute } from "@/lib/mail/contact-context";
+import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { Paperclip, MessageSquare } from "lucide-react";
 
 interface Conversation {

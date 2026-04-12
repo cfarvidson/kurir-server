@@ -8,7 +8,14 @@ const nextConfig: NextConfig = {
     },
   },
   // Don't bundle these Node.js packages - they run server-side only
-  serverExternalPackages: ["imapflow", "nodemailer", "mailparser", "web-push"],
+  serverExternalPackages: [
+    "imapflow",
+    "nodemailer",
+    "mailparser",
+    "web-push",
+    "pg",
+    "@prisma/adapter-pg",
+  ],
   async headers() {
     return [
       {

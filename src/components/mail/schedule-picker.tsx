@@ -243,7 +243,7 @@ export function SchedulePicker({
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
                   min={todayStr}
-                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
                   onClick={() => dateInputRef.current?.showPicker?.()}
                 />
               </div>
@@ -251,7 +251,7 @@ export function SchedulePicker({
                 type="time"
                 value={customTime}
                 onChange={(e) => setCustomTime(e.target.value)}
-                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring"
               />
             </div>
             <div className="mt-3 flex gap-2">

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
@@ -265,7 +265,7 @@ export function InfiniteMessageList({
 
         {newMessages.length > 0 && (
           <section>
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
               <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
                 New For You
               </h2>
@@ -278,7 +278,7 @@ export function InfiniteMessageList({
 
         {seenMessages.length > 0 && (
           <section>
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
               <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
                 Previously Seen
               </h2>

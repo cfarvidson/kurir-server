@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
 import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
@@ -253,8 +253,8 @@ export function ReplyComposer({
             "flex w-full items-center gap-3 rounded-xl border bg-muted/30",
             "px-4 py-3.5 text-sm text-muted-foreground",
             "transition-all duration-200",
-            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-sm",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
           <CornerDownLeft className="h-4 w-4" />
@@ -295,7 +295,7 @@ export function ReplyComposer({
                       setIsEditingTo(false);
                     }
                   }}
-                  className="flex-1 bg-transparent text-xs font-medium outline-none"
+                  className="flex-1 bg-transparent text-xs font-medium outline-hidden"
                   autoFocus
                 />
               </div>

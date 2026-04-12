@@ -9,7 +9,7 @@ import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
 import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 
 const createSchema = z.object({
-  to: z.string().email(),
+  to: z.email(),
   subject: z.string(),
   textBody: z.string(),
   htmlBody: z.string().optional(),
@@ -27,7 +27,7 @@ const createSchema = z.object({
 });
 
 const editSchema = z.object({
-  to: z.string().email().optional(),
+  to: z.email().optional(),
   subject: z.string().optional(),
   textBody: z.string().optional(),
   htmlBody: z.string().optional(),
