@@ -43,6 +43,7 @@ export async function appendToImapSent(opts: {
   fromAddress: string;
   toAddresses: string[];
   ccAddresses?: string[];
+  bccAddresses?: string[];
   text: string;
   html?: string | null;
   attachments?: SentAttachment[];
@@ -58,6 +59,8 @@ export async function appendToImapSent(opts: {
     to: opts.toAddresses.join(", "),
     ...(opts.ccAddresses &&
       opts.ccAddresses.length > 0 && { cc: opts.ccAddresses.join(", ") }),
+    ...(opts.bccAddresses &&
+      opts.bccAddresses.length > 0 && { bcc: opts.bccAddresses.join(", ") }),
     subject: opts.subject,
     text: opts.text,
     ...(opts.html && { html: opts.html }),
@@ -97,6 +100,7 @@ export async function createLocalSentMessage(opts: {
   fromAddress: string;
   toAddresses: string[];
   ccAddresses?: string[];
+  bccAddresses?: string[];
   text: string;
   html?: string | null;
   attachmentIds?: string[];
@@ -118,6 +122,7 @@ export async function createLocalSentMessage(opts: {
       fromName: null,
       toAddresses: opts.toAddresses,
       ccAddresses: opts.ccAddresses ?? [],
+      bccAddresses: opts.bccAddresses ?? [],
       sentAt: new Date(),
       receivedAt: new Date(),
       textBody: opts.text,

@@ -26,6 +26,7 @@ export async function replyToMessage(
   to?: string,
   attachmentIds?: string[],
   cc?: string,
+  bcc?: string,
 ) {
   if (body.length > 1_000_000) {
     throw new Error("Message body too large");
@@ -65,6 +66,7 @@ export async function replyToMessage(
   const replyTo = to || message.replyTo || message.fromAddress;
   const toList = splitAddresses(replyTo);
   const ccList = splitAddresses(cc);
+  const bccList = splitAddresses(bcc);
   const subject = message.subject?.startsWith("Re:")
     ? message.subject
     : `Re: ${message.subject || ""}`;
@@ -97,6 +99,7 @@ export async function replyToMessage(
     from: fromAddress,
     to: replyTo,
     ...(ccList.length > 0 && { cc: ccList.join(", ") }),
+    ...(bccList.length > 0 && { bcc: bccList.join(", ") }),
     subject,
     text: body,
     html: converted.emailHtml,
@@ -120,6 +123,7 @@ export async function replyToMessage(
     fromAddress,
     toAddresses: toList.length > 0 ? toList : [replyTo],
     ccAddresses: ccList,
+    bccAddresses: bccList,
     text: body,
     html: converted.displayHtml,
     attachmentIds: loaded.ids,
@@ -135,6 +139,7 @@ export async function replyToMessage(
     fromAddress,
     toAddresses: toList.length > 0 ? toList : [replyTo],
     ccAddresses: ccList,
+    bccAddresses: bccList,
     text: body,
     html: converted.emailHtml,
     attachments: loaded.sentAttachments,

@@ -61,12 +61,16 @@ export function ReplyComposer({
   const [body, setBody] = useState("");
   const [to, setTo] = useState(replyToAddress);
   const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const [isEditingTo, setIsEditingTo] = useState(false);
   const [isEditingCc, setIsEditingCc] = useState(false);
+  const [isEditingBcc, setIsEditingBcc] = useState(false);
   const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const ccInputRef = useRef<HTMLInputElement>(null);
+  const bccInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const [scheduling, setScheduling] = useState(false);
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
@@ -75,8 +79,21 @@ export function ReplyComposer({
   const savedBodyRef = useRef("");
   const savedToRef = useRef("");
   const savedCcRef = useRef("");
+  const savedBccRef = useRef("");
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
   const restoredFromDraftRef = useRef(false);
+
+  const resetRecipients = useCallback(() => {
+    setTo(replyToAddress);
+    setCc("");
+    setBcc("");
+    setShowCc(false);
+    setShowBcc(false);
+    setIsEditingTo(false);
+    setIsEditingCc(false);
+    setIsEditingBcc(false);
+    restoredFromDraftRef.current = false;
+  }, [replyToAddress]);
 
   const {
     attachments,
@@ -168,7 +185,9 @@ export function ReplyComposer({
     setBody(savedBodyRef.current);
     setTo(savedToRef.current);
     setCc(savedCcRef.current);
+    setBcc(savedBccRef.current);
     setShowCc(savedCcRef.current.trim().length > 0);
+    setShowBcc(savedBccRef.current.trim().length > 0);
     setAttachments(savedAttachmentsRef.current);
     setIsOpen(true);
     setError(null);
@@ -224,6 +243,7 @@ export function ReplyComposer({
     const sentBody = body.trim();
     const sentTo = to;
     const sentCc = cc.trim();
+    const sentBcc = bcc.trim();
     const attachmentIds = attachments
       .filter((a) => a.status === "done")
       .map((a) => a.id);
@@ -233,15 +253,15 @@ export function ReplyComposer({
     savedBodyRef.current = sentBody;
     savedToRef.current = sentTo;
     savedCcRef.current = sentCc;
+    savedBccRef.current = sentBcc;
     savedAttachmentsRef.current = getSnapshot();
 
     const sendId = `reply-${messageId}-${Date.now()}`;
     pendingSendIdRef.current = sendId;
 
-    // Collapse composer immediately
+    // Collapse composer immediately, reset to single-reply defaults
     setBody("");
-    setCc("");
-    setShowCc(false);
+    resetRecipients();
     setAttachments([]);
     setIsOpen(false);
 
@@ -258,6 +278,7 @@ export function ReplyComposer({
           sentTo,
           attachmentIds,
           sentCc || undefined,
+          sentBcc || undefined,
         );
         await removeDraft();
         onSent?.(sentBody);
@@ -273,7 +294,9 @@ export function ReplyComposer({
         setBody(savedBodyRef.current);
         setTo(savedToRef.current);
         setCc(savedCcRef.current);
+        setBcc(savedBccRef.current);
         setShowCc(savedCcRef.current.trim().length > 0);
+        setShowBcc(savedBccRef.current.trim().length > 0);
         setAttachments(savedAttachmentsRef.current);
         setIsOpen(true);
         setError(errorMessage);
@@ -281,51 +304,60 @@ export function ReplyComposer({
       },
     );
 
-    const undoLabel = sentCc ? `${sentTo} (+cc)` : sentTo;
+    const extras = [sentCc && "cc", sentBcc && "bcc"].filter(Boolean).join(", ");
+    const undoLabel = extras ? `${sentTo} (+${extras})` : sentTo;
     showUndoSendToast(sendId, undoLabel, UNDO_DELAY_MS, handleUndo, () => {});
   };
 
   return (
     <div className="relative">
       {!isOpen ? (
-        <div className="flex w-full items-stretch gap-2">
-          <button
-            data-reply-composer-trigger
-            onClick={() => setIsOpen(true)}
-            className={cn(
-              "flex flex-1 items-center gap-3 rounded-xl border bg-muted/30",
-              "px-4 py-3.5 text-sm text-muted-foreground",
-              "transition-all duration-200",
-              "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-            )}
-          >
-            <CornerDownLeft className="h-4 w-4" />
-            <span>
-              Reply to{" "}
-              <span className="font-medium text-foreground">
-                {to === replyToAddress ? replyToName : to}
-              </span>
+        <button
+          data-reply-composer-trigger
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            "group flex w-full items-center gap-3 rounded-xl border bg-muted/30",
+            "px-4 py-3.5 text-sm text-muted-foreground",
+            "transition-all duration-200",
+            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+          )}
+        >
+          <CornerDownLeft className="h-4 w-4" />
+          <span className="flex-1 text-left">
+            Reply to{" "}
+            <span className="font-medium text-foreground">
+              {to === replyToAddress ? replyToName : to}
             </span>
-          </button>
+          </span>
           {canReplyAll && (
-            <button
+            <span
+              role="button"
+              tabIndex={0}
               data-reply-all-composer-trigger
-              onClick={openReplyAll}
+              onClick={(e) => {
+                e.stopPropagation();
+                openReplyAll();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openReplyAll();
+                }
+              }}
               title={`Reply all (${1 + replyAllExtraTo.length} to, ${replyAllCc.length} cc)`}
               className={cn(
-                "flex shrink-0 items-center gap-2 rounded-xl border bg-muted/30",
-                "px-4 py-3.5 text-sm text-muted-foreground",
-                "transition-all duration-200",
-                "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+                "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                "text-muted-foreground/70 transition-colors",
+                "hover:bg-primary/10 hover:text-foreground",
                 "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               )}
             >
-              <Users className="h-4 w-4" />
-              <span>Reply all</span>
-            </button>
+              <Users className="h-3.5 w-3.5" />
+            </span>
           )}
-        </div>
+        </button>
       ) : (
         <motion.div
           key="expanded"
@@ -383,8 +415,8 @@ export function ReplyComposer({
                   )}
                 </button>
               )}
-              {showCc ? (
-                isEditingCc ? (
+              {showCc &&
+                (isEditingCc ? (
                   <div className="flex flex-1 items-center gap-2">
                     <span className="text-xs text-muted-foreground">Cc:</span>
                     <input
@@ -417,52 +449,98 @@ export function ReplyComposer({
                       {cc.trim() || "(empty)"}
                     </span>
                   </button>
-                )
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCc(true);
-                    setIsEditingCc(true);
-                    setTimeout(() => ccInputRef.current?.focus(), 0);
-                  }}
-                  className="self-start text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
-                >
-                  + Add Cc
-                </button>
+                ))}
+              {showBcc &&
+                (isEditingBcc ? (
+                  <div className="flex flex-1 items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Bcc:</span>
+                    <input
+                      ref={bccInputRef}
+                      type="text"
+                      value={bcc}
+                      onChange={(e) => setBcc(e.target.value)}
+                      onBlur={() => setIsEditingBcc(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setIsEditingBcc(false);
+                        if (e.key === "Escape") setIsEditingBcc(false);
+                      }}
+                      className="flex-1 bg-transparent text-xs font-medium outline-hidden"
+                      placeholder="bcc@example.com, ..."
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingBcc(true);
+                      setTimeout(() => bccInputRef.current?.select(), 0);
+                    }}
+                    className="truncate text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    title="Click to edit Bcc"
+                  >
+                    Bcc{" "}
+                    <span className="font-medium text-foreground">
+                      {bcc.trim() || "(empty)"}
+                    </span>
+                  </button>
+                ))}
+              {(!showCc || !showBcc) && (
+                <div className="flex items-center gap-3 text-[11px] text-muted-foreground/70">
+                  {!showCc && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCc(true);
+                        setIsEditingCc(true);
+                        setTimeout(() => ccInputRef.current?.focus(), 0);
+                      }}
+                      className="transition-colors hover:text-foreground"
+                    >
+                      + Add Cc
+                    </button>
+                  )}
+                  {!showBcc && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowBcc(true);
+                        setIsEditingBcc(true);
+                        setTimeout(() => bccInputRef.current?.focus(), 0);
+                      }}
+                      className="transition-colors hover:text-foreground"
+                    >
+                      + Add Bcc
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {canReplyAll && to === replyToAddress && !cc.trim() && (
-                <button
-                  type="button"
-                  onClick={openReplyAll}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Reply all"
-                >
-                  <Users className="h-3 w-3" />
-                  Reply all
-                </button>
-              )}
+              {canReplyAll &&
+                to === replyToAddress &&
+                !cc.trim() &&
+                !bcc.trim() && (
+                  <button
+                    type="button"
+                    onClick={openReplyAll}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    title="Reply all"
+                  >
+                    <Users className="h-3 w-3" />
+                    Reply all
+                  </button>
+                )}
               <button
                 onClick={() => {
-                  if (body.trim() || attachments.length > 0) {
-                    if (confirm("Discard reply?")) {
-                      cancelPendingSave();
-                      removeDraft();
-                      setBody("");
-                      setCc("");
-                      setShowCc(false);
-                      setAttachments([]);
-                      setIsOpen(false);
-                    }
-                  } else {
-                    cancelPendingSave();
-                    removeDraft();
-                    setCc("");
-                    setShowCc(false);
-                    setIsOpen(false);
-                  }
+                  const hasContent = body.trim() || attachments.length > 0;
+                  if (hasContent && !confirm("Discard reply?")) return;
+                  cancelPendingSave();
+                  removeDraft();
+                  setBody("");
+                  setAttachments([]);
+                  resetRecipients();
+                  setIsOpen(false);
                 }}
                 className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
@@ -537,11 +615,14 @@ export function ReplyComposer({
                       scheduling ||
                       isUploading ||
                       to.includes(",") ||
-                      cc.trim().length > 0
+                      cc.trim().length > 0 ||
+                      bcc.trim().length > 0
                     }
                     title={
-                      to.includes(",") || cc.trim().length > 0
-                        ? "Scheduling is not available for reply-all yet"
+                      to.includes(",") ||
+                      cc.trim().length > 0 ||
+                      bcc.trim().length > 0
+                        ? "Scheduling is not available for multi-recipient replies yet"
                         : undefined
                     }
                   >
