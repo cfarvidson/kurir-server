@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.10.4",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.10.4",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.10.4",
-  "changelog": "Fix updater env var leaking into app container, breaking NEXTAUTH_URL",
+  "version": "2026.04.21",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.21",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.21",
+  "changelog": "Reply all with Cc/Bcc; Next.js 16, Prisma 7, Tailwind 4 & related major dep upgrades.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-10T15:20:00Z"
+  "releasedAt": "2026-04-21T09:02:45Z"
 }
