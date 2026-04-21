@@ -27,6 +27,7 @@ const listShortcuts: ShortcutEntry[] = [
 
 const threadShortcuts: ShortcutEntry[] = [
   { keys: ["r"], description: "Reply" },
+  { keys: ["a"], description: "Reply all" },
   { keys: ["j", "↓"], description: "Next thread" },
   { keys: ["k", "↑"], description: "Previous thread" },
   { keys: ["Esc"], description: "Back to list" },

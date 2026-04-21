@@ -109,6 +109,8 @@ export async function ThreadDetailView({
 
   let replyToAddress: string;
   let replyToName: string;
+  let replyAllExtraTo: string[] = [];
+  let replyAllCc: string[] = [];
 
   if (lastIncoming) {
     replyToAddress = lastIncoming.replyTo || lastIncoming.fromAddress;
@@ -116,6 +118,25 @@ export async function ThreadDetailView({
       lastIncoming.sender?.displayName ||
       lastIncoming.fromName ||
       lastIncoming.fromAddress;
+
+    const primary = replyToAddress.toLowerCase();
+    const exclude = new Set(userEmails);
+    exclude.add(primary);
+    const seen = new Set<string>();
+    replyAllExtraTo = lastIncoming.toAddresses.filter((addr) => {
+      const key = addr.trim().toLowerCase();
+      if (!key || exclude.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const ccSeen = new Set<string>();
+    replyAllCc = lastIncoming.ccAddresses.filter((addr) => {
+      const key = addr.trim().toLowerCase();
+      if (!key || exclude.has(key) || seen.has(key) || ccSeen.has(key))
+        return false;
+      ccSeen.add(key);
+      return true;
+    });
   } else if (isSentView) {
     // Sent-only thread: reply to the recipient, not yourself
     const recipientEmail =
@@ -204,6 +225,8 @@ export async function ThreadDetailView({
                 replyToMessageId={lastMessage.id}
                 replyToAddress={replyToAddress}
                 replyToName={replyToName}
+                replyAllExtraTo={replyAllExtraTo}
+                replyAllCc={replyAllCc}
                 subject={subject}
                 emailConnectionId={targetMessage.emailConnectionId}
                 rfcMessageId={lastMessage.messageId ?? undefined}

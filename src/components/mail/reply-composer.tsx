@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { replyToMessage } from "@/actions/reply";
-import { Send, CornerDownLeft, X, CalendarClock } from "lucide-react";
+import { Send, CornerDownLeft, X, CalendarClock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownComposer } from "@/components/mail/markdown-composer";
 import {
@@ -27,6 +27,8 @@ interface ReplyComposerProps {
   messageId: string;
   replyToAddress: string;
   replyToName: string;
+  replyAllExtraTo?: string[];
+  replyAllCc?: string[];
   onSent?: (body: string) => void;
   subject: string;
   emailConnectionId: string;
@@ -41,6 +43,8 @@ export function ReplyComposer({
   messageId,
   replyToAddress,
   replyToName,
+  replyAllExtraTo = [],
+  replyAllCc = [],
   onSent,
   subject,
   emailConnectionId,
@@ -49,12 +53,20 @@ export function ReplyComposer({
   userTimezone,
   hasDraft: hasDraftProp = false,
 }: ReplyComposerProps) {
+  const canReplyAll = replyAllExtraTo.length > 0 || replyAllCc.length > 0;
+  const replyAllToString = [replyToAddress, ...replyAllExtraTo].join(", ");
+  const replyAllCcString = replyAllCc.join(", ");
+
   const [isOpen, setIsOpen] = useState(hasDraftProp);
   const [body, setBody] = useState("");
   const [to, setTo] = useState(replyToAddress);
+  const [cc, setCc] = useState("");
   const [isEditingTo, setIsEditingTo] = useState(false);
+  const [isEditingCc, setIsEditingCc] = useState(false);
+  const [showCc, setShowCc] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
+  const ccInputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const [scheduling, setScheduling] = useState(false);
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
@@ -62,6 +74,7 @@ export function ReplyComposer({
   const pendingSendIdRef = useRef<string | null>(null);
   const savedBodyRef = useRef("");
   const savedToRef = useRef("");
+  const savedCcRef = useRef("");
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
   const restoredFromDraftRef = useRef(false);
 
@@ -123,14 +136,28 @@ export function ReplyComposer({
     saveDraft({ to, subject: "", body, attachmentIds });
   }, [to, body, attachments, isOpen, saveDraft]);
 
-  // Listen for keyboard shortcut "r" to focus/open the reply composer
+  const openReplyAll = useCallback(() => {
+    setTo(replyAllToString);
+    setCc(replyAllCcString);
+    setShowCc(replyAllCc.length > 0);
+    restoredFromDraftRef.current = true;
+    setIsOpen(true);
+  }, [replyAllToString, replyAllCcString, replyAllCc.length]);
+
+  // Listen for keyboard shortcuts to focus/open the reply composer
   useEffect(() => {
-    const handler = () => {
-      setIsOpen(true);
+    const replyHandler = () => setIsOpen(true);
+    const replyAllHandler = () => {
+      if (canReplyAll) openReplyAll();
+      else setIsOpen(true);
     };
-    window.addEventListener("keyboard-reply", handler);
-    return () => window.removeEventListener("keyboard-reply", handler);
-  }, []);
+    window.addEventListener("keyboard-reply", replyHandler);
+    window.addEventListener("keyboard-reply-all", replyAllHandler);
+    return () => {
+      window.removeEventListener("keyboard-reply", replyHandler);
+      window.removeEventListener("keyboard-reply-all", replyAllHandler);
+    };
+  }, [canReplyAll, openReplyAll]);
 
   const handleUndo = useCallback(() => {
     const sendId = pendingSendIdRef.current;
@@ -140,6 +167,8 @@ export function ReplyComposer({
     }
     setBody(savedBodyRef.current);
     setTo(savedToRef.current);
+    setCc(savedCcRef.current);
+    setShowCc(savedCcRef.current.trim().length > 0);
     setAttachments(savedAttachmentsRef.current);
     setIsOpen(true);
     setError(null);
@@ -194,6 +223,7 @@ export function ReplyComposer({
 
     const sentBody = body.trim();
     const sentTo = to;
+    const sentCc = cc.trim();
     const attachmentIds = attachments
       .filter((a) => a.status === "done")
       .map((a) => a.id);
@@ -202,6 +232,7 @@ export function ReplyComposer({
     // Save state for undo restoration
     savedBodyRef.current = sentBody;
     savedToRef.current = sentTo;
+    savedCcRef.current = sentCc;
     savedAttachmentsRef.current = getSnapshot();
 
     const sendId = `reply-${messageId}-${Date.now()}`;
@@ -209,6 +240,8 @@ export function ReplyComposer({
 
     // Collapse composer immediately
     setBody("");
+    setCc("");
+    setShowCc(false);
     setAttachments([]);
     setIsOpen(false);
 
@@ -219,7 +252,13 @@ export function ReplyComposer({
         delayMs: UNDO_DELAY_MS,
       },
       async () => {
-        await replyToMessage(messageId, sentBody, sentTo, attachmentIds);
+        await replyToMessage(
+          messageId,
+          sentBody,
+          sentTo,
+          attachmentIds,
+          sentCc || undefined,
+        );
         await removeDraft();
         onSent?.(sentBody);
       },
@@ -233,6 +272,8 @@ export function ReplyComposer({
         sendingRef.current = false;
         setBody(savedBodyRef.current);
         setTo(savedToRef.current);
+        setCc(savedCcRef.current);
+        setShowCc(savedCcRef.current.trim().length > 0);
         setAttachments(savedAttachmentsRef.current);
         setIsOpen(true);
         setError(errorMessage);
@@ -240,31 +281,51 @@ export function ReplyComposer({
       },
     );
 
-    showUndoSendToast(sendId, sentTo, UNDO_DELAY_MS, handleUndo, () => {});
+    const undoLabel = sentCc ? `${sentTo} (+cc)` : sentTo;
+    showUndoSendToast(sendId, undoLabel, UNDO_DELAY_MS, handleUndo, () => {});
   };
 
   return (
     <div className="relative">
       {!isOpen ? (
-        <button
-          data-reply-composer-trigger
-          onClick={() => setIsOpen(true)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-xl border bg-muted/30",
-            "px-4 py-3.5 text-sm text-muted-foreground",
-            "transition-all duration-200",
-            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
-            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-          )}
-        >
-          <CornerDownLeft className="h-4 w-4" />
-          <span>
-            Reply to{" "}
-            <span className="font-medium text-foreground">
-              {to === replyToAddress ? replyToName : to}
+        <div className="flex w-full items-stretch gap-2">
+          <button
+            data-reply-composer-trigger
+            onClick={() => setIsOpen(true)}
+            className={cn(
+              "flex flex-1 items-center gap-3 rounded-xl border bg-muted/30",
+              "px-4 py-3.5 text-sm text-muted-foreground",
+              "transition-all duration-200",
+              "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+          >
+            <CornerDownLeft className="h-4 w-4" />
+            <span>
+              Reply to{" "}
+              <span className="font-medium text-foreground">
+                {to === replyToAddress ? replyToName : to}
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+          {canReplyAll && (
+            <button
+              data-reply-all-composer-trigger
+              onClick={openReplyAll}
+              title={`Reply all (${1 + replyAllExtraTo.length} to, ${replyAllCc.length} cc)`}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-xl border bg-muted/30",
+                "px-4 py-3.5 text-sm text-muted-foreground",
+                "transition-all duration-200",
+                "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+            >
+              <Users className="h-4 w-4" />
+              <span>Reply all</span>
+            </button>
+          )}
+        </div>
       ) : (
         <motion.div
           key="expanded"
@@ -274,68 +335,140 @@ export function ReplyComposer({
           className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
         >
           {/* Composer header */}
-          <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
-            {isEditingTo ? (
-              <div className="mr-2 flex flex-1 items-center gap-2">
-                <span className="text-xs text-muted-foreground">To:</span>
-                <input
-                  ref={toInputRef}
-                  type="email"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  onBlur={() => {
-                    if (to.trim()) setIsEditingTo(false);
+          <div className="flex items-start justify-between gap-2 border-b bg-muted/30 px-4 py-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {isEditingTo ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <span className="text-xs text-muted-foreground">To:</span>
+                  <input
+                    ref={toInputRef}
+                    type="text"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    onBlur={() => {
+                      if (to.trim()) setIsEditingTo(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && to.trim()) {
+                        setIsEditingTo(false);
+                      }
+                      if (e.key === "Escape") {
+                        setTo(replyToAddress);
+                        setIsEditingTo(false);
+                      }
+                    }}
+                    className="flex-1 bg-transparent text-xs font-medium outline-hidden"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingTo(true);
+                    setTimeout(() => toInputRef.current?.select(), 0);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && to.trim()) {
-                      setIsEditingTo(false);
-                    }
-                    if (e.key === "Escape") {
-                      setTo(replyToAddress);
-                      setIsEditingTo(false);
-                    }
+                  className="truncate text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  title="Click to edit recipient"
+                >
+                  To{" "}
+                  <span className="font-medium text-foreground">
+                    {to === replyToAddress ? replyToName : to}
+                  </span>
+                  {to === replyToAddress && (
+                    <span className="text-muted-foreground/60">
+                      {" "}
+                      &lt;{to}&gt;
+                    </span>
+                  )}
+                </button>
+              )}
+              {showCc ? (
+                isEditingCc ? (
+                  <div className="flex flex-1 items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Cc:</span>
+                    <input
+                      ref={ccInputRef}
+                      type="text"
+                      value={cc}
+                      onChange={(e) => setCc(e.target.value)}
+                      onBlur={() => setIsEditingCc(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setIsEditingCc(false);
+                        if (e.key === "Escape") setIsEditingCc(false);
+                      }}
+                      className="flex-1 bg-transparent text-xs font-medium outline-hidden"
+                      placeholder="cc@example.com, ..."
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingCc(true);
+                      setTimeout(() => ccInputRef.current?.select(), 0);
+                    }}
+                    className="truncate text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    title="Click to edit Cc"
+                  >
+                    Cc{" "}
+                    <span className="font-medium text-foreground">
+                      {cc.trim() || "(empty)"}
+                    </span>
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCc(true);
+                    setIsEditingCc(true);
+                    setTimeout(() => ccInputRef.current?.focus(), 0);
                   }}
-                  className="flex-1 bg-transparent text-xs font-medium outline-hidden"
-                  autoFocus
-                />
-              </div>
-            ) : (
+                  className="self-start text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
+                >
+                  + Add Cc
+                </button>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {canReplyAll && to === replyToAddress && !cc.trim() && (
+                <button
+                  type="button"
+                  onClick={openReplyAll}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Reply all"
+                >
+                  <Users className="h-3 w-3" />
+                  Reply all
+                </button>
+              )}
               <button
-                type="button"
                 onClick={() => {
-                  setIsEditingTo(true);
-                  setTimeout(() => toInputRef.current?.select(), 0);
-                }}
-                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                title="Click to edit recipient"
-              >
-                To{" "}
-                <span className="font-medium text-foreground">
-                  {to === replyToAddress ? replyToName : to}
-                </span>{" "}
-                <span className="text-muted-foreground/60">&lt;{to}&gt;</span>
-              </button>
-            )}
-            <button
-              onClick={() => {
-                if (body.trim() || attachments.length > 0) {
-                  if (confirm("Discard reply?")) {
+                  if (body.trim() || attachments.length > 0) {
+                    if (confirm("Discard reply?")) {
+                      cancelPendingSave();
+                      removeDraft();
+                      setBody("");
+                      setCc("");
+                      setShowCc(false);
+                      setAttachments([]);
+                      setIsOpen(false);
+                    }
+                  } else {
                     cancelPendingSave();
                     removeDraft();
-                    setBody("");
-                    setAttachments([]);
+                    setCc("");
+                    setShowCc(false);
                     setIsOpen(false);
                   }
-                } else {
-                  cancelPendingSave();
-                  removeDraft();
-                  setIsOpen(false);
-                }
-              }}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+                }}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Error */}
@@ -399,7 +532,18 @@ export function ReplyComposer({
                     size="sm"
                     variant="ghost"
                     className="px-2"
-                    disabled={!body.trim() || scheduling || isUploading}
+                    disabled={
+                      !body.trim() ||
+                      scheduling ||
+                      isUploading ||
+                      to.includes(",") ||
+                      cc.trim().length > 0
+                    }
+                    title={
+                      to.includes(",") || cc.trim().length > 0
+                        ? "Scheduling is not available for reply-all yet"
+                        : undefined
+                    }
                   >
                     <CalendarClock className="h-3.5 w-3.5" />
                   </Button>

@@ -41,6 +41,12 @@ export function ThreadKeyboardHandler({
           break;
         }
 
+        case "a": {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent("keyboard-reply-all"));
+          break;
+        }
+
         case "j":
         case "ArrowDown": {
           // Next thread

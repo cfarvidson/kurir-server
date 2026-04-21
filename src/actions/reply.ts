@@ -12,11 +12,20 @@ import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { updateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
+function splitAddresses(input?: string | null): string[] {
+  if (!input) return [];
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export async function replyToMessage(
   messageId: string,
   body: string,
   to?: string,
   attachmentIds?: string[],
+  cc?: string,
 ) {
   if (body.length > 1_000_000) {
     throw new Error("Message body too large");
@@ -54,6 +63,8 @@ export async function replyToMessage(
   }
 
   const replyTo = to || message.replyTo || message.fromAddress;
+  const toList = splitAddresses(replyTo);
+  const ccList = splitAddresses(cc);
   const subject = message.subject?.startsWith("Re:")
     ? message.subject
     : `Re: ${message.subject || ""}`;
@@ -85,6 +96,7 @@ export async function replyToMessage(
   const info = await transporter.sendMail({
     from: fromAddress,
     to: replyTo,
+    ...(ccList.length > 0 && { cc: ccList.join(", ") }),
     subject,
     text: body,
     html: converted.emailHtml,
@@ -106,7 +118,8 @@ export async function replyToMessage(
     references,
     subject,
     fromAddress,
-    toAddresses: [replyTo],
+    toAddresses: toList.length > 0 ? toList : [replyTo],
+    ccAddresses: ccList,
     text: body,
     html: converted.displayHtml,
     attachmentIds: loaded.ids,
@@ -120,7 +133,8 @@ export async function replyToMessage(
     references,
     subject,
     fromAddress,
-    toAddresses: [replyTo],
+    toAddresses: toList.length > 0 ? toList : [replyTo],
+    ccAddresses: ccList,
     text: body,
     html: converted.emailHtml,
     attachments: loaded.sentAttachments,

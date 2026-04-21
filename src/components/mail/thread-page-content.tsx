@@ -39,6 +39,8 @@ interface ThreadPageContentProps {
   replyToMessageId: string;
   replyToAddress: string;
   replyToName: string;
+  replyAllExtraTo?: string[];
+  replyAllCc?: string[];
   subject: string;
   emailConnectionId: string;
   rfcMessageId?: string;
@@ -54,6 +56,8 @@ export function ThreadPageContent({
   replyToMessageId,
   replyToAddress,
   replyToName,
+  replyAllExtraTo = [],
+  replyAllCc = [],
   subject,
   emailConnectionId,
   rfcMessageId,
@@ -134,6 +138,8 @@ export function ThreadPageContent({
           messageId={replyToMessageId}
           replyToAddress={replyToAddress}
           replyToName={replyToName}
+          replyAllExtraTo={replyAllExtraTo}
+          replyAllCc={replyAllCc}
           onSent={handleReplySent}
           subject={subject}
           emailConnectionId={emailConnectionId}

@@ -42,6 +42,7 @@ export async function appendToImapSent(opts: {
   subject: string;
   fromAddress: string;
   toAddresses: string[];
+  ccAddresses?: string[];
   text: string;
   html?: string | null;
   attachments?: SentAttachment[];
@@ -55,6 +56,8 @@ export async function appendToImapSent(opts: {
   const mail = new MailComposer({
     from: opts.fromAddress,
     to: opts.toAddresses.join(", "),
+    ...(opts.ccAddresses &&
+      opts.ccAddresses.length > 0 && { cc: opts.ccAddresses.join(", ") }),
     subject: opts.subject,
     text: opts.text,
     ...(opts.html && { html: opts.html }),
@@ -93,6 +96,7 @@ export async function createLocalSentMessage(opts: {
   subject: string;
   fromAddress: string;
   toAddresses: string[];
+  ccAddresses?: string[];
   text: string;
   html?: string | null;
   attachmentIds?: string[];
@@ -113,7 +117,7 @@ export async function createLocalSentMessage(opts: {
       fromAddress: opts.fromAddress,
       fromName: null,
       toAddresses: opts.toAddresses,
-      ccAddresses: [],
+      ccAddresses: opts.ccAddresses ?? [],
       sentAt: new Date(),
       receivedAt: new Date(),
       textBody: opts.text,

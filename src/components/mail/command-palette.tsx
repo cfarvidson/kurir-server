@@ -244,6 +244,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       onSelect: () => dispatch("keyboard-reply"),
     },
     {
+      id: "reply-all",
+      label: "Reply all",
+      icon: <Reply className="h-4 w-4" />,
+      shortcut: ["A"],
+      group: "actions",
+      when: (p) => isThreadPath(p),
+      onSelect: () => dispatch("keyboard-reply-all"),
+    },
+    {
       id: "toggle-read",
       label: "Toggle read / unread",
       icon: <MailOpen className="h-4 w-4" />,
