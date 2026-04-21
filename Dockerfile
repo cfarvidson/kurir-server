@@ -41,6 +41,9 @@ RUN adduser --system --uid 1001 nextjs
 
 # tsx for running CLI scripts, prisma for runtime migrations
 RUN npm install -g tsx prisma@7
+# Make `import "prisma/config"` resolvable from /app/prisma.config.ts
+RUN mkdir -p /app/node_modules \
+  && ln -s /usr/local/lib/node_modules/prisma /app/node_modules/prisma
 
 # Backup/restore tools (pg_dump, psql, redis-cli)
 RUN apk add --no-cache postgresql16-client redis
