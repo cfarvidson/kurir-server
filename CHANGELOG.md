@@ -2,6 +2,12 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.04.26.2] - 2026-04-26
+
+### Changed
+
+- Email body now renders in a Shadow DOM instead of an iframe. The content shows up in the same paint (no more pop-in flash after a beat) and on mobile the page scrolls naturally because touch gestures are no longer trapped by the iframe. CSS isolation and the sanitizer guarantees are unchanged.
+
 ## [v2026.04.26] - 2026-04-26
 
 ### Changed
