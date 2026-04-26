@@ -133,11 +133,13 @@ export function ReplyComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const prevReplyToAddressRef = useRef(replyToAddress);
   useEffect(() => {
-    // Skip reset if to was restored from a draft with a custom recipient
+    if (prevReplyToAddressRef.current === replyToAddress) return;
+    prevReplyToAddressRef.current = replyToAddress;
     if (restoredFromDraftRef.current) return;
-    if (!isEditingTo) setTo(replyToAddress);
-  }, [replyToAddress, isEditingTo]);
+    setTo(replyToAddress);
+  }, [replyToAddress]);
 
   // Auto-save on content change
   const initialRenderRef = useRef(true);
