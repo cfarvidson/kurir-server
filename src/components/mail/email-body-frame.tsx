@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   sanitizeEmailHtml,
   type CidAttachment,
@@ -15,17 +15,19 @@ interface EmailBodyFrameProps {
 }
 
 /**
- * Renders sanitized email HTML inside a sandboxed iframe.
+ * Renders sanitized email HTML inside a Shadow DOM so the email's CSS is
+ * isolated from the host page but the content still participates in normal
+ * page layout and scrolling.
  *
- * Isolation properties:
- * - sandbox="allow-same-origin allow-popups" — allows ResizeObserver to measure
- *   body height and lets links open in new tabs; scripts, forms, and
- *   top-level navigation are all blocked.
- * - srcdoc — content is set directly; no external URL is loaded.
- * - The iframe has no name, so it cannot be targeted by other frames.
+ * Why not an iframe?
+ * - Iframes load asynchronously, so the body would render at zero height and
+ *   then "pop in" once measured.
+ * - On mobile, touch events on iframe content do not bubble to the parent,
+ *   so vertical/horizontal scrolling could get trapped.
  *
- * Auto-resizes to fit content via ResizeObserver on the iframe's body.
- * Falls back to max-height + scroll for very tall emails.
+ * Safety: `sanitizeEmailHtml` strips script tags, event handler attributes,
+ * style/iframe/object/embed/form tags, and CSS url() values. With those
+ * gone, there is no JS execution path inside the shadow root.
  *
  * On mobile, wide emails (e.g. 600px newsletters on a 375px screen) are
  * scaled down via transform:scale() so they fit without horizontal scroll.
@@ -35,156 +37,105 @@ export function EmailBodyFrame({
   collapseQuotes,
   attachments,
 }: EmailBodyFrameProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | null>(null);
-  const [scale, setScale] = useState(1);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  const srcdoc = mounted ? buildSrcdoc(html, collapseQuotes, attachments) : "";
+  const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    const wrapper = wrapperRef.current;
-    if (!iframe || !wrapper || !mounted) return;
+    const host = hostRef.current;
+    if (!host) return;
 
-    let observer: ResizeObserver | null = null;
+    const sanitized = sanitizeEmailHtml(html, { collapseQuotes, attachments });
+    const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+    shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
+
+    const scaler = shadow.querySelector(".scaler") as HTMLDivElement | null;
+    const content = shadow.querySelector(".content") as HTMLDivElement | null;
+    if (!scaler || !content) return;
 
     function measure() {
-      const body = iframe?.contentDocument?.body;
-      if (!body || !wrapper) return;
+      if (!host || !scaler || !content) return;
+      // Reset to natural width so we can measure the email's intrinsic size.
+      scaler.style.transform = "";
+      scaler.style.width = "100%";
+      scaler.style.height = "";
 
-      const contentHeight = body.scrollHeight;
-      const contentWidth = body.scrollWidth;
-      const containerWidth = wrapper.offsetWidth;
+      const containerWidth = host.offsetWidth;
+      const contentWidth = content.scrollWidth;
+      if (containerWidth === 0 || contentWidth <= containerWidth) return;
 
-      // Scale down wide emails to fit the container
-      let scaleFactor = 1;
-      if (contentWidth > containerWidth) {
-        scaleFactor = containerWidth / contentWidth;
-        // Cap minimum scale — below 0.5x text becomes illegible
-        scaleFactor = Math.max(scaleFactor, 0.5);
-        // Skip near-1.0 transforms to avoid sub-pixel artifacts
-        if (scaleFactor > 0.95) scaleFactor = 1;
-      }
+      let scale = containerWidth / contentWidth;
+      // Below 0.5x text becomes illegible.
+      scale = Math.max(scale, 0.5);
+      // Skip near-1.0 transforms to avoid sub-pixel artifacts.
+      if (scale > 0.95) return;
 
-      setScale(scaleFactor);
-      setHeight(contentHeight);
+      scaler.style.transform = `scale(${scale})`;
+      scaler.style.width = `${100 / scale}%`;
+      // Shrink the layout box to match the visually scaled height.
+      scaler.style.height = `${content.scrollHeight * scale}px`;
     }
 
-    function onLoad() {
-      const body = iframe?.contentDocument?.body;
-      if (!body) return;
+    measure();
 
-      measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(host);
 
-      observer = new ResizeObserver(() => measure());
-      observer.observe(body);
-    }
-
-    iframe.addEventListener("load", onLoad);
+    // Re-measure once images load; their final size may push content wider.
+    const imgs = content.querySelectorAll("img");
+    const onImgLoad = () => measure();
+    imgs.forEach((img) => {
+      if (!img.complete) img.addEventListener("load", onImgLoad);
+    });
 
     return () => {
-      iframe.removeEventListener("load", onLoad);
-      observer?.disconnect();
+      ro.disconnect();
+      imgs.forEach((img) => img.removeEventListener("load", onImgLoad));
     };
-  }, [srcdoc, mounted]);
+  }, [html, collapseQuotes, attachments]);
 
-  if (!mounted) return null;
-
-  const measured = height !== null;
-  const visualHeight = measured ? height * scale : undefined;
-
-  return (
-    <div
-      ref={wrapperRef}
-      className="overflow-hidden"
-      style={{
-        height: visualHeight,
-        overflowAnchor: "none",
-      }}
-    >
-      <iframe
-        ref={iframeRef}
-        srcDoc={srcdoc}
-        sandbox="allow-same-origin allow-popups"
-        referrerPolicy="no-referrer"
-        title="Email content"
-        aria-label="Email body"
-        style={{
-          height: height ?? undefined,
-          width: scale < 1 ? `${100 / scale}%` : "100%",
-          transform: scale < 1 ? `scale(${scale})` : undefined,
-          transformOrigin: "top left",
-        }}
-        className="block border-0 bg-white"
-      />
-    </div>
-  );
+  return <div ref={hostRef} className="bg-white" />;
 }
 
 /**
- * CSS reset + overrides injected into every email document.
+ * Styles applied inside the shadow root. They cannot leak out and host page
+ * styles cannot leak in (other than CSS custom properties, which is fine).
+ *
  * Forces light mode — email HTML almost never properly supports dark mode.
- * Uses !important on background/color to override dark inline styles from
- * emails that detect prefers-color-scheme: dark.
  */
 const BASE_STYLES = `
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #ffffff !important;
-    color: #1a1a1a !important;
-    color-scheme: light !important;
+  :host {
+    display: block;
+    color-scheme: light;
+    color: #1a1a1a;
+    background: #ffffff;
+  }
+  .scaler {
+    transform-origin: top left;
+    width: 100%;
+  }
+  .content {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     word-break: break-word;
     overflow-wrap: break-word;
+    padding: 4px;
   }
-  body { padding: 4px; max-width: 100%; overflow-x: hidden; }
-  img { max-width: 100% !important; height: auto !important; }
-  a { color: #2563eb; }
-  pre, code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
-  table { max-width: 100% !important; }
-  table[width] { width: 100% !important; }
-  blockquote {
+  .content *, .content *::before, .content *::after { box-sizing: border-box; }
+  .content img { max-width: 100% !important; height: auto !important; }
+  .content a { color: #2563eb; }
+  .content pre, .content code { white-space: pre-wrap; max-width: 100%; overflow-x: auto; }
+  .content table { max-width: 100% !important; }
+  .content table[width] { width: 100% !important; }
+  .content blockquote {
     margin: 8px 0 8px 16px;
     padding-left: 12px;
     border-left: 3px solid #d1d5db;
     color: #6b7280;
   }
-  div, td, th, p, span { max-width: 100%; }
+  .content div, .content td, .content th, .content p, .content span { max-width: 100%; }
 
-  /* Override dark-mode media queries that some emails inject */
-  @media (prefers-color-scheme: dark) {
-    html, body { background: #ffffff !important; color: #1a1a1a !important; }
-  }
-
-  /* Print styles */
   @media print {
-    body { padding: 0; }
-    a { color: inherit; text-decoration: underline; }
+    .content { padding: 0; }
+    .content a { color: inherit; text-decoration: underline; }
   }
 `;
-
-function buildSrcdoc(
-  html: string,
-  collapseQuotes?: boolean,
-  attachments?: CidAttachment[],
-): string {
-  const sanitized = sanitizeEmailHtml(html, { collapseQuotes, attachments });
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<base target="_blank">
-<style>${BASE_STYLES}</style>
-</head>
-<body>${sanitized}</body>
-</html>`;
-}
