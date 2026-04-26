@@ -21,6 +21,7 @@ export default async function PaperTrailDetailPage({
       returnPath="/paper-trail"
       searchQuery={q}
       mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
+      hideHeaderActionsOnMobile
       actions={({
         messageId,
         returnPath,

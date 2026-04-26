@@ -10,6 +10,7 @@ import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 import { ContactSidebar } from "@/components/mail/contact-sidebar";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
+import { cn } from "@/lib/utils";
 
 async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user] = await Promise.all([
@@ -52,6 +53,7 @@ interface ThreadDetailViewProps {
     showSnooze?: boolean;
     showFollowUp?: boolean;
   };
+  hideHeaderActionsOnMobile?: boolean;
 }
 
 export async function ThreadDetailView({
@@ -62,6 +64,7 @@ export async function ThreadDetailView({
   actions,
   isSentView = false,
   mobileActions,
+  hideHeaderActionsOnMobile = false,
 }: ThreadDetailViewProps) {
   const session = await auth();
 
@@ -197,7 +200,12 @@ export async function ThreadDetailView({
             {messages.length}
           </span>
         )}
-        <div className="flex shrink-0 items-center gap-1">
+        <div
+          className={cn(
+            "shrink-0 items-center gap-1",
+            hideHeaderActionsOnMobile ? "hidden md:flex" : "flex",
+          )}
+        >
           {actions({
             messageId,
             returnPath,

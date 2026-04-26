@@ -18,7 +18,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
-import { snoozeConversation } from "@/actions/snooze";
+import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
@@ -208,6 +208,30 @@ export function MessageRow({
     onArchived?.(message.id);
     setActionPending(true);
     snoozeConversation(message.id, until).then(() => router.refresh());
+  };
+
+  // Default snooze used by swipe-left on mobile: tomorrow at 8 AM local time.
+  // Picker stays available via keyboard `s` and the desktop hover button.
+  const handleSwipeSnooze = () => {
+    const until = new Date();
+    until.setDate(until.getDate() + 1);
+    until.setHours(8, 0, 0, 0);
+
+    const subject =
+      message.subject ||
+      message.sender?.displayName ||
+      message.fromName ||
+      "email";
+    showUndoToast({
+      id: `snooze-${message.id}`,
+      label: `Snoozed until ${formatSnoozeUntil(until)}`,
+      description: subject,
+      onUndo: () => {
+        unsnoozeConversation(message.id).then(() => router.refresh());
+      },
+    });
+
+    handleSnooze(until);
   };
 
   const handleFollowUp = (until: Date) => {
@@ -485,7 +509,7 @@ export function MessageRow({
   return (
     <SwipeableRow
       onSwipeRight={swipeRightAction}
-      onSwipeLeft={showSnoozeAction ? () => setSnoozeOpen(true) : undefined}
+      onSwipeLeft={showSnoozeAction ? handleSwipeSnooze : undefined}
       swipeRightIcon={swipeRightIcon}
       swipeRightColor={swipeRightColor}
       disabled={actionPending}

@@ -21,6 +21,7 @@ export default async function ImboxDetailPage({
       returnPath="/imbox"
       searchQuery={q}
       mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
+      hideHeaderActionsOnMobile
       actions={({
         messageId,
         returnPath,

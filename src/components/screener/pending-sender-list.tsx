@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { approveSender, rejectSender, skipSender } from "@/actions/senders";
 import {
@@ -42,6 +43,7 @@ const CATEGORY_CONFIG = {
 
 export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
     setExpandedId(null);
     startTransition(async () => {
       await approveSender(senderId, category);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       setProcessingId(null);
       router.refresh();
     });
@@ -60,6 +63,7 @@ export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
     setProcessingId(senderId);
     startTransition(async () => {
       await rejectSender(senderId);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       setProcessingId(null);
       router.refresh();
     });

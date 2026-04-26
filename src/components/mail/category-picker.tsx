@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Inbox, Newspaper, Receipt, X, Check, Loader2 } from "lucide-react";
 import {
   Popover,
@@ -46,6 +47,7 @@ export function CategoryPicker({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const current = CATEGORY_CONFIG[currentCategory];
   const CurrentIcon = current.icon;
@@ -58,6 +60,7 @@ export function CategoryPicker({
     setOpen(false);
     startTransition(async () => {
       await changeSenderCategory(senderId, category);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     });
   }
@@ -66,6 +69,7 @@ export function CategoryPicker({
     setOpen(false);
     startTransition(async () => {
       await rejectSender(senderId);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     });
   }

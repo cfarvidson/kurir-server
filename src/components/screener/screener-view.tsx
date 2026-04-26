@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
@@ -126,6 +127,7 @@ function UndoScreenToastContent({
 
 export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [senders, setSenders] = useState(initialSenders);
   const actionInFlightRef = useRef(false);
 
@@ -224,7 +226,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   setSenders((prev) => prev.filter((s) => s.id !== senderId));
                   badgeUpdate("screener", -1);
                 })
-                .finally(() => router.refresh());
+                .finally(() => {
+                  queryClient.invalidateQueries({ queryKey: ["messages"] });
+                  router.refresh();
+                });
             }}
             onComplete={() => {
               toast.dismiss(id);
@@ -238,7 +243,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
         },
       );
     },
-    [router],
+    [router, queryClient],
   );
 
   const handleApprove = async (
@@ -265,6 +270,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
       .finally(() => {
         actionInFlightRef.current = false;
         setProcessingId((prev) => (prev === senderId ? null : prev));
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
         router.refresh();
       });
   };
@@ -289,6 +295,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
       .finally(() => {
         actionInFlightRef.current = false;
         setProcessingId((prev) => (prev === senderId ? null : prev));
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
         router.refresh();
       });
   };
