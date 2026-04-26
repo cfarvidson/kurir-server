@@ -2,6 +2,12 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.04.26.3] - 2026-04-26
+
+### Fixed
+
+- Reply composer now preserves a custom To address when you press Enter or click away — useful when you want to forward a reply to someone else. Previously the field reset back to the original sender as soon as editing finished.
+
 ## [v2026.04.26.2] - 2026-04-26
 
 ### Changed

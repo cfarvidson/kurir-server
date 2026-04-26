@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.26.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.26.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.26.2",
-  "changelog": "Render email body in a Shadow DOM instead of an iframe — no more pop-in flash and mobile scroll no longer gets trapped.",
+  "version": "2026.04.26.3",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.26.3",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.26.3",
+  "changelog": "Reply composer now preserves a custom To address — useful when you want to forward a reply to someone else.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-26T10:58:30Z"
+  "releasedAt": "2026-04-26T11:22:22Z"
 }
