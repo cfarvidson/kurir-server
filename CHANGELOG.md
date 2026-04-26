@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.04.26] - 2026-04-26
+
+### Changed
+
+- Mobile thread view: hide the duplicate header action buttons in Imbox / Feed / Paper Trail so the bottom action bar is the single archive/snooze/follow-up surface on phones.
+- Swipe-left on a message row now snoozes to tomorrow 8 AM local with a 5-second undo toast, instead of opening a popover anchored to a hidden element. The snooze picker is still available via the keyboard `s` shortcut and the desktop hover button.
+
+### Fixed
+
+- Imbox / Feed / Paper Trail no longer show stale list data after approving, rejecting, or recategorizing a sender — the React Query messages cache is invalidated alongside the existing server-side `revalidatePath`.
+
 ## [v2026.04.21] - 2026-04-21
 
 ### Added
