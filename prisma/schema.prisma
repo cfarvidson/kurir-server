@@ -33,6 +33,7 @@ model User {
   showPaperTrailBadge Boolean @default(true)
   showFollowUpBadge   Boolean @default(true)
   showScheduledBadge  Boolean @default(true)
+  showSnoozedBadge    Boolean @default(true)
 
   // Relations
   passkeys          Passkey[]
