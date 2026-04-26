@@ -32,6 +32,7 @@ interface SidebarProps {
   followUpCount?: number;
   feedUnreadCount?: number;
   paperTrailUnreadCount?: number;
+  snoozedCount?: number;
   badgePreferences?: BadgePreferences;
   isAdmin?: boolean;
 }
@@ -71,6 +72,7 @@ export function Sidebar({
   followUpCount = 0,
   feedUnreadCount = 0,
   paperTrailUnreadCount = 0,
+  snoozedCount = 0,
   badgePreferences = defaultBadgePreferences,
   isAdmin = false,
 }: SidebarProps) {
@@ -84,6 +86,7 @@ export function Sidebar({
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
+    snoozedCount,
   });
 
   return (

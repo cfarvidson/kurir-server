@@ -36,6 +36,7 @@ interface MobileTabBarProps {
   paperTrailUnreadCount?: number;
   scheduledCount?: number;
   followUpCount?: number;
+  snoozedCount?: number;
   badgePreferences?: BadgePreferences;
   isAdmin?: boolean;
 }
@@ -65,7 +66,12 @@ const moreItems = [
     icon: Receipt,
     badgeKey: "paperTrail" as const,
   },
-  { name: "Snoozed", href: "/snoozed", icon: Clock, badgeKey: null },
+  {
+    name: "Snoozed",
+    href: "/snoozed",
+    icon: Clock,
+    badgeKey: "snoozed" as const,
+  },
   {
     name: "Follow Up",
     href: "/follow-up",
@@ -92,6 +98,7 @@ export function MobileTabBar({
   paperTrailUnreadCount = 0,
   scheduledCount = 0,
   followUpCount = 0,
+  snoozedCount = 0,
   badgePreferences = defaultBadgePreferences,
   isAdmin = false,
 }: MobileTabBarProps) {
@@ -114,6 +121,7 @@ export function MobileTabBar({
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
+    snoozedCount,
   });
 
   // Close sheet on route change

@@ -22,7 +22,8 @@ export interface NavItem {
     | "scheduled"
     | "followUp"
     | "feed"
-    | "paperTrail";
+    | "paperTrail"
+    | "snoozed";
 }
 
 export type BadgeKey = NonNullable<NavItem["badgeKey"]>;
@@ -34,6 +35,7 @@ export interface BadgePreferences {
   showPaperTrailBadge: boolean;
   showFollowUpBadge: boolean;
   showScheduledBadge: boolean;
+  showSnoozedBadge: boolean;
 }
 
 export const badgeKeyToPref: Record<BadgeKey, keyof BadgePreferences> = {
@@ -43,6 +45,7 @@ export const badgeKeyToPref: Record<BadgeKey, keyof BadgePreferences> = {
   paperTrail: "showPaperTrailBadge",
   followUp: "showFollowUpBadge",
   scheduled: "showScheduledBadge",
+  snoozed: "showSnoozedBadge",
 };
 
 export const defaultBadgePreferences: BadgePreferences = {
@@ -52,6 +55,7 @@ export const defaultBadgePreferences: BadgePreferences = {
   showPaperTrailBadge: true,
   showFollowUpBadge: true,
   showScheduledBadge: true,
+  showSnoozedBadge: true,
 };
 
 export const navigation: NavItem[] = [
@@ -64,7 +68,7 @@ export const navigation: NavItem[] = [
     icon: Receipt,
     badgeKey: "paperTrail",
   },
-  { name: "Snoozed", href: "/snoozed", icon: Clock },
+  { name: "Snoozed", href: "/snoozed", icon: Clock, badgeKey: "snoozed" },
   { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
   {
     name: "Scheduled",
