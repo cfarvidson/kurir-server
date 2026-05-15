@@ -2,6 +2,12 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.05.15] - 2026-05-15
+
+### Fixed
+
+- Compose preview: paragraph breaks in the markdown preview now render correctly.
+
 ## [v2026.04.26.3] - 2026-04-26
 
 ### Fixed

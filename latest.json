@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.26.3",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.26.3",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.26.3",
-  "changelog": "Reply composer now preserves a custom To address — useful when you want to forward a reply to someone else.",
+  "version": "2026.05.15",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.15",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.15",
+  "changelog": "Compose preview: paragraph breaks now render correctly.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-26T11:22:22Z"
+  "releasedAt": "2026-05-15T11:33:22Z"
 }
