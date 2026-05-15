@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { EmailBodyFrame } from "../email-body-frame";
 import * as sanitizeModule from "@/lib/mail/sanitize-html";
 
@@ -18,130 +18,81 @@ class ResizeObserverStub {
 globalThis.ResizeObserver =
   ResizeObserverStub as unknown as typeof ResizeObserver;
 
+function getHost(container: HTMLElement): HTMLElement {
+  // The component renders a single host <div> as the root.
+  const host = container.firstElementChild as HTMLElement | null;
+  if (!host) throw new Error("EmailBodyFrame host element not found");
+  return host;
+}
+
 describe("EmailBodyFrame", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders an iframe element", async () => {
+  it("renders a host div (no iframe)", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Hello</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    expect(iframe).not.toBeNull();
+    expect(document.querySelector("iframe")).toBeNull();
+    const host = getHost(container);
+    expect(host.tagName).toBe("DIV");
   });
 
-  it("sets sandbox attribute to allow-same-origin and allow-popups", async () => {
+  it("attaches an open Shadow DOM to the host", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Hello</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    expect(iframe?.getAttribute("sandbox")).toBe(
-      "allow-same-origin allow-popups",
-    );
+    const host = getHost(container);
+    expect(host.shadowRoot).not.toBeNull();
+    expect(host.shadowRoot?.mode).toBe("open");
   });
 
-  it("does NOT include allow-scripts in sandbox (blocks JS execution)", async () => {
+  it("renders the sanitized HTML inside the shadow root", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Test content</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    const sandbox = iframe?.getAttribute("sandbox") ?? "";
-    expect(sandbox).not.toContain("allow-scripts");
+    const shadow = getHost(container).shadowRoot!;
+    const content = shadow.querySelector(".content");
+    expect(content).not.toBeNull();
+    expect(content?.innerHTML).toContain("<p>Test content</p>");
   });
 
-  it("does NOT include allow-forms in sandbox (blocks form submission)", async () => {
+  it("wraps the content in a .scaler > .content structure", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Body</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    const sandbox = iframe?.getAttribute("sandbox") ?? "";
-    expect(sandbox).not.toContain("allow-forms");
+    const shadow = getHost(container).shadowRoot!;
+    expect(shadow.querySelector(".scaler")).not.toBeNull();
+    expect(shadow.querySelector(".scaler > .content")).not.toBeNull();
   });
 
-  it("sets srcdoc attribute with provided HTML", async () => {
+  it("includes a style block with base styles inside the shadow root", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Test content</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Styled</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain("<p>Test content</p>");
+    const shadow = getHost(container).shadowRoot!;
+    const style = shadow.querySelector("style");
+    expect(style).not.toBeNull();
+    const css = style?.textContent ?? "";
+    expect(css).toContain("font-family");
+    expect(css).toContain("font-size");
   });
 
-  it("wraps HTML in a complete document structure", async () => {
+  it("forces light color-scheme on the shadow host (emails rarely support dark mode)", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Body</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Hello</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain("<!DOCTYPE html>");
-    expect(srcdoc).toContain("<html");
-    expect(srcdoc).toContain("<head>");
-    expect(srcdoc).toContain("<body>");
-  });
-
-  it("includes a base tag with target=_blank for link safety", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<a href='https://example.com'>Link</a>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain('<base target="_blank">');
-  });
-
-  it("includes a style block with base styles", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Styled</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain("<style>");
-    // The style block should contain basic resets
-    expect(srcdoc).toContain("font-family");
-    expect(srcdoc).toContain("font-size");
-  });
-
-  it("includes dark mode media query in styles", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    const srcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain("prefers-color-scheme: dark");
-  });
-
-  it("sets referrerPolicy to no-referrer", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    expect(iframe?.getAttribute("referrerpolicy")).toBe("no-referrer");
-  });
-
-  it("sets an accessible title on the iframe", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = screen.getByTitle("Email content");
-    expect(iframe).toBeTruthy();
-  });
-
-  it("sets aria-label on the iframe for accessibility", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = screen.getByLabelText("Email body");
-    expect(iframe).toBeTruthy();
-  });
-
-  it("does not set a name attribute (prevents targeting by other frames)", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    // name should be absent or empty — not set by the component
-    const name = iframe?.getAttribute("name");
-    expect(name == null || name === "").toBe(true);
+    const shadow = getHost(container).shadowRoot!;
+    const css = shadow.querySelector("style")?.textContent ?? "";
+    expect(css).toContain(":host");
+    expect(css).toContain("color-scheme: light");
   });
 
   it("passes html through sanitizeEmailHtml", async () => {
@@ -169,49 +120,28 @@ describe("EmailBodyFrame", () => {
     );
   });
 
-  it("has no src attribute (content is via srcdoc, not a URL)", async () => {
+  it("uses the bg-white host class for seamless visual integration", async () => {
+    let container!: HTMLElement;
     await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
+      ({ container } = render(<EmailBodyFrame html="<p>Hello</p>" />));
     });
-    const iframe = document.querySelector("iframe");
-    expect(iframe?.getAttribute("src")).toBeNull();
+    const host = getHost(container);
+    expect(host.className).toContain("bg-white");
   });
 
-  it("has no border (seamless visual integration)", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    const className = iframe?.className ?? "";
-    // border-0 class should be present
-    expect(className).toContain("border-0");
-  });
-
-  it("renders as a block element taking full width", async () => {
-    await act(async () => {
-      render(<EmailBodyFrame html="<p>Hello</p>" />);
-    });
-    const iframe = document.querySelector("iframe");
-    const className = iframe?.className ?? "";
-    // Width is set via inline style (100%), not Tailwind class
-    expect(className).toContain("block");
-    const style = iframe?.getAttribute("style") ?? "";
-    expect(style).toContain("width");
-  });
-
-  it("updates srcdoc when html prop changes", async () => {
+  it("updates shadow content when html prop changes", async () => {
     let result: ReturnType<typeof render>;
+    let container!: HTMLElement;
     await act(async () => {
       result = render(<EmailBodyFrame html="<p>First</p>" />);
+      container = result.container;
     });
-    const iframe = document.querySelector("iframe");
-    const firstSrcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(firstSrcdoc).toContain("First");
+    const shadow = getHost(container).shadowRoot!;
+    expect(shadow.querySelector(".content")?.innerHTML).toContain("First");
 
     await act(async () => {
       result!.rerender(<EmailBodyFrame html="<p>Second</p>" />);
     });
-    const updatedSrcdoc = iframe?.getAttribute("srcdoc") ?? "";
-    expect(updatedSrcdoc).toContain("Second");
+    expect(shadow.querySelector(".content")?.innerHTML).toContain("Second");
   });
 });

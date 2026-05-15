@@ -267,8 +267,7 @@ export function MarkdownComposer({
         <TabsContent value="preview" className="mt-2 md:mt-2">
           <div
             className={cn(
-              "prose prose-sm dark:prose-invert max-w-none rounded-md border border-input px-3 py-2",
-              "prose-img:rounded-md prose-img:max-h-[400px]",
+              "prose rounded-md border border-input px-3 py-2 text-sm",
             )}
             style={{ minHeight: `${minHeight}px` }}
             dangerouslySetInnerHTML={{ __html: previewHtml }}

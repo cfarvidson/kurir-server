@@ -168,9 +168,81 @@
   }
   & img {
     @apply rounded-md;
+    max-height: 400px;
   }
   & blockquote {
     @apply border-l-primary/30 text-muted-foreground;
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+    padding-left: 0.75em;
+    border-left-width: 2px;
+    border-left-style: solid;
+  }
+  & p {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+  }
+  & > :first-child {
+    margin-top: 0;
+  }
+  & > :last-child {
+    margin-bottom: 0;
+  }
+  & ul,
+  & ol {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+    padding-left: 1.25em;
+  }
+  & ul {
+    list-style: disc;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & li {
+    margin-top: 0.25em;
+  }
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    line-height: 1.25;
+  }
+  & h1 {
+    font-size: 1.5em;
+  }
+  & h2 {
+    font-size: 1.25em;
+  }
+  & h3 {
+    font-size: 1.125em;
+  }
+  & pre {
+    @apply rounded-md bg-muted px-3 py-2;
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+    overflow-x: auto;
+    font-size: 0.875em;
+  }
+  & code {
+    @apply rounded bg-muted px-1;
+    font-size: 0.875em;
+  }
+  & pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+  & hr {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    border-top-width: 1px;
+    @apply border-input;
   }
 }
 
