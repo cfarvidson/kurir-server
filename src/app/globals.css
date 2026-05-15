@@ -168,6 +168,7 @@
   }
   & img {
     @apply rounded-md;
+    max-height: 400px;
   }
   & blockquote {
     @apply border-l-primary/30 text-muted-foreground;
