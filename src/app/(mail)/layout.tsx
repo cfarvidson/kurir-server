@@ -49,6 +49,7 @@ export default async function MailLayout({
     followUpCount,
     feedUnreadCount,
     paperTrailUnreadCount,
+    snoozedCount,
     badgePreferences,
     userTheme,
   ] = await Promise.all([
@@ -73,6 +74,9 @@ export default async function MailLayout({
     db.message.count({
       where: { userId: session.user.id, isInPaperTrail: true, isRead: false },
     }),
+    db.message.count({
+      where: { userId: session.user.id, isSnoozed: true },
+    }),
     getBadgePreferences(session.user.id),
     db.user
       .findUnique({
@@ -92,6 +96,7 @@ export default async function MailLayout({
           followUpCount={followUpCount}
           feedUnreadCount={feedUnreadCount}
           paperTrailUnreadCount={paperTrailUnreadCount}
+          snoozedCount={snoozedCount}
           badgePreferences={badgePreferences}
           isAdmin={session.user.role === "ADMIN"}
         />
@@ -108,6 +113,7 @@ export default async function MailLayout({
           paperTrailUnreadCount={paperTrailUnreadCount}
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
+          snoozedCount={snoozedCount}
           badgePreferences={badgePreferences}
           isAdmin={session.user.role === "ADMIN"}
         />

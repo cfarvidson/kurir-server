@@ -9,6 +9,7 @@ interface BadgeCountProps {
   paperTrailUnreadCount: number;
   scheduledCount: number;
   followUpCount: number;
+  snoozedCount: number;
 }
 
 export function useBadgeCounts({
@@ -18,6 +19,7 @@ export function useBadgeCounts({
   paperTrailUnreadCount,
   scheduledCount,
   followUpCount,
+  snoozedCount,
 }: BadgeCountProps) {
   const [deltas, setDeltas] = useState<Record<string, number>>({});
 
@@ -41,6 +43,7 @@ export function useBadgeCounts({
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
+    snoozedCount,
   ]);
 
   return {
@@ -50,5 +53,6 @@ export function useBadgeCounts({
     paperTrail: Math.max(0, paperTrailUnreadCount + (deltas.paperTrail ?? 0)),
     scheduled: Math.max(0, scheduledCount + (deltas.scheduled ?? 0)),
     followUp: Math.max(0, followUpCount + (deltas.followUp ?? 0)),
+    snoozed: Math.max(0, snoozedCount + (deltas.snoozed ?? 0)),
   };
 }

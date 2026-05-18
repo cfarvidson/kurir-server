@@ -693,6 +693,28 @@ export async function processMessage(
     });
   }
 
+  // Auto-wake snoozed threads when a new reply arrives
+  if (isInbox && threadId && userEmails && !userEmails.includes(fromAddress)) {
+    const snoozedInThread = await db.message.updateMany({
+      where: {
+        userId,
+        threadId,
+        isSnoozed: true,
+      },
+      data: {
+        isSnoozed: false,
+        snoozedUntil: null,
+        isRead: false,
+      },
+    });
+
+    if (snoozedInThread.count > 0) {
+      console.log(
+        `[sync] Auto-woke ${snoozedInThread.count} snoozed message(s) due to new reply in thread ${threadId}`,
+      );
+    }
+  }
+
   return message;
 }
 
