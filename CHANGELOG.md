@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.05.20] - 2026-05-20
+
+### Added
+
+- Un-thread emails from noisy senders. Toggle in the thread detail header next to the message count: each message from that sender renders as its own row in list views and opens a single-message detail view. Reversible at any time; no data is mutated.
+
+### Fixed
+
+- Mobile (PWA): iOS swipe-back and other user-initiated back gestures now navigate back to the list instead of being silently swallowed. Top-level pages still resist accidental edge-swipes that would exit the app.
+- Mobile: toasts now sit above the bottom tab bar and the thread action bar instead of being hidden behind them — the Undo button inside an undo-toast is finally reachable.
+
 ## [v2026.05.15] - 2026-05-15
 
 ### Fixed

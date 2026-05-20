@@ -1,8 +1,8 @@
 {
-  "version": "2026.05.15",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.15",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.15",
-  "changelog": "Compose preview: paragraph breaks now render correctly.",
+  "version": "2026.05.20",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.20",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.20",
+  "changelog": "Un-thread noisy senders, fix mobile back gesture, lift toasts above mobile bars.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-05-15T11:33:22Z"
+  "releasedAt": "2026-05-20T09:04:39Z"
 }
