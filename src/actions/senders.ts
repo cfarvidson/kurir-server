@@ -404,9 +404,12 @@ export async function setSenderUnthread(senderId: string, unthread: boolean) {
     data: { unthread },
   });
 
-  updateTag("sidebar-counts");
+  // Unthread does not change category membership or unread counts, but it
+  // does change how list rows collapse across every category page.
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
   revalidatePath("/archive");
+  revalidatePath("/snoozed");
+  revalidatePath("/follow-up");
 }

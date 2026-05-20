@@ -8,6 +8,7 @@ import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { threadKeyOf } from "@/lib/mail/thread-key";
 import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
@@ -119,11 +120,6 @@ export function InfiniteMessageList({
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
   }, [hasNextPage, fetchNextPage]);
-
-  // Messages from senders flagged `unthread` render as standalone rows
-  // instead of collapsing by threadId.
-  const threadKeyOf = (msg: MessageItem) =>
-    msg.sender?.unthread ? msg.id : msg.threadId || msg.id;
 
   // Incremental thread collapsing across all pages
   const threads = useMemo(() => {

@@ -201,7 +201,7 @@ export async function ThreadDetailView({
             {messages.length}
           </span>
         )}
-        {targetMessage.sender && (
+        {targetMessage.sender && !isSentView && (
           <UnthreadToggle
             senderId={targetMessage.sender.id}
             senderLabel={

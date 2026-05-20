@@ -1,4 +1,7 @@
 import { db } from "@/lib/db";
+import { threadKeyOf } from "@/lib/mail/thread-key";
+
+export { threadKeyOf };
 
 /**
  * For a list of messages, compute how many messages are in each thread.
@@ -212,11 +215,8 @@ export function collapseToThreads<
   const threadMap = new Map<string, T>();
   const hasUnread = new Set<string>();
 
-  const keyOf = (msg: T) =>
-    msg.sender?.unthread ? msg.id : msg.threadId || msg.id;
-
   for (const msg of messages) {
-    const key = keyOf(msg);
+    const key = threadKeyOf(msg);
 
     if (!msg.isRead) {
       hasUnread.add(key);
@@ -230,7 +230,7 @@ export function collapseToThreads<
 
   // Propagate unread status to the representative message
   return Array.from(threadMap.values()).map((msg) => {
-    const key = keyOf(msg);
+    const key = threadKeyOf(msg);
     if (hasUnread.has(key) && msg.isRead) {
       return { ...msg, isRead: false };
     }
