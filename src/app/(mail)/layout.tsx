@@ -119,6 +119,13 @@ export default async function MailLayout({
           position="bottom-right"
           expand={false}
           visibleToasts={4}
+          // Lift toasts above the mobile tab bar / thread action bar
+          // (both are fixed bottom-0 with height ≈3.5rem + safe-area-inset).
+          mobileOffset={{
+            bottom: "calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)",
+            left: "1rem",
+            right: "1rem",
+          }}
           toastOptions={{
             className:
               "border border-border bg-card text-card-foreground shadow-lg",
