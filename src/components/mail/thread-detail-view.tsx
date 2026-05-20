@@ -11,6 +11,7 @@ import { ContactSidebar } from "@/components/mail/contact-sidebar";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
+import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 
 async function getUserInfo(userId: string, connectionId: string) {
@@ -182,6 +183,7 @@ export async function ThreadDetailView({
   return (
     <div className="flex h-full flex-col">
       <ThreadKeyboardHandler messageId={messageId} returnPath={returnPath} />
+      <BackFallback path={returnPath} />
       {markedRead.length > 0 && <SidebarRefresh />}
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xs md:px-6">
