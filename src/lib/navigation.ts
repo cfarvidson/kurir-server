@@ -45,11 +45,15 @@ export function intentionalBack(fallback?: string) {
   window.history.back();
 
   // If nothing actually changes (no app entry on the stack), force a navigation
-  // to the fallback so the user is not stranded.
+  // to the fallback so the user is not stranded. Always clear the flag — even
+  // when `popstate` already cleared it — so a missed clear on a slow device
+  // can't leak into the next gesture as a false "intentional".
   window.setTimeout(() => {
     if (window.location.href === beforeHref) {
       window.__intentionalBack = false;
       window.location.assign(target);
+    } else {
+      window.__intentionalBack = false;
     }
   }, 80);
 }

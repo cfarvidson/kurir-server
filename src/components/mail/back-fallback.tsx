@@ -11,7 +11,14 @@ import { setBackFallback } from "@/lib/navigation";
 export function BackFallback({ path }: { path: string }) {
   useEffect(() => {
     setBackFallback(path);
-    return () => setBackFallback("");
+    return () => {
+      // In Next.js route transitions the new page's effect can run before the
+      // old page's cleanup. Only clear if we are still the registered owner,
+      // so a freshly-set value from the new page survives.
+      if (typeof window !== "undefined" && window.__backFallback === path) {
+        setBackFallback("");
+      }
+    };
   }, [path]);
 
   return null;

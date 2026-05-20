@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Manages history-stack behavior in standalone PWA mode.
@@ -19,6 +20,8 @@ import { useEffect } from "react";
  *    of the component.
  */
 export function BackGestureBlocker() {
+  const router = useRouter();
+
   useEffect(() => {
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -39,11 +42,14 @@ export function BackGestureBlocker() {
       }
 
       // 2. A detail view (or other opt-in surface) has registered a fallback.
-      //    Treat the pop as "user wants to go back" and navigate there.
+      //    Treat the pop as "user wants to go back" and route there via the
+      //    Next.js client router (preserves cache and avoids a hard reload).
       const fallback = window.__backFallback;
       if (fallback) {
         delete window.__backFallback;
-        window.location.assign(fallback);
+        // Refresh the guard so subsequent pops are still absorbed.
+        window.history.pushState({ __guard: true }, "");
+        router.push(fallback);
         return;
       }
 
@@ -53,7 +59,7 @@ export function BackGestureBlocker() {
 
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  }, [router]);
 
   return null;
 }
