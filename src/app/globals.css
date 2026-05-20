@@ -342,3 +342,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * Sonner applies `mobileOffset` only below 600px, but our mobile bottom bars
+ * (MobileTabBar, MobileThreadActions) are visible up to Tailwind's `md`
+ * breakpoint (768px). Extend the lift through that whole range so toasts
+ * never sit beneath the action bar on tablets in portrait.
+ *
+ * Scoped to `.mail-toaster` so the admin layout's Toaster — which has no
+ * mobile bottom bar to clear — is not affected.
+ */
+@media (min-width: 600px) and (max-width: 767.98px) {
+  .mail-toaster[data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem) !important;
+  }
+}
