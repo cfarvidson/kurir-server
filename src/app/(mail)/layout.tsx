@@ -116,6 +116,7 @@ export default async function MailLayout({
         <KeyboardShortcuts />
         <CommandPaletteShell />
         <Toaster
+          className="mail-toaster"
           position="bottom-right"
           expand={false}
           visibleToasts={4}
