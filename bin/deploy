@@ -1,0 +1,43 @@
+#!/bin/sh
+# Wrapper around `kamal deploy` (and other kamal commands) that loads the
+# project's secrets from a per-user file outside the repo.
+#
+# `.kamal/secrets` references `$KAMAL_*` env vars but expects them to be
+# present in the shell that invokes kamal. Storing those values only in the
+# operator's interactive shell rc is fragile — a fresh terminal, an automation
+# script, or an AI session that doesn't inherit them will deploy with missing
+# secrets and quietly wipe production env vars (lost passkeys, broken Redis,
+# decryption failures for stored IMAP passwords, etc.).
+#
+# This wrapper loads the secrets file (mode 0600, outside the repo) and then
+# execs kamal with whatever arguments were passed in. Use it the same way as
+# the kamal CLI:
+#
+#   bin/deploy                  # equivalent to `kamal deploy`
+#   bin/deploy app logs -f      # `kamal app logs -f`
+#   bin/deploy accessory exec db "psql -U kurir"
+#
+# The file path can be overridden with KAMAL_SECRETS_FILE.
+
+set -e
+
+SECRETS_FILE="${KAMAL_SECRETS_FILE:-$HOME/.kamal/kurir-secrets.env}"
+
+if [ ! -f "$SECRETS_FILE" ]; then
+  echo "error: secrets file not found at $SECRETS_FILE" >&2
+  echo "       create it (mode 0600) with the KAMAL_* values, or set" >&2
+  echo "       KAMAL_SECRETS_FILE to point at the right path." >&2
+  exit 1
+fi
+
+# `set -a` exports every variable defined while sourcing the file.
+set -a
+. "$SECRETS_FILE"
+set +a
+
+# Default to `deploy` if no subcommand was passed.
+if [ "$#" -eq 0 ]; then
+  exec kamal deploy
+fi
+
+exec kamal "$@"

@@ -66,22 +66,29 @@ Bind mount `.:/app` with anonymous volumes for `node_modules`/`.next`. Needs `co
 
 ## Kamal (Production Deployment)
 
+**Always invoke Kamal via `bin/deploy`, never bare `kamal`.** The wrapper sources the per-user secrets file (`~/.kamal/kurir-secrets.env`, mode `0600`) before exec'ing kamal. Using bare `kamal` from a shell that doesn't have every `KAMAL_*` env var set silently injects empty secrets into the container and wipes production config (broken Redis, missing OAuth, IMAP password decryption failures).
+
 ```bash
-kamal setup                         # First deploy: provisions server, boots accessories + app
-kamal deploy                        # Subsequent deploys
-kamal app logs -f                   # Tail production logs
-kamal app exec -i node              # Node REPL in production container
-kamal app exec "prisma db push"              # Push schema changes
-kamal accessory details db          # Check postgres status
-kamal accessory logs db -f          # Tail postgres logs
-kamal accessory exec db "psql -U kurir" # DB shell
+bin/deploy                          # Subsequent deploys (= kamal deploy)
+bin/deploy app logs -f              # Tail production logs
+bin/deploy app exec -i node         # Node REPL in production container
+bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"  # Apply schema changes
+bin/deploy accessory details db     # Check postgres status
+bin/deploy accessory logs db -f     # Tail postgres logs
 ```
 
-Config: `config/deploy.yml`. Secrets: `.kamal/secrets` (env var refs only, safe for git). Set `KAMAL_*` prefixed env vars locally (see `DEPLOY.md`).
+Config: `config/deploy.yml`. Secret refs: `.kamal/secrets` (only `$KAMAL_*` references, safe for git). Actual values: `~/.kamal/kurir-secrets.env` (per-user, gitignored by being outside the repo).
+
+If `~/.kamal/kurir-secrets.env` is missing, recover by inspecting the previously-running container:
+
+```bash
+bin/deploy server exec -p "docker inspect <prev-container-name> --format '{{range .Config.Env}}{{println .}}{{end}}'" | grep -E '^(DATABASE_URL|REDIS_URL|AUTH_SECRET|ENCRYPTION_KEY|VAPID_PRIVATE_KEY|MICROSOFT_|GOOGLE_|POSTGRES_PASSWORD)=' | sed 's/^/KAMAL_/' > ~/.kamal/kurir-secrets.env
+chmod 600 ~/.kamal/kurir-secrets.env
+```
 
 Registry and Postgres host are configured per-environment in `config/deploy.yml` (see `config/deploy.yml.example`).
 
-Post-deploy hook auto-runs `prisma db push`. Search vector migration must be run manually once: `kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"`.
+**Do not enable `prisma db push` in `scripts/docker-entrypoint.sh` or the post-deploy hook.** The production DB shares its instance with an unrelated `epoch` application's tables. `prisma db push` would try to drop those. Apply kurir-server schema changes as explicit SQL via `bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"` (same pattern as `prisma/migrations/search_vector.sql`).
 
 ## Releasing
 
