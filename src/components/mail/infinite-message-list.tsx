@@ -8,6 +8,7 @@ import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { threadKeyOf } from "@/lib/mail/thread-key";
 import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
@@ -129,7 +130,7 @@ export function InfiniteMessageList({
 
     for (const page of data.pages) {
       for (const msg of page.messages) {
-        const key = msg.threadId || msg.id;
+        const key = threadKeyOf(msg);
         if (!msg.isRead) hasUnread.add(key);
         // First occurrence = latest (pages are ordered by receivedAt desc)
         if (!threadMap.has(key)) {
@@ -140,7 +141,7 @@ export function InfiniteMessageList({
 
     // Propagate unread status
     return Array.from(threadMap.values()).map((msg) => {
-      const key = msg.threadId || msg.id;
+      const key = threadKeyOf(msg);
       if (hasUnread.has(key) && msg.isRead) {
         return { ...msg, isRead: false };
       }
@@ -168,7 +169,7 @@ export function InfiniteMessageList({
       const threadKeys = new Set(
         ids.map((id) => {
           const target = allMessages.find((m) => m.id === id);
-          return target?.threadId || id;
+          return target ? threadKeyOf(target) : id;
         }),
       );
 
@@ -181,7 +182,7 @@ export function InfiniteMessageList({
             pages: old.pages.map((page) => ({
               ...page,
               messages: page.messages.filter(
-                (m) => !threadKeys.has(m.threadId || m.id),
+                (m) => !threadKeys.has(threadKeyOf(m)),
               ),
             })),
           };
@@ -194,12 +195,12 @@ export function InfiniteMessageList({
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {
     return threads
-      .filter((msg) => selectedIds.has(msg.threadId || msg.id))
+      .filter((msg) => selectedIds.has(threadKeyOf(msg)))
       .map((msg) => msg.id);
   }, [threads, selectedIds]);
 
   const renderRow = (message: MessageItem) => {
-    const threadKey = message.threadId || message.id;
+    const threadKey = threadKeyOf(message);
     const globalIndex = threads.indexOf(message);
     return (
       <motion.div

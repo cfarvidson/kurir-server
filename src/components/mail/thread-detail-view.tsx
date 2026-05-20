@@ -10,6 +10,7 @@ import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 import { ContactSidebar } from "@/components/mail/contact-sidebar";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
+import { UnthreadToggle } from "@/components/mail/unthread-toggle";
 import { cn } from "@/lib/utils";
 
 async function getUserInfo(userId: string, connectionId: string) {
@@ -199,6 +200,15 @@ export async function ThreadDetailView({
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
             {messages.length}
           </span>
+        )}
+        {targetMessage.sender && !isSentView && (
+          <UnthreadToggle
+            senderId={targetMessage.sender.id}
+            senderLabel={
+              targetMessage.sender.displayName || targetMessage.sender.email
+            }
+            unthread={targetMessage.sender.unthread}
+          />
         )}
         <div
           className={cn(

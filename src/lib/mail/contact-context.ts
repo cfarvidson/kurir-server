@@ -27,7 +27,7 @@ export async function getContactContext(userId: string, email: string) {
         isInPaperTrail: true,
         isArchived: true,
         hasAttachments: true,
-        sender: { select: { displayName: true, email: true } },
+        sender: { select: { displayName: true, email: true, unthread: true } },
       },
       orderBy: { receivedAt: "desc" },
       take: 50, // fetch enough to get 5 unique threads

@@ -73,4 +73,39 @@ describe("collapseToThreads", () => {
     const result = collapseToThreads(messages);
     expect(result[0]).toMatchObject({ subject: "Hello", extra: 42 });
   });
+
+  it("does not collapse messages whose sender is flagged unthread", () => {
+    const messages = [
+      {
+        id: "m2",
+        threadId: "t1",
+        isRead: true,
+        sender: { unthread: true },
+      },
+      {
+        id: "m1",
+        threadId: "t1",
+        isRead: true,
+        sender: { unthread: true },
+      },
+    ];
+    const result = collapseToThreads(messages);
+    expect(result).toHaveLength(2);
+    expect(result.map((m) => m.id)).toEqual(["m2", "m1"]);
+  });
+
+  it("mixes threaded and unthreaded senders in one list", () => {
+    const messages = [
+      // unthreaded sender — both kept
+      { id: "u2", threadId: "tA", isRead: true, sender: { unthread: true } },
+      { id: "u1", threadId: "tA", isRead: false, sender: { unthread: true } },
+      // normal thread — collapsed to one
+      { id: "n2", threadId: "tB", isRead: true, sender: { unthread: false } },
+      { id: "n1", threadId: "tB", isRead: false, sender: { unthread: false } },
+    ];
+    const result = collapseToThreads(messages);
+    expect(result.map((m) => m.id)).toEqual(["u2", "u1", "n2"]);
+    // unread propagated to the collapsed normal thread representative
+    expect(result.find((m) => m.id === "n2")?.isRead).toBe(false);
+  });
 });

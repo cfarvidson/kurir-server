@@ -32,7 +32,7 @@ async function getConversations(userId: string, emailAddresses: string[]) {
       ],
     },
     include: {
-      sender: { select: { displayName: true, email: true } },
+      sender: { select: { displayName: true, email: true, unthread: true } },
       attachments: { select: { id: true } },
     },
     orderBy: { receivedAt: "desc" },

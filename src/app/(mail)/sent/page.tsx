@@ -94,6 +94,7 @@ async function getSentMessages(userId: string, folderId: string) {
         select: {
           displayName: true,
           email: true,
+          unthread: true,
         },
       },
     },
