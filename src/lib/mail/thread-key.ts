@@ -9,7 +9,7 @@
  */
 export function threadKeyOf(msg: {
   id: string;
-  threadId: string | null | undefined;
+  threadId?: string | null;
   sender?: { unthread?: boolean } | null;
 }): string {
   if (msg.sender?.unthread) return msg.id;
