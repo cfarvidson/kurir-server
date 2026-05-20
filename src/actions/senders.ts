@@ -378,3 +378,35 @@ export async function changeSenderCategory(
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
 }
+
+/**
+ * Toggle whether messages from a sender are grouped into threads in list and
+ * detail views. When `unthread` is true, each message renders as its own row
+ * and the detail view shows only the single message.
+ */
+export async function setSenderUnthread(senderId: string, unthread: boolean) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { userId: true },
+  });
+
+  if (!sender || sender.userId !== session.user.id) {
+    throw new Error("Sender not found");
+  }
+
+  await db.sender.update({
+    where: { id: senderId },
+    data: { unthread },
+  });
+
+  updateTag("sidebar-counts");
+  revalidatePath("/imbox");
+  revalidatePath("/feed");
+  revalidatePath("/paper-trail");
+  revalidatePath("/archive");
+}

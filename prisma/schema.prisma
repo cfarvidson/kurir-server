@@ -170,6 +170,10 @@ model Sender {
   // Message count for stats
   messageCount Int @default(0)
 
+  // When true, list views and detail view render each message from this
+  // sender as a standalone row instead of collapsing by threadId.
+  unthread Boolean @default(false)
+
   // User relation (kept for cross-connection queries)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

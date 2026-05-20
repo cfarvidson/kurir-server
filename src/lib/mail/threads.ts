@@ -47,7 +47,7 @@ export async function getThreadCounts(
 }
 
 const threadInclude = {
-  sender: { select: { displayName: true, email: true } },
+  sender: { select: { id: true, displayName: true, email: true, unthread: true } },
   attachments: {
     select: { id: true, filename: true, size: true, contentId: true },
   },
@@ -69,10 +69,36 @@ export async function getThreadMessages(userId: string, messageId: string) {
       inReplyTo: true,
       references: true,
       subject: true,
+      sender: { select: { unthread: true } },
     },
   });
 
   if (!message) return null;
+
+  // When the sender is flagged `unthread`, render only this message in the
+  // detail view — do not pull in related messages by threadId/References.
+  if (message.sender?.unthread) {
+    const only = await db.message.findMany({
+      where: { id: messageId, userId },
+      include: threadInclude,
+    });
+
+    const unreadMessages = only.filter((m) => !m.isRead);
+    if (unreadMessages.length > 0) {
+      await db.message.updateMany({
+        where: { id: { in: unreadMessages.map((m) => m.id) } },
+        data: { isRead: true },
+      });
+    }
+
+    return {
+      messages: only,
+      markedRead: unreadMessages.map((m) => ({
+        uid: m.uid,
+        folderId: m.folderId,
+      })),
+    };
+  }
 
   // Collect all related RFC message IDs for thread lookup
   const relatedIds = new Set<string>();
@@ -171,15 +197,26 @@ export async function getThreadMessages(userId: string, messageId: string) {
  * Collapse a list of messages into one row per thread.
  * Keeps the latest message (assumes input is sorted by receivedAt desc).
  * Marks the thread row as unread if ANY message in the thread is unread.
+ *
+ * Messages whose sender is flagged `unthread` are rendered as standalone rows
+ * (keyed by message id) instead of being grouped by threadId.
  */
 export function collapseToThreads<
-  T extends { id: string; threadId: string | null; isRead: boolean },
+  T extends {
+    id: string;
+    threadId: string | null;
+    isRead: boolean;
+    sender?: { unthread?: boolean } | null;
+  },
 >(messages: T[]): T[] {
   const threadMap = new Map<string, T>();
   const hasUnread = new Set<string>();
 
+  const keyOf = (msg: T) =>
+    msg.sender?.unthread ? msg.id : msg.threadId || msg.id;
+
   for (const msg of messages) {
-    const key = msg.threadId || msg.id;
+    const key = keyOf(msg);
 
     if (!msg.isRead) {
       hasUnread.add(key);
@@ -193,7 +230,7 @@ export function collapseToThreads<
 
   // Propagate unread status to the representative message
   return Array.from(threadMap.values()).map((msg) => {
-    const key = msg.threadId || msg.id;
+    const key = keyOf(msg);
     if (hasUnread.has(key) && msg.isRead) {
       return { ...msg, isRead: false };
     }

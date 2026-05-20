@@ -24,7 +24,7 @@ export const MESSAGE_SELECT = {
   snoozedUntil: true,
   followUpAt: true,
   isFollowUp: true,
-  sender: { select: { displayName: true, email: true } },
+  sender: { select: { displayName: true, email: true, unthread: true } },
 } as const;
 
 export type Category = keyof typeof CATEGORY_FILTERS;

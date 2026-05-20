@@ -43,6 +43,7 @@ export interface MessageItem {
   sender?: {
     displayName: string | null;
     email: string;
+    unthread?: boolean;
   } | null;
 }
 
