@@ -14,6 +14,7 @@ import {
   Receipt,
   Clock,
   Bell,
+  Reply,
   CalendarClock,
   Send,
   Archive,
@@ -36,6 +37,7 @@ interface MobileTabBarProps {
   paperTrailUnreadCount?: number;
   scheduledCount?: number;
   followUpCount?: number;
+  replyLaterCount?: number;
   badgePreferences?: BadgePreferences;
   isAdmin?: boolean;
 }
@@ -73,6 +75,12 @@ const moreItems = [
     badgeKey: "followUp" as const,
   },
   {
+    name: "Reply Later",
+    href: "/reply-later",
+    icon: Reply,
+    badgeKey: "replyLater" as const,
+  },
+  {
     name: "Scheduled",
     href: "/scheduled",
     icon: CalendarClock,
@@ -92,6 +100,7 @@ export function MobileTabBar({
   paperTrailUnreadCount = 0,
   scheduledCount = 0,
   followUpCount = 0,
+  replyLaterCount = 0,
   badgePreferences = defaultBadgePreferences,
   isAdmin = false,
 }: MobileTabBarProps) {
@@ -114,6 +123,7 @@ export function MobileTabBar({
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
+    replyLaterCount,
   });
 
   // Close sheet on route change

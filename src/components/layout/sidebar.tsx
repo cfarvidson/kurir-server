@@ -30,6 +30,7 @@ interface SidebarProps {
   imboxUnreadCount?: number;
   scheduledCount?: number;
   followUpCount?: number;
+  replyLaterCount?: number;
   feedUnreadCount?: number;
   paperTrailUnreadCount?: number;
   badgePreferences?: BadgePreferences;
@@ -55,6 +56,7 @@ const NAV_SHORTCUTS: Record<string, string> = {
   "/sent": "S",
   "/archive": "A",
   "/follow-up": "U",
+  "/reply-later": "R",
   "/snoozed": "Z",
   "/scheduled": "D",
   "/files": "L",
@@ -70,6 +72,7 @@ export function Sidebar({
   imboxUnreadCount = 0,
   scheduledCount = 0,
   followUpCount = 0,
+  replyLaterCount = 0,
   feedUnreadCount = 0,
   paperTrailUnreadCount = 0,
   badgePreferences = defaultBadgePreferences,
@@ -85,6 +88,7 @@ export function Sidebar({
     paperTrailUnreadCount,
     scheduledCount,
     followUpCount,
+    replyLaterCount,
   });
 
   return (

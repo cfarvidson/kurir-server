@@ -47,6 +47,7 @@ export default async function MailLayout({
     imboxUnreadCount,
     scheduledCount,
     followUpCount,
+    replyLaterCount,
     feedUnreadCount,
     paperTrailUnreadCount,
     badgePreferences,
@@ -66,6 +67,9 @@ export default async function MailLayout({
     }),
     db.message.count({
       where: { userId: session.user.id, isFollowUp: true },
+    }),
+    db.message.count({
+      where: { userId: session.user.id, isReplyLater: true },
     }),
     db.message.count({
       where: { userId: session.user.id, isInFeed: true, isRead: false },
@@ -90,6 +94,7 @@ export default async function MailLayout({
           imboxUnreadCount={imboxUnreadCount}
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
+          replyLaterCount={replyLaterCount}
           feedUnreadCount={feedUnreadCount}
           paperTrailUnreadCount={paperTrailUnreadCount}
           badgePreferences={badgePreferences}
@@ -108,6 +113,7 @@ export default async function MailLayout({
           paperTrailUnreadCount={paperTrailUnreadCount}
           scheduledCount={scheduledCount}
           followUpCount={followUpCount}
+          replyLaterCount={replyLaterCount}
           badgePreferences={badgePreferences}
           isAdmin={session.user.role === "ADMIN"}
         />

@@ -11,6 +11,7 @@ const BADGE_FIELDS = [
   "showFeedBadge",
   "showPaperTrailBadge",
   "showFollowUpBadge",
+  "showReplyLaterBadge",
   "showScheduledBadge",
 ] as const;
 
@@ -25,6 +26,7 @@ export async function getBadgePreferences(
       showFeedBadge: true,
       showPaperTrailBadge: true,
       showFollowUpBadge: true,
+      showReplyLaterBadge: true,
       showScheduledBadge: true,
     },
   });
@@ -35,6 +37,7 @@ export async function getBadgePreferences(
     showFeedBadge: user?.showFeedBadge ?? true,
     showPaperTrailBadge: user?.showPaperTrailBadge ?? true,
     showFollowUpBadge: user?.showFollowUpBadge ?? true,
+    showReplyLaterBadge: user?.showReplyLaterBadge ?? true,
     showScheduledBadge: user?.showScheduledBadge ?? true,
   };
 }

@@ -8,6 +8,7 @@ const CATEGORY_FILTERS = {
   archive: { isArchived: true },
   snoozed: { isSnoozed: true },
   "follow-up": { isFollowUp: true },
+  "reply-later": { isReplyLater: true },
 } as const;
 
 export const MESSAGE_SELECT = {
