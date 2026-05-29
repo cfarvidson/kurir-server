@@ -9,12 +9,12 @@ import {
   ChevronDown,
   Forward,
   MoreHorizontal,
-  Paperclip,
   Printer,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
+import { AttachmentList } from "@/components/mail/attachment-list";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 
 interface ThreadMessage {
@@ -248,26 +248,7 @@ function MessageBubble({
 
                 {/* Attachments */}
                 {message.attachments.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {message.attachments.map((att) => (
-                      <a
-                        key={att.id}
-                        href={`/api/attachments/${att.id}`}
-                        download={att.filename}
-                        className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
-                      >
-                        <Paperclip className="h-3 w-3 text-primary/60" />
-                        <span className="max-w-[200px] truncate font-medium">
-                          {att.filename}
-                        </span>
-                        <span className="text-muted-foreground/60">
-                          {att.size < 1024
-                            ? `${att.size}B`
-                            : `${Math.round(att.size / 1024)}KB`}
-                        </span>
-                      </a>
-                    ))}
-                  </div>
+                  <AttachmentList attachments={message.attachments} />
                 )}
 
                 {/* Body */}
