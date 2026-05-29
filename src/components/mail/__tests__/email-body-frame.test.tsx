@@ -4,9 +4,16 @@ import { render, act } from "@testing-library/react";
 import { EmailBodyFrame } from "../email-body-frame";
 import * as sanitizeModule from "@/lib/mail/sanitize-html";
 
-// Mock sanitizeEmailHtml — we test it separately; here we focus on the component.
+// Mock the sanitizer — we test it separately; here we focus on the component.
+// The mock echoes the html back and reports a blocked count of 1 only when
+// blocking is requested, so the component's count-reporting can be asserted.
 vi.mock("@/lib/mail/sanitize-html", () => ({
-  sanitizeEmailHtml: vi.fn((html: string) => html),
+  sanitizeEmailHtmlWithMeta: vi.fn(
+    (html: string, opts?: { blockRemoteImages?: boolean }) => ({
+      html,
+      blockedRemoteImages: opts?.blockRemoteImages ? 1 : 0,
+    }),
+  ),
 }));
 
 // ResizeObserver is not implemented in jsdom — provide a no-op stub.
@@ -95,17 +102,16 @@ describe("EmailBodyFrame", () => {
     expect(css).toContain("color-scheme: light");
   });
 
-  it("passes html through sanitizeEmailHtml", async () => {
+  it("passes html through the sanitizer", async () => {
     await act(async () => {
       render(<EmailBodyFrame html="<p>Content</p>" />);
     });
-    expect(vi.mocked(sanitizeModule.sanitizeEmailHtml)).toHaveBeenCalledWith(
-      "<p>Content</p>",
-      expect.any(Object),
-    );
+    expect(
+      vi.mocked(sanitizeModule.sanitizeEmailHtmlWithMeta),
+    ).toHaveBeenCalledWith("<p>Content</p>", expect.any(Object));
   });
 
-  it("passes collapseQuotes option to sanitizeEmailHtml when set", async () => {
+  it("passes collapseQuotes option to the sanitizer when set", async () => {
     await act(async () => {
       render(
         <EmailBodyFrame
@@ -114,10 +120,42 @@ describe("EmailBodyFrame", () => {
         />,
       );
     });
-    expect(vi.mocked(sanitizeModule.sanitizeEmailHtml)).toHaveBeenCalledWith(
+    expect(
+      vi.mocked(sanitizeModule.sanitizeEmailHtmlWithMeta),
+    ).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ collapseQuotes: true }),
     );
+  });
+
+  it("passes blockRemoteImages and reports the blocked count", async () => {
+    const onBlockedCount = vi.fn();
+    await act(async () => {
+      render(
+        <EmailBodyFrame
+          html='<img src="https://x.com/a.png" />'
+          blockRemoteImages
+          onBlockedCount={onBlockedCount}
+        />,
+      );
+    });
+    expect(
+      vi.mocked(sanitizeModule.sanitizeEmailHtmlWithMeta),
+    ).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ blockRemoteImages: true }),
+    );
+    expect(onBlockedCount).toHaveBeenCalledWith(1);
+  });
+
+  it("reports a zero blocked count when blocking is off", async () => {
+    const onBlockedCount = vi.fn();
+    await act(async () => {
+      render(
+        <EmailBodyFrame html="<p>Hi</p>" onBlockedCount={onBlockedCount} />,
+      );
+    });
+    expect(onBlockedCount).toHaveBeenCalledWith(0);
   });
 
   it("uses the bg-white host class for seamless visual integration", async () => {

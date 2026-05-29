@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import {
-  sanitizeEmailHtml,
+  sanitizeEmailHtmlWithMeta,
   type CidAttachment,
 } from "@/lib/mail/sanitize-html";
 
@@ -12,6 +12,14 @@ interface EmailBodyFrameProps {
   collapseQuotes?: boolean;
   /** Message attachments for CID→URL rewriting */
   attachments?: CidAttachment[];
+  /**
+   * When true, remote images are not requested (tracker blocking). Flip to
+   * false (e.g. after the user clicks "Load images") to re-render with the
+   * remote images proxied normally.
+   */
+  blockRemoteImages?: boolean;
+  /** Reports how many remote images were blocked on the last render. */
+  onBlockedCount?: (count: number) => void;
 }
 
 /**
@@ -36,14 +44,24 @@ export function EmailBodyFrame({
   html,
   collapseQuotes,
   attachments,
+  blockRemoteImages,
+  onBlockedCount,
 }: EmailBodyFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  // Hold the callback in a ref so changing its identity doesn't re-run the
+  // effect (which would re-sanitize on every parent render).
+  const onBlockedCountRef = useRef(onBlockedCount);
+  onBlockedCountRef.current = onBlockedCount;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
-    const sanitized = sanitizeEmailHtml(html, { collapseQuotes, attachments });
+    const { html: sanitized, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+      html,
+      { collapseQuotes, attachments, blockRemoteImages },
+    );
+    onBlockedCountRef.current?.(blockedRemoteImages);
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
 
@@ -90,7 +108,7 @@ export function EmailBodyFrame({
       ro.disconnect();
       imgs.forEach((img) => img.removeEventListener("load", onImgLoad));
     };
-  }, [html, collapseQuotes, attachments]);
+  }, [html, collapseQuotes, attachments, blockRemoteImages]);
 
   return <div ref={hostRef} className="bg-white" />;
 }

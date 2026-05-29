@@ -10,6 +10,28 @@ export interface SanitizeOptions {
   collapseQuotes?: boolean;
   /** Message attachments for CID→URL rewriting */
   attachments?: CidAttachment[];
+  /**
+   * When true, remote http(s) images are NOT requested: their `src` is moved
+   * to a `data-blocked-src` attribute and removed, so tracking pixels never
+   * fire. CID and internal attachment images are unaffected. Defaults to
+   * false (remote images are proxied as before).
+   */
+  blockRemoteImages?: boolean;
+}
+
+export interface SanitizeResult {
+  /** Sanitized HTML safe for shadow-DOM injection. */
+  html: string;
+  /**
+   * Number of remote http(s) images whose `src` was stripped because
+   * `blockRemoteImages` was enabled. Zero when blocking is off.
+   */
+  blockedRemoteImages: number;
+}
+
+/** Build the proxied URL used to load a remote image through our own server. */
+export function proxiedImageUrl(remoteUrl: string): string {
+  return `/api/proxy/image?url=${encodeURIComponent(remoteUrl)}`;
 }
 
 /**
@@ -126,14 +148,28 @@ const ALLOWED_ATTR = [
  * - Optionally strips quoted-text elements (blockquote, .gmail_quote, etc.).
  *
  * Must only be called in a browser environment (DOMPurify requires a DOM).
+ *
+ * Returns the sanitized string only. Use {@link sanitizeEmailHtmlWithMeta}
+ * when the caller needs the blocked-tracker count.
  */
 export function sanitizeEmailHtml(
   html: string,
   options: SanitizeOptions = {},
 ): string {
+  return sanitizeEmailHtmlWithMeta(html, options).html;
+}
+
+/**
+ * Like {@link sanitizeEmailHtml} but also reports how many remote images were
+ * blocked (only meaningful when `options.blockRemoteImages` is true).
+ */
+export function sanitizeEmailHtmlWithMeta(
+  html: string,
+  options: SanitizeOptions = {},
+): SanitizeResult {
   if (typeof window === "undefined") {
     // Server-side: return empty string — the iframe renders client-side only.
-    return "";
+    return { html: "", blockedRemoteImages: 0 };
   }
 
   const purify = DOMPurify(window);
@@ -169,7 +205,9 @@ export function sanitizeEmailHtml(
     }
   }
 
-  // 3. Filter dangerous img src, rewrite CID to attachment URLs, proxy external images.
+  // 3. Filter dangerous img src, rewrite CID to attachment URLs, proxy or block
+  //    external images.
+  let blockedRemoteImages = 0;
   doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") ?? "";
     if (src.startsWith("/api/attachments/")) {
@@ -185,10 +223,15 @@ export function sanitizeEmailHtml(
         img.removeAttribute("src");
       }
     } else if (/^https?:/i.test(src)) {
-      img.setAttribute(
-        "src",
-        `/api/proxy/image?url=${encodeURIComponent(src)}`,
-      );
+      if (options.blockRemoteImages) {
+        // Do not request the remote resource — stash the original URL so the
+        // user can opt in to loading it later, then strip the live src.
+        img.setAttribute("data-blocked-src", src);
+        img.removeAttribute("src");
+        blockedRemoteImages += 1;
+      } else {
+        img.setAttribute("src", proxiedImageUrl(src));
+      }
     }
   });
 
@@ -220,5 +263,5 @@ export function sanitizeEmailHtml(
     });
   }
 
-  return doc.body.innerHTML;
+  return { html: doc.body.innerHTML, blockedRemoteImages };
 }

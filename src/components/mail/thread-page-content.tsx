@@ -20,8 +20,10 @@ interface ThreadMessage {
   isArchived?: boolean;
   snippet: string | null;
   sender?: {
+    id?: string;
     displayName: string | null;
     email: string;
+    allowRemoteImages?: boolean;
   } | null;
   attachments: {
     id: string;
@@ -46,6 +48,7 @@ interface ThreadPageContentProps {
   rfcMessageId?: string;
   references: string[];
   userTimezone: string;
+  blockRemoteImages?: boolean;
 }
 
 export function ThreadPageContent({
@@ -63,6 +66,7 @@ export function ThreadPageContent({
   rfcMessageId,
   references,
   userTimezone,
+  blockRemoteImages = false,
 }: ThreadPageContentProps) {
   const userEmailSet = useMemo(
     () => new Set(userEmails.map((e) => e.toLowerCase())),
@@ -130,6 +134,7 @@ export function ThreadPageContent({
         messages={messages}
         currentUserEmail={currentUserEmail}
         userEmails={userEmailSet}
+        blockRemoteImages={blockRemoteImages}
       />
 
       <div className="mt-6 pb-8">
