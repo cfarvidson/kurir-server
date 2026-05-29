@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -53,56 +59,91 @@ export function AutoSync() {
     routerRef.current = router;
   });
 
-  // Refresh UI when tab regains focus (pick up background sync changes)
+  // Coalesce refreshes. A burst of IDLE events (or an SSE reconnect that
+  // replays buffered events on resume) would otherwise fire one full RSC
+  // `router.refresh()` per event — the main cause of the mobile PWA freezing.
+  // Debounce so a burst collapses into a single refresh, and never churn while
+  // the tab is hidden (we refresh once on resume instead).
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        await refreshSidebarCounts();
+        queryClient.invalidateQueries({ queryKey: ["sync-status"] });
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
+        routerRef.current.refresh();
+      })();
+    }, 400);
+  }, [queryClient]);
+
   useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
+
+  // SSE: realtime updates from IMAP IDLE, tied to page visibility.
+  // We deliberately do NOT hold the EventSource open while backgrounded: iOS
+  // keeps a suspended connection in a half-open state that can hang the page on
+  // resume. Instead we close on hide and reconnect (plus one refresh) on resume.
+  useEffect(() => {
+    let es: EventSource | null = null;
+
+    const connect = () => {
+      if (es) return;
+      es = new EventSource("/api/mail/events");
+      es.addEventListener("new-messages", scheduleRefresh);
+      es.addEventListener("flags-changed", scheduleRefresh);
+      es.addEventListener("message-deleted", scheduleRefresh);
+
+      es.addEventListener("scheduled-sent", () => {
+        toast.success("Scheduled message sent");
+        scheduleRefresh();
+      });
+      es.addEventListener("scheduled-failed", (e) => {
+        try {
+          const data = JSON.parse((e as MessageEvent).data);
+          toast.error("Scheduled send failed: " + data.error);
+        } catch {
+          toast.error("Scheduled send failed");
+        }
+        scheduleRefresh();
+      });
+
+      es.onerror = () => {
+        // The browser auto-reconnects an EventSource unless it's permanently
+        // closed. If it is, drop our handle so we reconnect on the next resume.
+        if (es && es.readyState === EventSource.CLOSED) es = null;
+      };
+    };
+
+    const disconnect = () => {
+      es?.close();
+      es = null;
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        void (async () => {
-          await refreshSidebarCounts();
-          queryClient.invalidateQueries({ queryKey: ["messages"] });
-          routerRef.current.refresh();
-        })();
+        connect();
+        // Pick up anything that changed while we were backgrounded.
+        scheduleRefresh();
+      } else {
+        disconnect();
       }
     };
+
+    // The PWA usually launches already foregrounded, but guard anyway.
+    if (document.visibilityState === "visible") connect();
     document.addEventListener("visibilitychange", handleVisibility);
-    return () =>
+
+    return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, [queryClient]);
-
-  // SSE: realtime updates from IDLE
-  useEffect(() => {
-    const es = new EventSource("/api/mail/events");
-    const handleEvent = async () => {
-      await refreshSidebarCounts();
-      queryClient.invalidateQueries({ queryKey: ["sync-status"] });
-      queryClient.invalidateQueries({ queryKey: ["messages"] });
-      routerRef.current.refresh();
+      disconnect();
     };
-    es.addEventListener("new-messages", () => void handleEvent());
-    es.addEventListener("flags-changed", () => void handleEvent());
-    es.addEventListener("message-deleted", () => void handleEvent());
-
-    es.addEventListener("scheduled-sent", () => {
-      toast.success("Scheduled message sent");
-      void (async () => {
-        await refreshSidebarCounts();
-        queryClient.invalidateQueries({ queryKey: ["messages"] });
-        routerRef.current.refresh();
-      })();
-    });
-    es.addEventListener("scheduled-failed", (e) => {
-      const data = JSON.parse((e as MessageEvent).data);
-      toast.error("Scheduled send failed: " + data.error);
-      void (async () => {
-        await refreshSidebarCounts();
-        queryClient.invalidateQueries({ queryKey: ["messages"] });
-        routerRef.current.refresh();
-      })();
-    });
-
-    es.onerror = () => console.warn("[sse] reconnecting...");
-    return () => es.close();
-  }, [queryClient]);
+  }, [scheduleRefresh]);
 
   // Listen for import trigger from ImportButton
   useEffect(() => {
