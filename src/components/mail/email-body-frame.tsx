@@ -48,10 +48,6 @@ export function EmailBodyFrame({
   onBlockedCount,
 }: EmailBodyFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
-  // Hold the callback in a ref so changing its identity doesn't re-run the
-  // effect (which would re-sanitize on every parent render).
-  const onBlockedCountRef = useRef(onBlockedCount);
-  onBlockedCountRef.current = onBlockedCount;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -61,7 +57,7 @@ export function EmailBodyFrame({
       html,
       { collapseQuotes, attachments, blockRemoteImages },
     );
-    onBlockedCountRef.current?.(blockedRemoteImages);
+    onBlockedCount?.(blockedRemoteImages);
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
 
@@ -108,7 +104,7 @@ export function EmailBodyFrame({
       ro.disconnect();
       imgs.forEach((img) => img.removeEventListener("load", onImgLoad));
     };
-  }, [html, collapseQuotes, attachments, blockRemoteImages]);
+  }, [html, collapseQuotes, attachments, blockRemoteImages, onBlockedCount]);
 
   return <div ref={hostRef} className="bg-white" />;
 }
