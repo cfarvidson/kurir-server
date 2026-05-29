@@ -132,4 +132,61 @@ describe("createRefreshScheduler", () => {
     vi.advanceTimersByTime(MAX_WAIT * 2);
     expect(onRefresh).not.toHaveBeenCalled();
   });
+
+  it("can be re-armed after cancel() (R5)", () => {
+    const s = makeScheduler();
+
+    s.schedule();
+    s.cancel();
+    vi.advanceTimersByTime(MAX_WAIT);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    // A fresh schedule after cancel must still fire — cancel clears timers
+    // without permanently disabling the scheduler.
+    s.schedule();
+    vi.advanceTimersByTime(DELAY);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-arms the maxWait cap after a dropped hidden fire (R8)", () => {
+    const s = makeScheduler();
+
+    // Hidden: the fire is dropped and both timers are cleared.
+    visible = false;
+    s.schedule();
+    vi.advanceTimersByTime(MAX_WAIT);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    // Visible again: a fresh sustained sub-delay burst must still be capped by
+    // a re-armed maxWait (starvation protection is restored, not consumed).
+    visible = true;
+    const step = DELAY - 50;
+    let elapsed = 0;
+    while (elapsed < MAX_WAIT) {
+      s.schedule();
+      vi.advanceTimersByTime(step);
+      elapsed += step;
+    }
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a fresh maxWait window for each burst after a trailing fire (R8)", () => {
+    const s = makeScheduler();
+
+    // First burst settles via the trailing timer, clearing the maxWait timer.
+    s.schedule();
+    vi.advanceTimersByTime(DELAY);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    // A second sustained burst must get its own maxWait cap, not inherit the
+    // already-elapsed window from the first burst.
+    const step = DELAY - 50;
+    let elapsed = 0;
+    while (elapsed < MAX_WAIT) {
+      s.schedule();
+      vi.advanceTimersByTime(step);
+      elapsed += step;
+    }
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+  });
 });

@@ -17,6 +17,10 @@ const REFRESH_MAX_WAIT_MS = 2_000;
 // Grace period before closing the SSE connection on background, so transient
 // iOS visibility flips (app-switcher peek, notification shade) don't churn it.
 const SSE_DISCONNECT_GRACE_MS = 5_000;
+// Backoff bounds for reconnecting a permanently-closed SSE stream while the tab
+// is foregrounded (the browser does not auto-reconnect a CLOSED EventSource).
+const SSE_RECONNECT_BASE_MS = 5_000;
+const SSE_RECONNECT_MAX_MS = 60_000;
 
 interface SyncResultData {
   newMessages: number;
@@ -82,7 +86,14 @@ export function AutoSync() {
       isVisible: () => document.visibilityState === "visible",
       onRefresh: () => {
         void (async () => {
-          await refreshSidebarCounts();
+          // Sidebar counts are best-effort — a failed server action must not
+          // swallow the view refresh below (or surface as an unhandled
+          // rejection), so isolate it.
+          try {
+            await refreshSidebarCounts();
+          } catch {
+            // ignore — the RSC refresh below will still pick up changes
+          }
           queryClient.invalidateQueries({ queryKey: ["sync-status"] });
           queryClient.invalidateQueries({ queryKey: ["messages"] });
           routerRef.current.refresh();
@@ -104,8 +115,33 @@ export function AutoSync() {
   useEffect(() => {
     let es: EventSource | null = null;
     let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempts = 0;
 
     const schedule = () => schedulerRef.current?.schedule();
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (reconnectTimer || es) return;
+      const delay = Math.min(
+        SSE_RECONNECT_BASE_MS * 2 ** reconnectAttempts,
+        SSE_RECONNECT_MAX_MS,
+      );
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        // Only reconnect while foregrounded; a hidden tab reconnects on resume.
+        if (document.visibilityState === "visible") {
+          reconnectAttempts++;
+          connect();
+        }
+      }, delay);
+    };
 
     const connect = () => {
       if (es) return;
@@ -128,14 +164,25 @@ export function AutoSync() {
         schedule();
       });
 
+      es.onopen = () => {
+        // Connected — reset the backoff window.
+        reconnectAttempts = 0;
+      };
+
       es.onerror = () => {
-        // The browser auto-reconnects an EventSource unless it's permanently
-        // closed. If it is, drop our handle so we reconnect on the next resume.
-        if (es && es.readyState === EventSource.CLOSED) es = null;
+        // The browser auto-reconnects an EventSource on transient errors. Only
+        // a permanently-closed stream needs manual recovery (e.g. a 401 on
+        // session expiry or a server restart) — without this, realtime would
+        // silently die until the next background→resume cycle.
+        if (es && es.readyState === EventSource.CLOSED) {
+          es = null;
+          if (document.visibilityState === "visible") scheduleReconnect();
+        }
       };
     };
 
     const disconnect = () => {
+      clearReconnectTimer();
       es?.close();
       es = null;
     };
@@ -151,12 +198,15 @@ export function AutoSync() {
       if (document.visibilityState === "visible") {
         // A quick hide→show flip cancels the pending disconnect, avoiding churn.
         clearDisconnectTimer();
+        reconnectAttempts = 0;
         connect();
         // Pick up anything that changed while we were backgrounded.
         schedule();
       } else if (!disconnectTimer) {
-        // Defer the close so transient visibility flips don't churn the
-        // connection (and the per-connection server-side auth() it triggers).
+        // Going hidden: cancel any pending reconnect (we'll reconnect on
+        // resume) and defer the close so transient visibility flips don't churn
+        // the connection (and the per-connection server-side auth() it triggers).
+        clearReconnectTimer();
         disconnectTimer = setTimeout(() => {
           disconnectTimer = null;
           disconnect();

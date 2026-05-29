@@ -30,7 +30,7 @@ export interface RefreshScheduler {
   cancel: () => void;
 }
 
-export interface RefreshSchedulerOptions {
+interface RefreshSchedulerOptions {
   /** Trailing debounce window in ms — a burst within this window fires once. */
   delayMs: number;
   /** Upper bound: force-fire after this long even under sustained scheduling. */
