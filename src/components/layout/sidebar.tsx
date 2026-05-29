@@ -57,6 +57,7 @@ const NAV_SHORTCUTS: Record<string, string> = {
   "/follow-up": "U",
   "/snoozed": "Z",
   "/scheduled": "D",
+  "/files": "L",
   "/contacts": "C",
 };
 
