@@ -19,6 +19,7 @@ import {
   canShareFiles,
   shareOrOpenAttachment,
 } from "@/lib/mail/attachment-share";
+import { PdfCanvas } from "@/components/mail/pdf-canvas";
 
 export interface ViewerAttachment {
   id: string;
@@ -59,12 +60,16 @@ export function AttachmentViewer({
   onOpenChange: (open: boolean) => void;
 }) {
   const [sharing, setSharing] = useState(false);
+  // Set when the iOS pdfjs preview fails to load/render, so we fall back to the
+  // open/share affordance instead of leaving the user with a broken preview.
+  const [pdfFailed, setPdfFailed] = useState(false);
   const shareAbortRef = useRef<AbortController | null>(null);
 
   // When a different attachment is shown, reset transient state and abort any
   // in-flight share fetch so a stale request can't share the previous file.
   useEffect(() => {
     setSharing(false);
+    setPdfFailed(false);
     return () => {
       shareAbortRef.current?.abort();
     };
@@ -103,6 +108,18 @@ export function AttachmentViewer({
 
   const showShare = canShareFiles();
 
+  // Shown when we can't embed the file here (unpreviewable type, or an iOS PDF
+  // whose pdfjs render failed). The buttons above still open/share the file.
+  const fallback = (
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+      <FileText className="h-12 w-12 opacity-50" />
+      <p className="text-sm">
+        Inline preview isn&apos;t supported here. Use the buttons above to open
+        or share the file.
+      </p>
+    </div>
+  );
+
   let preview: React.ReactNode;
   if (isSafeInlineImage(ct)) {
     preview = (
@@ -113,14 +130,31 @@ export function AttachmentViewer({
         className="mx-auto max-h-full max-w-full object-contain"
       />
     );
-  } else if (isPdf(ct) && !isIOS()) {
-    preview = (
-      <iframe
-        src={inlineUrl}
-        title={attachment.filename}
-        className="h-full w-full border-0 bg-white"
-      />
-    );
+  } else if (isPdf(ct)) {
+    // iOS Safari/WebKit won't render PDFs in an <iframe>, so rasterise them
+    // client-side via pdfjs there; other browsers use the lighter native
+    // <iframe> viewer. If the pdfjs render fails, fall back to open/share.
+    if (isIOS()) {
+      preview = pdfFailed ? (
+        fallback
+      ) : (
+        // key on the url so switching between PDFs remounts the canvas (fresh
+        // loading state) instead of briefly showing the previous document.
+        <PdfCanvas
+          key={inlineUrl}
+          url={inlineUrl}
+          onError={() => setPdfFailed(true)}
+        />
+      );
+    } else {
+      preview = (
+        <iframe
+          src={inlineUrl}
+          title={attachment.filename}
+          className="h-full w-full border-0 bg-white"
+        />
+      );
+    }
   } else if (isViewableText(ct)) {
     preview = (
       // sandbox (no allow-scripts) prevents the text document from executing
@@ -133,16 +167,7 @@ export function AttachmentViewer({
       />
     );
   } else {
-    // PDF on iOS (or anything else previewable we can't embed here).
-    preview = (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
-        <FileText className="h-12 w-12 opacity-50" />
-        <p className="text-sm">
-          Inline preview isn&apos;t supported here. Use the buttons above to
-          open or share the file.
-        </p>
-      </div>
-    );
+    preview = fallback;
   }
 
   return (
