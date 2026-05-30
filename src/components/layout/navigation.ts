@@ -9,6 +9,7 @@ import {
   Newspaper,
   Receipt,
   BookUser,
+  Paperclip,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,5 +75,6 @@ export const navigation: NavItem[] = [
   },
   { name: "Sent", href: "/sent", icon: Send },
   { name: "Archive", href: "/archive", icon: Archive },
+  { name: "Files", href: "/files", icon: Paperclip },
   { name: "Contacts", href: "/contacts", icon: BookUser },
 ];

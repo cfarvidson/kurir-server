@@ -53,6 +53,7 @@ const navigationShortcuts: ShortcutEntry[] = [
   { keys: ["g", "u"], description: "Follow Up", mode: "sequence" },
   { keys: ["g", "z"], description: "Snoozed", mode: "sequence" },
   { keys: ["g", "d"], description: "Scheduled", mode: "sequence" },
+  { keys: ["g", "l"], description: "Files", mode: "sequence" },
   { keys: ["g", "c"], description: "Contacts", mode: "sequence" },
 ];
 
@@ -198,6 +199,7 @@ const LISTING_PATHS = new Set([
   "/snoozed",
   "/follow-up",
   "/scheduled",
+  "/files",
   "/contacts",
 ]);
 
@@ -211,6 +213,7 @@ const GOTO_MAP: Record<string, string> = {
   u: "/follow-up",
   z: "/snoozed",
   d: "/scheduled",
+  l: "/files",
   c: "/contacts",
 };
 
