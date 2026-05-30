@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { setSenderImagePolicy } from "@/actions/image-policy";
 
 interface BlockedImagesBannerProps {
@@ -29,19 +30,19 @@ export function BlockedImagesBanner({
 }: BlockedImagesBannerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [trusted, setTrusted] = useState(false);
 
   function handleAlwaysShow() {
     if (!senderId) return;
-    setTrusted(true);
-    onLoadImages();
+    // Persist first, then reveal — so a failed write never leaves images
+    // loaded while the sender wasn't actually allowlisted (and the error is
+    // surfaced instead of swallowed).
     startTransition(async () => {
       try {
         await setSenderImagePolicy(senderId, true);
+        onLoadImages();
         router.refresh();
       } catch {
-        // Revert the optimistic state if the server rejected the change.
-        setTrusted(false);
+        toast.error("Couldn't update image settings. Please try again.");
       }
     });
   }
@@ -65,7 +66,7 @@ export function BlockedImagesBanner({
         >
           Load images
         </button>
-        {senderId && !trusted && (
+        {senderId && (
           <button
             type="button"
             onClick={handleAlwaysShow}

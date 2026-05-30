@@ -80,7 +80,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(message: ThreadMessage) {
+function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
   const senderName = escapeHtml(
     message.sender?.displayName || message.fromName || message.fromAddress,
   );
@@ -90,7 +90,7 @@ function buildEmailHtml(message: ThreadMessage) {
   const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
   const date = new Date(message.sentAt || message.receivedAt).toLocaleString();
   const body = message.htmlBody
-    ? sanitizeEmailHtml(message.htmlBody)
+    ? sanitizeEmailHtml(message.htmlBody, { blockRemoteImages })
     : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
@@ -112,10 +112,10 @@ function buildEmailHtml(message: ThreadMessage) {
 </body></html>`;
 }
 
-function printEmail(message: ThreadMessage) {
+function printEmail(message: ThreadMessage, blockRemoteImages: boolean) {
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(buildEmailHtml(message));
+  win.document.write(buildEmailHtml(message, blockRemoteImages));
   win.document.close();
   win.addEventListener("load", () => win.print());
 }
@@ -142,9 +142,11 @@ function MessageBubble({
   const [blockedCount, setBlockedCount] = useState(0);
 
   // Block remote images unless the user disabled blocking, the sender is
-  // trusted, or the user already revealed images for this message.
+  // trusted, the user already revealed images, or this is the user's own
+  // outbound message (your own images aren't tracking you).
   const shouldBlockImages =
     blockRemoteImages &&
+    !isFromCurrentUser &&
     !message.sender?.allowRemoteImages &&
     !imagesRevealed;
 
@@ -252,7 +254,7 @@ function MessageBubble({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        printEmail(message);
+                        printEmail(message, shouldBlockImages);
                       }}
                       className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                       title="Print this email"
