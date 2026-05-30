@@ -110,4 +110,4 @@ CalVer `YYYY.MM.DD` (e.g., `2026.04.01`). Use `/bump` to create a release. See `
 
 ## Workflow
 
-- **Do not create new branches or PRs.** Commit directly to the current branch. The user will handle branch management and PR creation.
+- Ship changes on a new branch in a git worktree, then open a PR — don't commit feature work directly to `main`. Use the `cfarvidson/` branch prefix.
