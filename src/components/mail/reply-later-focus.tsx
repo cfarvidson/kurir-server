@@ -31,9 +31,14 @@ export interface ReplyLaterItem {
  */
 export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
   const router = useRouter();
-  const [queue, setQueue] = useState(items);
+  // Derive the visible queue from props minus locally-cleared ids, so a
+  // router.refresh() (or a thread flagged elsewhere) re-syncs on the next
+  // render instead of being shadowed by stale local state.
+  const [clearedIds, setClearedIds] = useState<Set<string>>(new Set());
   const [index, setIndex] = useState(0);
   const [isPending, startTransition] = useTransition();
+
+  const queue = items.filter((it) => !clearedIds.has(it.id));
 
   if (queue.length === 0) {
     return (
@@ -53,18 +58,15 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
   const current = queue[safeIndex];
   const sender = current.fromName || current.fromAddress;
 
-  function advanceAfterRemoval() {
-    setQueue((prev) => {
-      const next = prev.filter((it) => it.id !== current.id);
-      setIndex((i) => Math.min(i, Math.max(0, next.length - 1)));
-      return next;
-    });
-  }
-
   function handleDone() {
+    const id = current.id;
+    // Keep the cursor on the item that shifts into this slot; clamp when the
+    // last item was removed.
+    const remaining = queue.length - 1;
     startTransition(async () => {
-      await clearReplyLater(current.id);
-      advanceAfterRemoval();
+      await clearReplyLater(id);
+      setClearedIds((prev) => new Set(prev).add(id));
+      setIndex(Math.max(0, Math.min(safeIndex, remaining - 1)));
       router.refresh();
     });
   }

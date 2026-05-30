@@ -39,7 +39,7 @@ const badges: {
   {
     key: "showReplyLaterBadge",
     label: "Reply Later",
-    description: "Threads awaiting your reply",
+    description: "Messages awaiting your reply",
   },
   {
     key: "showScheduledBadge",
