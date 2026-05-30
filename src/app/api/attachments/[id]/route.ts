@@ -38,14 +38,31 @@ function isImageType(contentType: string): boolean {
   return contentType.startsWith("image/");
 }
 
-function responseHeaders(attachment: {
-  contentType: string;
-  filename: string;
-  size: number;
-}) {
-  const disposition = isImageType(attachment.contentType)
-    ? "inline"
-    : "attachment";
+/**
+ * Types we're willing to render inline in a browser tab/iframe when the client
+ * explicitly asks (`?inline=1`). Deliberately excludes text/html and svg, which
+ * could execute script in our origin (XSS) if rendered inline.
+ */
+function isInlineViewable(contentType: string): boolean {
+  const ct = contentType.toLowerCase();
+  if (ct === "application/pdf") return true;
+  if (ct === "image/svg+xml" || ct === "text/html") return false;
+  if (ct.startsWith("text/")) return true;
+  return false;
+}
+
+function responseHeaders(
+  attachment: {
+    contentType: string;
+    filename: string;
+    size: number;
+  },
+  forceInline = false,
+) {
+  const inline =
+    isImageType(attachment.contentType) ||
+    (forceInline && isInlineViewable(attachment.contentType));
+  const disposition = inline ? "inline" : "attachment";
   return {
     "Content-Type": attachment.contentType || "application/octet-stream",
     "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.filename)}"`,
@@ -66,7 +83,7 @@ function isOwner(
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -75,6 +92,7 @@ export async function GET(
   }
 
   const { id } = await params;
+  const forceInline = req.nextUrl.searchParams.get("inline") === "1";
 
   const attachment = await db.attachment.findUnique({
     where: { id },
@@ -97,7 +115,7 @@ export async function GET(
   // Serve from cache/upload if content is available
   if (attachment.content) {
     return new NextResponse(attachment.content, {
-      headers: responseHeaders(attachment),
+      headers: responseHeaders(attachment, forceInline),
     });
   }
 
@@ -233,7 +251,7 @@ export async function GET(
 
     return new NextResponse(content, {
       headers: {
-        ...responseHeaders(attachment),
+        ...responseHeaders(attachment, forceInline),
         "Content-Length": String(content.length),
       },
     });

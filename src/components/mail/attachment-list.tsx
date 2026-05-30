@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { Eye, Loader2, Paperclip } from "lucide-react";
+import {
+  AttachmentViewer,
+  canPreview,
+  type ViewerAttachment,
+} from "@/components/mail/attachment-viewer";
 
 interface AttachmentItem {
   id: string;
   filename: string;
   size: number;
+  contentType: string;
 }
 
 function formatSize(size: number): string {
@@ -14,12 +20,14 @@ function formatSize(size: number): string {
 }
 
 /**
- * Renders email attachments. On touch devices (notably iOS PWAs, where the
- * `download` attribute is ignored and tapping a PDF link is a dead end) the
- * tap is intercepted to open the native share sheet via the Web Share API,
- * letting the user Save to Files, open in Books, AirDrop, print, etc.
+ * Renders email attachments.
  *
- * Everywhere else the plain `<a download>` behaviour is preserved.
+ * Previewable files (PDFs, images, plain text) open in an in-app viewer where
+ * the user can read them and then download/open/share. Everything else keeps
+ * the plain download behaviour, with one exception: on touch devices (notably
+ * iOS PWAs, where the `download` attribute is ignored and tapping a link is a
+ * dead end) the tap is intercepted to open the native share sheet via the Web
+ * Share API, letting the user Save to Files, AirDrop, print, etc.
  */
 export function AttachmentList({
   attachments,
@@ -27,8 +35,15 @@ export function AttachmentList({
   attachments: AttachmentItem[];
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ViewerAttachment | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
-  async function handleClick(
+  function openViewer(att: AttachmentItem) {
+    setViewing(att);
+    setViewerOpen(true);
+  }
+
+  async function handleShareClick(
     e: React.MouseEvent<HTMLAnchorElement>,
     att: AttachmentItem,
   ) {
@@ -56,7 +71,7 @@ export function AttachmentList({
       }
       const blob = await res.blob();
       const file = new File([blob], att.filename, {
-        type: blob.type || "application/octet-stream",
+        type: blob.type || att.contentType || "application/octet-stream",
       });
 
       if (navigator.canShare({ files: [file] })) {
@@ -80,27 +95,61 @@ export function AttachmentList({
     }
   }
 
+  const chipClass =
+    "inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted";
+
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {attachments.map((att) => (
-        <a
-          key={att.id}
-          href={`/api/attachments/${att.id}`}
-          download={att.filename}
-          onClick={(e) => handleClick(e, att)}
-          className="inline-flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5 text-xs transition-colors hover:bg-muted"
-        >
-          {busyId === att.id ? (
-            <Loader2 className="h-3 w-3 animate-spin text-primary/60" />
+    <>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {attachments.map((att) => {
+          const previewable = canPreview(att.contentType);
+          const label = (
+            <>
+              {previewable ? (
+                <Eye className="h-3 w-3 text-primary/60" />
+              ) : busyId === att.id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-primary/60" />
+              ) : (
+                <Paperclip className="h-3 w-3 text-primary/60" />
+              )}
+              <span className="max-w-[200px] truncate font-medium">
+                {att.filename}
+              </span>
+              <span className="text-muted-foreground/60">
+                {formatSize(att.size)}
+              </span>
+            </>
+          );
+
+          return previewable ? (
+            <button
+              key={att.id}
+              type="button"
+              onClick={() => openViewer(att)}
+              className={chipClass}
+              title="Preview"
+            >
+              {label}
+            </button>
           ) : (
-            <Paperclip className="h-3 w-3 text-primary/60" />
-          )}
-          <span className="max-w-[200px] truncate font-medium">
-            {att.filename}
-          </span>
-          <span className="text-muted-foreground/60">{formatSize(att.size)}</span>
-        </a>
-      ))}
-    </div>
+            <a
+              key={att.id}
+              href={`/api/attachments/${att.id}`}
+              download={att.filename}
+              onClick={(e) => handleShareClick(e, att)}
+              className={chipClass}
+            >
+              {label}
+            </a>
+          );
+        })}
+      </div>
+
+      <AttachmentViewer
+        attachment={viewing}
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+      />
+    </>
   );
 }

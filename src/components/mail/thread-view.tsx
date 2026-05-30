@@ -44,6 +44,7 @@ interface ThreadMessage {
     filename: string;
     size: number;
     contentId: string | null;
+    contentType: string;
   }[];
 }
 
