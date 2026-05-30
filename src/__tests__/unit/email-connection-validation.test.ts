@@ -101,7 +101,7 @@ describe("Default connection business logic", () => {
   });
 
   it("subsequent connections are not default", () => {
-    const existingCount = 1;
+    const existingCount: number = 1;
     const shouldBeDefault = existingCount === 0;
     expect(shouldBeDefault).toBe(false);
   });

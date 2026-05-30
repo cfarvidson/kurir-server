@@ -24,7 +24,7 @@ describe("setReplyLater", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { setReplyLater } = await import("@/actions/reply-later");
     await expect(setReplyLater("m1")).rejects.toThrow("Unauthorized");

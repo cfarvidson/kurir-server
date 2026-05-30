@@ -67,7 +67,7 @@ describe("GET /api/connections", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { GET } = await import("@/app/api/connections/route");
     const req = makeRequest("GET");
@@ -118,7 +118,7 @@ describe("POST /api/connections", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { POST } = await import("@/app/api/connections/route");
     const req = makeRequest("POST", {
@@ -341,7 +341,7 @@ describe("DELETE /api/connections/[id]", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { DELETE } = await import("@/app/api/connections/[id]/route");
     const req = makeRequest("DELETE");

@@ -47,7 +47,7 @@ describe("approveSender", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { approveSender } = await import("@/actions/senders");
     await expect(approveSender("sender-1", "IMBOX")).rejects.toThrow(
@@ -105,7 +105,7 @@ describe("rejectSender", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { rejectSender } = await import("@/actions/senders");
     await expect(rejectSender("sender-1")).rejects.toThrow("Unauthorized");

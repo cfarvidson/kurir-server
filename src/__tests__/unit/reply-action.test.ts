@@ -48,7 +48,7 @@ describe("replyToMessage", () => {
 
   it("throws Unauthorized when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { replyToMessage } = await import("@/actions/reply");
     await expect(replyToMessage("msg-1", "Hello")).rejects.toThrow(
