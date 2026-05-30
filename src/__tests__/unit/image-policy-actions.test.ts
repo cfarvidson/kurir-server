@@ -28,7 +28,7 @@ describe("setSenderImagePolicy", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { setSenderImagePolicy } = await import("@/actions/image-policy");
     await expect(setSenderImagePolicy("sender-1", true)).rejects.toThrow(
@@ -81,7 +81,7 @@ describe("setBlockRemoteImages", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { setBlockRemoteImages } = await import("@/actions/image-policy");
     await expect(setBlockRemoteImages(false)).rejects.toThrow("Unauthorized");

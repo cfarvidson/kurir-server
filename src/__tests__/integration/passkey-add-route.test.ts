@@ -95,7 +95,7 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { POST } =
       await import("@/app/api/auth/webauthn/register/options/route");
@@ -185,7 +185,7 @@ describe("POST /api/auth/webauthn/register/options?addPasskey=true", () => {
     // Without ?addPasskey=true, the route generates options for a new user
     // and does not call auth(). This test ensures the two code paths are distinct.
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { db } = await import("@/lib/db");
     vi.mocked(db.passkey.findMany).mockResolvedValue([]);
@@ -274,7 +274,7 @@ describe("POST /api/auth/webauthn/register/verify?addPasskey=true", () => {
     } as any);
 
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null); // no session!
+    vi.mocked(auth).mockResolvedValue(null as never); // no session!
 
     const { POST } =
       await import("@/app/api/auth/webauthn/register/verify/route");

@@ -36,7 +36,7 @@ describe("createContact", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { createContact } = await import("@/actions/contacts");
     await expect(
@@ -126,7 +126,7 @@ describe("deleteContact", () => {
 
   it("throws when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { deleteContact } = await import("@/actions/contacts");
     await expect(deleteContact("contact-1")).rejects.toThrow("Unauthorized");

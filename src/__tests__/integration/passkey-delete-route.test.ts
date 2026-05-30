@@ -38,7 +38,7 @@ describe("DELETE /api/auth/webauthn/passkeys/[id]", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { DELETE } =
       await import("@/app/api/auth/webauthn/passkeys/[id]/route");

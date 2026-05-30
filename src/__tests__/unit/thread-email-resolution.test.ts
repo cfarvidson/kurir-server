@@ -406,15 +406,15 @@ describe("multi-email currentUserEmail resolution — default connection behavio
 
   it("prefers the connection where isDefault=true over older connections", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.emailConnection.findFirst).mockImplementation(
-      async (args: any) => {
-        // Simulate DB ordering: return the default connection first
-        if (args.orderBy?.[0]?.isDefault === "desc") {
-          return { email: "me@gmail.com" }; // default connection
-        }
-        return null;
-      },
-    );
+    vi.mocked(db.emailConnection.findFirst).mockImplementation((async (
+      args: any,
+    ) => {
+      // Simulate DB ordering: return the default connection first
+      if (args.orderBy?.[0]?.isDefault === "desc") {
+        return { email: "me@gmail.com" }; // default connection
+      }
+      return null;
+    }) as never);
 
     const result = await getUserEmailFromConnections("user-1");
     expect(result).toBe("me@gmail.com");

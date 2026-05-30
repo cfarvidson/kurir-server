@@ -53,7 +53,7 @@ describe("POST /api/mail/send", () => {
 
   it("returns 401 when not authenticated", async () => {
     const { auth } = await import("@/lib/auth");
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as never);
 
     const { POST } = await import("@/app/api/mail/send/route");
     const req = makeRequest({ to: "someone@example.com" });
