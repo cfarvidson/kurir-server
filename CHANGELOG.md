@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.05.30.2] - 2026-05-30
+
+### Added
+
+- Reply Later: stack messages you want to get back to and work through them in a dedicated focus mode, one at a time.
+- Privacy: a spy-tracker blocker that strips tracking pixels and proxies remote images so senders can’t see when or where you open their mail.
+
+### Fixed
+
+- Mobile (PWA): vertical scrolling in list views no longer accidentally triggers swipe-to-archive — only deliberate horizontal swipes archive a row.
+
 ## [v2026.05.30] - 2026-05-30
 
 ### Added

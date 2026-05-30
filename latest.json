@@ -1,8 +1,8 @@
 {
-  "version": "2026.05.30",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.30",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.30",
-  "changelog": "New Files library to browse all attachments, native iOS share sheet for attachments, and fixes for mobile PWA freezing from realtime refresh storms.",
+  "version": "2026.05.30.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.30.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.30.2",
+  "changelog": "Reply Later stack & focus mode, spy-tracker blocker for remote images, and a swipe-to-archive scroll fix.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-05-30T14:22:00Z"
+  "releasedAt": "2026-05-30T14:49:51Z"
 }
