@@ -32,6 +32,7 @@ model User {
   showFeedBadge       Boolean @default(true)
   showPaperTrailBadge Boolean @default(true)
   showFollowUpBadge   Boolean @default(true)
+  showReplyLaterBadge Boolean @default(true)
   showScheduledBadge  Boolean @default(true)
 
   // Relations
@@ -302,6 +303,9 @@ model Message {
   followUpSetAt DateTime? // When the reminder was set (for auto-cancel comparison)
   isFollowUp    Boolean   @default(false) // True when reminder has fired
 
+  // Reply Later: user owes a reply on this thread (cleared when replied/dismissed)
+  isReplyLater Boolean @default(false)
+
   // Relations
   folderId String
   folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
@@ -330,6 +334,7 @@ model Message {
   @@index([userId, isArchived])
   @@index([userId, isSnoozed, snoozedUntil])
   @@index([userId, isFollowUp])
+  @@index([userId, isReplyLater])
   @@index([userId, followUpAt])
   @@index([userId, receivedAt(sort: Desc)])
   @@index([userId, uid])

@@ -10,6 +10,7 @@ import {
   Receipt,
   BookUser,
   Paperclip,
+  Reply,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export interface NavItem {
     | "screener"
     | "scheduled"
     | "followUp"
+    | "replyLater"
     | "feed"
     | "paperTrail";
 }
@@ -34,6 +36,7 @@ export interface BadgePreferences {
   showFeedBadge: boolean;
   showPaperTrailBadge: boolean;
   showFollowUpBadge: boolean;
+  showReplyLaterBadge: boolean;
   showScheduledBadge: boolean;
 }
 
@@ -43,6 +46,7 @@ export const badgeKeyToPref: Record<BadgeKey, keyof BadgePreferences> = {
   feed: "showFeedBadge",
   paperTrail: "showPaperTrailBadge",
   followUp: "showFollowUpBadge",
+  replyLater: "showReplyLaterBadge",
   scheduled: "showScheduledBadge",
 };
 
@@ -52,6 +56,7 @@ export const defaultBadgePreferences: BadgePreferences = {
   showFeedBadge: true,
   showPaperTrailBadge: true,
   showFollowUpBadge: true,
+  showReplyLaterBadge: true,
   showScheduledBadge: true,
 };
 
@@ -67,6 +72,12 @@ export const navigation: NavItem[] = [
   },
   { name: "Snoozed", href: "/snoozed", icon: Clock },
   { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
+  {
+    name: "Reply Later",
+    href: "/reply-later",
+    icon: Reply,
+    badgeKey: "replyLater",
+  },
   {
     name: "Scheduled",
     href: "/scheduled",

@@ -48,6 +48,7 @@ interface ThreadDetailViewProps {
     timezone: string;
     followUpAt: Date | null;
     isFollowUp: boolean;
+    isReplyLater: boolean;
   }) => React.ReactNode;
   isSentView?: boolean;
   mobileActions?: {
@@ -224,6 +225,7 @@ export async function ThreadDetailView({
             timezone: userInfo.timezone,
             followUpAt: targetMessage.followUpAt,
             isFollowUp: targetMessage.isFollowUp,
+            isReplyLater: targetMessage.isReplyLater,
           })}
         </div>
       </div>

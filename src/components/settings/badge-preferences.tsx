@@ -37,6 +37,11 @@ const badges: {
     description: "Active reminder count",
   },
   {
+    key: "showReplyLaterBadge",
+    label: "Reply Later",
+    description: "Messages awaiting your reply",
+  },
+  {
     key: "showScheduledBadge",
     label: "Scheduled",
     description: "Pending message count",
