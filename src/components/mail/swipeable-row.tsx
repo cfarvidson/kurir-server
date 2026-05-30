@@ -9,6 +9,7 @@ import {
 } from "motion/react";
 import { Archive, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveSwipeAction } from "@/lib/mail/swipe";
 
 interface SwipeableRowProps {
   children: React.ReactNode;
@@ -63,21 +64,20 @@ export function SwipeableRow({
   ) {
     requestAnimationFrame(() => onDragStateChange?.(false));
     const width = rowRef.current?.offsetWidth ?? 375;
-    const threshold = width * 0.4;
-    const velocityThreshold = 500;
 
-    if (
-      onSwipeRight &&
-      info.offset.x > 0 &&
-      (info.offset.x > threshold || info.velocity.x > velocityThreshold)
-    ) {
-      onSwipeRight();
-    } else if (
-      onSwipeLeft &&
-      info.offset.x < 0 &&
-      (info.offset.x < -threshold || info.velocity.x < -velocityThreshold)
-    ) {
-      onSwipeLeft();
+    const action = resolveSwipeAction({
+      offsetX: info.offset.x,
+      offsetY: info.offset.y,
+      velocityX: info.velocity.x,
+      width,
+      canSwipeRight: !!onSwipeRight,
+      canSwipeLeft: !!onSwipeLeft,
+    });
+
+    if (action === "right") {
+      onSwipeRight?.();
+    } else if (action === "left") {
+      onSwipeLeft?.();
     }
   }
 
