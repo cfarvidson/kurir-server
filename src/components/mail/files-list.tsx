@@ -14,6 +14,11 @@ import { formatDate } from "@/lib/date";
 import { fileGroup, type FileGroup } from "@/lib/mail/file-types";
 import { loadMoreFiles } from "@/actions/files";
 import type { FileRow } from "@/lib/mail/files";
+import {
+  AttachmentViewer,
+  canPreview,
+  type ViewerAttachment,
+} from "@/components/mail/attachment-viewer";
 
 const GROUP_ICON: Record<FileGroup, LucideIcon> = {
   image: ImageIcon,
@@ -45,6 +50,7 @@ export function FilesList({
   const [files, setFiles] = useState(initialFiles);
   const [cursor, setCursor] = useState(initialCursor);
   const [isPending, startTransition] = useTransition();
+  const [viewing, setViewing] = useState<ViewerAttachment | null>(null);
 
   function handleLoadMore() {
     if (!cursor) return;
@@ -62,39 +68,54 @@ export function FilesList({
           const Icon = GROUP_ICON[fileGroup(file.contentType)];
           const sender =
             file.message?.fromName || file.message?.fromAddress || "Unknown";
+          const previewable = canPreview(file.contentType);
+          const rowClass =
+            "flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-muted/50";
+          const rowContent = (
+            <>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {file.filename}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {sender}
+                  {file.message?.subject ? ` · ${file.message.subject}` : ""}
+                </span>
+              </span>
+              <span className="shrink-0 text-right text-xs text-muted-foreground">
+                <span className="block tabular-nums">
+                  {formatSize(file.size)}
+                </span>
+                {file.message?.receivedAt && (
+                  <span className="block tabular-nums" suppressHydrationWarning>
+                    {formatDate(new Date(file.message.receivedAt))}
+                  </span>
+                )}
+              </span>
+            </>
+          );
           return (
             <li key={file.id}>
-              <a
-                href={`/api/attachments/${file.id}`}
-                download={file.filename}
-                className="flex items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/50"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {file.filename}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {sender}
-                    {file.message?.subject ? ` · ${file.message.subject}` : ""}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right text-xs text-muted-foreground">
-                  <span className="block tabular-nums">
-                    {formatSize(file.size)}
-                  </span>
-                  {file.message?.receivedAt && (
-                    <span
-                      className="block tabular-nums"
-                      suppressHydrationWarning
-                    >
-                      {formatDate(new Date(file.message.receivedAt))}
-                    </span>
-                  )}
-                </span>
-              </a>
+              {previewable ? (
+                <button
+                  type="button"
+                  onClick={() => setViewing(file)}
+                  className={rowClass}
+                >
+                  {rowContent}
+                </button>
+              ) : (
+                <a
+                  href={`/api/attachments/${file.id}`}
+                  download={file.filename}
+                  className={rowClass}
+                >
+                  {rowContent}
+                </a>
+              )}
               {/* Quick link to open the containing thread */}
               {file.message?.id && (
                 <Link
@@ -122,6 +143,14 @@ export function FilesList({
           </button>
         </div>
       )}
+
+      <AttachmentViewer
+        attachment={viewing}
+        open={viewing !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewing(null);
+        }}
+      />
     </div>
   );
 }

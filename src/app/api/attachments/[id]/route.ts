@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { ImapFlow } from "imapflow";
 import { getConnectionCredentials } from "@/lib/auth";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
+import {
+  isSafeInlineImage,
+  isInlineViewable,
+  isPdf,
+} from "@/lib/mail/attachment-types";
 
 /**
  * Walk bodyStructure tree to find all non-text MIME parts.
@@ -34,24 +39,38 @@ function findAttachmentParts(
   return [];
 }
 
-function isImageType(contentType: string): boolean {
-  return contentType.startsWith("image/");
-}
-
-function responseHeaders(attachment: {
-  contentType: string;
-  filename: string;
-  size: number;
-}) {
-  const disposition = isImageType(attachment.contentType)
-    ? "inline"
-    : "attachment";
-  return {
+function responseHeaders(
+  attachment: {
+    contentType: string;
+    filename: string;
+    size: number;
+  },
+  forceInline = false,
+): Record<string, string> {
+  const ct = attachment.contentType;
+  // SVG is an image but can carry script, so it is never served inline; it is
+  // excluded from the unconditional image branch and from isInlineViewable.
+  const inline = isSafeInlineImage(ct) || (forceInline && isInlineViewable(ct));
+  const disposition = inline ? "inline" : "attachment";
+  const headers: Record<string, string> = {
     "Content-Type": attachment.contentType || "application/octet-stream",
     "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.filename)}"`,
+    // Trust our own disposition decision over the browser's content sniffing —
+    // without this, a text/* file containing HTML could be sniffed and rendered
+    // as HTML in our origin.
+    "X-Content-Type-Options": "nosniff",
     ...(attachment.size ? { "Content-Length": String(attachment.size) } : {}),
     "Cache-Control": "private, max-age=86400",
   };
+  // Defence in depth: sandbox inline *documents* (text/*) so they can never
+  // execute script same-origin even if a classification guard regresses. PDFs
+  // are left to the browser's own sandboxed viewer; images load as <img>
+  // subresources (no document context), so neither needs the CSP.
+  if (inline && !isSafeInlineImage(ct) && !isPdf(ct)) {
+    headers["Content-Security-Policy"] =
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+  }
+  return headers;
 }
 
 /** Check if the current user owns this attachment (via message or direct upload). */
@@ -66,7 +85,7 @@ function isOwner(
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -75,6 +94,7 @@ export async function GET(
   }
 
   const { id } = await params;
+  const forceInline = req.nextUrl.searchParams.get("inline") === "1";
 
   const attachment = await db.attachment.findUnique({
     where: { id },
@@ -97,7 +117,7 @@ export async function GET(
   // Serve from cache/upload if content is available
   if (attachment.content) {
     return new NextResponse(attachment.content, {
-      headers: responseHeaders(attachment),
+      headers: responseHeaders(attachment, forceInline),
     });
   }
 
@@ -233,7 +253,7 @@ export async function GET(
 
     return new NextResponse(content, {
       headers: {
-        ...responseHeaders(attachment),
+        ...responseHeaders(attachment, forceInline),
         "Content-Length": String(content.length),
       },
     });

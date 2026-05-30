@@ -8,6 +8,9 @@ Hey.com-inspired email client. Next.js 15, NextAuth v5 beta, Prisma 6, PostgreSQ
 pnpm dev          # Dev server (Turbopack, port 3000)
 pnpm build        # Production build
 pnpm lint         # ESLint 10 via flat config (eslint.config.mjs)
+pnpm test         # Run test suite once (Vitest)
+pnpm test:watch   # Vitest in watch mode
+pnpm test:coverage # Vitest with V8 coverage
 pnpm db:push      # Push Prisma schema to DB
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:studio    # Prisma Studio GUI
@@ -103,7 +106,7 @@ CalVer `YYYY.MM.DD` (e.g., `2026.04.01`). Use `/bump` to create a release. See `
 - **Sent messages:** `processMessage` must check `isInbox` param before setting category flags.
 - **Build:** `pnpm build` may fail at "Collecting page data" with `tracingChannel` error (ImapFlow/Node.js compat issue). TypeScript compilation still passes.
 - **Stuck sync lock:** If sync crashes, `isSyncing` stays `true` and blocks future syncs ("Sync already in progress"). Stale lock auto-clears after 5 minutes, or fix manually: `docker compose exec postgres psql -U kurir -c 'UPDATE "SyncState" SET "isSyncing" = false;'`
-- No test framework configured yet.
+- **Tests:** Vitest. Unit tests in `src/__tests__/unit/`, integration in `src/__tests__/integration/`. Config in `vitest.config.mjs` (`@/` alias resolves). Run with `pnpm test`. Pure-function/policy modules (e.g. `src/lib/mail/attachment-types.ts`) are the highest-value coverage targets — keep security-sensitive classification logic tested.
 
 ## Workflow
 

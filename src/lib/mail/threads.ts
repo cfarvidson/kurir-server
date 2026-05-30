@@ -60,7 +60,13 @@ const threadInclude = {
     },
   },
   attachments: {
-    select: { id: true, filename: true, size: true, contentId: true },
+    select: {
+      id: true,
+      filename: true,
+      size: true,
+      contentId: true,
+      contentType: true,
+    },
   },
 } as const;
 
