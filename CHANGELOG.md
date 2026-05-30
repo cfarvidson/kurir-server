@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.05.30] - 2026-05-30
+
+### Added
+
+- Files library: a new read-only `/files` page that browses every attachment across your mail, newest first. Filter by type (images, documents, archives, other), search by filename, and page through with "Load more". Jump to it with the `g+l` keyboard shortcut. Downloads reuse the existing attachment route.
+- Mobile (PWA): attachments now open through the native iOS share sheet, so you can save to Files, share to other apps, or AirDrop directly.
+
+### Fixed
+
+- Mobile (PWA): the app no longer freezes during bursts of realtime activity. All refreshes now route through a single debounced scheduler that coalesces SSE event storms, and the realtime connection is tied to tab visibility (closed when backgrounded, reconnected with a single refresh on resume) so iOS no longer replays buffered events into a refresh storm on app resume.
+
 ## [v2026.05.20] - 2026-05-20
 
 ### Added
