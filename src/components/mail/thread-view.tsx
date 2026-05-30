@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
+import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 
 interface ThreadMessage {
@@ -33,8 +34,10 @@ interface ThreadMessage {
   isArchived?: boolean;
   snippet: string | null;
   sender?: {
+    id?: string;
     displayName: string | null;
     email: string;
+    allowRemoteImages?: boolean;
   } | null;
   attachments: {
     id: string;
@@ -48,6 +51,8 @@ interface ThreadViewProps {
   messages: ThreadMessage[];
   currentUserEmail: string;
   userEmails?: Set<string>;
+  /** User's global preference to block remote images (tracker blocker). */
+  blockRemoteImages?: boolean;
 }
 
 function getInitialColor(name: string): string {
@@ -75,7 +80,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(message: ThreadMessage) {
+function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
   const senderName = escapeHtml(
     message.sender?.displayName || message.fromName || message.fromAddress,
   );
@@ -85,7 +90,7 @@ function buildEmailHtml(message: ThreadMessage) {
   const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
   const date = new Date(message.sentAt || message.receivedAt).toLocaleString();
   const body = message.htmlBody
-    ? sanitizeEmailHtml(message.htmlBody)
+    ? sanitizeEmailHtml(message.htmlBody, { blockRemoteImages })
     : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
@@ -107,10 +112,10 @@ function buildEmailHtml(message: ThreadMessage) {
 </body></html>`;
 }
 
-function printEmail(message: ThreadMessage) {
+function printEmail(message: ThreadMessage, blockRemoteImages: boolean) {
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(buildEmailHtml(message));
+  win.document.write(buildEmailHtml(message, blockRemoteImages));
   win.document.close();
   win.addEventListener("load", () => win.print());
 }
@@ -121,16 +126,29 @@ function MessageBubble({
   isCollapsed: initialCollapsed,
   isFirst,
   isLast,
+  blockRemoteImages = false,
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
   isCollapsed: boolean;
   isFirst: boolean;
   isLast: boolean;
+  blockRemoteImages?: boolean;
 }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
+  const [imagesRevealed, setImagesRevealed] = useState(false);
+  const [blockedCount, setBlockedCount] = useState(0);
+
+  // Block remote images unless the user disabled blocking, the sender is
+  // trusted, the user already revealed images, or this is the user's own
+  // outbound message (your own images aren't tracking you).
+  const shouldBlockImages =
+    blockRemoteImages &&
+    !isFromCurrentUser &&
+    !message.sender?.allowRemoteImages &&
+    !imagesRevealed;
 
   const hasHtmlQuotes =
     /<blockquote|class="gmail_quote"|class="moz-cite-prefix"/.test(
@@ -236,7 +254,7 @@ function MessageBubble({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        printEmail(message);
+                        printEmail(message, shouldBlockImages);
                       }}
                       className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                       title="Print this email"
@@ -254,11 +272,26 @@ function MessageBubble({
                 {/* Body */}
                 <div className="mt-4">
                   {message.htmlBody ? (
-                    <EmailBodyFrame
-                      html={message.htmlBody}
-                      collapseQuotes={quotesCollapsed && hasHtmlQuotes}
-                      attachments={message.attachments}
-                    />
+                    <>
+                      {shouldBlockImages && blockedCount > 0 && (
+                        <BlockedImagesBanner
+                          count={blockedCount}
+                          senderId={message.sender?.id}
+                          senderLabel={
+                            message.sender?.displayName ||
+                            message.sender?.email
+                          }
+                          onLoadImages={() => setImagesRevealed(true)}
+                        />
+                      )}
+                      <EmailBodyFrame
+                        html={message.htmlBody}
+                        collapseQuotes={quotesCollapsed && hasHtmlQuotes}
+                        attachments={message.attachments}
+                        blockRemoteImages={shouldBlockImages}
+                        onBlockedCount={setBlockedCount}
+                      />
+                    </>
                   ) : (
                     <div>
                       <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
@@ -300,6 +333,7 @@ export function ThreadView({
   messages,
   currentUserEmail,
   userEmails,
+  blockRemoteImages = false,
 }: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
   return (
@@ -312,6 +346,7 @@ export function ThreadView({
           isCollapsed={i < messages.length - 1}
           isFirst={i === 0}
           isLast={i === messages.length - 1}
+          blockRemoteImages={blockRemoteImages}
         />
       ))}
     </div>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { sanitizeEmailHtml } from "../sanitize-html";
+import { sanitizeEmailHtml, sanitizeEmailHtmlWithMeta } from "../sanitize-html";
 
 describe("sanitizeEmailHtml", () => {
   describe("dangerous tag removal", () => {
@@ -394,6 +394,133 @@ describe("sanitizeEmailHtml", () => {
       );
       expect(result).not.toContain("Quoted");
       expect(result).toContain("Reply");
+    });
+  });
+
+  describe("blockRemoteImages (spy-tracker blocker)", () => {
+    it("strips the src of a remote image and stashes it in data-blocked-src", () => {
+      const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://example.com/image.png" />',
+        { blockRemoteImages: true },
+      );
+      expect(html).not.toContain("/api/proxy/image");
+      expect(html).not.toMatch(/\ssrc="https:/);
+      expect(html).toContain(
+        'data-blocked-src="https://example.com/image.png"',
+      );
+      expect(blockedRemoteImages).toBe(1);
+    });
+
+    it("blocks a 1x1 remote tracking pixel and counts it", () => {
+      const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://tracker.evil.com/open.gif?id=abc" width="1" height="1" />',
+        { blockRemoteImages: true },
+      );
+      // The URL is preserved only in data-blocked-src (no live request fires).
+      expect(html).not.toMatch(/\ssrc="https:\/\/tracker\.evil\.com/);
+      expect(html).not.toContain("/api/proxy/image");
+      expect(html).toContain("data-blocked-src");
+      expect(blockedRemoteImages).toBe(1);
+    });
+
+    it("proxies (does not block) when blockRemoteImages is false", () => {
+      const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://example.com/image.png" />',
+        { blockRemoteImages: false },
+      );
+      expect(html).toContain("/api/proxy/image?url=");
+      expect(html).not.toContain("data-blocked-src");
+      expect(blockedRemoteImages).toBe(0);
+    });
+
+    it("never blocks CID images even when blocking is on", () => {
+      const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="cid:image001@example.com" />',
+        {
+          blockRemoteImages: true,
+          attachments: [{ id: "att-9", contentId: "image001@example.com" }],
+        },
+      );
+      expect(html).toContain('src="/api/attachments/att-9"');
+      expect(blockedRemoteImages).toBe(0);
+    });
+
+    it("never blocks internal attachment images even when blocking is on", () => {
+      const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="/api/attachments/att-42" />',
+        { blockRemoteImages: true },
+      );
+      expect(html).toContain('src="/api/attachments/att-42"');
+      expect(blockedRemoteImages).toBe(0);
+    });
+
+    it("counts multiple remote images but not a mixed-in CID image", () => {
+      const { blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://a.com/1.png" /><img src="https://b.com/2.png" /><img src="cid:x@y" />',
+        { blockRemoteImages: true },
+      );
+      expect(blockedRemoteImages).toBe(2);
+    });
+
+    it("sanitizeEmailHtml returns just the html string (back-compat)", () => {
+      const result = sanitizeEmailHtml(
+        '<img src="https://example.com/image.png" />',
+        { blockRemoteImages: true },
+      );
+      expect(typeof result).toBe("string");
+      expect(result).toContain("data-blocked-src");
+    });
+  });
+
+  describe("no remote-load vector survives besides <img src> (defense in depth)", () => {
+    // The blocking guarantee only inspects <img src>. These assert that every
+    // OTHER remote-loading vector is stripped by the allowlist, so a tracker
+    // cannot fire through srcset/<source>/<picture>/poster/background/svg.
+    const VECTORS = `
+      <img src="https://t.example/pixel.png" srcset="https://t.example/2x.png 2x" />
+      <picture><source srcset="https://t.example/s.webp" type="image/webp" /></picture>
+      <video poster="https://t.example/poster.jpg"></video>
+      <table background="https://t.example/bg.gif"><tr><td>cell</td></tr></table>
+      <svg><image href="https://t.example/svg.png" /></svg>
+      <input type="image" src="https://t.example/input.png" />
+    `;
+
+    it("strips srcset / source / picture / poster / background / svg / input regardless of blocking", () => {
+      for (const blockRemoteImages of [true, false]) {
+        const { html } = sanitizeEmailHtmlWithMeta(VECTORS, {
+          blockRemoteImages,
+        });
+        expect(html).not.toContain("srcset");
+        expect(html).not.toContain("poster");
+        expect(html).not.toContain("background=");
+        expect(html).not.toContain("<source");
+        expect(html).not.toContain("<picture");
+        expect(html).not.toContain("<video");
+        expect(html).not.toContain("<svg");
+        expect(html).not.toContain("<input");
+        // The only place t.example may legitimately appear is the <img> handling.
+      }
+    });
+
+    it("with blocking on, no remote URL appears in any live-loading attribute", () => {
+      const { html } = sanitizeEmailHtmlWithMeta(VECTORS, {
+        blockRemoteImages: true,
+      });
+      // No live loading attribute points at the tracker host. (Whitespace
+      // before the name excludes the safe data-blocked-src stash attribute.)
+      expect(html).not.toMatch(/\s(?:src|srcset|poster|background|href)="https?:\/\/t\.example/);
+      // The surviving <img> stashed its URL out of the loading path instead.
+      expect(html).toContain("data-blocked-src");
+    });
+
+    it("with blocking off, the <img> goes through the proxy and nothing else loads remotely", () => {
+      const { html } = sanitizeEmailHtmlWithMeta(VECTORS, {
+        blockRemoteImages: false,
+      });
+      // The plain <img> is proxied (same-origin), never a direct remote src.
+      expect(html).toContain("/api/proxy/image?url=");
+      expect(html).not.toMatch(/src="https?:\/\/t\.example/);
+      expect(html).not.toContain("srcset");
     });
   });
 });

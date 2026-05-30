@@ -22,7 +22,7 @@ async function getUserInfo(userId: string, connectionId: string) {
     }),
     db.user.findUnique({
       where: { id: userId },
-      select: { timezone: true },
+      select: { timezone: true, blockRemoteImages: true },
     }),
   ]);
   const allEmails = new Set(
@@ -34,6 +34,7 @@ async function getUserInfo(userId: string, connectionId: string) {
     email: conn?.email || "",
     allEmails,
     timezone: user?.timezone || "UTC",
+    blockRemoteImages: user?.blockRemoteImages ?? true,
   };
 }
 
@@ -254,6 +255,7 @@ export async function ThreadDetailView({
                 rfcMessageId={lastMessage.messageId ?? undefined}
                 references={lastMessage.references}
                 userTimezone={userInfo.timezone}
+                blockRemoteImages={userInfo.blockRemoteImages}
               />
             </div>
           </div>

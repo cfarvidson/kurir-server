@@ -26,6 +26,9 @@ model User {
   role        Role    @default(USER)
   theme       String  @default("system") // "light", "dark", or "system"
 
+  // Privacy: block remote images / tracking pixels by default (Hey-style).
+  blockRemoteImages Boolean @default(true)
+
   // Badge preferences (which sidebar badges to show)
   showImboxBadge      Boolean @default(true)
   showScreenerBadge   Boolean @default(true)
@@ -174,6 +177,10 @@ model Sender {
   // When true, list views and detail view render each message from this
   // sender as a standalone row instead of collapsing by threadId.
   unthread Boolean @default(false)
+
+  // When true, remote images from this sender are always loaded (the user
+  // has trusted this sender, overriding the global blockRemoteImages default).
+  allowRemoteImages Boolean @default(false)
 
   // User relation (kept for cross-connection queries)
   userId String
