@@ -51,7 +51,6 @@ export function FilesList({
   const [cursor, setCursor] = useState(initialCursor);
   const [isPending, startTransition] = useTransition();
   const [viewing, setViewing] = useState<ViewerAttachment | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
 
   function handleLoadMore() {
     if (!cursor) return;
@@ -103,10 +102,7 @@ export function FilesList({
               {previewable ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setViewing(file);
-                    setViewerOpen(true);
-                  }}
+                  onClick={() => setViewing(file)}
                   className={rowClass}
                 >
                   {rowContent}
@@ -150,8 +146,10 @@ export function FilesList({
 
       <AttachmentViewer
         attachment={viewing}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
+        open={viewing !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewing(null);
+        }}
       />
     </div>
   );

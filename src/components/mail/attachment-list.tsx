@@ -7,6 +7,7 @@ import {
   canPreview,
   type ViewerAttachment,
 } from "@/components/mail/attachment-viewer";
+import { shareOrOpenAttachment } from "@/lib/mail/attachment-share";
 
 interface AttachmentItem {
   id: string;
@@ -36,12 +37,6 @@ export function AttachmentList({
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<ViewerAttachment | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
-
-  function openViewer(att: AttachmentItem) {
-    setViewing(att);
-    setViewerOpen(true);
-  }
 
   async function handleShareClick(
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -65,24 +60,7 @@ export function AttachmentList({
     e.preventDefault();
     setBusyId(att.id);
     try {
-      const res = await fetch(`/api/attachments/${att.id}`);
-      if (!res.ok) {
-        throw new Error(`Failed to load attachment (${res.status})`);
-      }
-      const blob = await res.blob();
-      const file = new File([blob], att.filename, {
-        type: blob.type || att.contentType || "application/octet-stream",
-      });
-
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: att.filename });
-      } else {
-        // File sharing unsupported on this device — open in a new tab so the
-        // browser can preview/save it.
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      }
+      await shareOrOpenAttachment(att.id, att.filename, att.contentType);
     } catch (err) {
       // AbortError = user dismissed the share sheet; that's not a failure.
       if ((err as Error)?.name !== "AbortError") {
@@ -125,7 +103,7 @@ export function AttachmentList({
             <button
               key={att.id}
               type="button"
-              onClick={() => openViewer(att)}
+              onClick={() => setViewing(att)}
               className={chipClass}
               title="Preview"
             >
@@ -147,8 +125,10 @@ export function AttachmentList({
 
       <AttachmentViewer
         attachment={viewing}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
+        open={viewing !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewing(null);
+        }}
       />
     </>
   );

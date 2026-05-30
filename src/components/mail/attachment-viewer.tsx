@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Download,
   ExternalLink,
@@ -13,6 +9,16 @@ import {
   Loader2,
   Share2,
 } from "lucide-react";
+import {
+  canPreview,
+  isPdf,
+  isSafeInlineImage,
+  isViewableText,
+} from "@/lib/mail/attachment-types";
+import {
+  canShareFiles,
+  shareOrOpenAttachment,
+} from "@/lib/mail/attachment-share";
 
 export interface ViewerAttachment {
   id: string;
@@ -21,26 +27,9 @@ export interface ViewerAttachment {
   size: number;
 }
 
-function isImage(ct: string): boolean {
-  return ct.startsWith("image/");
-}
-
-function isPdf(ct: string): boolean {
-  return ct.toLowerCase() === "application/pdf";
-}
-
-/** Text we can safely render inline (everything but HTML, which could run script). */
-function isViewableText(ct: string): boolean {
-  return ct.startsWith("text/") && ct.toLowerCase() !== "text/html";
-}
-
-/**
- * Whether this attachment can be previewed in the in-app viewer. PDFs, images
- * and plain-text-ish files render inline; everything else is download/share only.
- */
-export function canPreview(contentType: string): boolean {
-  return isImage(contentType) || isPdf(contentType) || isViewableText(contentType);
-}
+// Re-exported so call sites (AttachmentList, FilesList) keep importing the
+// preview predicate from the viewer; the policy itself lives in attachment-types.
+export { canPreview };
 
 /**
  * iOS Safari (including standalone PWAs) refuses to render PDFs inside an
@@ -52,14 +41,6 @@ function isIOS(): boolean {
     /iP(hone|ad|od)/.test(navigator.userAgent) ||
     // iPadOS reports as MacIntel but is touch-capable.
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
-
-function canShareFiles(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function" &&
-    typeof navigator.canShare === "function"
   );
 }
 
@@ -78,10 +59,15 @@ export function AttachmentViewer({
   onOpenChange: (open: boolean) => void;
 }) {
   const [sharing, setSharing] = useState(false);
+  const shareAbortRef = useRef<AbortController | null>(null);
 
-  // Reset transient state whenever a different attachment is shown.
+  // When a different attachment is shown, reset transient state and abort any
+  // in-flight share fetch so a stale request can't share the previous file.
   useEffect(() => {
     setSharing(false);
+    return () => {
+      shareAbortRef.current?.abort();
+    };
   }, [attachment?.id]);
 
   if (!attachment) return null;
@@ -92,35 +78,33 @@ export function AttachmentViewer({
 
   async function handleShare() {
     if (!attachment || sharing) return;
+    shareAbortRef.current?.abort();
+    const ac = new AbortController();
+    shareAbortRef.current = ac;
     setSharing(true);
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Failed to load attachment (${res.status})`);
-      const blob = await res.blob();
-      const file = new File([blob], attachment.filename, {
-        type: blob.type || attachment.contentType || "application/octet-stream",
-      });
-      if (canShareFiles() && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: attachment.filename });
-      } else {
-        const objectUrl = URL.createObjectURL(blob);
-        window.open(objectUrl, "_blank");
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      }
+      await shareOrOpenAttachment(
+        attachment.id,
+        attachment.filename,
+        attachment.contentType,
+        ac.signal,
+      );
     } catch (err) {
-      // AbortError = user dismissed the share sheet; not a real failure.
+      // AbortError = user dismissed the share sheet (or we cancelled a stale
+      // request); not a real failure.
       if ((err as Error)?.name !== "AbortError") {
         console.error("Attachment share failed", err);
       }
     } finally {
-      setSharing(false);
+      // Only clear the spinner if this is still the current share.
+      if (shareAbortRef.current === ac) setSharing(false);
     }
   }
 
   const showShare = canShareFiles();
 
   let preview: React.ReactNode;
-  if (isImage(ct)) {
+  if (isSafeInlineImage(ct)) {
     preview = (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -139,9 +123,12 @@ export function AttachmentViewer({
     );
   } else if (isViewableText(ct)) {
     preview = (
+      // sandbox (no allow-scripts) prevents the text document from executing
+      // script even if it is mislabelled; pairs with the route's CSP + nosniff.
       <iframe
         src={inlineUrl}
         title={attachment.filename}
+        sandbox=""
         className="h-full w-full border-0 bg-white"
       />
     );
@@ -151,8 +138,8 @@ export function AttachmentViewer({
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
         <FileText className="h-12 w-12 opacity-50" />
         <p className="text-sm">
-          Inline preview isn&apos;t supported here. Use the buttons above to open
-          or share the file.
+          Inline preview isn&apos;t supported here. Use the buttons above to
+          open or share the file.
         </p>
       </div>
     );
@@ -206,7 +193,9 @@ export function AttachmentViewer({
             )}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto bg-muted/30">{preview}</div>
+        <div className="min-h-0 flex-1 overflow-auto bg-muted/30">
+          {preview}
+        </div>
       </DialogContent>
     </Dialog>
   );

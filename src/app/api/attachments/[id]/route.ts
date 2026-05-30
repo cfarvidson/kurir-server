@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { ImapFlow } from "imapflow";
 import { getConnectionCredentials } from "@/lib/auth";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
+import {
+  isSafeInlineImage,
+  isInlineViewable,
+  isPdf,
+} from "@/lib/mail/attachment-types";
 
 /**
  * Walk bodyStructure tree to find all non-text MIME parts.
@@ -34,23 +39,6 @@ function findAttachmentParts(
   return [];
 }
 
-function isImageType(contentType: string): boolean {
-  return contentType.startsWith("image/");
-}
-
-/**
- * Types we're willing to render inline in a browser tab/iframe when the client
- * explicitly asks (`?inline=1`). Deliberately excludes text/html and svg, which
- * could execute script in our origin (XSS) if rendered inline.
- */
-function isInlineViewable(contentType: string): boolean {
-  const ct = contentType.toLowerCase();
-  if (ct === "application/pdf") return true;
-  if (ct === "image/svg+xml" || ct === "text/html") return false;
-  if (ct.startsWith("text/")) return true;
-  return false;
-}
-
 function responseHeaders(
   attachment: {
     contentType: string;
@@ -58,17 +46,31 @@ function responseHeaders(
     size: number;
   },
   forceInline = false,
-) {
-  const inline =
-    isImageType(attachment.contentType) ||
-    (forceInline && isInlineViewable(attachment.contentType));
+): Record<string, string> {
+  const ct = attachment.contentType;
+  // SVG is an image but can carry script, so it is never served inline; it is
+  // excluded from the unconditional image branch and from isInlineViewable.
+  const inline = isSafeInlineImage(ct) || (forceInline && isInlineViewable(ct));
   const disposition = inline ? "inline" : "attachment";
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": attachment.contentType || "application/octet-stream",
     "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.filename)}"`,
+    // Trust our own disposition decision over the browser's content sniffing —
+    // without this, a text/* file containing HTML could be sniffed and rendered
+    // as HTML in our origin.
+    "X-Content-Type-Options": "nosniff",
     ...(attachment.size ? { "Content-Length": String(attachment.size) } : {}),
     "Cache-Control": "private, max-age=86400",
   };
+  // Defence in depth: sandbox inline *documents* (text/*) so they can never
+  // execute script same-origin even if a classification guard regresses. PDFs
+  // are left to the browser's own sandboxed viewer; images load as <img>
+  // subresources (no document context), so neither needs the CSP.
+  if (inline && !isSafeInlineImage(ct) && !isPdf(ct)) {
+    headers["Content-Security-Policy"] =
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+  }
+  return headers;
 }
 
 /** Check if the current user owns this attachment (via message or direct upload). */
