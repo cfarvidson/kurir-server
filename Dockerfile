@@ -5,7 +5,11 @@ RUN corepack enable pnpm && corepack prepare pnpm@9.15.0 --activate
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile || pnpm install
+# Persist the pnpm content-addressable store across builds so only changed
+# packages are refetched when the lockfile drifts.
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --store-dir=/pnpm/store \
+  || pnpm install --store-dir=/pnpm/store
 
 # Development
 FROM base AS dev
@@ -27,7 +31,11 @@ RUN pnpm db:generate
 # NEXT_PUBLIC_* vars must be present at build time (inlined by Next.js)
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
-RUN pnpm build
+# Reuse Next.js's incremental compilation cache across builds. `COPY . .` busts
+# the layer cache on any source change, so without this every deploy is a cold
+# compile; the mount lets Next skip recompiling unchanged modules.
+RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
+  pnpm build
 
 # Production
 FROM base AS runner
