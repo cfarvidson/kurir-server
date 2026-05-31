@@ -18,6 +18,12 @@ const BADGE_FIELDS = [
 export async function getBadgePreferences(
   userId: string,
 ): Promise<BadgePreferences> {
+  const session = await requireAuth();
+  // Callers may only read their own preferences.
+  if (userId !== session.user.id) {
+    throw new Error("Forbidden");
+  }
+
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {

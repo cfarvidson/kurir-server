@@ -7,8 +7,8 @@ const CATEGORY_FILTERS = {
   "paper-trail": { isInPaperTrail: true, isSnoozed: false },
   archive: { isArchived: true },
   snoozed: { isSnoozed: true },
-  "follow-up": { isFollowUp: true },
-  "reply-later": { isReplyLater: true },
+  "follow-up": { isFollowUp: true, isArchived: false },
+  "reply-later": { isReplyLater: true, isArchived: false },
 } as const;
 
 export const MESSAGE_SELECT = {

@@ -35,7 +35,7 @@ export default async function FollowUpPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isFollowUp" = true`}
+            categoryFilter={Prisma.sql`AND "isFollowUp" = true AND "isArchived" = false`}
             basePath="/follow-up"
             emptyIcon={
               <div className="rounded-full bg-muted p-4">

@@ -32,7 +32,7 @@ vi.mock("next/server", () => ({
   after: vi.fn((fn: () => void) => fn()),
 }));
 
-vi.mock("@/actions/archive", () => ({
+vi.mock("@/lib/mail/archive-imap", () => ({
   moveToArchiveViaImap: vi.fn(),
 }));
 

@@ -66,10 +66,10 @@ export default async function MailLayout({
       where: { userId: session.user.id, status: "PENDING" },
     }),
     db.message.count({
-      where: { userId: session.user.id, isFollowUp: true },
+      where: { userId: session.user.id, isFollowUp: true, isArchived: false },
     }),
     db.message.count({
-      where: { userId: session.user.id, isReplyLater: true },
+      where: { userId: session.user.id, isReplyLater: true, isArchived: false },
     }),
     db.message.count({
       where: { userId: session.user.id, isInFeed: true, isRead: false },
