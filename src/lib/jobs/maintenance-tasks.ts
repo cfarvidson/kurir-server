@@ -24,6 +24,7 @@ export async function checkExpiredFollowUps(userId: string): Promise<number> {
         AND "isFollowUp" = false
         AND "followUpAt" IS NOT NULL
         AND "threadId" IS NOT NULL
+        AND "isArchived" = false
     ),
     no_reply AS (
       SELECT e."threadId"

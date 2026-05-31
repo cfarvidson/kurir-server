@@ -195,6 +195,10 @@ export async function archiveConversation(
       isInScreener: false,
       isSnoozed: false,
       snoozedUntil: null,
+      isReplyLater: false,
+      isFollowUp: false,
+      followUpAt: null,
+      followUpSetAt: null,
     },
   });
 
@@ -295,6 +299,10 @@ export async function archiveConversations(
       isInScreener: false,
       isSnoozed: false,
       snoozedUntil: null,
+      isReplyLater: false,
+      isFollowUp: false,
+      followUpAt: null,
+      followUpSetAt: null,
     },
   });
 
