@@ -1,8 +1,10 @@
 import { defineConfig } from "astro/config";
-import tailwind from "@astrojs/tailwind";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   site: "https://kurir.io",
   base: "/",
-  integrations: [tailwind()],
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });
