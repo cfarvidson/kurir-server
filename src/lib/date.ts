@@ -56,7 +56,10 @@ export function formatSnoozeUntil(date: Date): string {
   });
 
   if (diffMins < 60) return `in ${diffMins}m`;
-  if (diffHours < 24) return `today ${timeStr}`;
+
+  // Use calendar days, not elapsed hours: a snooze set late in the evening for
+  // the next morning is < 24h away but still lands on "tomorrow", not "today".
+  if (date.toDateString() === now.toDateString()) return `today ${timeStr}`;
 
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
