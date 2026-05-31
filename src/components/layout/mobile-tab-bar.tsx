@@ -11,19 +11,13 @@ import {
   Newspaper,
   PenSquare,
   MoreHorizontal,
-  Receipt,
-  Clock,
-  Bell,
-  Reply,
-  CalendarClock,
-  Send,
-  Archive,
-  BookUser,
+  Command,
   Settings,
   Shield,
   LogOut,
 } from "lucide-react";
 import {
+  navigation,
   type BadgePreferences,
   badgeKeyToPref,
   defaultBadgePreferences,
@@ -60,36 +54,16 @@ const tabs = [
   // "More" is rendered separately as a button
 ];
 
-const moreItems = [
-  {
-    name: "Paper Trail",
-    href: "/paper-trail",
-    icon: Receipt,
-    badgeKey: "paperTrail" as const,
-  },
-  { name: "Snoozed", href: "/snoozed", icon: Clock, badgeKey: null },
-  {
-    name: "Follow Up",
-    href: "/follow-up",
-    icon: Bell,
-    badgeKey: "followUp" as const,
-  },
-  {
-    name: "Reply Later",
-    href: "/reply-later",
-    icon: Reply,
-    badgeKey: "replyLater" as const,
-  },
-  {
-    name: "Scheduled",
-    href: "/scheduled",
-    icon: CalendarClock,
-    badgeKey: "scheduled" as const,
-  },
-  { name: "Sent", href: "/sent", icon: Send, badgeKey: null },
-  { name: "Archive", href: "/archive", icon: Archive, badgeKey: null },
-  { name: "Contacts", href: "/contacts", icon: BookUser, badgeKey: null },
-];
+// Primary destinations are pinned in the always-visible tab bar above.
+const PRIMARY_TAB_HREFS = new Set(["/imbox", "/screener", "/feed"]);
+
+// Everything else is surfaced in the "More" sheet. Deriving these from the
+// shared `navigation` source (rather than a separate hardcoded list) keeps the
+// mobile nav in parity with the desktop sidebar, so destinations like Files
+// can't silently go missing on the PWA.
+const moreItems = navigation.filter(
+  (item) => !PRIMARY_TAB_HREFS.has(item.href),
+);
 
 const TRANSITION = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
 
@@ -289,7 +263,7 @@ export function MobileTabBar({
       {sheetOpen && (
         <div
           ref={sheetRef}
-          className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-card shadow-2xl"
+          className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl"
           style={{
             transform: "translateY(0)",
             transition: TRANSITION,
@@ -364,6 +338,16 @@ export function MobileTabBar({
               <Settings className="h-5 w-5 text-muted-foreground" />
               Settings
             </Link>
+            <button
+              onClick={() => {
+                closeSheet();
+                window.dispatchEvent(new CustomEvent("open-command-palette"));
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
+            >
+              <Command className="h-5 w-5 text-muted-foreground" />
+              Commands
+            </button>
             {isAdmin && (
               <Link
                 href="/admin"
