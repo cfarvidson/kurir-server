@@ -1,8 +1,8 @@
 {
-  "version": "2026.05.30.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.30.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.30.2",
-  "changelog": "Reply Later stack & focus mode, spy-tracker blocker for remote images, and a swipe-to-archive scroll fix.",
+  "version": "2026.05.31",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.31",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.31",
+  "changelog": "Fixes for snooze labels, archive leaking into Reply Later/Follow-Up, badge-preference auth, mobile nav parity, and inline iOS PDF previews.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-05-30T14:49:51Z"
+  "releasedAt": "2026-05-31T05:38:36Z"
 }

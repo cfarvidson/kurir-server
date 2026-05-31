@@ -2,6 +2,19 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.05.31] - 2026-05-31
+
+### Added
+
+- Attachments: PDF previews now render inline on iOS via pdfjs, where the native iframe viewer fails.
+
+### Fixed
+
+- Snooze: corrected the snooze label shown on snoozed messages.
+- Categorization: archiving a message no longer leaks it into Reply Later or Follow-Up.
+- Badge preferences: fixed an authorization check on the badge-preferences endpoint.
+- Mobile (PWA): restored desktop/PWA navigation parity on the mobile tab bar.
+
 ## [v2026.05.30.2] - 2026-05-30
 
 ### Added
