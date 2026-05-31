@@ -57,6 +57,23 @@ function categoryToPath(category: string | null | undefined): string {
   }
 }
 
+// Flags applied when archiving a message. Clears every "placement" flag so an
+// archived thread cannot linger in Imbox/Feed/Paper Trail/Screener/Snoozed/
+// Reply Later/Follow Up. Shared by archiveConversation and archiveConversations.
+const ARCHIVE_CLEAR_DATA = {
+  isArchived: true,
+  isInImbox: false,
+  isInFeed: false,
+  isInPaperTrail: false,
+  isInScreener: false,
+  isSnoozed: false,
+  snoozedUntil: null,
+  isReplyLater: false,
+  isFollowUp: false,
+  followUpAt: null,
+  followUpSetAt: null,
+};
+
 export async function moveToArchiveViaImap(
   userId: string,
   connectionId: string,
@@ -187,25 +204,15 @@ export async function archiveConversation(
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
-    data: {
-      isArchived: true,
-      isInImbox: false,
-      isInFeed: false,
-      isInPaperTrail: false,
-      isInScreener: false,
-      isSnoozed: false,
-      snoozedUntil: null,
-      isReplyLater: false,
-      isFollowUp: false,
-      followUpAt: null,
-      followUpSetAt: null,
-    },
+    data: ARCHIVE_CLEAR_DATA,
   });
 
   await autoRejectFullyArchivedSenders(messageIds);
 
   updateTag("sidebar-counts");
   revalidatePath("/archive");
+  revalidatePath("/reply-later");
+  revalidatePath("/follow-up");
   if (sourcePath) {
     const basePath = sourcePath.split("?")[0];
     revalidatePath(basePath);
@@ -291,25 +298,15 @@ export async function archiveConversations(
   const allMessageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: allMessageIds } },
-    data: {
-      isArchived: true,
-      isInImbox: false,
-      isInFeed: false,
-      isInPaperTrail: false,
-      isInScreener: false,
-      isSnoozed: false,
-      snoozedUntil: null,
-      isReplyLater: false,
-      isFollowUp: false,
-      followUpAt: null,
-      followUpSetAt: null,
-    },
+    data: ARCHIVE_CLEAR_DATA,
   });
 
   await autoRejectFullyArchivedSenders(allMessageIds);
 
   updateTag("sidebar-counts");
   revalidatePath("/archive");
+  revalidatePath("/reply-later");
+  revalidatePath("/follow-up");
   if (sourcePath) {
     const basePath = sourcePath.split("?")[0];
     revalidatePath(basePath);

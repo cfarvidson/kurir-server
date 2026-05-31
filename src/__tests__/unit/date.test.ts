@@ -32,9 +32,24 @@ describe("formatSnoozeUntil", () => {
   });
 
   it("uses the weekday name for dates later this week", () => {
-    // 2026-05-31 is a Sunday; +3 days = Wednesday
     vi.setSystemTime(new Date(2026, 4, 31, 9, 0, 0));
-    const until = new Date(2026, 5, 3, 9, 0, 0);
-    expect(formatSnoozeUntil(until)).toMatch(/^Wednesday /);
+    const until = new Date(2026, 5, 3, 9, 0, 0); // 3 days out
+    // Derive the expected weekday so the test survives changes to the constants.
+    const weekday = until.toLocaleDateString("en-US", { weekday: "long" });
+    expect(formatSnoozeUntil(until)).toMatch(new RegExp(`^${weekday} `));
+  });
+
+  it("returns 'waking up...' for a date in the past", () => {
+    vi.setSystemTime(new Date(2026, 4, 31, 14, 0, 0));
+    const until = new Date(2026, 4, 31, 13, 0, 0); // 1h ago
+    expect(formatSnoozeUntil(until)).toBe("waking up...");
+  });
+
+  it("uses an absolute month/day date for dates more than a week out", () => {
+    vi.setSystemTime(new Date(2026, 4, 31, 9, 0, 0));
+    const until = new Date(2026, 5, 15, 9, 0, 0); // 15 days out
+    const result = formatSnoozeUntil(until);
+    expect(result).not.toMatch(/^(today|tomorrow|in )/);
+    expect(result).toContain("Jun");
   });
 });

@@ -47,8 +47,7 @@ export function formatSnoozeUntil(date: Date): string {
   if (diffMs <= 0) return "waking up...";
 
   const diffMins = Math.floor(diffMs / 1000 / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
+  const diffDays = Math.floor(diffMins / 60 / 24);
 
   const timeStr = date.toLocaleTimeString("en-US", {
     hour: "numeric",
