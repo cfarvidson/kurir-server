@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { moveToArchiveViaImap } from "@/actions/archive";
+import { moveToArchiveViaImap } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/actions/contacts";
 import { SenderCategory } from "@prisma/client";
 

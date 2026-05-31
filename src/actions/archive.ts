@@ -4,8 +4,10 @@ import { revalidatePath, updateTag } from "next/cache";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { withImapConnection, findArchiveMailbox } from "@/lib/mail/imap-client";
-import { suppressEcho } from "@/lib/mail/flag-push";
+import {
+  moveToArchiveViaImap,
+  moveToInboxViaImap,
+} from "@/lib/mail/archive-imap";
 
 /**
  * Find PENDING senders linked to the given messages. If all of a sender's
@@ -73,90 +75,6 @@ const ARCHIVE_CLEAR_DATA = {
   followUpAt: null,
   followUpSetAt: null,
 };
-
-export async function moveToArchiveViaImap(
-  userId: string,
-  connectionId: string,
-  folderId: string,
-  uids: number[],
-) {
-  for (const uid of uids) {
-    suppressEcho(userId, folderId, uid);
-  }
-
-  const result = await withImapConnection(connectionId, async (client) => {
-    const mailboxes = await client.list();
-    const archiveBox = findArchiveMailbox(mailboxes);
-
-    if (archiveBox) {
-      console.log(
-        `[imap] Moving ${uids.length} message(s) to ${archiveBox.path}`,
-      );
-      const lock = await client.getMailboxLock("INBOX");
-      try {
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < uids.length; i += BATCH_SIZE) {
-          const chunk = uids.slice(i, i + BATCH_SIZE);
-          try {
-            await client.messageMove(chunk, archiveBox.path, {
-              uid: true,
-            });
-          } catch (err) {
-            console.error(
-              `[imap] Failed to move UIDs ${chunk.join(",")}:`,
-              err,
-            );
-          }
-        }
-      } finally {
-        lock.release();
-      }
-    } else {
-      console.warn(
-        `[imap] No archive folder found. Available: ${mailboxes.map((mb) => `${mb.path} (${mb.specialUse || "no special use"})`).join(", ")}`,
-      );
-    }
-  });
-
-  if (result === null) {
-    console.warn(
-      `[imap] moveToArchiveViaImap failed: IMAP connection returned null for ${uids.length} message(s)`,
-    );
-  }
-}
-
-export async function moveToInboxViaImap(
-  userId: string,
-  connectionId: string,
-  folderId: string,
-  uids: number[],
-) {
-  for (const uid of uids) {
-    suppressEcho(userId, folderId, uid);
-  }
-
-  await withImapConnection(connectionId, async (client) => {
-    const mailboxes = await client.list();
-    const archiveBox = findArchiveMailbox(mailboxes);
-
-    if (archiveBox) {
-      const lock = await client.getMailboxLock(archiveBox.path);
-      try {
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < uids.length; i += BATCH_SIZE) {
-          const chunk = uids.slice(i, i + BATCH_SIZE);
-          try {
-            await client.messageMove(chunk, "INBOX", { uid: true });
-          } catch {
-            // Batch may partially fail; messages may already be moved
-          }
-        }
-      } finally {
-        lock.release();
-      }
-    }
-  });
-}
 
 export async function archiveConversation(
   messageId: string,
@@ -374,7 +292,10 @@ export async function unarchiveConversation(messageId: string) {
         .map((m) => m.uid)
     : [];
 
-  // DB update + revalidation first
+  // DB update + revalidation first.
+  // Note: snooze and reply-later/follow-up state cleared on archive is NOT
+  // restored here — unarchive only re-derives the category placement. This is
+  // intentional and consistent with how snooze has always behaved on archive.
   const messageIds = threadMessages.map((m) => m.id);
   await db.message.updateMany({
     where: { id: { in: messageIds } },
@@ -452,6 +373,8 @@ export async function unarchiveConversations(messageIds: string[]) {
     byCat.set(cat, ids);
   }
 
+  // As in unarchiveConversation: reply-later/follow-up/snooze state cleared on
+  // archive is intentionally not restored — unarchive only re-derives category.
   for (const [cat, ids] of byCat) {
     await db.message.updateMany({
       where: { id: { in: ids } },
