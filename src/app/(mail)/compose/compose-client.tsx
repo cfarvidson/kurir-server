@@ -11,7 +11,18 @@ import {
   useAttachments,
   type UploadedAttachment,
 } from "@/hooks/use-attachments";
-import { Send, X, Loader2, BookUser, CalendarClock } from "lucide-react";
+import { Send, X, Loader2, BookUser, CalendarClock, Users } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  RecipientGroupChip,
+  type ComposeGroup,
+  type AddedGroupState,
+} from "@/components/mail/recipient-group-chip";
+import { expandGroups, type RecipientTarget } from "@/lib/mail/group-expansion";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
 import { SchedulePicker } from "@/components/mail/schedule-picker";
@@ -91,6 +102,8 @@ interface ComposeClientPageProps {
   userTimezone?: string;
   /** Pre-populated forward data */
   forwardData?: ForwardData;
+  /** The user's saved contact groups, for the recipient group picker */
+  groups?: ComposeGroup[];
 }
 
 export function ComposeClientPage({
@@ -99,11 +112,18 @@ export function ComposeClientPage({
   defaultConnectionId,
   userTimezone = "UTC",
   forwardData,
+  groups = [],
 }: ComposeClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const forwardMessageId = searchParams.get("forward");
   const [to, setTo] = useState(searchParams.get("to") || "");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [addedGroups, setAddedGroups] = useState<AddedGroupState[]>([]);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [subject, setSubject] = useState(forwardData?.subject || "");
   const [body, setBody] = useState(forwardData?.body || "");
   const [fromConnectionId, setFromConnectionId] = useState(
@@ -245,7 +265,109 @@ export function ComposeClientPage({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // --- Contact groups ---------------------------------------------------
+  const addedGroupIds = new Set(addedGroups.map((g) => g.group.id));
+  const availableGroups = groups.filter((g) => !addedGroupIds.has(g.id));
+
+  const addGroup = (group: ComposeGroup) => {
+    const target: RecipientTarget = group.defaultTarget === "BCC" ? "bcc" : "to";
+    if (target === "bcc") setShowBcc(true);
+    setAddedGroups((prev) => [
+      ...prev,
+      { group, target, removedMemberIds: new Set<string>() },
+    ]);
+    setGroupPickerOpen(false);
+  };
+
+  const updateGroup = (
+    groupId: string,
+    fn: (s: AddedGroupState) => AddedGroupState,
+  ) => {
+    setAddedGroups((prev) =>
+      prev.map((s) => (s.group.id === groupId ? fn(s) : s)),
+    );
+  };
+
+  const moveGroupTarget = (groupId: string, target: RecipientTarget) => {
+    if (target === "cc") setShowCc(true);
+    if (target === "bcc") setShowBcc(true);
+    updateGroup(groupId, (s) => ({ ...s, target }));
+  };
+
+  const toggleGroupMember = (groupId: string, memberId: string) => {
+    updateGroup(groupId, (s) => {
+      const removed = new Set(s.removedMemberIds);
+      if (removed.has(memberId)) removed.delete(memberId);
+      else removed.add(memberId);
+      return { ...s, removedMemberIds: removed };
+    });
+  };
+
+  const dismissGroup = (groupId: string) => {
+    setAddedGroups((prev) => prev.filter((s) => s.group.id !== groupId));
+  };
+
+  const groupsForTarget = (target: RecipientTarget) =>
+    addedGroups.filter((s) => s.target === target);
+
+  // Merge typed recipients with expanded group addresses for each field.
+  // Returns null (and sets an error) if any typed address is malformed or no
+  // recipient is present across all fields.
+  const buildRecipients = ():
+    | { to: string; cc: string; bcc: string; display: string }
+    | null => {
+    const toParsed = parseRecipients(to);
+    const ccParsed = parseRecipients(cc);
+    const bccParsed = parseRecipients(bcc);
+    const invalid = [
+      ...toParsed.invalid,
+      ...ccParsed.invalid,
+      ...bccParsed.invalid,
+    ];
+    if (invalid.length > 0) {
+      setError(`Invalid recipient address: ${invalid.join(", ")}`);
+      return null;
+    }
+
+    const expanded = expandGroups(
+      addedGroups.map((s) => ({
+        groupId: s.group.id,
+        target: s.target,
+        members: s.group.members.map((m) => ({
+          memberId: m.memberId,
+          email: m.email,
+        })),
+        removedMemberIds: s.removedMemberIds,
+      })),
+    );
+
+    const finalTo = [...toParsed.recipients, ...expanded.to];
+    const finalCc = [...ccParsed.recipients, ...expanded.cc];
+    const finalBcc = [...bccParsed.recipients, ...expanded.bcc];
+
+    if (finalTo.length + finalCc.length + finalBcc.length === 0) {
+      setError("Please enter a recipient");
+      return null;
+    }
+
+    return {
+      to: finalTo.join(", "),
+      cc: finalCc.join(", "),
+      bcc: finalBcc.join(", "),
+      display:
+        finalTo.join(", ") || finalCc.join(", ") || finalBcc.join(", "),
+    };
+  };
+
   const handleScheduleSend = async (scheduledFor: Date) => {
+    // Scheduled sends store a single `to` string with no Cc/Bcc columns yet,
+    // so scheduling Cc/Bcc or groups is not supported (deferred). Send now instead.
+    if (cc.trim() || bcc.trim() || addedGroups.length > 0) {
+      setError(
+        "Scheduling doesn't support Cc, Bcc, or groups yet — send now instead.",
+      );
+      return;
+    }
     const { recipients, invalid } = parseRecipients(to);
     if (invalid.length > 0) {
       setError(`Invalid recipient address: ${invalid.join(", ")}`);
@@ -284,15 +406,8 @@ export function ComposeClientPage({
   };
 
   const handleSend = () => {
-    const { recipients, invalid } = parseRecipients(to);
-    if (invalid.length > 0) {
-      setError(`Invalid recipient address: ${invalid.join(", ")}`);
-      return;
-    }
-    if (recipients.length === 0) {
-      setError("Please enter a recipient");
-      return;
-    }
+    const built = buildRecipients();
+    if (!built) return;
     if (isUploading) {
       setError("Please wait for uploads to finish");
       return;
@@ -306,7 +421,10 @@ export function ComposeClientPage({
       .filter((a) => a.status === "done")
       .map((a) => a.id);
     const payload = {
-      to: to.trim(),
+      to: built.to,
+      cc: built.cc,
+      bcc: built.bcc,
+      display: built.display,
       subject,
       body,
       fromConnectionId: connections.length > 1 ? fromConnectionId : undefined,
@@ -328,6 +446,8 @@ export function ComposeClientPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: payload.to,
+          cc: payload.cc,
+          bcc: payload.bcc,
           subject: payload.subject,
           text: payload.body,
           fromConnectionId: payload.fromConnectionId,
@@ -356,7 +476,7 @@ export function ComposeClientPage({
 
     showUndoSendToast(
       sendId,
-      payload.to,
+      payload.display,
       UNDO_DELAY_MS,
       () => {
         cancel(sendId);
@@ -445,7 +565,74 @@ export function ComposeClientPage({
 
           {/* To field */}
           <div className="space-y-2">
-            <Label htmlFor="to">To</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="to">To</Label>
+              <div className="flex items-center gap-2 text-xs">
+                {!showCc && (
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowCc(true)}
+                  >
+                    Add Cc
+                  </button>
+                )}
+                {!showBcc && (
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowBcc(true)}
+                  >
+                    Add Bcc
+                  </button>
+                )}
+                <Popover
+                  open={groupPickerOpen}
+                  onOpenChange={setGroupPickerOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      Add group
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-64 p-1">
+                    {groups.length === 0 ? (
+                      <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        No groups yet — create one in Contacts.
+                      </p>
+                    ) : availableGroups.length === 0 ? (
+                      <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        All groups added.
+                      </p>
+                    ) : (
+                      <ul className="max-h-64 overflow-auto">
+                        {availableGroups.map((g) => (
+                          <li key={g.id}>
+                            <button
+                              type="button"
+                              onClick={() => addGroup(g)}
+                              className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-muted/60"
+                            >
+                              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1 truncate font-medium">
+                                {g.name}
+                              </span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {g.members.length}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
             <div className="relative">
               <Input
                 ref={inputRef}
@@ -513,7 +700,82 @@ export function ComposeClientPage({
                 </div>
               )}
             </div>
+            {groupsForTarget("to").length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {groupsForTarget("to").map((s) => (
+                  <RecipientGroupChip
+                    key={s.group.id}
+                    state={s}
+                    onToggleMember={(mid) =>
+                      toggleGroupMember(s.group.id, mid)
+                    }
+                    onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
+                    onDismiss={() => dismissGroup(s.group.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Cc field */}
+          {showCc && (
+            <div className="space-y-2">
+              <Label htmlFor="cc">Cc</Label>
+              <Input
+                id="cc"
+                type="email"
+                placeholder="Cc recipients..."
+                value={cc}
+                onChange={(e) => setCc(e.target.value)}
+                autoComplete="off"
+              />
+              {groupsForTarget("cc").length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupsForTarget("cc").map((s) => (
+                    <RecipientGroupChip
+                      key={s.group.id}
+                      state={s}
+                      onToggleMember={(mid) =>
+                        toggleGroupMember(s.group.id, mid)
+                      }
+                      onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
+                      onDismiss={() => dismissGroup(s.group.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bcc field */}
+          {showBcc && (
+            <div className="space-y-2">
+              <Label htmlFor="bcc">Bcc</Label>
+              <Input
+                id="bcc"
+                type="email"
+                placeholder="Bcc recipients..."
+                value={bcc}
+                onChange={(e) => setBcc(e.target.value)}
+                autoComplete="off"
+              />
+              {groupsForTarget("bcc").length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupsForTarget("bcc").map((s) => (
+                    <RecipientGroupChip
+                      key={s.group.id}
+                      state={s}
+                      onToggleMember={(mid) =>
+                        toggleGroupMember(s.group.id, mid)
+                      }
+                      onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
+                      onDismiss={() => dismissGroup(s.group.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="subject">Subject</Label>
