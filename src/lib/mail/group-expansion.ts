@@ -68,3 +68,40 @@ export function liveMemberCount(group: AddedGroup): number {
   const removed = new Set(group.removedMemberIds ?? []);
   return group.members.filter((m) => !removed.has(m.memberId)).length;
 }
+
+export interface PerFieldRecipients {
+  to: string[];
+  cc: string[];
+  bcc: string[];
+}
+
+/**
+ * Merge typed recipients with expanded group addresses, deduping
+ * case-insensitively across all three fields with To > Cc > Bcc, typed >
+ * expanded precedence. A single shared `seen` set processes To fully (typed
+ * then group), then Cc, then Bcc — so an address present in To never also
+ * appears in Cc/Bcc. This prevents duplicate delivery and stops a
+ * Bcc-intended group member from leaking into the visible To/Cc header when
+ * the same address was also typed into an earlier field.
+ */
+export function mergeRecipients(
+  typed: PerFieldRecipients,
+  expanded: ExpandedGroups,
+): PerFieldRecipients {
+  const seen = new Set<string>();
+  const dedup = (list: string[]): string[] => {
+    const out: string[] = [];
+    for (const addr of list) {
+      const key = addr.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(addr);
+    }
+    return out;
+  };
+  return {
+    to: dedup([...typed.to, ...expanded.to]),
+    cc: dedup([...typed.cc, ...expanded.cc]),
+    bcc: dedup([...typed.bcc, ...expanded.bcc]),
+  };
+}

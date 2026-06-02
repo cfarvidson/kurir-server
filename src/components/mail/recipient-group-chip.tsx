@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { RecipientTarget } from "@/lib/mail/group-expansion";
+import { liveMemberCount, type RecipientTarget } from "@/lib/mail/group-expansion";
 
 export interface ComposeGroup {
   id: string;
@@ -48,9 +48,12 @@ export function RecipientGroupChip({
   onDismiss,
 }: RecipientGroupChipProps) {
   const { group, target, removedMemberIds } = state;
-  const liveCount = group.members.filter(
-    (m) => !removedMemberIds.has(m.memberId),
-  ).length;
+  const liveCount = liveMemberCount({
+    groupId: group.id,
+    target,
+    members: group.members,
+    removedMemberIds,
+  });
   const isEmpty = liveCount === 0;
 
   return (

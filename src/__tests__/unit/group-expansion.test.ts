@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   expandGroups,
   liveMemberCount,
+  mergeRecipients,
   type AddedGroup,
 } from "@/lib/mail/group-expansion";
 
@@ -125,5 +126,53 @@ describe("liveMemberCount", () => {
       removedMemberIds: ["m1"],
     };
     expect(liveMemberCount(group)).toBe(0);
+  });
+});
+
+describe("mergeRecipients", () => {
+  const empty = { to: [], cc: [], bcc: [] };
+
+  it("concatenates typed and expanded addresses per field", () => {
+    expect(
+      mergeRecipients(
+        { to: ["a@x.com"], cc: [], bcc: [] },
+        { to: ["b@x.com"], cc: ["c@x.com"], bcc: [] },
+      ),
+    ).toEqual({ to: ["a@x.com", "b@x.com"], cc: ["c@x.com"], bcc: [] });
+  });
+
+  it("dedupes a typed To address against the same address in an expanded To group", () => {
+    expect(
+      mergeRecipients(
+        { to: ["alice@x.com"], cc: [], bcc: [] },
+        { to: ["Alice@x.com"], cc: [], bcc: [] },
+      ),
+    ).toEqual({ to: ["alice@x.com"], cc: [], bcc: [] });
+  });
+
+  it("keeps a typed To address out of a Bcc group (no duplicate, no Bcc leak)", () => {
+    // alice typed into To; also a member of a group targeting Bcc.
+    // She must appear only in To — never leaked into Bcc.
+    const result = mergeRecipients(
+      { to: ["alice@x.com"], cc: [], bcc: [] },
+      { to: [], cc: [], bcc: ["alice@x.com"] },
+    );
+    expect(result.to).toEqual(["alice@x.com"]);
+    expect(result.bcc).toEqual([]);
+  });
+
+  it("applies To > Cc > Bcc precedence for an address in multiple fields", () => {
+    const result = mergeRecipients(empty, {
+      to: ["x@x.com"],
+      cc: ["x@x.com"],
+      bcc: ["x@x.com"],
+    });
+    expect(result.to).toEqual(["x@x.com"]);
+    expect(result.cc).toEqual([]);
+    expect(result.bcc).toEqual([]);
+  });
+
+  it("returns empty fields for empty input", () => {
+    expect(mergeRecipients(empty, empty)).toEqual({ to: [], cc: [], bcc: [] });
   });
 });

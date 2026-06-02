@@ -22,7 +22,11 @@ import {
   type ComposeGroup,
   type AddedGroupState,
 } from "@/components/mail/recipient-group-chip";
-import { expandGroups, type RecipientTarget } from "@/lib/mail/group-expansion";
+import {
+  expandGroups,
+  mergeRecipients,
+  type RecipientTarget,
+} from "@/lib/mail/group-expansion";
 import { usePendingSendStore } from "@/stores/pending-send-store";
 import { showUndoSendToast } from "@/components/mail/undo-send-toast";
 import { SchedulePicker } from "@/components/mail/schedule-picker";
@@ -341,9 +345,21 @@ export function ComposeClientPage({
       })),
     );
 
-    const finalTo = [...toParsed.recipients, ...expanded.to];
-    const finalCc = [...ccParsed.recipients, ...expanded.cc];
-    const finalBcc = [...bccParsed.recipients, ...expanded.bcc];
+    // Merge typed + group-expanded recipients, deduping across To/Cc/Bcc so a
+    // person typed into one field and pulled in by a group targeting another
+    // is neither delivered twice nor leaked from Bcc into a visible field.
+    const {
+      to: finalTo,
+      cc: finalCc,
+      bcc: finalBcc,
+    } = mergeRecipients(
+      {
+        to: toParsed.recipients,
+        cc: ccParsed.recipients,
+        bcc: bccParsed.recipients,
+      },
+      expanded,
+    );
 
     if (finalTo.length + finalCc.length + finalBcc.length === 0) {
       setError("Please enter a recipient");

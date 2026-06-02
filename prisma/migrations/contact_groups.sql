@@ -3,10 +3,17 @@
 --   bin/deploy app exec --reuse "psql \"$DATABASE_URL\" -f - < prisma/migrations/contact_groups.sql"
 -- or pipe the file contents. Idempotent (IF NOT EXISTS guards).
 
--- 1. Enum for the group's default expansion target
+-- 1. Enum for the group's default expansion target.
+-- Schema-qualify the existence check: this DB instance is shared with an
+-- unrelated app, so a same-named type in another schema must not suppress
+-- creation of kurir's enum in the current schema.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'GroupTarget') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'GroupTarget' AND n.nspname = current_schema()
+  ) THEN
     CREATE TYPE "GroupTarget" AS ENUM ('TO', 'BCC');
   END IF;
 END $$;

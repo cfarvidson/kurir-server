@@ -132,6 +132,20 @@ describe("renameGroup / setGroupDefaultTarget", () => {
       data: { defaultTarget: "BCC" },
     });
   });
+
+  it("setGroupDefaultTarget rejects a group owned by another user", async () => {
+    await authed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.contactGroup.findUnique).mockResolvedValue({
+      userId: "other-user",
+    } as any);
+
+    const { setGroupDefaultTarget } = await import("@/actions/contact-groups");
+    await expect(setGroupDefaultTarget("group-1", "BCC")).rejects.toThrow(
+      "Group not found",
+    );
+    expect(db.contactGroup.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteGroup", () => {
@@ -149,6 +163,18 @@ describe("deleteGroup", () => {
     expect(db.contactGroup.delete).toHaveBeenCalledWith({
       where: { id: "group-1" },
     });
+  });
+
+  it("rejects deleting a group owned by another user", async () => {
+    await authed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.contactGroup.findUnique).mockResolvedValue({
+      userId: "other-user",
+    } as any);
+
+    const { deleteGroup } = await import("@/actions/contact-groups");
+    await expect(deleteGroup("group-1")).rejects.toThrow("Group not found");
+    expect(db.contactGroup.delete).not.toHaveBeenCalled();
   });
 });
 
@@ -184,6 +210,22 @@ describe("addGroupMember", () => {
 
     const { addGroupMember } = await import("@/actions/contact-groups");
     await addGroupMember("group-1", "ce-1");
+    expect(db.contactGroupMember.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects adding to a group owned by another user", async () => {
+    await authed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.contactGroup.findUnique).mockResolvedValue({
+      userId: "other-user",
+    } as any);
+
+    const { addGroupMember } = await import("@/actions/contact-groups");
+    await expect(addGroupMember("group-1", "ce-1")).rejects.toThrow(
+      "Group not found",
+    );
+    // Must not reach the email-ownership check or create the member.
+    expect(db.contactEmail.findMany).not.toHaveBeenCalled();
     expect(db.contactGroupMember.create).not.toHaveBeenCalled();
   });
 
