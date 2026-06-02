@@ -51,6 +51,7 @@ model User {
   attachments       Attachment[]
   drafts            Draft[]
   contacts          Contact[]
+  contactGroups     ContactGroup[]
 }
 
 model Passkey {
@@ -607,8 +608,55 @@ model ContactEmail {
   senderId String?
   sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
 
+  // Group memberships that pin this email
+  groupMembers ContactGroupMember[]
+
   @@unique([contactId, email])
   @@index([email])
   @@index([contactId])
   @@index([senderId])
+}
+
+// ============================================
+// Contact Groups (reusable recipient sets)
+// ============================================
+
+enum GroupTarget {
+  TO
+  BCC
+}
+
+model ContactGroup {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name          String
+  defaultTarget GroupTarget @default(TO)
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  members ContactGroupMember[]
+
+  @@index([userId])
+}
+
+model ContactGroupMember {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Group relation
+  groupId String
+  group   ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // Pins a specific ContactEmail (chosen at add time, defaulting to primary).
+  // Cascade delete: removing the contact/email drops the membership (no orphans).
+  contactEmailId String
+  contactEmail   ContactEmail @relation(fields: [contactEmailId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, contactEmailId])
+  @@index([groupId])
+  @@index([contactEmailId])
 }
