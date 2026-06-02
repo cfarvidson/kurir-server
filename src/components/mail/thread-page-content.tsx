@@ -50,6 +50,7 @@ interface ThreadPageContentProps {
   references: string[];
   userTimezone: string;
   blockRemoteImages?: boolean;
+  recipientNames?: Record<string, string>;
 }
 
 export function ThreadPageContent({
@@ -68,6 +69,7 @@ export function ThreadPageContent({
   references,
   userTimezone,
   blockRemoteImages = false,
+  recipientNames = {},
 }: ThreadPageContentProps) {
   const userEmailSet = useMemo(
     () => new Set(userEmails.map((e) => e.toLowerCase())),
@@ -136,6 +138,7 @@ export function ThreadPageContent({
         currentUserEmail={currentUserEmail}
         userEmails={userEmailSet}
         blockRemoteImages={blockRemoteImages}
+        recipientNames={recipientNames}
       />
 
       <div className="mt-6 pb-8">
