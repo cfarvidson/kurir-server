@@ -12,12 +12,13 @@ import {
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
+import { parseRecipients } from "@/lib/mail/recipients";
 import { findOrCreateContactForEmail } from "@/actions/contacts";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
 const sendSchema = z.object({
-  to: z.email(),
+  to: z.string(),
   subject: z.string().optional().default(""),
   text: z.string().optional().default(""),
   html: z.string().optional(),
@@ -59,6 +60,22 @@ export async function POST(request: Request) {
     fromConnectionId,
     attachmentIds,
   } = parsed.data;
+
+  // Support multiple recipients (comma/semicolon separated). Reject the whole
+  // send if any address is malformed so partial sends never happen silently.
+  const { recipients, invalid } = parseRecipients(to);
+  if (invalid.length > 0) {
+    return NextResponse.json(
+      { error: `Invalid recipient address: ${invalid.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  if (recipients.length === 0) {
+    return NextResponse.json(
+      { error: "No valid recipient address provided" },
+      { status: 400 },
+    );
+  }
 
   // Resolve credentials: use specified connection or fall back to default
   let credentials;
@@ -133,7 +150,7 @@ export async function POST(request: Request) {
 
     const result = await transporter.sendMail({
       from: fromAddress,
-      to,
+      to: recipients,
       subject,
       text,
       html: emailHtml,
@@ -177,16 +194,18 @@ export async function POST(request: Request) {
       references: references || [],
       subject,
       fromAddress,
-      toAddresses: [to],
+      toAddresses: recipients,
       text,
       html: displayHtml,
       attachmentIds: loaded.ids,
     });
 
-    // Auto-create contact for recipient (fire-and-forget)
-    findOrCreateContactForEmail(session.user.id, to).catch((err) => {
-      console.error("Auto-create contact failed:", err);
-    });
+    // Auto-create contacts for recipients (fire-and-forget)
+    for (const recipient of recipients) {
+      findOrCreateContactForEmail(session.user.id, recipient).catch((err) => {
+        console.error("Auto-create contact failed:", err);
+      });
+    }
 
     // Append to IMAP Sent folder (fire-and-forget)
     appendToImapSent({
@@ -196,7 +215,7 @@ export async function POST(request: Request) {
       references: references || [],
       subject,
       fromAddress,
-      toAddresses: [to],
+      toAddresses: recipients,
       text,
       html: emailHtml,
       attachments: loaded.sentAttachments,

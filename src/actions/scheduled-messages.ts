@@ -7,9 +7,23 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { z } from "zod";
 import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
 import { createLocalSentMessage } from "@/lib/mail/persist-sent";
+import { parseRecipients } from "@/lib/mail/recipients";
+
+// Accept one or more comma/semicolon-separated recipients; store as a
+// normalized comma-joined string. Rejects the whole value if any is invalid.
+const recipientField = z.string().transform((val) => {
+  const { recipients, invalid } = parseRecipients(val);
+  if (invalid.length > 0) {
+    throw new Error(`Invalid recipient address: ${invalid.join(", ")}`);
+  }
+  if (recipients.length === 0) {
+    throw new Error("No valid recipient address provided");
+  }
+  return recipients.join(", ");
+});
 
 const createSchema = z.object({
-  to: z.email(),
+  to: recipientField,
   subject: z.string(),
   textBody: z.string(),
   htmlBody: z.string().optional(),
@@ -27,7 +41,7 @@ const createSchema = z.object({
 });
 
 const editSchema = z.object({
-  to: z.email().optional(),
+  to: recipientField.optional(),
   subject: z.string().optional(),
   textBody: z.string().optional(),
   htmlBody: z.string().optional(),
@@ -262,7 +276,7 @@ export async function sendScheduledMessageNow(id: string) {
       references: refList,
       subject: msg.subject,
       fromAddress,
-      toAddresses: [msg.to],
+      toAddresses: parseRecipients(msg.to).recipients,
       text: textBody,
       html: htmlBody,
     });

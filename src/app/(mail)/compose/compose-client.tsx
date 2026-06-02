@@ -17,6 +17,7 @@ import { showUndoSendToast } from "@/components/mail/undo-send-toast";
 import { SchedulePicker } from "@/components/mail/schedule-picker";
 import { useBeforeUnload } from "@/hooks/use-before-unload";
 import { createScheduledMessage } from "@/actions/scheduled-messages";
+import { parseRecipients } from "@/lib/mail/recipients";
 import { toast } from "sonner";
 import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
@@ -245,7 +246,12 @@ export function ComposeClientPage({
   }, []);
 
   const handleScheduleSend = async (scheduledFor: Date) => {
-    if (!to.trim()) {
+    const { recipients, invalid } = parseRecipients(to);
+    if (invalid.length > 0) {
+      setError(`Invalid recipient address: ${invalid.join(", ")}`);
+      return;
+    }
+    if (recipients.length === 0) {
       setError("Please enter a recipient");
       return;
     }
@@ -278,7 +284,12 @@ export function ComposeClientPage({
   };
 
   const handleSend = () => {
-    if (!to.trim()) {
+    const { recipients, invalid } = parseRecipients(to);
+    if (invalid.length > 0) {
+      setError(`Invalid recipient address: ${invalid.join(", ")}`);
+      return;
+    }
+    if (recipients.length === 0) {
       setError("Please enter a recipient");
       return;
     }
