@@ -72,7 +72,64 @@ describe("POST /api/mail/send", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("Invalid request");
+    expect(body.error).toContain("Invalid recipient address");
+    expect(body.error).toContain("not-an-email");
+  });
+
+  it("rejects the whole send when any recipient in a list is invalid", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({ to: "good@example.com, not-an-email" });
+    const response = await POST(req);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain("not-an-email");
+    // Must not attempt a partial send.
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(getDefaultConnectionCredentials).not.toHaveBeenCalled();
+  });
+
+  it("sends to multiple recipients as a list", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+    vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
+      connectionId: "conn-default",
+      email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.gmail.com", port: 993 },
+      smtp: { host: "smtp.gmail.com", port: 587 },
+    });
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+
+    const { createLocalSentMessage } = await import("@/lib/mail/persist-sent");
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({
+      to: "a@example.com, b@example.com",
+      subject: "Hi",
+      text: "Hello",
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: ["a@example.com", "b@example.com"] }),
+    );
+    expect(createLocalSentMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toAddresses: ["a@example.com", "b@example.com"],
+      }),
+    );
   });
 
   it("uses the default connection when fromConnectionId is not specified", async () => {

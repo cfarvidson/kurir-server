@@ -5,6 +5,7 @@ import { createLocalSentMessage, appendToImapSent } from "./persist-sent";
 import { convertMarkdownToEmailHtml } from "./markdown-to-email";
 import { loadAttachmentsForSend } from "./attachment-helpers";
 import { buildSmtpAuth } from "./auth-helpers";
+import { parseRecipients } from "./recipients";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -180,7 +181,7 @@ async function processSingleMessage(
       references: refList,
       subject: msg.subject,
       fromAddress,
-      toAddresses: [msg.to],
+      toAddresses: parseRecipients(msg.to).recipients,
       text: textBody,
       html: htmlBody,
       attachmentIds: sentLoaded.ids,
@@ -194,7 +195,7 @@ async function processSingleMessage(
       references: refList,
       subject: msg.subject,
       fromAddress,
-      toAddresses: [msg.to],
+      toAddresses: parseRecipients(msg.to).recipients,
       text: textBody,
       html: htmlBody,
       attachments: sentLoaded.sentAttachments,
