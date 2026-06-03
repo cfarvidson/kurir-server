@@ -62,5 +62,6 @@ docs/plans/
 docs/brainstorms/
 docs/superpowers/
 .playwright-mcp/
+.superpowers/
 
 !CLAUDE.md
