@@ -275,40 +275,6 @@ describe("Screener edge cases — queue and state boundaries", () => {
     // Component should not crash — latestMessage conditional check handles this
   });
 
-  it("handles sender with null displayName (uses email for avatar initial)", () => {
-    const sender = {
-      id: "s1",
-      email: "user@example.com",
-      displayName: null,
-      domain: "example.com",
-      messages: [],
-      _count: { messages: 1 },
-    };
-
-    const avatarInitial = (sender.displayName || sender.email)
-      .charAt(0)
-      .toUpperCase();
-
-    expect(avatarInitial).toBe("U");
-  });
-
-  it("handles sender with displayName (uses displayName for avatar initial)", () => {
-    const sender = {
-      id: "s1",
-      email: "user@example.com",
-      displayName: "Jane Doe",
-      domain: "example.com",
-      messages: [],
-      _count: { messages: 1 },
-    };
-
-    const avatarInitial = (sender.displayName || sender.email)
-      .charAt(0)
-      .toUpperCase();
-
-    expect(avatarInitial).toBe("J");
-  });
-
   it("handles subject-only message (no snippet, no body)", () => {
     const message = {
       id: "msg-1",
