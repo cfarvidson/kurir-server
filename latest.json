@@ -1,8 +1,8 @@
 {
-  "version": "2026.05.31",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.05.31",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.05.31",
-  "changelog": "Fixes for snooze labels, archive leaking into Reply Later/Follow-Up, badge-preference auth, mobile nav parity, and inline iOS PDF previews.",
+  "version": "2026.06.03",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.03",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.03",
+  "changelog": "Editorial reading pane and cleaner message list, redesigned sidebar (with mobile tab bar), contact groups, scheduled-message editing, multi-recipient compose, and unified toast styling.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-05-31T05:38:36Z"
+  "releasedAt": "2026-06-03T08:55:14Z"
 }

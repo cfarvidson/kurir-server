@@ -2,6 +2,21 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.06.03] - 2026-06-03
+
+### Added
+
+- Contact groups: organize contacts into named groups.
+- Compose: support multiple recipients in both immediate and scheduled sends.
+
+### Changed
+
+- Reading pane: editorial redesign with a serif subject line and calmer avatars.
+- Message list: cleaner rows that reserve brand color for signal.
+- Sidebar: refreshed with cleaner design tokens, extended to the mobile tab bar.
+- Toast: unified pop-up notification styling across all notification types.
+- Compose: editing a scheduled message now returns to the origin view on cancel.
+
 ## [v2026.05.31] - 2026-05-31
 
 ### Added
