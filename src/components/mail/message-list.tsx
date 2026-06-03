@@ -303,8 +303,16 @@ export function MessageRow({
         </button>
       )}
 
+      {/* Unread dot — sits in the row gutter, no layout shift */}
+      {!isSelectionMode && !message.isRead && (
+        <span
+          aria-hidden="true"
+          className="absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary md:left-2.5"
+        />
+      )}
+
       {/* Avatar */}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary md:h-10 md:w-10">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground md:h-10 md:w-10">
         {(
           message.sender?.displayName ||
           message.fromName ||
