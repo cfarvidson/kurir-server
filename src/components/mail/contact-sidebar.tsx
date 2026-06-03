@@ -4,24 +4,6 @@ import { getContactContext } from "@/lib/mail/contact-context";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { CategoryPicker } from "@/components/mail/category-picker";
 
-function getInitialColor(str: string): string {
-  const palettes = [
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-    "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
-    "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return palettes[Math.abs(hash) % palettes.length];
-}
-
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -63,19 +45,12 @@ export async function ContactSidebar({
   return (
     <div className="hidden w-[280px] shrink-0 border-l lg:block">
       <div className="overflow-auto p-4">
-        {/* Avatar and name */}
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getInitialColor(contactEmail)}`}
-          >
-            {name.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{name}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {contactEmail}
-            </p>
-          </div>
+        {/* Name */}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {contactEmail}
+          </p>
         </div>
 
         {/* Category badge and stats */}

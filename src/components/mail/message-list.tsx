@@ -311,17 +311,6 @@ export function MessageRow({
         />
       )}
 
-      {/* Avatar */}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground md:h-10 md:w-10">
-        {(
-          message.sender?.displayName ||
-          message.fromName ||
-          message.fromAddress
-        )
-          .charAt(0)
-          .toUpperCase()}
-      </div>
-
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 md:gap-2">
