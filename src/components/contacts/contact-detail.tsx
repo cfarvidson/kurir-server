@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -132,6 +132,7 @@ function getInitialColor(str: string): string {
 
 export function ContactDetail({ contact, conversations }: ContactDetailProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   // --- Editable name ---
   const [isEditingName, setIsEditingName] = useState(false);
@@ -572,7 +573,9 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
             </Button>
 
             <Button asChild size="sm" className="gap-1.5">
-              <Link href={`/compose?to=${encodeURIComponent(primaryEmail)}`}>
+              <Link
+                href={`/compose?to=${encodeURIComponent(primaryEmail)}&from=${encodeURIComponent(pathname)}`}
+              >
                 <PenSquare className="h-3.5 w-3.5" />
                 Compose
               </Link>

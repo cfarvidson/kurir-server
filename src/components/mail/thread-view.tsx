@@ -11,7 +11,7 @@ import {
   MoreHorizontal,
   Printer,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
@@ -143,6 +143,7 @@ function MessageBubble({
   recipientNames?: RecipientNameMap;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
   const [imagesRevealed, setImagesRevealed] = useState(false);
@@ -262,7 +263,9 @@ function MessageBubble({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/compose?forward=${message.id}`);
+                        router.push(
+                          `/compose?forward=${message.id}&from=${encodeURIComponent(pathname)}`,
+                        );
                       }}
                       className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                       title="Forward this email"

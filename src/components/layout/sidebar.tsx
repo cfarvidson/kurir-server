@@ -109,7 +109,7 @@ export function Sidebar({
       {/* Compose button */}
       <div className="p-4">
         <Button asChild className="group w-full">
-          <Link href="/compose">
+          <Link href={`/compose?from=${encodeURIComponent(pathname)}`}>
             <PenSquare className="h-4 w-4" />
             <span className="flex-1 text-left">Compose</span>
             <span className="font-mono text-xs text-primary-foreground/0 transition-opacity duration-200 group-hover:text-primary-foreground/40">
