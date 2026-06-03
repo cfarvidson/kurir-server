@@ -32,7 +32,7 @@ export default async function PaperTrailPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isInPaperTrail" = true`}
+            categoryFilter={Prisma.sql`AND "isInPaperTrail" = true AND "isSnoozed" = false`}
             basePath="/paper-trail"
             showArchiveAction
             showSnoozeAction

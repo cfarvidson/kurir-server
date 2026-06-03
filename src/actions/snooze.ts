@@ -36,13 +36,14 @@ export async function snoozeConversation(messageId: string, until: Date) {
 
   const messageIds = threadMessages.map((m) => m.id);
 
-  // Snooze all thread messages; mark read (user acknowledged, just deferred)
+  // Snooze all thread messages. Leave read state untouched so a message
+  // returns with its true read state when it wakes (read stays read,
+  // unread stays unread). Snoozed mail is excluded from lists and counts.
   await db.message.updateMany({
     where: { id: { in: messageIds } },
     data: {
       isSnoozed: true,
       snoozedUntil: until,
-      isRead: true,
     },
   });
 
@@ -81,13 +82,13 @@ export async function unsnoozeConversation(messageId: string) {
 
   const messageIds = threadMessages.map((m) => m.id);
 
-  // Unsnooze: mark unread so it resurfaces in "New For You"
+  // Unsnooze: clear snooze state only. Read state is preserved so only
+  // genuinely unread mail resurfaces as unread.
   await db.message.updateMany({
     where: { id: { in: messageIds } },
     data: {
       isSnoozed: false,
       snoozedUntil: null,
-      isRead: false,
     },
   });
 
@@ -120,8 +121,10 @@ export async function snoozeConversations(messageIds: string[], until: Date) {
 
   // Collect all thread messages across all selected threads
   const threadIds = [
-    ...new Set(messages.map((m) => m.threadId).filter(Boolean)),
-  ] as string[];
+    ...new Set(
+      messages.map((m) => m.threadId).filter((id): id is string => id !== null),
+    ),
+  ];
   const singleIds = messages.filter((m) => !m.threadId).map((m) => m.id);
 
   const threadMessages = await db.message.findMany({
@@ -137,12 +140,12 @@ export async function snoozeConversations(messageIds: string[], until: Date) {
 
   const allMessageIds = threadMessages.map((m) => m.id);
 
+  // Leave read state untouched (see snoozeConversation).
   await db.message.updateMany({
     where: { id: { in: allMessageIds } },
     data: {
       isSnoozed: true,
       snoozedUntil: until,
-      isRead: true,
     },
   });
 

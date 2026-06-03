@@ -38,7 +38,7 @@ export default async function ImboxPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isInImbox" = true`}
+            categoryFilter={Prisma.sql`AND "isInImbox" = true AND "isSnoozed" = false`}
             basePath="/imbox"
             showArchiveAction
             showSnoozeAction

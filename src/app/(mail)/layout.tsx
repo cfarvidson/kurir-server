@@ -64,7 +64,12 @@ export default async function MailLayout({
       ),
     }),
     db.message.count({
-      where: { userId: session.user.id, isInImbox: true, isRead: false },
+      where: {
+        userId: session.user.id,
+        isInImbox: true,
+        isRead: false,
+        isSnoozed: false,
+      },
     }),
     db.scheduledMessage.count({
       where: { userId: session.user.id, status: "PENDING" },
@@ -76,10 +81,20 @@ export default async function MailLayout({
       where: { userId: session.user.id, isReplyLater: true, isArchived: false },
     }),
     db.message.count({
-      where: { userId: session.user.id, isInFeed: true, isRead: false },
+      where: {
+        userId: session.user.id,
+        isInFeed: true,
+        isRead: false,
+        isSnoozed: false,
+      },
     }),
     db.message.count({
-      where: { userId: session.user.id, isInPaperTrail: true, isRead: false },
+      where: {
+        userId: session.user.id,
+        isInPaperTrail: true,
+        isRead: false,
+        isSnoozed: false,
+      },
     }),
     getBadgePreferences(session.user.id),
     db.user
