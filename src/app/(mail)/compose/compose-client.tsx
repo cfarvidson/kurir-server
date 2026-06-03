@@ -34,7 +34,8 @@ import { useBeforeUnload } from "@/hooks/use-before-unload";
 import {
   createScheduledMessage,
   editScheduledMessage,
-  cancelScheduledMessage,
+  holdScheduledMessage,
+  restoreScheduledMessage,
 } from "@/actions/scheduled-messages";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { safeInternalPath } from "@/lib/mail/compose-origin";
@@ -477,7 +478,7 @@ export function ComposeClientPage({
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const built = buildRecipients();
     if (!built) return;
     if (isUploading) {
@@ -487,6 +488,25 @@ export function ComposeClientPage({
 
     setError(null);
     cancelPendingSave();
+
+    // When sending now from an edit of a scheduled message, cancel the pending
+    // scheduled copy *synchronously* before starting the undo timer. This is an
+    // atomic gate: if the hold fails, the background scheduler already claimed
+    // the copy and is delivering it on schedule — so we must NOT also send,
+    // which would deliver the email twice (issue #52). Undo re-instates it.
+    if (editScheduled) {
+      try {
+        const { held } = await holdScheduledMessage(editScheduled.id);
+        if (!held) {
+          toast.error("This message already went out on its schedule.");
+          router.push("/scheduled");
+          return;
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't send");
+        return;
+      }
+    }
 
     const sendId = `send_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const attachmentIds = attachments
@@ -532,25 +552,11 @@ export function ComposeClientPage({
         throw new Error(data.error || "Failed to send email");
       }
 
-      // When sending now from an edit of a scheduled message, cancel the
-      // pending copy so it doesn't also fire later (double-send). Done only
-      // after the send actually commits, so an Undo leaves the schedule intact.
-      // The email has already been delivered here, so a cancel failure (e.g. the
-      // scheduler raced us and the row is no longer PENDING) is a cleanup
-      // problem — log it, but don't surface it as a send failure or skip the
-      // draft cleanup below.
-      if (editScheduled) {
-        try {
-          await cancelScheduledMessage(editScheduled.id);
-        } catch (cancelErr) {
-          console.error(
-            "Failed to cancel scheduled copy after send-now:",
-            cancelErr,
-          );
-        }
-      } else {
-        // Delete draft after successful send (undo window has expired).
-        // Drafts are disabled while editing a scheduled message.
+      // The scheduled copy (if any) was already held synchronously on Send, so
+      // there's nothing to cancel here. For ordinary compose, delete the draft
+      // now that the undo window has expired; drafts are disabled while editing
+      // a scheduled message.
+      if (!editScheduled) {
         await removeDraft();
       }
     };
@@ -569,10 +575,26 @@ export function ComposeClientPage({
       sendId,
       payload.display,
       UNDO_DELAY_MS,
-      () => {
+      async () => {
         cancel(sendId);
-        // Restore state on undo — but we've already navigated away
-        // so this is mostly for the toast feedback
+        // Re-instate the scheduled copy we held on Send so the original
+        // schedule still fires (issue #52). Restore brings back the row with
+        // its original content — in-progress compose edits aren't persisted on
+        // the send-now path, only via "Update schedule".
+        if (editScheduled) {
+          try {
+            const { restored } = await restoreScheduledMessage(
+              editScheduled.id,
+            );
+            if (!restored) {
+              toast.error("Couldn't restore the schedule — check Scheduled.");
+              return;
+            }
+          } catch {
+            toast.error("Couldn't restore the schedule — check Scheduled.");
+            return;
+          }
+        }
         toast.success("Send cancelled");
       },
       () => {},
