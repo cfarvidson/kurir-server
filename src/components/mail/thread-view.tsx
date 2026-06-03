@@ -60,22 +60,6 @@ interface ThreadViewProps {
   recipientNames?: RecipientNameMap;
 }
 
-function getInitialColor(name: string): string {
-  const colors = [
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-    "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -169,7 +153,6 @@ function MessageBubble({
 
   const senderName =
     message.sender?.displayName || message.fromName || message.fromAddress;
-  const avatarColor = getInitialColor(message.fromAddress);
 
   return (
     <motion.div
@@ -189,10 +172,7 @@ function MessageBubble({
       <div className="flex gap-0 md:gap-3">
         {/* Avatar — desktop only */}
         <div
-          className={cn(
-            "relative z-10 hidden shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background md:flex md:h-10 md:w-10 md:text-sm",
-            avatarColor,
-          )}
+          className="relative z-10 hidden shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-background md:flex md:h-10 md:w-10 md:text-sm"
         >
           {senderName.charAt(0).toUpperCase()}
         </div>

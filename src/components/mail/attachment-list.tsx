@@ -84,11 +84,11 @@ export function AttachmentList({
           const label = (
             <>
               {previewable ? (
-                <Eye className="h-3 w-3 text-primary/60" />
+                <Eye className="h-3 w-3 text-muted-foreground" />
               ) : busyId === att.id ? (
                 <Loader2 className="h-3 w-3 animate-spin text-primary/60" />
               ) : (
-                <Paperclip className="h-3 w-3 text-primary/60" />
+                <Paperclip className="h-3 w-3 text-muted-foreground" />
               )}
               <span className="max-w-[200px] truncate font-medium">
                 {att.filename}
