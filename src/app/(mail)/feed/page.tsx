@@ -32,7 +32,7 @@ export default async function FeedPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isInFeed" = true`}
+            categoryFilter={Prisma.sql`AND "isInFeed" = true AND "isSnoozed" = false`}
             basePath="/feed"
             showArchiveAction
             showSnoozeAction

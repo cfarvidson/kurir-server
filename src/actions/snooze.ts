@@ -121,8 +121,10 @@ export async function snoozeConversations(messageIds: string[], until: Date) {
 
   // Collect all thread messages across all selected threads
   const threadIds = [
-    ...new Set(messages.map((m) => m.threadId).filter(Boolean)),
-  ] as string[];
+    ...new Set(
+      messages.map((m) => m.threadId).filter((id): id is string => id !== null),
+    ),
+  ];
   const singleIds = messages.filter((m) => !m.threadId).map((m) => m.id);
 
   const threadMessages = await db.message.findMany({

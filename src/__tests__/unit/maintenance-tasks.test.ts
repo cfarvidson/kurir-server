@@ -21,11 +21,16 @@ describe("wakeExpiredSnoozes", () => {
 
     const call = vi.mocked(db.message.updateMany).mock.calls[0][0];
     // Targets only expired, still-snoozed messages for this user.
-    expect(call.where).toMatchObject({
+    const where = call.where as {
+      userId: string;
+      isSnoozed: boolean;
+      snoozedUntil: unknown;
+    };
+    expect(where).toMatchObject({
       userId: "user-1",
       isSnoozed: true,
     });
-    expect(call.where.snoozedUntil).toHaveProperty("lte");
+    expect(where.snoozedUntil).toHaveProperty("lte");
     // Wakes the snooze but preserves read state — a read message must not
     // reappear as unread ("new") when its snooze expires.
     expect(call.data).toEqual({ isSnoozed: false, snoozedUntil: null });

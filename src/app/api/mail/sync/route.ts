@@ -3,40 +3,14 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
-import { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
+import {
+  checkExpiredFollowUps,
+  wakeExpiredSnoozes,
+} from "@/lib/jobs/maintenance-tasks";
 import { pushToUser } from "@/lib/mail/push-sender";
 import { rateLimitSync, tooManyRequests } from "@/lib/rate-limit";
 
 const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Wake snoozed messages whose snoozedUntil has passed.
- * Piggybacks on the existing ~30s AutoSync poll.
- */
-async function wakeExpiredSnoozes(userId: string): Promise<number> {
-  const result = await db.message.updateMany({
-    where: {
-      userId,
-      isSnoozed: true,
-      snoozedUntil: { lte: new Date() },
-    },
-    data: {
-      isSnoozed: false,
-      snoozedUntil: null,
-      isRead: false,
-    },
-  });
-
-  if (result.count > 0) {
-    revalidateTag("sidebar-counts", { expire: 0 });
-    revalidatePath("/imbox");
-    revalidatePath("/feed");
-    revalidatePath("/paper-trail");
-    revalidatePath("/snoozed");
-  }
-
-  return result.count;
-}
 
 async function clearConnectionMailCache(emailConnectionId: string) {
   // Delete messages, folders, and senders for this specific connection
@@ -229,6 +203,15 @@ export async function POST(request: NextRequest) {
   }
 
   const wokenSnoozes = await wakeExpiredSnoozes(userId);
+
+  if (wokenSnoozes > 0) {
+    revalidateTag("sidebar-counts", { expire: 0 });
+    revalidatePath("/imbox");
+    revalidatePath("/feed");
+    revalidatePath("/paper-trail");
+    revalidatePath("/snoozed");
+  }
+
   const firedFollowUps = await checkExpiredFollowUps(userId);
 
   if (firedFollowUps > 0) {
