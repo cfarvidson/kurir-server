@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 import { Providers } from "@/components/providers";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Toaster } from "sonner";
+import {
+  TOAST_SHELL_CLASS,
+  TOAST_SHELL_STYLE,
+} from "@/components/ui/toast-config";
 
 export default async function AdminLayout({
   children,
@@ -36,13 +40,8 @@ export default async function AdminLayout({
           expand={false}
           visibleToasts={4}
           toastOptions={{
-            className:
-              "border border-border bg-card text-card-foreground shadow-lg",
-            style: {
-              "--toast-bg": "hsl(var(--card))",
-              "--toast-border": "hsl(var(--border))",
-              "--toast-text": "hsl(var(--card-foreground))",
-            } as React.CSSProperties,
+            className: TOAST_SHELL_CLASS,
+            style: TOAST_SHELL_STYLE,
           }}
         />
       </div>
