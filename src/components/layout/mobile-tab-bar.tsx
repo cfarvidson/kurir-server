@@ -198,7 +198,7 @@ export function MobileTabBar({
   return (
     <div className="md:hidden">
       {/* Tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card/95 backdrop-blur-xs pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-xs pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
@@ -297,9 +297,9 @@ export function MobileTabBar({
                   href={item.href}
                   onClick={closeSheet}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 font-medium text-primary"
                       : "text-foreground active:bg-muted",
                   )}
                 >
@@ -329,9 +329,9 @@ export function MobileTabBar({
               href="/settings"
               onClick={closeSheet}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
                 pathname === "/settings"
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary/10 font-medium text-primary"
                   : "text-foreground active:bg-muted",
               )}
             >
@@ -343,7 +343,7 @@ export function MobileTabBar({
                 closeSheet();
                 window.dispatchEvent(new CustomEvent("open-command-palette"));
               }}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
             >
               <Command className="h-5 w-5 text-muted-foreground" />
               Commands
@@ -353,9 +353,9 @@ export function MobileTabBar({
                 href="/admin"
                 onClick={closeSheet}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
                   pathname.startsWith("/admin")
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/10 font-medium text-primary"
                     : "text-foreground active:bg-muted",
                 )}
               >
@@ -368,7 +368,7 @@ export function MobileTabBar({
                 closeSheet();
                 signOut({ callbackUrl: "/login" });
               }}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
             >
               <LogOut className="h-5 w-5 text-muted-foreground" />
               Sign out
