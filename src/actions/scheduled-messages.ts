@@ -125,6 +125,63 @@ export async function cancelScheduledMessage(id: string) {
   updateTag("sidebar-counts");
 }
 
+/**
+ * Atomically "hold" a scheduled message when the user sends it now from the
+ * edit screen. Flips PENDING → CANCELLED in a single compare-and-set so the
+ * background scheduler (`sendDueScheduledMessages`) can never also deliver the
+ * copy — closing the double-send race (issue #52).
+ *
+ * Returns `{ held: false }` (rather than throwing) when the row is no longer
+ * PENDING: that means the scheduler already claimed/sent it, and the caller
+ * must NOT also send. Pair with `restoreScheduledMessage` to undo the hold.
+ */
+export async function holdScheduledMessage(
+  id: string,
+): Promise<{ held: boolean }> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+
+  const result = await db.scheduledMessage.updateMany({
+    where: { id, userId, status: "PENDING" },
+    data: { status: "CANCELLED" },
+  });
+
+  const held = result.count === 1;
+  if (held) updateTag("sidebar-counts");
+
+  return { held };
+}
+
+/**
+ * Reverse a `holdScheduledMessage` when the user hits Undo within the send
+ * window. Flips CANCELLED → PENDING atomically, restoring the schedule with
+ * its *original* content (the send-now path never persists in-progress compose
+ * edits onto the row — only the explicit "Update schedule" action does).
+ *
+ * Returns `{ restored: false }` (no throw) when the row isn't in a restorable
+ * state, e.g. it was already delivered.
+ */
+export async function restoreScheduledMessage(
+  id: string,
+): Promise<{ restored: boolean }> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+
+  const result = await db.scheduledMessage.updateMany({
+    where: { id, userId, status: "CANCELLED" },
+    data: { status: "PENDING" },
+  });
+
+  const restored = result.count === 1;
+  if (restored) updateTag("sidebar-counts");
+
+  return { restored };
+}
+
 export async function editScheduledMessage(
   id: string,
   data: z.input<typeof editSchema>,
