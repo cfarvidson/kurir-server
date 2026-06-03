@@ -23,6 +23,19 @@ describe("safeInternalPath", () => {
     expect(safeInternalPath("http://evil.com")).toBeNull();
   });
 
+  it("rejects backslash variants the URL parser normalizes to '//'", () => {
+    // The WHATWG URL parser treats "\" as "/", so these would resolve off-site.
+    expect(safeInternalPath("/\\evil.com")).toBeNull();
+    expect(safeInternalPath("/\\/evil.com")).toBeNull();
+    expect(safeInternalPath("\\\\evil.com")).toBeNull();
+  });
+
+  it("rejects values containing control characters", () => {
+    expect(safeInternalPath("/\tfoo")).toBeNull();
+    expect(safeInternalPath("/\nfoo")).toBeNull();
+    expect(safeInternalPath("/\r/evil.com")).toBeNull();
+  });
+
   it("rejects non-rooted / relative values", () => {
     expect(safeInternalPath("feed")).toBeNull();
     expect(safeInternalPath("javascript:alert(1)")).toBeNull();

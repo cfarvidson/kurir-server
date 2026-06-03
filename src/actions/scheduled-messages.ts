@@ -58,6 +58,7 @@ const editSchema = z.object({
   emailConnectionId: z.string().optional(),
   inReplyToMessageId: z.string().optional(),
   references: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
 });
 
 export async function createScheduledMessage(
@@ -172,6 +173,8 @@ export async function editScheduledMessage(
     updateData.inReplyToMessageId = parsed.inReplyToMessageId;
   if (parsed.references !== undefined)
     updateData.references = parsed.references;
+  if (parsed.attachmentIds !== undefined)
+    updateData.attachmentIds = parsed.attachmentIds;
 
   await db.scheduledMessage.update({
     where: { id },

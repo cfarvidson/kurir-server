@@ -110,6 +110,8 @@ export interface EditScheduledData {
   scheduledFor: string;
   emailConnectionId: string;
   attachments: UploadedAttachment[];
+  /** True when the stored body could not be decrypted; body must not be re-saved. */
+  bodyDecryptFailed?: boolean;
 }
 
 interface ComposeClientPageProps {
@@ -445,9 +447,13 @@ export function ComposeClientPage({
         await editScheduledMessage(editScheduled.id, {
           to: to.trim(),
           subject,
-          textBody: body,
+          // When the original body couldn't be decrypted at load time, omit
+          // textBody so the existing ciphertext is preserved rather than
+          // overwritten with an empty (encrypted) body.
+          ...(editScheduled.bodyDecryptFailed ? {} : { textBody: body }),
           scheduledFor: scheduledFor.toISOString(),
           emailConnectionId: fromConnectionId,
+          attachmentIds,
         });
         toast.success("Schedule updated");
       } else {
@@ -529,12 +535,24 @@ export function ComposeClientPage({
       // When sending now from an edit of a scheduled message, cancel the
       // pending copy so it doesn't also fire later (double-send). Done only
       // after the send actually commits, so an Undo leaves the schedule intact.
+      // The email has already been delivered here, so a cancel failure (e.g. the
+      // scheduler raced us and the row is no longer PENDING) is a cleanup
+      // problem — log it, but don't surface it as a send failure or skip the
+      // draft cleanup below.
       if (editScheduled) {
-        await cancelScheduledMessage(editScheduled.id);
+        try {
+          await cancelScheduledMessage(editScheduled.id);
+        } catch (cancelErr) {
+          console.error(
+            "Failed to cancel scheduled copy after send-now:",
+            cancelErr,
+          );
+        }
+      } else {
+        // Delete draft after successful send (undo window has expired).
+        // Drafts are disabled while editing a scheduled message.
+        await removeDraft();
       }
-
-      // Delete draft after successful send (undo window has expired)
-      await removeDraft();
     };
 
     const onSuccess = () => {
@@ -577,7 +595,7 @@ export function ComposeClientPage({
           <h1 className="truncate text-xl font-semibold md:text-2xl">
             {isEditingScheduled ? "Edit Scheduled Message" : "New Message"}
           </h1>
-          {isEditingScheduled && editScheduled && (
+          {editScheduled && (
             <p
               className="truncate text-xs text-muted-foreground"
               suppressHydrationWarning

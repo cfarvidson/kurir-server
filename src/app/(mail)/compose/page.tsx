@@ -118,11 +118,15 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
 
     if (scheduled) {
       let body = "";
+      let bodyDecryptFailed = false;
       try {
         body = decrypt(scheduled.textBody);
       } catch {
         // Decryption failed — fall back to an empty body rather than crashing,
-        // mirroring the snippet handling in scheduled/page.tsx.
+        // mirroring the snippet handling in scheduled/page.tsx. The client uses
+        // bodyDecryptFailed to avoid overwriting the original ciphertext with an
+        // empty body when the user re-schedules.
+        bodyDecryptFailed = true;
       }
 
       const attachmentRecords = scheduled.attachmentIds.length
@@ -145,6 +149,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
         to: scheduled.to,
         subject: scheduled.subject,
         body,
+        bodyDecryptFailed,
         scheduledFor: scheduled.scheduledFor.toISOString(),
         emailConnectionId: scheduled.emailConnectionId,
         attachments: attachmentRecords.map((a) => ({
