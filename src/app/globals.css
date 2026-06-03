@@ -94,8 +94,8 @@
   --color-paper-trail-900: #78350f;
 
   --font-serif:
-    Playfair Display, ui-serif, Georgia, Cambria, "Times New Roman", Times,
-    serif;
+    var(--font-playfair), "Playfair Display", ui-serif, Georgia, Cambria,
+    "Times New Roman", Times, serif;
   --font-sans:
     Inter Variable, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
