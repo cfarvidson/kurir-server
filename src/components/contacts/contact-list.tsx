@@ -57,24 +57,6 @@ type FilterCategory =
   | "PAPER_TRAIL"
   | "UNCATEGORIZED";
 
-function getInitialColor(str: string): string {
-  const palettes = [
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-    "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
-    "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return palettes[Math.abs(hash) % palettes.length];
-}
-
 /** Derive the "primary" category for display from a contact's emails. */
 function getPrimaryCategory(
   contact: Contact,
@@ -113,16 +95,6 @@ function ContactCard({ contact }: { contact: Contact }) {
       href={`/contacts/${contact.id}`}
       className="group flex items-center gap-4 rounded-xl px-4 py-3 transition-all duration-150 hover:bg-muted/60"
     >
-      {/* Avatar */}
-      <div
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-transform duration-150 group-hover:scale-105",
-          getInitialColor(contact.name),
-        )}
-      >
-        {contact.name.charAt(0).toUpperCase()}
-      </div>
-
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

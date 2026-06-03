@@ -132,11 +132,6 @@ export function FromPicker({
                         : "hover:bg-muted/60",
                     )}
                   >
-                    {/* Avatar */}
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                      {(conn.displayName || conn.email).charAt(0).toUpperCase()}
-                    </div>
-
                     {/* Labels */}
                     <div className="min-w-0 flex-1">
                       {conn.displayName ? (

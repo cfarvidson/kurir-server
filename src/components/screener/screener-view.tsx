@@ -386,11 +386,6 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               {/* Sender Header */}
               <div className="border-b bg-muted/50 p-4 md:p-6">
                 <div className="flex items-center gap-3 md:gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary md:h-14 md:w-14 md:text-xl">
-                    {(currentSender.displayName || currentSender.email)
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-base font-semibold md:text-lg">
                       {currentSender.displayName || currentSender.email}

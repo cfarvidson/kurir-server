@@ -114,7 +114,6 @@ function MessageBubble({
   isFromCurrentUser,
   isCollapsed: initialCollapsed,
   isFirst,
-  isLast,
   blockRemoteImages = false,
   recipientNames = {},
 }: {
@@ -122,7 +121,6 @@ function MessageBubble({
   isFromCurrentUser: boolean;
   isCollapsed: boolean;
   isFirst: boolean;
-  isLast: boolean;
   blockRemoteImages?: boolean;
   recipientNames?: RecipientNameMap;
 }) {
@@ -161,22 +159,10 @@ function MessageBubble({
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="group relative"
     >
-      {/* Connector line — desktop only */}
-      {!isLast && (
-        <div className="absolute left-5 top-12 bottom-0 hidden w-px bg-border/40 md:block" />
-      )}
-
       {/* Mobile divider between messages */}
       {!isFirst && <div className="mb-2 border-t border-border/30 md:hidden" />}
 
-      <div className="flex gap-0 md:gap-3">
-        {/* Avatar — desktop only */}
-        <div
-          className="relative z-10 hidden shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-background md:flex md:h-10 md:w-10 md:text-sm"
-        >
-          {senderName.charAt(0).toUpperCase()}
-        </div>
-
+      <div className="flex">
         {/* Content */}
         <div className="min-w-0 flex-1 pb-4 md:pb-8">
           {/* Header — always visible */}
@@ -347,7 +333,6 @@ export function ThreadView({
           isFromCurrentUser={emailSet.has(message.fromAddress.toLowerCase())}
           isCollapsed={i < messages.length - 1}
           isFirst={i === 0}
-          isLast={i === messages.length - 1}
           blockRemoteImages={blockRemoteImages}
           recipientNames={recipientNames}
         />

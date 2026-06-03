@@ -108,23 +108,6 @@ const categoryConfig: Record<
   },
 };
 
-function getInitialColor(str: string): string {
-  const palettes = [
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-    "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
-    "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
-    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return palettes[Math.abs(hash) % palettes.length];
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -384,13 +367,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
       {/* Contact profile */}
       <div className="border-b px-4 py-5 md:px-6 md:py-6">
         <div className="flex items-start gap-4 md:gap-5">
-          {/* Large avatar */}
-          <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold md:h-16 md:w-16 md:text-xl ${getInitialColor(primaryEmail)}`}
-          >
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-
           <div className="min-w-0 flex-1">
             {/* Editable name */}
             {isEditingName ? (
@@ -711,11 +687,6 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
                   disabled={isLinking}
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted disabled:opacity-50"
                 >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getInitialColor(result.email)}`}
-                  >
-                    {(result.name || result.email).charAt(0).toUpperCase()}
-                  </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">
                       {result.name}
