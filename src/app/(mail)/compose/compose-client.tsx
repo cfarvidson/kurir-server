@@ -533,21 +533,44 @@ export function ComposeClientPage({
     };
 
     const onExpire = async () => {
-      const response = await fetch("/api/mail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: payload.to,
-          cc: payload.cc,
-          bcc: payload.bcc,
-          subject: payload.subject,
-          text: payload.body,
-          fromConnectionId: payload.fromConnectionId,
-          attachmentIds: payload.attachmentIds,
-        }),
-      });
+      // We held (CANCELLED) the scheduled copy synchronously on Send. If the
+      // send-now delivery fails here, the email went out neither now nor on
+      // schedule, so re-instate the held copy (CANCELLED -> PENDING) and let
+      // the scheduler deliver it later. Best-effort: a restore failure must not
+      // mask the underlying send error surfaced to the user.
+      const restoreHeldOnFailure = async () => {
+        if (editScheduled) {
+          await restoreScheduledMessage(editScheduled.id).catch((restoreErr) =>
+            console.error(
+              "Failed to restore scheduled copy after send-now failure:",
+              restoreErr,
+            ),
+          );
+        }
+      };
+
+      let response: Response;
+      try {
+        response = await fetch("/api/mail/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: payload.to,
+            cc: payload.cc,
+            bcc: payload.bcc,
+            subject: payload.subject,
+            text: payload.body,
+            fromConnectionId: payload.fromConnectionId,
+            attachmentIds: payload.attachmentIds,
+          }),
+        });
+      } catch (sendErr) {
+        await restoreHeldOnFailure();
+        throw sendErr;
+      }
 
       if (!response.ok) {
+        await restoreHeldOnFailure();
         const data = await response.json();
         throw new Error(data.error || "Failed to send email");
       }
