@@ -8,6 +8,10 @@ import { CommandPaletteShell } from "@/components/mail/command-palette-shell";
 import { BackGestureBlocker } from "@/components/layout/back-gesture-blocker";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
+import {
+  TOAST_SHELL_CLASS,
+  TOAST_SHELL_STYLE,
+} from "@/components/ui/toast-config";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -134,13 +138,8 @@ export default async function MailLayout({
             right: "1rem",
           }}
           toastOptions={{
-            className:
-              "border border-border bg-card text-card-foreground shadow-lg",
-            style: {
-              "--toast-bg": "hsl(var(--card))",
-              "--toast-border": "hsl(var(--border))",
-              "--toast-text": "hsl(var(--card-foreground))",
-            } as React.CSSProperties,
+            className: TOAST_SHELL_CLASS,
+            style: TOAST_SHELL_STYLE,
           }}
         />
       </div>
