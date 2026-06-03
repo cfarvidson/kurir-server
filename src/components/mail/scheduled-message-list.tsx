@@ -87,7 +87,7 @@ function ScheduledMessageRow({
   };
 
   const handleEdit = () => {
-    router.push(`/compose?editScheduled=${message.id}`);
+    router.push(`/compose?editScheduled=${message.id}&from=/scheduled`);
   };
 
   const isPending = isCancelling || isSending;

@@ -281,7 +281,7 @@ export function KeyboardShortcuts() {
           // Don't trigger compose when in g-sequence (g+c → contacts)
           if (LISTING_PATHS.has(pathname)) {
             e.preventDefault();
-            router.push("/compose");
+            router.push(`/compose?from=${encodeURIComponent(pathname)}`);
           }
           break;
 
