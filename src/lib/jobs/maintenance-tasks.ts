@@ -57,10 +57,11 @@ export async function wakeExpiredSnoozes(userId: string): Promise<number> {
       isSnoozed: true,
       snoozedUntil: { lte: new Date() },
     },
+    // Clear snooze state only. Read state is preserved so a message the user
+    // already read does not reappear as unread ("new") when its snooze expires.
     data: {
       isSnoozed: false,
       snoozedUntil: null,
-      isRead: false,
     },
   });
   return result.count;
