@@ -92,11 +92,11 @@ export function Sidebar({
   });
 
   return (
-    <div className="hidden h-full w-64 flex-col border-r bg-card md:flex">
+    <div className="hidden h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b px-6">
+      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
         <KurirLogo className="h-8 w-8" />
-        <span className="text-xl font-semibold">Kurir</span>
+        <span className="text-xl font-semibold tracking-tight">Kurir</span>
         <div className="ml-auto">
           <SyncStatusIndicator
             status={syncState.status}
@@ -133,9 +133,9 @@ export function Sidebar({
               key={item.name}
               href={item.href}
               className={cn(
-                "group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
+                "group/nav flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
                 isActive
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary/10 font-medium text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
@@ -173,13 +173,13 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t p-3">
+      <div className="border-t border-sidebar-border p-3">
         <Link
           href="/settings"
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
             pathname === "/settings"
-              ? "bg-primary/10 text-primary"
+              ? "bg-primary/10 font-medium text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
@@ -190,9 +190,9 @@ export function Sidebar({
           <Link
             href="/admin"
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal transition-colors",
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
               pathname.startsWith("/admin")
-                ? "bg-primary/10 text-primary"
+                ? "bg-primary/10 font-medium text-primary"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
@@ -202,7 +202,7 @@ export function Sidebar({
         )}
         <button
           onClick={openCommandPalette}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Command className="h-5 w-5" />
           <span className="flex-1 text-left">Commands</span>
@@ -217,7 +217,7 @@ export function Sidebar({
         </button>
         <button
           onClick={showShortcuts}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Keyboard className="h-5 w-5" />
           <span className="flex-1 text-left">Shortcuts</span>
@@ -227,7 +227,7 @@ export function Sidebar({
         </button>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           Sign out
