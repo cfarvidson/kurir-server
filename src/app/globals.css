@@ -30,6 +30,11 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
   --color-paper: #fefefe;
   --color-ink: #1a1a1a;
 
@@ -304,10 +309,15 @@
     --accent-foreground: 25 20% 14%;
     --destructive: 355 80% 52%;
     --destructive-foreground: 0 0% 98%;
-    --border: 28 15% 89%;
-    --input: 28 15% 89%;
+    --border: 28 13% 91%;
+    --input: 28 13% 91%;
     --ring: 12 76% 44%;
     --radius: 0.75rem;
+
+    /* Sidebar: a calm warm rail, set a touch deeper than the content surface */
+    --sidebar: 30 22% 97%;
+    --sidebar-foreground: 25 15% 8%;
+    --sidebar-border: 28 13% 90%;
   }
 
   .dark {
@@ -328,9 +338,14 @@
     --accent-foreground: 30 10% 95%;
     --destructive: 355 70% 42%;
     --destructive-foreground: 0 0% 98%;
-    --border: 25 8% 16%;
-    --input: 25 8% 16%;
+    --border: 25 8% 15%;
+    --input: 25 8% 15%;
     --ring: 12 80% 60%;
+
+    /* Sidebar: lifted a hair above the page so the rail reads as raised */
+    --sidebar: 25 11% 9%;
+    --sidebar-foreground: 30 10% 95%;
+    --sidebar-border: 25 8% 14%;
   }
 }
 
