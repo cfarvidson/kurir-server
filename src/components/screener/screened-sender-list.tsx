@@ -97,10 +97,6 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                 key={sender.id}
                 className="flex items-center gap-3 border-b px-6 py-3"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                  {(sender.displayName || sender.email).charAt(0).toUpperCase()}
-                </div>
-
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">
                     {sender.displayName || sender.email}
@@ -166,10 +162,6 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                 key={sender.id}
                 className="flex items-center gap-3 border-b px-6 py-3 opacity-60"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                  {(sender.displayName || sender.email).charAt(0).toUpperCase()}
-                </div>
-
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">
                     {sender.displayName || sender.email}

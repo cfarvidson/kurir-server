@@ -93,10 +93,6 @@ export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
         return (
           <div key={sender.id} className="border-b">
             <div className="flex items-center gap-3 px-6 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                {(sender.displayName || sender.email).charAt(0).toUpperCase()}
-              </div>
-
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">
                   {sender.displayName || sender.email}
@@ -143,7 +139,7 @@ export function PendingSenderList({ senders }: { senders: PendingSender[] }) {
             </div>
 
             {isExpanded && (
-              <div className="flex gap-2 px-6 pb-3 pl-17">
+              <div className="flex gap-2 px-6 pb-3">
                 {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                   const c = CATEGORY_CONFIG[cat];
                   const CatIcon = c.icon;
