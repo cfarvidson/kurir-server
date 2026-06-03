@@ -19,6 +19,8 @@ import { z } from "zod";
 
 const sendSchema = z.object({
   to: z.string(),
+  cc: z.string().optional(),
+  bcc: z.string().optional(),
   subject: z.string().optional().default(""),
   text: z.string().optional().default(""),
   html: z.string().optional(),
@@ -52,6 +54,8 @@ export async function POST(request: Request) {
 
   const {
     to,
+    cc,
+    bcc,
     subject,
     text,
     html,
@@ -61,16 +65,30 @@ export async function POST(request: Request) {
     attachmentIds,
   } = parsed.data;
 
-  // Support multiple recipients (comma/semicolon separated). Reject the whole
-  // send if any address is malformed so partial sends never happen silently.
+  // Support multiple recipients (comma/semicolon separated) across To/Cc/Bcc.
+  // Reject the whole send if any address is malformed so partial sends never
+  // happen silently.
   const { recipients, invalid } = parseRecipients(to);
-  if (invalid.length > 0) {
+  const { recipients: ccRecipients, invalid: ccInvalid } = parseRecipients(
+    cc ?? "",
+  );
+  const { recipients: bccRecipients, invalid: bccInvalid } = parseRecipients(
+    bcc ?? "",
+  );
+  const allInvalid = [...invalid, ...ccInvalid, ...bccInvalid];
+  if (allInvalid.length > 0) {
     return NextResponse.json(
-      { error: `Invalid recipient address: ${invalid.join(", ")}` },
+      { error: `Invalid recipient address: ${allInvalid.join(", ")}` },
       { status: 400 },
     );
   }
-  if (recipients.length === 0) {
+  // A send must reach at least one recipient across any field (allows
+  // group-only or Bcc-only sends with an empty To).
+  if (
+    recipients.length === 0 &&
+    ccRecipients.length === 0 &&
+    bccRecipients.length === 0
+  ) {
     return NextResponse.json(
       { error: "No valid recipient address provided" },
       { status: 400 },
@@ -150,7 +168,9 @@ export async function POST(request: Request) {
 
     const result = await transporter.sendMail({
       from: fromAddress,
-      to: recipients,
+      ...(recipients.length > 0 && { to: recipients }),
+      ...(ccRecipients.length > 0 && { cc: ccRecipients.join(", ") }),
+      ...(bccRecipients.length > 0 && { bcc: bccRecipients.join(", ") }),
       subject,
       text,
       html: emailHtml,
@@ -195,13 +215,15 @@ export async function POST(request: Request) {
       subject,
       fromAddress,
       toAddresses: recipients,
+      ccAddresses: ccRecipients,
+      bccAddresses: bccRecipients,
       text,
       html: displayHtml,
       attachmentIds: loaded.ids,
     });
 
-    // Auto-create contacts for recipients (fire-and-forget)
-    for (const recipient of recipients) {
+    // Auto-create contacts for every recipient across To/Cc/Bcc (fire-and-forget)
+    for (const recipient of [...recipients, ...ccRecipients, ...bccRecipients]) {
       findOrCreateContactForEmail(session.user.id, recipient).catch((err) => {
         console.error("Auto-create contact failed:", err);
       });
@@ -216,6 +238,8 @@ export async function POST(request: Request) {
       subject,
       fromAddress,
       toAddresses: recipients,
+      ccAddresses: ccRecipients,
+      bccAddresses: bccRecipients,
       text,
       html: emailHtml,
       attachments: loaded.sentAttachments,

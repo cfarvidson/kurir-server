@@ -132,6 +132,120 @@ describe("POST /api/mail/send", () => {
     );
   });
 
+  it("threads cc and bcc into sendMail and the persisted message", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+    vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
+      connectionId: "conn-default",
+      email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.gmail.com", port: 993 },
+      smtp: { host: "smtp.gmail.com", port: 587 },
+    });
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+
+    const { createLocalSentMessage } = await import("@/lib/mail/persist-sent");
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({
+      to: "a@example.com",
+      cc: "c@example.com, d@example.com",
+      bcc: "e@example.com",
+      subject: "Hi",
+      text: "Hello",
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(mockSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ["a@example.com"],
+        cc: "c@example.com, d@example.com",
+        bcc: "e@example.com",
+      }),
+    );
+    expect(createLocalSentMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ccAddresses: ["c@example.com", "d@example.com"],
+        bccAddresses: ["e@example.com"],
+      }),
+    );
+  });
+
+  it("returns 400 when a cc address is invalid and does not send", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({
+      to: "a@example.com",
+      cc: "not-an-email",
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain("not-an-email");
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(getDefaultConnectionCredentials).not.toHaveBeenCalled();
+  });
+
+  it("allows a Bcc-only send with an empty To (group-only case)", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+    vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
+      connectionId: "conn-default",
+      email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.gmail.com", port: 993 },
+      smtp: { host: "smtp.gmail.com", port: 587 },
+    });
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({
+      to: "",
+      bcc: "e@example.com",
+      subject: "Announcement",
+      text: "Hello",
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    const sendArg = mockSendMail.mock.calls[0][0];
+    expect(sendArg.to).toBeUndefined();
+    expect(sendArg.bcc).toBe("e@example.com");
+  });
+
+  it("returns 400 when no recipient is provided in any field", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({ to: "", cc: "", bcc: "" });
+    const response = await POST(req);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain("No valid recipient");
+    expect(getDefaultConnectionCredentials).not.toHaveBeenCalled();
+  });
+
   it("uses the default connection when fromConnectionId is not specified", async () => {
     const { auth, getDefaultConnectionCredentials } =
       await import("@/lib/auth");

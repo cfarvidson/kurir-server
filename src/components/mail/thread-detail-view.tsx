@@ -105,6 +105,31 @@ export async function ThreadDetailView({
 
   const subject = targetMessage.subject || "(no subject)";
 
+  // Resolve recipient addresses across the whole thread to contact names in a
+  // single batched query (avoids N+1). Falls back to the raw address when an
+  // address has no matching contact.
+  const recipientAddresses = [
+    ...new Set(
+      messages
+        .flatMap((m) => [...m.toAddresses, ...m.ccAddresses])
+        .map((a) => a.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+  const recipientNames: Record<string, string> = {};
+  if (recipientAddresses.length > 0) {
+    const recipientContacts = await db.contactEmail.findMany({
+      where: {
+        email: { in: recipientAddresses },
+        contact: { userId: session.user.id },
+      },
+      select: { email: true, contact: { select: { name: true } } },
+    });
+    for (const ce of recipientContacts) {
+      recipientNames[ce.email.toLowerCase()] = ce.contact.name;
+    }
+  }
+
   // For threading: always reference the actual last message
   const lastMessage = messages[messages.length - 1];
 
@@ -256,6 +281,7 @@ export async function ThreadDetailView({
                 references={lastMessage.references}
                 userTimezone={userInfo.timezone}
                 blockRemoteImages={userInfo.blockRemoteImages}
+                recipientNames={recipientNames}
               />
             </div>
           </div>

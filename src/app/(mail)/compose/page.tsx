@@ -2,6 +2,7 @@ import { auth, getUserEmailConnections } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ComposeClientPage, type ForwardData } from "./compose-client";
+import { listGroups } from "@/actions/contact-groups";
 import { formatDate } from "@/lib/date";
 
 interface ComposePageProps {
@@ -17,12 +18,13 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
 
   const params = await searchParams;
 
-  const [connections, user] = await Promise.all([
+  const [connections, user, groups] = await Promise.all([
     getUserEmailConnections(session.user.id),
     db.user.findUnique({
       where: { id: session.user.id },
       select: { timezone: true },
     }),
+    listGroups(),
   ]);
 
   const fromConnections = connections.map((c) => ({
@@ -95,6 +97,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
       connections={fromConnections}
       userTimezone={user?.timezone ?? "UTC"}
       forwardData={forwardData}
+      groups={groups}
     />
   );
 }

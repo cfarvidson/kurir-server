@@ -16,6 +16,8 @@ import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
 import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
+import { RecipientList } from "@/components/mail/recipient-list";
+import type { RecipientNameMap } from "@/lib/mail/recipient-names";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 
 interface ThreadMessage {
@@ -54,6 +56,8 @@ interface ThreadViewProps {
   userEmails?: Set<string>;
   /** User's global preference to block remote images (tracker blocker). */
   blockRemoteImages?: boolean;
+  /** Lowercased address → contact name, for recipient display. */
+  recipientNames?: RecipientNameMap;
 }
 
 function getInitialColor(name: string): string {
@@ -128,6 +132,7 @@ function MessageBubble({
   isFirst,
   isLast,
   blockRemoteImages = false,
+  recipientNames = {},
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
@@ -135,6 +140,7 @@ function MessageBubble({
   isFirst: boolean;
   isLast: boolean;
   blockRemoteImages?: boolean;
+  recipientNames?: RecipientNameMap;
 }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -236,9 +242,20 @@ function MessageBubble({
                 {/* Recipients + actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-xs text-muted-foreground">
-                    to {message.toAddresses.join(", ")}
+                    <RecipientList
+                      label="to"
+                      addresses={message.toAddresses}
+                      nameMap={recipientNames}
+                    />
                     {message.ccAddresses.length > 0 && (
-                      <span>, cc: {message.ccAddresses.join(", ")}</span>
+                      <>
+                        ,{" "}
+                        <RecipientList
+                          label="cc:"
+                          addresses={message.ccAddresses}
+                          nameMap={recipientNames}
+                        />
+                      </>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
@@ -335,6 +352,7 @@ export function ThreadView({
   currentUserEmail,
   userEmails,
   blockRemoteImages = false,
+  recipientNames = {},
 }: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
   return (
@@ -348,6 +366,7 @@ export function ThreadView({
           isFirst={i === 0}
           isLast={i === messages.length - 1}
           blockRemoteImages={blockRemoteImages}
+          recipientNames={recipientNames}
         />
       ))}
     </div>
