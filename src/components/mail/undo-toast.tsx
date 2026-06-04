@@ -2,7 +2,10 @@
 
 import { toast } from "sonner";
 import { useCountdown } from "@/hooks/use-countdown";
-import { ToastShell } from "@/components/ui/toast-config";
+import {
+  ToastShell,
+  TOAST_UNSTYLED_RESET_CLASS,
+} from "@/components/ui/toast-config";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -109,6 +112,7 @@ export function showUndoToast({
       duration: UNDO_DELAY_MS + 1000,
       id,
       unstyled: true,
+      className: TOAST_UNSTYLED_RESET_CLASS,
     },
   );
 

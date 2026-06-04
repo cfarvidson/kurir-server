@@ -18,6 +18,21 @@ export const TOAST_SHELL_STYLE = {
 } as CSSProperties;
 
 /**
+ * Cancels the container chrome on the outer sonner `<li>` for custom toasts.
+ *
+ * sonner applies the `<Toaster>` `toastOptions.className` (TOAST_SHELL_CLASS) to
+ * every toast's outer `<li>` — even `unstyled` ones; `unstyled` only gates
+ * sonner's own CSS, not the user className. Custom toasts render their own
+ * rounded `ToastShell`, so the `<li>`'s square (non-rounded) border, background,
+ * and shadow peek out behind the card as a faint extra border. Passing this as
+ * the custom toast's `className` neutralizes that inherited chrome (important
+ * modifiers win deterministically regardless of stylesheet order), leaving the
+ * inner `ToastShell` as the only visible card edge.
+ */
+export const TOAST_UNSTYLED_RESET_CLASS =
+  "!border-0 !bg-transparent !shadow-none";
+
+/**
  * Wrapper that gives `toast.custom(...)` content the same outer chrome that
  * sonner applies to standard toasts via `toastOptions.className`. Custom toasts
  * pass `unstyled: true` (so sonner adds no competing container), then render
