@@ -17,7 +17,10 @@ import { dismissScreenerHint } from "@/components/screener/screener-hint-banner"
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { toast } from "sonner";
 import { useCountdown } from "@/hooks/use-countdown";
-import { ToastShell } from "@/components/ui/toast-config";
+import {
+  ToastShell,
+  TOAST_UNSTYLED_RESET_CLASS,
+} from "@/components/ui/toast-config";
 import {
   Check,
   X,
@@ -243,6 +246,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
           duration: UNDO_DELAY_MS + 1000,
           id: `screener-undo-${senderId}`,
           unstyled: true,
+          className: TOAST_UNSTYLED_RESET_CLASS,
         },
       );
     },
