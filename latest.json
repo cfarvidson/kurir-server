@@ -1,8 +1,8 @@
 {
-  "version": "2026.06.03",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.03",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.03",
-  "changelog": "Editorial reading pane and cleaner message list, redesigned sidebar (with mobile tab bar), contact groups, scheduled-message editing, multi-recipient compose, and unified toast styling.",
+  "version": "2026.06.04",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.04",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.04",
+  "changelog": "Removed initial-circle avatars app-wide, and fixed two bugs: snooze now preserves read state, and 'Send now' no longer double-sends scheduled messages within the undo window.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-06-03T08:55:14Z"
+  "releasedAt": "2026-06-04T06:21:33Z"
 }

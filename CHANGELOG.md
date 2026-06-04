@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.06.04] - 2026-06-04
+
+### Changed
+
+- Removed initial-circle avatars app-wide, including the remaining ones in screener sender lists.
+
+### Fixed
+
+- Snooze: preserve read state so only unread mail is marked unread on wake.
+- Scheduled messages: prevent double-send when using "Send now" within the undo window.
+
 ## [v2026.06.03] - 2026-06-03
 
 ### Added
