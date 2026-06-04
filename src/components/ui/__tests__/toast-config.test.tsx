@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render } from "@testing-library/react";
 import {
   ToastShell,
@@ -80,5 +82,50 @@ describe("TOAST_UNSTYLED_RESET_CLASS", () => {
       // regardless of stylesheet source order.
       expect(reset).toContain(expectedOverride);
     }
+  });
+});
+
+describe("custom unstyled toast call sites", () => {
+  // Regression guard: sonner applies TOAST_SHELL_CLASS to every toast's outer
+  // <li>, including `unstyled` custom ones, so each custom toast must pass
+  // TOAST_UNSTYLED_RESET_CLASS to cancel that inherited chrome. A site that sets
+  // `unstyled: true` but forgets the reset reintroduces the faint extra border.
+  // (This is exactly how a third call site was missed during the original fix.)
+  it("every `unstyled: true` toast option object also passes TOAST_UNSTYLED_RESET_CLASS", () => {
+    // __dirname is src/components/ui/__tests__; walk up to src/.
+    const srcDir = join(__dirname, "..", "..", "..");
+
+    const tsxFiles: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === "node_modules" || entry.name.startsWith(".")) {
+          continue;
+        }
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) {
+          tsxFiles.push(full);
+        }
+      }
+    };
+    walk(srcDir);
+
+    const offenders: string[] = [];
+    for (const file of tsxFiles) {
+      const src = readFileSync(file, "utf8");
+      if (!src.includes("unstyled: true")) continue;
+      // The reset constant must be wired into this file's toast options.
+      if (!src.includes("TOAST_UNSTYLED_RESET_CLASS")) {
+        offenders.push(file.slice(srcDir.length + 1));
+      }
+    }
+
+    expect(
+      offenders,
+      `These files create an \`unstyled: true\` toast but never reference ` +
+        `TOAST_UNSTYLED_RESET_CLASS, so the outer <li> keeps the inherited ` +
+        `border/bg/shadow chrome: ${offenders.join(", ")}`,
+    ).toEqual([]);
   });
 });
