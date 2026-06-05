@@ -65,3 +65,6 @@ docs/superpowers/
 .superpowers/
 
 !CLAUDE.md
+
+# Compound Engineering local config
+.compound-engineering/*.local.yaml
