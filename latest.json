@@ -1,8 +1,8 @@
 {
-  "version": "2026.06.10",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.10",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.10",
-  "changelog": "Archiving a thread is now instant instead of freezing the UI, and new mail (including login codes) arrives within seconds. Also fixed a faint extra border on undo toasts.",
+  "version": "2026.06.10.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.10.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.10.2",
+  "changelog": "New privacy mode that loads images while blocking email trackers and spy pixels, plus a fix for broken PWA push notifications.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-06-10T08:30:00Z"
+  "releasedAt": "2026-06-10T21:15:04Z"
 }
