@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { getThreadMessages } from "@/lib/mail/threads";
+import { threadKeyOf } from "@/lib/mail/thread-key";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
 import { ContactSidebar } from "@/components/mail/contact-sidebar";
@@ -46,6 +47,7 @@ interface ThreadDetailViewProps {
   actions: (props: {
     messageId: string;
     returnPath: string;
+    threadKey: string;
     timezone: string;
     followUpAt: Date | null;
     isFollowUp: boolean;
@@ -89,6 +91,9 @@ export async function ThreadDetailView({
   const { messages, markedRead } = threadResult;
 
   const targetMessage = messages.find((m) => m.id === messageId) || messages[0];
+  // Thread collapse key so the list components / pending-archive store can drop
+  // every sibling row of this thread on optimistic archive.
+  const threadKey = threadKeyOf(targetMessage);
   const userInfo = await getUserInfo(
     session.user.id,
     targetMessage.emailConnectionId,
@@ -248,6 +253,7 @@ export async function ThreadDetailView({
           {actions({
             messageId,
             returnPath,
+            threadKey,
             timezone: userInfo.timezone,
             followUpAt: targetMessage.followUpAt,
             isFollowUp: targetMessage.isFollowUp,
@@ -300,6 +306,7 @@ export async function ThreadDetailView({
           messageId={messageId}
           returnPath={returnPath}
           timezone={userInfo.timezone}
+          threadKey={threadKey}
           showArchive={mobileActions.showArchive}
           showSnooze={mobileActions.showSnooze}
           showFollowUp={mobileActions.showFollowUp}

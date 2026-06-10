@@ -25,6 +25,7 @@ export default async function PaperTrailDetailPage({
       actions={({
         messageId,
         returnPath,
+        threadKey,
         timezone,
         followUpAt,
         isFollowUp,
@@ -33,6 +34,7 @@ export default async function PaperTrailDetailPage({
           <ArchiveKeyboardShortcut
             messageId={messageId}
             returnPath={returnPath}
+            threadKey={threadKey}
           />
           <FollowUpButton
             messageId={messageId}
@@ -44,7 +46,11 @@ export default async function PaperTrailDetailPage({
             returnPath={returnPath}
             timezone={timezone}
           />
-          <ArchiveButton messageId={messageId} returnPath={returnPath} />
+          <ArchiveButton
+            messageId={messageId}
+            returnPath={returnPath}
+            threadKey={threadKey}
+          />
         </>
       )}
     />

@@ -4,32 +4,32 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
-import { showUndoToast } from "@/components/mail/undo-toast";
+import { performOptimisticArchive } from "@/lib/mail/optimistic-archive";
 
 interface ArchiveButtonProps {
   messageId: string;
   returnPath?: string;
+  threadKey?: string;
 }
 
 export function ArchiveButton({
   messageId,
   returnPath = "/imbox",
+  threadKey,
 }: ArchiveButtonProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleArchive = async () => {
-    showUndoToast({
-      id: `archive-${messageId}`,
-      label: "Archived",
-      onUndo: () => {
-        unarchiveConversation(messageId).then(() => router.refresh());
-      },
+  const handleArchive = () => {
+    performOptimisticArchive({
+      messageId,
+      threadKey,
+      returnPath,
+      queryClient,
+      router,
+      archiveConversation,
+      unarchiveConversation,
     });
-
-    await archiveConversation(messageId, returnPath);
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
   };
 
   return (

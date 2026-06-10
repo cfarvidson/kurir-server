@@ -4,45 +4,53 @@ import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
-import { showUndoToast } from "@/components/mail/undo-toast";
+import {
+  performOptimisticArchive,
+  performOptimisticUnarchive,
+} from "@/lib/mail/optimistic-archive";
 
 interface ArchiveKeyboardShortcutProps {
   messageId: string;
   returnPath: string;
+  threadKey?: string;
   action?: "archive" | "unarchive";
 }
 
 export function ArchiveKeyboardShortcut({
   messageId,
   returnPath,
+  threadKey,
   action = "archive",
 }: ArchiveKeyboardShortcutProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const actingRef = useRef(false);
 
-  const handleAction = useCallback(async () => {
+  const handleAction = useCallback(() => {
     if (actingRef.current) return;
     actingRef.current = true;
 
-    if (action === "archive") {
-      showUndoToast({
-        id: `archive-${messageId}`,
-        label: "Archived",
-        onUndo: () => {
-          unarchiveConversation(messageId).then(() => router.refresh());
-        },
+    if (action === "unarchive") {
+      performOptimisticUnarchive({
+        messageId,
+        threadKey,
+        returnPath,
+        queryClient,
+        router,
+        unarchiveConversation,
+      });
+    } else {
+      performOptimisticArchive({
+        messageId,
+        threadKey,
+        returnPath,
+        queryClient,
+        router,
+        archiveConversation,
+        unarchiveConversation,
       });
     }
-
-    if (action === "unarchive") {
-      await unarchiveConversation(messageId);
-    } else {
-      await archiveConversation(messageId, returnPath);
-    }
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
-  }, [messageId, returnPath, action, router, queryClient]);
+  }, [messageId, returnPath, threadKey, action, router, queryClient]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

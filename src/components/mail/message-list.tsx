@@ -24,6 +24,8 @@ import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
+import { threadKeyOf } from "@/lib/mail/thread-key";
+import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import { toast } from "sonner";
 
 export interface MessageItem {
@@ -67,6 +69,9 @@ export function MessageList({
   showFollowUpAction = false,
 }: MessageListProps) {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  // Suppress rows for threads optimistically archived from the detail view
+  // (cold-cache / deep-link safety; mirrors InfiniteMessageList).
+  const isPendingArchive = usePendingArchiveFilter();
 
   const handleArchived = useCallback((messageId?: string) => {
     if (messageId) {
@@ -74,7 +79,9 @@ export function MessageList({
     }
   }, []);
 
-  const visibleMessages = messages.filter((m) => !hiddenIds.has(m.id));
+  const visibleMessages = messages.filter(
+    (m) => !hiddenIds.has(m.id) && !isPendingArchive(threadKeyOf(m)),
+  );
 
   return (
     <div>

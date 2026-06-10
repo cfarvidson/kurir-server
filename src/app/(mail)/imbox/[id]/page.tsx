@@ -26,6 +26,7 @@ export default async function ImboxDetailPage({
       actions={({
         messageId,
         returnPath,
+        threadKey,
         timezone,
         followUpAt,
         isFollowUp,
@@ -35,6 +36,7 @@ export default async function ImboxDetailPage({
           <ArchiveKeyboardShortcut
             messageId={messageId}
             returnPath={returnPath}
+            threadKey={threadKey}
           />
           <ReplyLaterButton messageId={messageId} isReplyLater={isReplyLater} />
           <FollowUpButton
@@ -47,7 +49,11 @@ export default async function ImboxDetailPage({
             returnPath={returnPath}
             timezone={timezone}
           />
-          <ArchiveButton messageId={messageId} returnPath={returnPath} />
+          <ArchiveButton
+            messageId={messageId}
+            returnPath={returnPath}
+            threadKey={threadKey}
+          />
         </>
       )}
     />
