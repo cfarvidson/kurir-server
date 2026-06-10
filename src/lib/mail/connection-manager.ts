@@ -51,6 +51,11 @@ class ConnectionManager {
   // delete-and-recreate cycle of a failing startConnection — otherwise every
   // retry reads attempt 0 and the schedule never advances past its 0ms slot.
   private reconnectAttempts = new Map<string, number>();
+  // Synchronous reservation for in-progress starts. The `connections.has`
+  // guard alone spans several awaits before the conn is inserted, so two
+  // concurrent callers (boot-start racing the sync job's lazy start) would
+  // both pass it and create two ImapFlow clients — one leaks.
+  private starting = new Set<string>();
   private stopping = false;
 
   get activeCount(): number {
@@ -66,7 +71,21 @@ class ConnectionManager {
     options: StartConnectionOptions = {},
   ): Promise<void> {
     if (this.connections.has(connectionId) || this.stopping) return;
+    // Reserve synchronously before the first await — concurrent callers
+    // (boot-start vs the sync job's lazy start) must not both proceed.
+    if (this.starting.has(connectionId)) return;
+    this.starting.add(connectionId);
+    try {
+      await this.doStartConnection(connectionId, options);
+    } finally {
+      this.starting.delete(connectionId);
+    }
+  }
 
+  private async doStartConnection(
+    connectionId: string,
+    options: StartConnectionOptions,
+  ): Promise<void> {
     const { evictOnCap = true } = options;
 
     // Enforce connection cap.
