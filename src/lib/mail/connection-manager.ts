@@ -23,6 +23,21 @@ export interface EmailConnectionConn {
 const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 min
 const MAX_IDLE_CONNECTIONS = 25;
 
+/**
+ * Options for {@link ConnectionManager.startConnection}.
+ *
+ * `evictOnCap` (default `true`) preserves the lazy-start behavior: when the
+ * 25-connection cap is reached, evict the least-recently-active inactive
+ * connection to make room. Boot-time start (U5) passes `false`: at boot
+ * `sseSubscribers` is empty so *everyone* is evictable, and evicting to admit
+ * each connection past the cap would thrash (each start kicks out a
+ * just-started one). With `evictOnCap: false` a start that hits the cap is
+ * skipped instead — the boot enumeration stops at the cap on its own.
+ */
+export interface StartConnectionOptions {
+  evictOnCap?: boolean;
+}
+
 class ConnectionManager {
   // Keyed by emailConnectionId
   private connections = new Map<string, EmailConnectionConn>();
@@ -37,11 +52,24 @@ class ConnectionManager {
     return MAX_IDLE_CONNECTIONS;
   }
 
-  async startConnection(connectionId: string): Promise<void> {
+  async startConnection(
+    connectionId: string,
+    options: StartConnectionOptions = {},
+  ): Promise<void> {
     if (this.connections.has(connectionId) || this.stopping) return;
 
-    // Enforce connection cap: evict least-recently-active inactive connection
+    const { evictOnCap = true } = options;
+
+    // Enforce connection cap.
     if (this.connections.size >= MAX_IDLE_CONNECTIONS) {
+      if (!evictOnCap) {
+        // Boot-start: never evict — skip and let the enumeration stop.
+        console.log(
+          `[idle] Cap reached (${MAX_IDLE_CONNECTIONS}), skipping ${connectionId} (no-evict)`,
+        );
+        return;
+      }
+      // Lazy start: evict least-recently-active inactive connection.
       const evicted = this.findEvictionCandidate();
       if (evicted) {
         console.log(
@@ -115,7 +143,7 @@ class ConnectionManager {
       conn.lock = lock;
 
       // Import and register IDLE event handlers
-      const { registerIdleHandlers, catchUpAfterReconnect } =
+      const { registerIdleHandlers, catchUpAfterReconnect, catchUpNewMessages } =
         await import("./idle-handlers");
       registerIdleHandlers(conn);
 
@@ -123,6 +151,11 @@ class ConnectionManager {
       if (conn.reconnectAttempt > 0) {
         await catchUpAfterReconnect(client, connectionId, conn.folderId);
       }
+
+      // New-mail catch-up: ingest INBOX mail that arrived while we had no IDLE
+      // connection (server downtime / a disconnection gap). Bounded — defers a
+      // cold folder or a large backlog to the sync job (see catchUpNewMessages).
+      await catchUpNewMessages(connectionId);
 
       conn.reconnectAttempt = 0;
 

@@ -169,6 +169,102 @@ export async function checkForNewMessages(connectionId: string): Promise<void> {
 }
 
 /**
+ * Upper bound on new UIDs a boot/reconnect catch-up will ingest inline. A
+ * larger backlog is deferred to the sync job, which batches properly rather
+ * than fetching every message body in one IDLE pass.
+ */
+const CATCH_UP_MAX_NEW_UIDS = 50;
+
+/**
+ * Pure gating decision for the boot/reconnect new-mail catch-up.
+ *
+ * - `lastUid === 0`: the folder has no cached messages, so a `lastUid+1:*`
+ *   range would span the entire mailbox. Defer to the sync job (it does the
+ *   initial bulk ingest in batches).
+ * - `newUidCount > threshold`: a large downtime backlog. Defer to the sync job
+ *   rather than fetching that many bodies inline at boot.
+ * - Otherwise (a handful of new UIDs): run the cheap range-fetch catch-up.
+ *
+ * Exported for unit testing the gating in isolation from ImapFlow.
+ */
+export function shouldRunBootCatchUp(args: {
+  lastUid: number;
+  newUidCount: number;
+  threshold?: number;
+}): boolean {
+  const threshold = args.threshold ?? CATCH_UP_MAX_NEW_UIDS;
+  if (args.lastUid <= 0) return false;
+  if (args.newUidCount <= 0) return false;
+  if (args.newUidCount > threshold) return false;
+  return true;
+}
+
+/**
+ * Bounded new-mail catch-up, invoked once after a connection's INBOX lock is
+ * established (initial connect AND reconnect — same site as the CONDSTORE
+ * flags catch-up). Closes the gap where mail arrived while there was no IDLE
+ * connection (server downtime or a disconnection window).
+ *
+ * Bounding (see {@link shouldRunBootCatchUp}): a cheap UID-only probe counts
+ * how many UIDs sit above our stored max. Zero cached messages or a large
+ * backlog defers to the sync job; the common case (a few new UIDs) falls
+ * through to the lock-aware {@link checkForNewMessages} range fetch.
+ *
+ * Returns silently if the connection is gone. Probe failures are logged and
+ * treated as "defer to sync job" (no inline fetch).
+ */
+export async function catchUpNewMessages(connectionId: string): Promise<void> {
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return;
+  const { client, folderId } = conn;
+
+  const lastMsg = await db.message.findFirst({
+    where: { folderId, uid: { gt: 0 } },
+    orderBy: { uid: "desc" },
+    select: { uid: true },
+  });
+  const lastUid = lastMsg?.uid ?? 0;
+
+  // Zero cached messages — defer the initial bulk ingest to the sync job
+  // without even probing (a `1:*` probe could be the whole mailbox).
+  if (lastUid <= 0) {
+    console.log(
+      `[idle] Catch-up skipped for ${connectionId}: no cached messages, deferring to sync job`,
+    );
+    return;
+  }
+
+  // Cheap UID-only probe (no body fetch) to size the backlog.
+  let newUidCount = 0;
+  try {
+    const result = await client.search(
+      { uid: `${lastUid + 1}:*` },
+      { uid: true },
+    );
+    const newUids = result === false ? [] : (result as number[]);
+    // The `lastUid+1:*` range can echo lastUid itself when it is the max UID.
+    newUidCount = newUids.filter((uid) => uid > lastUid).length;
+  } catch (err) {
+    console.error("[idle] Catch-up probe error:", err);
+    return; // defer to sync job
+  }
+
+  if (!shouldRunBootCatchUp({ lastUid, newUidCount })) {
+    if (newUidCount > CATCH_UP_MAX_NEW_UIDS) {
+      console.log(
+        `[idle] Catch-up skipped for ${connectionId}: ${newUidCount} new UIDs exceed bound, deferring to sync job`,
+      );
+    }
+    return;
+  }
+
+  console.log(
+    `[idle] Catch-up: ${newUidCount} new UID(s) for connection ${connectionId}`,
+  );
+  await checkForNewMessages(connectionId);
+}
+
+/**
  * Handle new messages from an IDLE 'exists' event (or a catch-up trigger).
  * Re-resolves the live connection/client, honors the sync lock with deferral,
  * then fetches and ingests only UIDs above the highest we already store.
