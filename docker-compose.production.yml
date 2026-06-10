@@ -28,8 +28,6 @@ services:
     build:
       context: .
       target: runner
-      args:
-        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     restart: unless-stopped
     environment:
       NODE_ENV: production

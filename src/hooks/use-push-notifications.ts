@@ -13,14 +13,23 @@ export function base64UrlToUint8Array(base64String: string): BufferSource {
   return outputArray;
 }
 
+const PUSH_NOT_CONFIGURED = "Push notifications are not configured on this server";
+
 async function fetchVapidPublicKey(): Promise<string> {
   const res = await fetch("/api/push/vapid-public-key");
   if (!res.ok) {
-    throw new Error("Push notifications are not configured on this server");
+    throw new Error(PUSH_NOT_CONFIGURED);
   }
   const { publicKey } = (await res.json()) as { publicKey?: string };
   if (!publicKey) {
-    throw new Error("Push notifications are not configured on this server");
+    throw new Error(PUSH_NOT_CONFIGURED);
+  }
+  // Reject a corrupted key here so the caller surfaces the friendly message
+  // instead of a raw DOMException from atob() deep inside subscribe().
+  try {
+    base64UrlToUint8Array(publicKey);
+  } catch {
+    throw new Error(PUSH_NOT_CONFIGURED);
   }
   return publicKey;
 }
@@ -30,7 +39,8 @@ export function usePushNotifications() {
     useState<NotificationPermission>("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const [isConfigured, setIsConfigured] = useState(true);
+  // null = unknown (probe in flight); true/false = confirmed by the server.
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     const supported = "serviceWorker" in navigator && "PushManager" in window;
@@ -41,10 +51,12 @@ export function usePushNotifications() {
         reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub)),
       );
       // Probe whether the server has VAPID configured so the UI can show an
-      // honest "not configured" state instead of a dead Enable button.
+      // honest "not configured" state instead of a dead Enable button. A
+      // network blip leaves isConfigured null (unknown) rather than falsely
+      // marking the server unconfigured for the whole session.
       fetch("/api/push/vapid-public-key")
         .then((res) => setIsConfigured(res.ok))
-        .catch(() => setIsConfigured(false));
+        .catch(() => {});
     }
   }, []);
 

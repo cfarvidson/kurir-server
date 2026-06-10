@@ -7,6 +7,7 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 ### Fixed
 
 - Push notifications in the PWA now work reliably. The VAPID public key was inlined into the client bundle at build time while the private key was read (and could be auto-generated) at runtime, so the two could drift apart and pushes would silently fail to deliver. The public key is now served from a runtime endpoint, making the runtime environment the single source of truth for both keys. The settings screen now shows a clear message when subscribing fails or when push is not configured on the server, instead of a dead "Enable" button.
+  - **Self-hosting note:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is no longer a Docker build argument — it is read at runtime like `VAPID_PRIVATE_KEY`. Ensure both keys are present as runtime environment variables (and unchanged across deploys); a build-arg-only configuration will now serve no public key.
 
 ## [v2026.06.10] - 2026-06-10
 

@@ -9,7 +9,7 @@
  * - base64UrlToUint8Array decodes to the correct byte length
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import {
   usePushNotifications,
   base64UrlToUint8Array,
@@ -105,6 +105,65 @@ describe("usePushNotifications", () => {
 
     await expect(result.current.subscribe()).rejects.toThrow(/not configured/i);
     expect(pushSubscribe).not.toHaveBeenCalled();
+  });
+
+  it("rolls back (unsubscribes) and throws when saving the subscription fails", async () => {
+    const validKey = "BHello-World_abc123";
+    const sub = makeSubscription();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/push/vapid-public-key") {
+        return { ok: true, json: async () => ({ publicKey: validKey }) };
+      }
+      // POST /api/push/subscribe fails to persist
+      return { ok: false, status: 500, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    pushSubscribe.mockResolvedValue(sub);
+
+    const { result } = renderHook(() => usePushNotifications());
+
+    await expect(result.current.subscribe()).rejects.toThrow(/save/i);
+    expect(pushSubscribe).toHaveBeenCalledTimes(1);
+    expect(sub.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("usePushNotifications: isConfigured probe", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stubServiceWorker();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sets isConfigured=false when the probe returns a non-ok response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) })),
+    );
+
+    const { result } = renderHook(() => usePushNotifications());
+
+    await waitFor(() => expect(result.current.isConfigured).toBe(false));
+  });
+
+  it("leaves isConfigured null (unknown) on a transient probe network error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      }),
+    );
+
+    const { result } = renderHook(() => usePushNotifications());
+
+    // Give the probe a chance to reject; it must not flip to false.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(result.current.isConfigured).toBeNull();
   });
 });
 

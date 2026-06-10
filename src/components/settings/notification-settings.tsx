@@ -28,7 +28,7 @@ export function NotificationSettings() {
     );
   }
 
-  if (!isConfigured) {
+  if (isConfigured === false) {
     return (
       <p className="text-sm text-muted-foreground">
         Push notifications are not configured on this server.
