@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
+import type { RemoteImagePolicy } from "@/lib/mail/image-policy";
 
 interface ThreadMessage {
   id: string;
@@ -49,7 +50,7 @@ interface ThreadPageContentProps {
   rfcMessageId?: string;
   references: string[];
   userTimezone: string;
-  blockRemoteImages?: boolean;
+  remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: Record<string, string>;
 }
 
@@ -68,7 +69,7 @@ export function ThreadPageContent({
   rfcMessageId,
   references,
   userTimezone,
-  blockRemoteImages = false,
+  remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
 }: ThreadPageContentProps) {
   const userEmailSet = useMemo(
@@ -137,7 +138,7 @@ export function ThreadPageContent({
         messages={messages}
         currentUserEmail={currentUserEmail}
         userEmails={userEmailSet}
-        blockRemoteImages={blockRemoteImages}
+        remoteImagePolicy={remoteImagePolicy}
         recipientNames={recipientNames}
       />
 

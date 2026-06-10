@@ -17,7 +17,9 @@ import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BadgePreferencesSettings } from "@/components/settings/badge-preferences";
 import { ThemeSettings } from "@/components/settings/theme-settings";
+import { ImagePrivacySettings } from "@/components/settings/image-privacy-settings";
 import { getBadgePreferences } from "@/actions/badge-preferences";
+import { resolveImagePolicy } from "@/lib/mail/image-policy";
 
 interface StorageRow {
   name: string;
@@ -111,6 +113,8 @@ export default async function SettingsPage() {
         select: {
           displayName: true,
           createdAt: true,
+          blockRemoteImages: true,
+          blockTrackers: true,
         },
       }),
       db.emailConnection.findMany({
@@ -201,6 +205,11 @@ export default async function SettingsPage() {
     backedUp: pk.backedUp,
   }));
 
+  const imagePolicy = resolveImagePolicy({
+    blockRemoteImages: user?.blockRemoteImages ?? true,
+    blockTrackers: user?.blockTrackers ?? true,
+  });
+
   /* ── Tab content ─────────────────────────────────────────────── */
 
   const accountContent = (
@@ -287,6 +296,17 @@ export default async function SettingsPage() {
         </div>
         <div className="mt-4">
           <ConnectionsList connections={connections} />
+        </div>
+      </section>
+
+      {/* Privacy — remote image / tracker blocking */}
+      <section>
+        <h2 className="flex items-center gap-2 text-lg font-medium">
+          <Shield className="h-4 w-4" />
+          Privacy
+        </h2>
+        <div className="mt-4 rounded-lg border bg-card p-4">
+          <ImagePrivacySettings initialPolicy={imagePolicy} />
         </div>
       </section>
 

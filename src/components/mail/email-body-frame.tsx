@@ -18,8 +18,15 @@ interface EmailBodyFrameProps {
    * remote images proxied normally.
    */
   blockRemoteImages?: boolean;
+  /**
+   * When true (and `blockRemoteImages` is false), remote images load but
+   * detected trackers / spy pixels are stripped. The "block trackers" mode.
+   */
+  blockTrackers?: boolean;
   /** Reports how many remote images were blocked on the last render. */
   onBlockedCount?: (count: number) => void;
+  /** Reports how many remote images were stripped as trackers on the last render. */
+  onTrackerCount?: (count: number) => void;
 }
 
 /**
@@ -45,7 +52,9 @@ export function EmailBodyFrame({
   collapseQuotes,
   attachments,
   blockRemoteImages,
+  blockTrackers,
   onBlockedCount,
+  onTrackerCount,
 }: EmailBodyFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -53,11 +62,18 @@ export function EmailBodyFrame({
     const host = hostRef.current;
     if (!host) return;
 
-    const { html: sanitized, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
-      html,
-      { collapseQuotes, attachments, blockRemoteImages },
-    );
+    const {
+      html: sanitized,
+      blockedRemoteImages,
+      blockedTrackers,
+    } = sanitizeEmailHtmlWithMeta(html, {
+      collapseQuotes,
+      attachments,
+      blockRemoteImages,
+      blockTrackers,
+    });
     onBlockedCount?.(blockedRemoteImages);
+    onTrackerCount?.(blockedTrackers);
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
 
@@ -104,7 +120,15 @@ export function EmailBodyFrame({
       ro.disconnect();
       imgs.forEach((img) => img.removeEventListener("load", onImgLoad));
     };
-  }, [html, collapseQuotes, attachments, blockRemoteImages, onBlockedCount]);
+  }, [
+    html,
+    collapseQuotes,
+    attachments,
+    blockRemoteImages,
+    blockTrackers,
+    onBlockedCount,
+    onTrackerCount,
+  ]);
 
   return <div ref={hostRef} className="bg-white" />;
 }
