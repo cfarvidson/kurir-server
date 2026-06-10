@@ -10,7 +10,7 @@ import {
 const DISMISSED_KEY = "kurir:push-banner-dismissed";
 
 export function PushNotificationBanner() {
-  const { isSupported, permission, isSubscribed, subscribe } =
+  const { isSupported, isConfigured, permission, isSubscribed, subscribe } =
     usePushNotifications();
   const [dismissed, setDismissed] = useState(true); // hidden by default until mounted
   const [loading, setLoading] = useState(false);
@@ -20,8 +20,8 @@ export function PushNotificationBanner() {
     setDismissed(!!wasDismissed);
   }, []);
 
-  // Don't show if: not supported, already subscribed, or dismissed
-  if (!isSupported || isSubscribed || dismissed) return null;
+  // Don't show if: not supported, not configured, already subscribed, or dismissed
+  if (!isSupported || !isConfigured || isSubscribed || dismissed) return null;
 
   const handleDismiss = () => {
     localStorage.setItem(DISMISSED_KEY, "true");

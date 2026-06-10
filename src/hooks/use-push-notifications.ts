@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-function base64UrlToUint8Array(base64String: string): BufferSource {
+export function base64UrlToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = atob(base64);
@@ -13,11 +13,34 @@ function base64UrlToUint8Array(base64String: string): BufferSource {
   return outputArray;
 }
 
+const PUSH_NOT_CONFIGURED = "Push notifications are not configured on this server";
+
+async function fetchVapidPublicKey(): Promise<string> {
+  const res = await fetch("/api/push/vapid-public-key");
+  if (!res.ok) {
+    throw new Error(PUSH_NOT_CONFIGURED);
+  }
+  const { publicKey } = (await res.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error(PUSH_NOT_CONFIGURED);
+  }
+  // Reject a corrupted key here so the caller surfaces the friendly message
+  // instead of a raw DOMException from atob() deep inside subscribe().
+  try {
+    base64UrlToUint8Array(publicKey);
+  } catch {
+    throw new Error(PUSH_NOT_CONFIGURED);
+  }
+  return publicKey;
+}
+
 export function usePushNotifications() {
   const [permission, setPermission] =
     useState<NotificationPermission>("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  // null = unknown (probe in flight); true/false = confirmed by the server.
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     const supported = "serviceWorker" in navigator && "PushManager" in window;
@@ -27,18 +50,27 @@ export function usePushNotifications() {
       navigator.serviceWorker.ready.then((reg) =>
         reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub)),
       );
+      // Probe whether the server has VAPID configured so the UI can show an
+      // honest "not configured" state instead of a dead Enable button. A
+      // network blip leaves isConfigured null (unknown) rather than falsely
+      // marking the server unconfigured for the whole session.
+      fetch("/api/push/vapid-public-key")
+        .then((res) => setIsConfigured(res.ok))
+        .catch(() => {});
     }
   }, []);
 
   const subscribe = useCallback(async () => {
+    // The public key is read at runtime (it may be auto-generated on the
+    // server), so it must be fetched rather than inlined at build time.
+    const publicKey = await fetchVapidPublicKey();
+
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: base64UrlToUint8Array(
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      ),
+      applicationServerKey: base64UrlToUint8Array(publicKey),
     });
 
     const json = sub.toJSON();
@@ -75,7 +107,14 @@ export function usePushNotifications() {
     setIsSubscribed(false);
   }, []);
 
-  return { isSupported, permission, isSubscribed, subscribe, unsubscribe };
+  return {
+    isSupported,
+    isConfigured,
+    permission,
+    isSubscribed,
+    subscribe,
+    unsubscribe,
+  };
 }
 
 export function isIosNonPwa(): boolean {

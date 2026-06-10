@@ -32,14 +32,15 @@ builder:
   arch: amd64
   dockerfile: ./Dockerfile
   context: .
-  args:
-    NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   clear:
     NODE_ENV: production
     KURIR_DOMAIN: your-server.example.com
+    # VAPID keys are read at runtime (no build arg needed). Set both to a
+    # matching, persistent keypair — if they change between deploys, existing
+    # push subscriptions break. The public key is served to clients at runtime.
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
   secret:
     - DATABASE_URL

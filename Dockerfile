@@ -28,9 +28,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm db:generate
-# NEXT_PUBLIC_* vars must be present at build time (inlined by Next.js)
-ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
-ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+# The VAPID public key is served to the client at runtime (see
+# src/app/api/push/vapid-public-key/route.ts), so no NEXT_PUBLIC_* build arg is
+# needed here — both VAPID keys are read from the runtime environment.
 # Reuse Next.js's incremental compilation cache across builds. `COPY . .` busts
 # the layer cache on any source change, so without this every deploy is a cold
 # compile; the mount lets Next skip recompiling unchanged modules.

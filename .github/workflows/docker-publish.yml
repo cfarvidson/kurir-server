@@ -60,8 +60,6 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:build-amd64-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: runner
-          build-args: |
-            NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
           cache-from: type=gha,scope=buildkit-amd64
           cache-to: type=gha,scope=buildkit-amd64,mode=max
 
@@ -98,8 +96,6 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:build-arm64-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: runner
-          build-args: |
-            NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
           cache-from: type=gha,scope=buildkit-arm64
           cache-to: type=gha,scope=buildkit-arm64,mode=max
 
