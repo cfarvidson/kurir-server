@@ -19,9 +19,10 @@ import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { RecipientList } from "@/components/mail/recipient-list";
 import type { RecipientNameMap } from "@/lib/mail/recipient-names";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
-import { BlockedTrackersIndicator } from "@/components/mail/blocked-images-banner";
+import { BlockedTrackersIndicator } from "@/components/mail/blocked-trackers-indicator";
 import {
   imagePolicyToSanitizeFlags,
+  resolveEffectiveMessagePolicy,
   type RemoteImagePolicy,
 } from "@/lib/mail/image-policy";
 
@@ -74,7 +75,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
+interface SanitizeImageFlags {
+  blockRemoteImages: boolean;
+  blockTrackers: boolean;
+}
+
+function buildEmailHtml(message: ThreadMessage, imageFlags: SanitizeImageFlags) {
   const senderName = escapeHtml(
     message.sender?.displayName || message.fromName || message.fromAddress,
   );
@@ -84,7 +90,10 @@ function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
   const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
   const date = new Date(message.sentAt || message.receivedAt).toLocaleString();
   const body = message.htmlBody
-    ? sanitizeEmailHtml(message.htmlBody, { blockRemoteImages })
+    ? sanitizeEmailHtml(message.htmlBody, {
+        blockRemoteImages: imageFlags.blockRemoteImages,
+        blockTrackers: imageFlags.blockTrackers,
+      })
     : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
@@ -106,10 +115,10 @@ function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
 </body></html>`;
 }
 
-function printEmail(message: ThreadMessage, blockRemoteImages: boolean) {
+function printEmail(message: ThreadMessage, imageFlags: SanitizeImageFlags) {
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(buildEmailHtml(message, blockRemoteImages));
+  win.document.write(buildEmailHtml(message, imageFlags));
   win.document.close();
   win.addEventListener("load", () => win.print());
 }
@@ -137,14 +146,14 @@ function MessageBubble({
   const [blockedCount, setBlockedCount] = useState(0);
   const [blockedTrackers, setBlockedTrackers] = useState(0);
 
-  // The effective per-message policy. Your own outbound messages, senders you've
-  // trusted, and messages where you clicked "Load images" always load everything
-  // (your own images aren't tracking you; trust is explicit). Otherwise the
-  // user's global policy applies.
-  const effectivePolicy: RemoteImagePolicy =
-    isFromCurrentUser || message.sender?.allowRemoteImages || imagesRevealed
-      ? "ALLOW_ALL"
-      : remoteImagePolicy;
+  // The effective per-message policy (see resolveEffectiveMessagePolicy for the
+  // override rules). Drives the sanitizer flags for this message body.
+  const effectivePolicy = resolveEffectiveMessagePolicy({
+    globalPolicy: remoteImagePolicy,
+    isFromCurrentUser,
+    senderAllowsRemoteImages: message.sender?.allowRemoteImages ?? false,
+    imagesRevealed,
+  });
   const sanitizeFlags = imagePolicyToSanitizeFlags(effectivePolicy);
   // True only in full block-all mode — drives the "Load images" banner + print.
   const shouldBlockImages = sanitizeFlags.blockRemoteImages;
@@ -250,7 +259,7 @@ function MessageBubble({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        printEmail(message, shouldBlockImages);
+                        printEmail(message, sanitizeFlags);
                       }}
                       className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                       title="Print this email"

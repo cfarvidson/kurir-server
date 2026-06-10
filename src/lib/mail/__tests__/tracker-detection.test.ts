@@ -83,6 +83,35 @@ describe("isInvisiblePixel", () => {
     expect(isInvisiblePixel(img({ style: "opacity:0" })).hit).toBe(true);
   });
 
+  it("flags visibility:collapse", () => {
+    const v = isInvisiblePixel(img({ style: "visibility:collapse" }));
+    expect(v.hit).toBe(true);
+    expect(v.reason).toBe("hidden");
+  });
+
+  it("flags the hidden HTML attribute", () => {
+    const v = isInvisiblePixel(img({ hidden: "" }));
+    expect(v.hit).toBe(true);
+    expect(v.reason).toBe("hidden");
+  });
+
+  it("does NOT flag 1em / 1rem / 1cm (units larger than a pixel)", () => {
+    expect(isInvisiblePixel(img({ style: "width:1em;height:1em" })).hit).toBe(
+      false,
+    );
+    expect(isInvisiblePixel(img({ style: "width:1rem" })).hit).toBe(false);
+    expect(isInvisiblePixel(img({ style: "width:1cm" })).hit).toBe(false);
+  });
+
+  it("does NOT flag a negative dimension as tiny", () => {
+    expect(isInvisiblePixel(img({ width: "-5" })).hit).toBe(false);
+  });
+
+  it("flags a single tiny axis (height:1 on a wide image)", () => {
+    // Spacer/divider GIFs are a known tracker shape; one ≤1px axis is enough.
+    expect(isInvisiblePixel(img({ width: "600", height: "1" })).hit).toBe(true);
+  });
+
   it("does not flag a normal content image", () => {
     expect(
       isInvisiblePixel(img({ width: "600", height: "400" })).hit,

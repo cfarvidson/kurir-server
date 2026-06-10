@@ -3,6 +3,7 @@ import {
   resolveImagePolicy,
   imagePolicyToFlags,
   imagePolicyToSanitizeFlags,
+  resolveEffectiveMessagePolicy,
   type RemoteImagePolicy,
 } from "@/lib/mail/image-policy";
 
@@ -77,5 +78,47 @@ describe("imagePolicyToSanitizeFlags", () => {
       blockRemoteImages: false,
       blockTrackers: false,
     });
+  });
+});
+
+describe("resolveEffectiveMessagePolicy", () => {
+  const base = {
+    globalPolicy: "BLOCK_TRACKERS" as RemoteImagePolicy,
+    isFromCurrentUser: false,
+    senderAllowsRemoteImages: false,
+    imagesRevealed: false,
+  };
+
+  it("returns the global policy when no override applies", () => {
+    expect(resolveEffectiveMessagePolicy(base)).toBe("BLOCK_TRACKERS");
+    expect(
+      resolveEffectiveMessagePolicy({ ...base, globalPolicy: "BLOCK_ALL" }),
+    ).toBe("BLOCK_ALL");
+  });
+
+  it("forces ALLOW_ALL for the user's own outbound message", () => {
+    expect(
+      resolveEffectiveMessagePolicy({ ...base, isFromCurrentUser: true }),
+    ).toBe("ALLOW_ALL");
+  });
+
+  it("forces ALLOW_ALL for a trusted sender even under BLOCK_ALL", () => {
+    expect(
+      resolveEffectiveMessagePolicy({
+        ...base,
+        globalPolicy: "BLOCK_ALL",
+        senderAllowsRemoteImages: true,
+      }),
+    ).toBe("ALLOW_ALL");
+  });
+
+  it("forces ALLOW_ALL once the user revealed images", () => {
+    expect(
+      resolveEffectiveMessagePolicy({
+        ...base,
+        globalPolicy: "BLOCK_ALL",
+        imagesRevealed: true,
+      }),
+    ).toBe("ALLOW_ALL");
   });
 });

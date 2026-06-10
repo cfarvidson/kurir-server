@@ -30,12 +30,15 @@ function isTinyDimension(raw: string | null | undefined): boolean {
   if (raw == null) return false;
   const trimmed = raw.trim();
   if (trimmed === "") return false;
-  // Percentages and `auto` are not a fixed tiny size — ignore them.
-  if (trimmed.endsWith("%") || /auto/i.test(trimmed)) return false;
-  // Pull the leading number (handles "0", "1", "0px", "1px", "0.5px").
-  const match = trimmed.match(/^-?\d*\.?\d+/);
+  // Pull a non-negative leading number plus its unit (handles "0", "1", "1px",
+  // "0.5px", "1em"). HTML dimensions are non-negative, so no leading sign.
+  const match = trimmed.match(/^(\d*\.?\d+)\s*([a-z%]*)/i);
   if (!match) return false;
-  const value = Number.parseFloat(match[0]);
+  const unit = match[2].toLowerCase();
+  // Only unitless numbers and pixels are a fixed tiny size; reject %, em, rem,
+  // cm, pt, auto, etc. — `1em` is ~16px, not a tracking pixel.
+  if (unit !== "" && unit !== "px") return false;
+  const value = Number.parseFloat(match[1]);
   return Number.isFinite(value) && value <= 1;
 }
 
@@ -56,7 +59,12 @@ export function isInvisiblePixel(img: Element): {
   hit: boolean;
   reason?: TrackerReason;
 } {
-  // 1. width/height ATTRIBUTES (e.g. <img width="1" height="1">, or "0").
+  // 1. The `hidden` HTML attribute — an explicitly non-rendered image.
+  if (img.hasAttribute("hidden")) {
+    return { hit: true, reason: "hidden" };
+  }
+
+  // 2. width/height ATTRIBUTES (e.g. <img width="1" height="1">, or "0").
   if (
     isTinyDimension(img.getAttribute("width")) ||
     isTinyDimension(img.getAttribute("height"))

@@ -7,7 +7,7 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 ### Added
 
 - A third remote-image privacy mode: **Load images, block trackers**. In addition to "Block all remote images" (the default) and "Load all remote images", you can now load ordinary content images while still stripping known email trackers and invisible spy pixels (1×1 / 0px / `display:none` images). Detection runs before any network request fires, so blocked trackers never load. A new Privacy section in Settings → Mail lets you choose the mode, and tracked threads show a compact "N trackers blocked" indicator. Per-sender trust and the one-time "Load images" action continue to load everything.
-  - **Self-hosting note:** this adds a `blockTrackers` column to the `User` table (default `true`). Because the production database shares its instance with another app, apply the change as explicit SQL rather than `prisma db push`: `ALTER TABLE "User" ADD COLUMN "blockTrackers" BOOLEAN NOT NULL DEFAULT true;` (e.g. `bin/deploy app exec --reuse "psql \"$DATABASE_URL\" -c '...'"`).
+  - **Self-hosting note:** this adds a `blockTrackers` column to the `User` table (default `true`). Because the production database shares its instance with another app, apply it as explicit SQL rather than `prisma db push` — the statement is in `prisma/migrations/tracker_blocker.sql` (idempotent `ADD COLUMN IF NOT EXISTS`). **Run it before deploying the new app image**, since the thread and settings pages `SELECT` the column and will error if it is missing: `bin/deploy app exec --reuse "psql \"$DATABASE_URL\" -f -" < prisma/migrations/tracker_blocker.sql`.
 
 ### Fixed
 

@@ -39,6 +39,29 @@ export function imagePolicyToFlags(policy: RemoteImagePolicy): ImagePolicyFlags 
 }
 
 /**
+ * Resolve the effective policy for a single message from the user's global
+ * policy plus per-message overrides. Your own outbound messages, senders you've
+ * explicitly trusted, and messages where you clicked "Load images" always load
+ * everything (your own images can't track you; trust is explicit). Otherwise
+ * the global policy applies. This is the privacy gate for every rendered body.
+ */
+export function resolveEffectiveMessagePolicy(args: {
+  globalPolicy: RemoteImagePolicy;
+  isFromCurrentUser: boolean;
+  senderAllowsRemoteImages: boolean;
+  imagesRevealed: boolean;
+}): RemoteImagePolicy {
+  if (
+    args.isFromCurrentUser ||
+    args.senderAllowsRemoteImages ||
+    args.imagesRevealed
+  ) {
+    return "ALLOW_ALL";
+  }
+  return args.globalPolicy;
+}
+
+/**
  * Translate an effective policy into the sanitizer flags for a single message.
  * `blockRemoteImages` strips everything; `blockTrackers` strips only detected
  * trackers while other remote images are proxied.

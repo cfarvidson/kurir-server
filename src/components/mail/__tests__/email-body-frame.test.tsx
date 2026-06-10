@@ -9,9 +9,13 @@ import * as sanitizeModule from "@/lib/mail/sanitize-html";
 // blocking is requested, so the component's count-reporting can be asserted.
 vi.mock("@/lib/mail/sanitize-html", () => ({
   sanitizeEmailHtmlWithMeta: vi.fn(
-    (html: string, opts?: { blockRemoteImages?: boolean }) => ({
+    (
+      html: string,
+      opts?: { blockRemoteImages?: boolean; blockTrackers?: boolean },
+    ) => ({
       html,
       blockedRemoteImages: opts?.blockRemoteImages ? 1 : 0,
+      blockedTrackers: opts?.blockTrackers ? 1 : 0,
     }),
   ),
 }));
