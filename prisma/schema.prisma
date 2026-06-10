@@ -28,6 +28,10 @@ model User {
 
   // Privacy: block remote images / tracking pixels by default (Hey-style).
   blockRemoteImages Boolean @default(true)
+  // Privacy: when remote images ARE loaded, still strip known trackers and
+  // invisible spy pixels. Combined with blockRemoteImages this yields three
+  // modes (see src/lib/mail/image-policy.ts: resolveImagePolicy).
+  blockTrackers     Boolean @default(true)
 
   // Badge preferences (which sidebar badges to show)
   showImboxBadge      Boolean @default(true)

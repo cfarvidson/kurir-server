@@ -3,6 +3,10 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  imagePolicyToFlags,
+  type RemoteImagePolicy,
+} from "@/lib/mail/image-policy";
 
 /**
  * Revalidate the views where a remote-image policy change is visible. Image
@@ -59,6 +63,25 @@ export async function setBlockRemoteImages(block: boolean) {
   await db.user.update({
     where: { id: session.user.id },
     data: { blockRemoteImages: block },
+  });
+
+  revalidateImagePolicyPaths();
+}
+
+/**
+ * Set the user's global remote-image policy: block everything, load images but
+ * block trackers, or load everything. Writes both underlying boolean columns
+ * atomically so the resolver never sees the dead combination.
+ */
+export async function setRemoteImagePolicy(policy: RemoteImagePolicy) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: imagePolicyToFlags(policy),
   });
 
   revalidateImagePolicyPaths();

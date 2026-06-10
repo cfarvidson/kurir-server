@@ -103,3 +103,61 @@ describe("setBlockRemoteImages", () => {
     });
   });
 });
+
+describe("setRemoteImagePolicy", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws when not authenticated", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue(null as never);
+
+    const { setRemoteImagePolicy } = await import("@/actions/image-policy");
+    await expect(setRemoteImagePolicy("BLOCK_TRACKERS")).rejects.toThrow(
+      "Unauthorized",
+    );
+  });
+
+  it("writes the correct boolean pair for each policy", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.user.update).mockResolvedValue({} as never);
+
+    const { setRemoteImagePolicy } = await import("@/actions/image-policy");
+
+    await setRemoteImagePolicy("BLOCK_ALL");
+    expect(db.user.update).toHaveBeenLastCalledWith({
+      where: { id: "user-1" },
+      data: { blockRemoteImages: true, blockTrackers: true },
+    });
+
+    await setRemoteImagePolicy("BLOCK_TRACKERS");
+    expect(db.user.update).toHaveBeenLastCalledWith({
+      where: { id: "user-1" },
+      data: { blockRemoteImages: false, blockTrackers: true },
+    });
+
+    await setRemoteImagePolicy("ALLOW_ALL");
+    expect(db.user.update).toHaveBeenLastCalledWith({
+      where: { id: "user-1" },
+      data: { blockRemoteImages: false, blockTrackers: false },
+    });
+  });
+
+  it("revalidates after writing", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.user.update).mockResolvedValue({} as never);
+
+    const { updateTag } = await import("next/cache");
+    const { setRemoteImagePolicy } = await import("@/actions/image-policy");
+    await setRemoteImagePolicy("BLOCK_TRACKERS");
+
+    expect(vi.mocked(updateTag)).toHaveBeenCalledWith("sidebar-counts");
+  });
+});
