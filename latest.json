@@ -1,8 +1,8 @@
 {
-  "version": "2026.06.04",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.04",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.04",
-  "changelog": "Removed initial-circle avatars app-wide, and fixed two bugs: snooze now preserves read state, and 'Send now' no longer double-sends scheduled messages within the undo window.",
+  "version": "2026.06.10",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.10",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.10",
+  "changelog": "Archiving a thread is now instant instead of freezing the UI, and new mail (including login codes) arrives within seconds. Also fixed a faint extra border on undo toasts.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-06-04T06:21:33Z"
+  "releasedAt": "2026-06-10T08:30:00Z"
 }

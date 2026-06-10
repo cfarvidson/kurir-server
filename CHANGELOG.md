@@ -2,6 +2,17 @@
 
 All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
 
+## [v2026.06.10] - 2026-06-10
+
+### Changed
+
+- Archiving a thread from the thread view is now instant. It navigates back to the list immediately instead of freezing the UI for a few seconds while the server action completes.
+
+### Fixed
+
+- New mail (including login codes) now arrives within seconds. IMAP IDLE events were being dropped while a full sync held the sync lock, and IDLE connections only started lazily on the first sync job after a restart; they now defer-and-retry under the lock and start at boot with a downtime catch-up.
+- Removed a faint extra border on undo toasts.
+
 ## [v2026.06.04] - 2026-06-04
 
 ### Changed
