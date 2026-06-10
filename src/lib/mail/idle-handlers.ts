@@ -150,16 +150,31 @@ function scheduleNewMessageCheck(connectionId: string, delayMs: number): void {
  *   fresh debounced event into a single execution.
  */
 export async function checkForNewMessages(connectionId: string): Promise<void> {
-  // In-flight guard: coalesce concurrent triggers into one run. The running
-  // execution re-reads lastUid from the DB, so the dropped caller misses nothing.
-  const conn = connectionManager.getConnection(connectionId);
-  if (!conn) return; // connection torn down — nothing to do
-  if (conn.newMessageCheckInFlight) return;
-  const { client, userId, folderId } = conn;
+  // In-flight guard: a check already running coalesces concurrent triggers —
+  // but reschedule rather than drop, so mail arriving mid-ingest is picked up
+  // by a fresh check (which re-reads lastUid) instead of waiting for the 60s job.
+  const before = connectionManager.getConnection(connectionId);
+  if (!before) return; // connection torn down — nothing to do
+  if (before.newMessageCheckInFlight) {
+    scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
+    return;
+  }
 
   // Defer (never drop) while a full sync holds the lock. Stale-aware: a crashed
   // lock older than STALE_LOCK_MS reads as not held and we proceed immediately.
-  if (await isSyncLockHeld(connectionId)) {
+  const lockHeld = await isSyncLockHeld(connectionId);
+
+  // Re-resolve after the await: the connection may have been torn down or
+  // recreated meanwhile — guard/budget writes to the old object would be lost
+  // and the captured client could be a dead socket.
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return;
+  if (conn.newMessageCheckInFlight) {
+    scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
+    return;
+  }
+
+  if (lockHeld) {
     const attempt = conn.newMessageRetryAttempts;
     if (attempt >= SYNC_LOCK_RETRY_BACKOFF_MS.length) {
       console.log(
@@ -178,7 +193,7 @@ export async function checkForNewMessages(connectionId: string): Promise<void> {
 
   conn.newMessageCheckInFlight = true;
   try {
-    await ingestNewMessages(connectionId, userId, folderId, client);
+    await ingestNewMessages(connectionId, conn.userId, conn.folderId, conn.client);
   } finally {
     conn.newMessageCheckInFlight = false;
   }
@@ -257,7 +272,7 @@ export async function catchUpNewMessages(connectionId: string): Promise<void> {
       { uid: `${lastUid + 1}:*` },
       { uid: true },
     );
-    const newUids = result === false ? [] : (result as number[]);
+    const newUids = Array.isArray(result) ? result : [];
     // The `lastUid+1:*` range can echo lastUid itself when it is the max UID.
     newUidCount = newUids.filter((uid) => uid > lastUid).length;
   } catch (err) {

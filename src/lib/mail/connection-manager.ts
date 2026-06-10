@@ -46,6 +46,11 @@ class ConnectionManager {
   // Keyed by emailConnectionId
   private connections = new Map<string, EmailConnectionConn>();
   private pendingReconnects = new Map<string, NodeJS.Timeout>();
+  // Consecutive failed/interrupted start attempts since the last successful
+  // connect. Lives outside the conn object so the backoff survives the
+  // delete-and-recreate cycle of a failing startConnection — otherwise every
+  // retry reads attempt 0 and the schedule never advances past its 0ms slot.
+  private reconnectAttempts = new Map<string, number>();
   private stopping = false;
 
   get activeCount(): number {
@@ -133,7 +138,7 @@ class ConnectionManager {
       folderId: inboxFolder.id,
       lock: null,
       reconnectTimer: null,
-      reconnectAttempt: 0,
+      reconnectAttempt: this.reconnectAttempts.get(connectionId) ?? 0,
       debounceTimers: new Map(),
       newMessageRetryAttempts: 0,
       newMessageCheckInFlight: false,
@@ -164,6 +169,7 @@ class ConnectionManager {
       await catchUpNewMessages(connectionId);
 
       conn.reconnectAttempt = 0;
+      this.reconnectAttempts.delete(connectionId);
 
       client.on("close", () => {
         if (!this.stopping) {
@@ -176,6 +182,9 @@ class ConnectionManager {
       );
     } catch (err) {
       console.error("[idle] Failed to start for connection", connectionId, err);
+      // The client may have connected (and taken the INBOX lock) before the
+      // failure — clean it up or the socket and mailbox lock leak.
+      this.cleanupConnection(conn);
       this.connections.delete(connectionId);
       this.scheduleReconnect(connectionId);
     }
@@ -183,7 +192,8 @@ class ConnectionManager {
 
   private scheduleReconnect(connectionId: string) {
     const conn = this.connections.get(connectionId);
-    const attempt = conn?.reconnectAttempt ?? 0;
+    const attempt =
+      conn?.reconnectAttempt ?? this.reconnectAttempts.get(connectionId) ?? 0;
     const delay =
       BACKOFF_SCHEDULE[Math.min(attempt, BACKOFF_SCHEDULE.length - 1)];
 
@@ -201,12 +211,10 @@ class ConnectionManager {
 
     const timer = setTimeout(async () => {
       this.pendingReconnects.delete(connectionId);
-      const nextAttempt = attempt + 1;
+      // Persist the attempt count before starting: a failed start deletes the
+      // conn object, so this map is what keeps the backoff advancing.
+      this.reconnectAttempts.set(connectionId, attempt + 1);
       await this.startConnection(connectionId);
-      const newConn = this.connections.get(connectionId);
-      if (newConn) {
-        newConn.reconnectAttempt = nextAttempt;
-      }
     }, delay);
 
     // Track timer on a separate map so it can be cancelled even if the
@@ -277,6 +285,10 @@ class ConnectionManager {
       clearTimeout(pendingTimer);
       this.pendingReconnects.delete(connectionId);
     }
+
+    // A deliberate stop also resets the failure backoff — a later start should
+    // begin from a clean slate, not inherit a stale attempt count.
+    this.reconnectAttempts.delete(connectionId);
 
     const conn = this.connections.get(connectionId);
     if (!conn) return;

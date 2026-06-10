@@ -198,36 +198,67 @@ export async function moveToInboxViaImap(
       uid: { in: uids },
       isArchived: false,
     },
-    select: { uid: true },
+    select: { id: true, uid: true },
   });
 
   if (stillUnarchived.length === 0) return;
 
   const inboxUids = stillUnarchived.map((m) => m.uid);
+  const messageIdBySourceUid = new Map(
+    stillUnarchived.map((m) => [m.uid, m.id] as const),
+  );
 
   for (const uid of inboxUids) {
     suppressEcho(userId, folderId, uid);
   }
 
-  await withImapConnection(connectionId, async (client) => {
+  const result = await withImapConnection(connectionId, async (client) => {
     const mailboxes = await client.list();
     const archiveBox = findArchiveMailbox(mailboxes);
 
-    if (archiveBox) {
-      const lock = await client.getMailboxLock(archiveBox.path);
-      try {
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < inboxUids.length; i += BATCH_SIZE) {
-          const chunk = inboxUids.slice(i, i + BATCH_SIZE);
-          try {
-            await client.messageMove(chunk, "INBOX", { uid: true });
-          } catch {
-            // Batch may partially fail; messages may already be moved
+    if (!archiveBox) return undefined;
+
+    const uidMap = new Map<number, number>();
+    let anyUidMapMissing = false;
+    const lock = await client.getMailboxLock(archiveBox.path);
+    try {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < inboxUids.length; i += BATCH_SIZE) {
+        const chunk = inboxUids.slice(i, i + BATCH_SIZE);
+        try {
+          const moveResult = await client.messageMove(chunk, "INBOX", {
+            uid: true,
+          });
+          if (moveResult && moveResult.uidMap) {
+            for (const [src, dest] of moveResult.uidMap) {
+              uidMap.set(src, dest);
+            }
+          } else {
+            anyUidMapMissing = true;
           }
+        } catch {
+          // Batch may partially fail; messages may already be moved
         }
-      } finally {
-        lock.release();
       }
+    } finally {
+      lock.release();
     }
+
+    return { uidMap, anyUidMapMissing };
   });
+
+  if (!result) return;
+
+  // Post-move location persistence (symmetric with the archive direction):
+  // repoint the rows at INBOX with their new UIDs so IDLE's folderId+uid
+  // dedup check recognizes the moved-back message — otherwise the reverse
+  // move's 'exists' event would re-ingest it as brand-new mail (duplicate
+  // row, spurious SSE and push notification).
+  await persistArchiveLocations(
+    connectionId,
+    "INBOX",
+    result.uidMap,
+    messageIdBySourceUid,
+    result.anyUidMapMissing,
+  );
 }

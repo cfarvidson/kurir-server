@@ -53,10 +53,17 @@ export async function releaseSyncLock(
   error?: string,
   log?: string,
 ): Promise<void> {
-  const state = await db.syncState.findUnique({
-    where: { emailConnectionId },
-    select: { syncStartedAt: true },
-  });
+  // Informational read only — the release below must run unconditionally, so a
+  // transient DB error here must not leave the lock stuck until the stale window.
+  let state: { syncStartedAt: Date | null } | null = null;
+  try {
+    state = await db.syncState.findUnique({
+      where: { emailConnectionId },
+      select: { syncStartedAt: true },
+    });
+  } catch {
+    // Skip the hold-duration log; the release still proceeds.
+  }
 
   await db.syncState.updateMany({
     where: { emailConnectionId },

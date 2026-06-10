@@ -22,7 +22,7 @@ const PRIORITY_REFRESH_MS = 5 * 60_000; // Refresh sync priorities every 5 minut
 let priorityInterval: NodeJS.Timeout | null = null;
 
 /** One connection row for boot-time IDLE enumeration. */
-export interface BootConnectionRow {
+interface BootConnectionRow {
   id: string;
   lastFullSync: Date | null;
 }
@@ -111,10 +111,11 @@ export async function startBackgroundSync() {
 
   // Delay startup to let the server fully initialize
   setTimeout(async () => {
-    // Start IDLE connections FIRST and OUTSIDE the Redis-dependent block: a
-    // Redis outage must not prevent IDLE start (and its boot catch-up), so
-    // mail that arrived during downtime is ingested within seconds of boot.
-    await startBootIdleConnections().catch((err) =>
+    // Start IDLE connections OUTSIDE the Redis-dependent block (a Redis outage
+    // must not prevent IDLE start) and WITHOUT awaiting: the sequential connect
+    // chain can take minutes when an IMAP host is slow or unreachable, and the
+    // 60s sync-job backstop must not wait behind it.
+    void startBootIdleConnections().catch((err) =>
       console.error("[bg-sync] Boot IDLE start error:", err),
     );
 

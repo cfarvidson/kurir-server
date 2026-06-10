@@ -289,6 +289,39 @@ describe("performOptimisticArchive", () => {
     expect(router.refresh).toHaveBeenCalled();
   });
 
+  it("undo failure: pending cleared and cache repopulated even when unarchive rejects", async () => {
+    const client = new QueryClient();
+    seedCache(client, "imbox", [[msg("a", "t1")]]);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const router = makeRouter();
+    const onError = vi.fn();
+    const archive = vi.fn(() => Promise.resolve());
+    const unarchive = vi.fn(() => Promise.reject(new Error("boom")));
+
+    performOptimisticArchive({
+      messageId: "a",
+      threadKey: "t1",
+      returnPath: "/imbox",
+      queryClient: client,
+      router,
+      archiveConversation: archive,
+      unarchiveConversation: unarchive,
+      showUndoToast: noopToast,
+      onError,
+    });
+
+    const onUndo = noopToast.mock.calls[0][0].onUndo;
+    onUndo();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(onError).toHaveBeenCalled();
+    // A rejected unarchive must not leak the pending key (session-long
+    // suppression) — the thread stays archived but visible state recovers.
+    expect(isPendingArchive("t1")).toBe(false);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["messages"] });
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
   // -------------------------------------------------------------------------
   // Rapid serial archives
   // -------------------------------------------------------------------------
@@ -441,6 +474,7 @@ describe("performOptimisticUnarchive", () => {
   it("navigates first, filters cache, refreshes after — no undo toast", async () => {
     const client = new QueryClient();
     seedCache(client, "archive", [[msg("a", "t1"), msg("b", "t2")]]);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
     const router = makeRouter();
     const d = deferred<void>();
     const unarchive = vi.fn(() => d.promise);
@@ -462,6 +496,10 @@ describe("performOptimisticUnarchive", () => {
     d.resolve();
     await settled;
     expect(router.refresh).toHaveBeenCalledTimes(1);
+    // The pending key MUST be released on success — a leaked key would
+    // suppress this thread in every list for the rest of the session.
+    expect(isPendingArchive("t1")).toBe(false);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["messages"] });
   });
 
   it("error path: clears pending, invalidates, refreshes, no unhandled rejection", async () => {

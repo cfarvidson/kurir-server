@@ -22,11 +22,11 @@
  * the destination list.
  */
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { showUndoToast } from "@/components/mail/undo-toast";
-import type { QueryClient } from "@tanstack/react-query";
+import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Pending-archive store (module scope, client only)
@@ -85,8 +85,19 @@ function getServerVersion(): number {
  * whenever the store changes so cold-cache deep-link lists suppress the row.
  */
 export function usePendingArchiveFilter(): (threadKey: string) => boolean {
-  useSyncExternalStore(subscribePendingArchive, getVersion, getServerVersion);
-  return isPendingArchive;
+  const storeVersion = useSyncExternalStore(
+    subscribePendingArchive,
+    getVersion,
+    getServerVersion,
+  );
+  // A fresh closure per store version: callers put the predicate in useMemo
+  // dependency arrays, so its identity must change when the store changes —
+  // returning the module-level function would leave memoized lists stale.
+  return useMemo(
+    () => (threadKey: string) => pendingArchiveKeys.has(threadKey),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [storeVersion],
+  );
 }
 
 /** Test-only reset of the module-level store. */
@@ -110,10 +121,7 @@ interface CachedPage {
   nextCursor: string | null;
 }
 
-interface InfiniteCache {
-  pages: CachedPage[];
-  pageParams: unknown[];
-}
+type InfiniteCache = InfiniteData<CachedPage>;
 
 /**
  * Remove every message belonging to `threadKey` from all cached `["messages", *]`
@@ -144,7 +152,7 @@ export function filterThreadFromMessageCaches(
 // Navigate-then-fire archive sequence (shared by all three entry points)
 // ---------------------------------------------------------------------------
 
-export interface PerformOptimisticArchiveOptions {
+interface PerformOptimisticArchiveOptions {
   messageId: string;
   /** Thread collapse key (threadId + unthread state). Falls back to a
    *  cache-derived lookup, then to `messageId`, when absent. */
@@ -194,12 +202,15 @@ const ERROR_TOAST_LABEL = "Archive failed — the thread is back in your inbox";
  *
  *  1. Record the thread key in the pending store + surgically filter the
  *     `["messages", *]` caches (so the row never flashes anywhere).
- *  2. Show the undo toast (held open until the archive promise settles).
- *  3. Navigate to `returnPath` immediately.
- *  4. Fire `archiveConversation` WITHOUT awaiting; on success refresh, on
- *     failure surface an error toast and restore the thread.
+ *  2. Fire `archiveConversation` WITHOUT awaiting (first, so Undo and the
+ *     toast can chain on the stored promise).
+ *  3. Show the undo toast (held open until the archive promise settles).
+ *  4. Navigate to `returnPath` immediately.
+ *  5. On success refresh; on failure surface an error toast and restore the
+ *     thread.
  *
- * Returns the stored archive promise (so callers/tests can chain on it).
+ * Returns a settled-handling promise (never rejects) so callers/tests can
+ * chain on completion.
  */
 export function performOptimisticArchive(
   opts: PerformOptimisticArchiveOptions,
@@ -236,19 +247,28 @@ export function performOptimisticArchive(
     holdUntil: archivePromise,
     onUndo: () => {
       // Chain on the in-flight archive so the reverse move is ordered after it,
-      // regardless of timing.
+      // regardless of timing. The pending key must be cleared and the cache
+      // repopulated whether the unarchive succeeds or fails — a leaked key
+      // would suppress the thread in every list for the rest of the session.
       archivePromise
         .catch(() => {
           /* archive already failed + recovered; still attempt unarchive */
         })
         .then(() => unarchiveConversation(messageId))
-        .then(() => {
-          clearPendingArchive(threadKey);
-          // A filtered cache will not repopulate from initialData on its own.
-          queryClient.invalidateQueries({ queryKey: ["messages"] });
-          router.refresh();
-        })
-        .catch(onError);
+        .then(
+          () => {
+            clearPendingArchive(threadKey);
+            // A filtered cache will not repopulate from initialData on its own.
+            queryClient.invalidateQueries({ queryKey: ["messages"] });
+            router.refresh();
+          },
+          (err) => {
+            onError(err);
+            clearPendingArchive(threadKey);
+            queryClient.invalidateQueries({ queryKey: ["messages"] });
+            router.refresh();
+          },
+        );
     },
   });
 
@@ -311,6 +331,10 @@ export function performOptimisticUnarchive(opts: {
 
   return promise.then(
     () => {
+      // Mirror the archive success path — a never-cleared pending key would
+      // suppress the thread in every list for the rest of the session.
+      clearPendingArchive(threadKey);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     },
     (err) => {

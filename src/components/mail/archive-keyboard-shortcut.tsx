@@ -30,26 +30,32 @@ export function ArchiveKeyboardShortcut({
     if (actingRef.current) return;
     actingRef.current = true;
 
-    if (action === "unarchive") {
-      performOptimisticUnarchive({
-        messageId,
-        threadKey,
-        returnPath,
-        queryClient,
-        router,
-        unarchiveConversation,
-      });
-    } else {
-      performOptimisticArchive({
-        messageId,
-        threadKey,
-        returnPath,
-        queryClient,
-        router,
-        archiveConversation,
-        unarchiveConversation,
-      });
-    }
+    const settled =
+      action === "unarchive"
+        ? performOptimisticUnarchive({
+            messageId,
+            threadKey,
+            returnPath,
+            queryClient,
+            router,
+            unarchiveConversation,
+          })
+        : performOptimisticArchive({
+            messageId,
+            threadKey,
+            returnPath,
+            queryClient,
+            router,
+            archiveConversation,
+            unarchiveConversation,
+          });
+
+    // Re-arm once the sequence settles — the handler no longer awaits, so the
+    // guard would otherwise stay latched forever if the component survives
+    // navigation (e.g. shared layout slot).
+    settled.finally(() => {
+      actingRef.current = false;
+    });
   }, [messageId, returnPath, threadKey, action, router, queryClient]);
 
   useEffect(() => {

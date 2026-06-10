@@ -270,3 +270,127 @@ describe("moveToArchiveViaImap", () => {
     warnSpy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// moveToInboxViaImap: symmetric undo correctness for the reverse move
+// ---------------------------------------------------------------------------
+
+describe("moveToInboxViaImap", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("all still unarchived: reverse move + suppression + rows repointed at INBOX", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m1", uid: 100 },
+      { id: "m2", uid: 101 },
+    ] as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "inbox-folder",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [
+        {
+          uidMap: new Map([
+            [100, 10],
+            [101, 11],
+          ]),
+        },
+      ],
+    });
+
+    const { suppressEcho } = await import("@/lib/mail/flag-push");
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToInboxViaImap("user-1", "c1", "archive-folder", [100, 101]);
+
+    expect(client.messageMove).toHaveBeenCalledWith([100, 101], "INBOX", {
+      uid: true,
+    });
+    expect(suppressEcho).toHaveBeenCalledTimes(2);
+    expect(suppressEcho).toHaveBeenCalledWith("user-1", "archive-folder", 100);
+
+    // Rows repointed at INBOX with destination UIDs so IDLE's folderId+uid
+    // dedup recognizes the moved-back message (no duplicate row/SSE/push).
+    expect(db.folder.findFirst).toHaveBeenCalledWith({
+      where: { emailConnectionId: "c1", path: "INBOX" },
+      select: { id: true },
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { folderId: "inbox-folder", uid: 10 },
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m2" },
+      data: { folderId: "inbox-folder", uid: 11 },
+    });
+  });
+
+  it("all re-archived before the deferred reverse move: no IMAP call, no suppression", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+
+    const { withImapConnection } = await import("@/lib/mail/imap-client");
+    const { suppressEcho } = await import("@/lib/mail/flag-push");
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToInboxViaImap("user-1", "c1", "archive-folder", [100, 101]);
+
+    expect(suppressEcho).not.toHaveBeenCalled();
+    expect(withImapConnection).not.toHaveBeenCalled();
+    expect(db.message.update).not.toHaveBeenCalled();
+  });
+
+  it("partial re-archive: only still-unarchived UIDs move and suppress", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m2", uid: 101 },
+    ] as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "inbox-folder",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [{ uidMap: new Map([[101, 12]]) }],
+    });
+
+    const { suppressEcho } = await import("@/lib/mail/flag-push");
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToInboxViaImap("user-1", "c1", "archive-folder", [100, 101]);
+
+    expect(client.messageMove).toHaveBeenCalledWith([101], "INBOX", {
+      uid: true,
+    });
+    expect(suppressEcho).toHaveBeenCalledTimes(1);
+    expect(db.message.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("destination folder row missing: no row updates, warning logged, no crash", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m1", uid: 100 },
+    ] as never);
+    // Non-empty uidMap but the folder row lookup returns null.
+    vi.mocked(db.folder.findFirst).mockResolvedValue(null as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [{ uidMap: new Map([[100, 10]]) }],
+    });
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await expect(
+      moveToInboxViaImap("user-1", "c1", "archive-folder", [100]),
+    ).resolves.toBeUndefined();
+
+    expect(client.messageMove).toHaveBeenCalledTimes(1);
+    expect(db.message.update).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+});
