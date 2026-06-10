@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     },
     folder: { findFirst: vi.fn() },
     sender: { updateMany: vi.fn() },
+    $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 

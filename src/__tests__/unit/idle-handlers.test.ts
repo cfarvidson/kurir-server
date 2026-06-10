@@ -70,6 +70,8 @@ function makeConn(fetchMessages: Array<{ uid: number }> = []) {
     client,
     folderId: FOLDER_ID,
     debounceTimers,
+    newMessageRetryAttempts: 0,
+    newMessageCheckInFlight: false,
   };
 }
 

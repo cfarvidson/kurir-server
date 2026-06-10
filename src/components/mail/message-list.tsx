@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -79,8 +79,12 @@ export function MessageList({
     }
   }, []);
 
-  const visibleMessages = messages.filter(
-    (m) => !hiddenIds.has(m.id) && !isPendingArchive(threadKeyOf(m)),
+  const visibleMessages = useMemo(
+    () =>
+      messages.filter(
+        (m) => !hiddenIds.has(m.id) && !isPendingArchive(threadKeyOf(m)),
+      ),
+    [messages, hiddenIds, isPendingArchive],
   );
 
   return (

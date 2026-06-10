@@ -31,21 +31,6 @@ const SYNC_LOCK_RETRY_BACKOFF_MS = [5_000, 15_000, 30_000];
 const EXISTS_TIMER_KEY = "exists";
 
 /**
- * Per-connection count of consecutive sync-lock-deferred retries. Reset to 0
- * by any fresh 'exists' event and on a completed check. Keyed by connectionId
- * (not the `conn` object, which is recreated on reconnect).
- */
-const retryAttempts = new Map<string, number>();
-
-/**
- * Per-connection in-flight guard: a check already running for a connection
- * makes a concurrent caller (a retry firing alongside a fresh debounced event)
- * coalesce — the second caller returns immediately, and the in-flight run
- * re-reads `lastUid` from the DB so nothing is missed.
- */
-const inFlight = new Set<string>();
-
-/**
  * Wrap an async handler so unhandled rejections don't crash Node.js.
  * EventEmitter does not await async listeners.
  */
@@ -80,7 +65,7 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
     safeAsync(async (_data: { count?: number; prevCount?: number }) => {
       connectionManager.touchActivity(connectionId);
       // A fresh arrival resets the sync-lock retry budget.
-      retryAttempts.delete(connectionId);
+      conn.newMessageRetryAttempts = 0;
       // Debounce rapid arrivals, then run a lock-aware new-message check.
       scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
     }),
@@ -140,8 +125,8 @@ function scheduleNewMessageCheck(connectionId: string, delayMs: number): void {
       // Re-resolve the live connection at fire time; clear our own timer entry.
       const liveConn = connectionManager.getConnection(connectionId);
       liveConn?.debounceTimers.delete(EXISTS_TIMER_KEY);
-      handleNewMessages(connectionId).catch((err) =>
-        console.error("[idle] handleNewMessages error:", err),
+      checkForNewMessages(connectionId).catch((err) =>
+        console.error("[idle] checkForNewMessages error:", err),
       );
     }, delayMs),
   );
@@ -165,7 +150,38 @@ function scheduleNewMessageCheck(connectionId: string, delayMs: number): void {
  *   fresh debounced event into a single execution.
  */
 export async function checkForNewMessages(connectionId: string): Promise<void> {
-  return handleNewMessages(connectionId);
+  // In-flight guard: coalesce concurrent triggers into one run. The running
+  // execution re-reads lastUid from the DB, so the dropped caller misses nothing.
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return; // connection torn down — nothing to do
+  if (conn.newMessageCheckInFlight) return;
+  const { client, userId, folderId } = conn;
+
+  // Defer (never drop) while a full sync holds the lock. Stale-aware: a crashed
+  // lock older than STALE_LOCK_MS reads as not held and we proceed immediately.
+  if (await isSyncLockHeld(connectionId)) {
+    const attempt = conn.newMessageRetryAttempts;
+    if (attempt >= SYNC_LOCK_RETRY_BACKOFF_MS.length) {
+      console.log(
+        `[idle] Sync lock held; new-message check deferred ${attempt} time(s) for connection ${connectionId}, giving up (next sync job is the backstop)`,
+      );
+      conn.newMessageRetryAttempts = 0;
+      return;
+    }
+    conn.newMessageRetryAttempts = attempt + 1;
+    scheduleNewMessageCheck(connectionId, SYNC_LOCK_RETRY_BACKOFF_MS[attempt]);
+    return;
+  }
+
+  // Lock free — this check will complete; clear the deferral budget.
+  conn.newMessageRetryAttempts = 0;
+
+  conn.newMessageCheckInFlight = true;
+  try {
+    await ingestNewMessages(connectionId, userId, folderId, client);
+  } finally {
+    conn.newMessageCheckInFlight = false;
+  }
 }
 
 /**
@@ -262,47 +278,6 @@ export async function catchUpNewMessages(connectionId: string): Promise<void> {
     `[idle] Catch-up: ${newUidCount} new UID(s) for connection ${connectionId}`,
   );
   await checkForNewMessages(connectionId);
-}
-
-/**
- * Handle new messages from an IDLE 'exists' event (or a catch-up trigger).
- * Re-resolves the live connection/client, honors the sync lock with deferral,
- * then fetches and ingests only UIDs above the highest we already store.
- */
-async function handleNewMessages(connectionId: string): Promise<void> {
-  // In-flight guard: coalesce concurrent triggers into one run. The running
-  // execution re-reads lastUid from the DB, so the dropped caller misses nothing.
-  if (inFlight.has(connectionId)) return;
-
-  const conn = connectionManager.getConnection(connectionId);
-  if (!conn) return; // connection torn down — nothing to do
-  const { client, userId, folderId } = conn;
-
-  // Defer (never drop) while a full sync holds the lock. Stale-aware: a crashed
-  // lock older than STALE_LOCK_MS reads as not held and we proceed immediately.
-  if (await isSyncLockHeld(connectionId)) {
-    const attempt = retryAttempts.get(connectionId) ?? 0;
-    if (attempt >= SYNC_LOCK_RETRY_BACKOFF_MS.length) {
-      console.log(
-        `[idle] Sync lock held; new-message check deferred ${attempt} time(s) for connection ${connectionId}, giving up (next sync job is the backstop)`,
-      );
-      retryAttempts.delete(connectionId);
-      return;
-    }
-    retryAttempts.set(connectionId, attempt + 1);
-    scheduleNewMessageCheck(connectionId, SYNC_LOCK_RETRY_BACKOFF_MS[attempt]);
-    return;
-  }
-
-  // Lock free — this check will complete; clear the deferral budget.
-  retryAttempts.delete(connectionId);
-
-  inFlight.add(connectionId);
-  try {
-    await ingestNewMessages(connectionId, userId, folderId, client);
-  } finally {
-    inFlight.delete(connectionId);
-  }
 }
 
 /**

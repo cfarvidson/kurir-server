@@ -159,14 +159,18 @@ async function persistArchiveLocations(
     return;
   }
 
+  const updates = [];
   for (const [sourceUid, destUid] of uidMap) {
     const messageId = messageIdBySourceUid.get(sourceUid);
     if (!messageId) continue;
-    await db.message.update({
-      where: { id: messageId },
-      data: { folderId: archiveFolder.id, uid: destUid },
-    });
+    updates.push(
+      db.message.update({
+        where: { id: messageId },
+        data: { folderId: archiveFolder.id, uid: destUid },
+      }),
+    );
   }
+  if (updates.length > 0) await db.$transaction(updates);
 
   if (anyUidMapMissing) {
     console.warn(

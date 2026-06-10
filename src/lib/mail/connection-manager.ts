@@ -16,6 +16,10 @@ export interface EmailConnectionConn {
   reconnectTimer: NodeJS.Timeout | null;
   reconnectAttempt: number;
   debounceTimers: Map<string, NodeJS.Timeout>;
+  /** Consecutive sync-lock-deferred new-message retries (see idle-handlers). */
+  newMessageRetryAttempts: number;
+  /** Coalescing guard: a new-message check is currently running. */
+  newMessageCheckInFlight: boolean;
   isGmail: boolean;
   lastActivity: Date;
 }
@@ -131,6 +135,8 @@ class ConnectionManager {
       reconnectTimer: null,
       reconnectAttempt: 0,
       debounceTimers: new Map(),
+      newMessageRetryAttempts: 0,
+      newMessageCheckInFlight: false,
       isGmail,
       lastActivity: new Date(),
     };
