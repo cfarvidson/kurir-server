@@ -9,6 +9,7 @@ import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { threadKeyOf } from "@/lib/mail/thread-key";
+import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
@@ -53,6 +54,9 @@ export function InfiniteMessageList({
   const queryClient = useQueryClient();
   const router = useRouter();
   const { focusedIndex, registerList } = useKeyboardNavigationStore();
+  // Suppress rows for threads optimistically archived from the detail view —
+  // guarantees no flash even when the query cache is cold (deep-link entry).
+  const isPendingArchive = usePendingArchiveFilter();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -139,15 +143,17 @@ export function InfiniteMessageList({
       }
     }
 
-    // Propagate unread status
-    return Array.from(threadMap.values()).map((msg) => {
-      const key = threadKeyOf(msg);
-      if (hasUnread.has(key) && msg.isRead) {
-        return { ...msg, isRead: false };
-      }
-      return msg;
-    });
-  }, [data]);
+    // Propagate unread status, and drop threads pending optimistic archive.
+    return Array.from(threadMap.values())
+      .filter((msg) => !isPendingArchive(threadKeyOf(msg)))
+      .map((msg) => {
+        const key = threadKeyOf(msg);
+        if (hasUnread.has(key) && msg.isRead) {
+          return { ...msg, isRead: false };
+        }
+        return msg;
+      });
+  }, [data, isPendingArchive]);
 
   // Register thread list in navigation store for j/k in thread detail view
   useEffect(() => {

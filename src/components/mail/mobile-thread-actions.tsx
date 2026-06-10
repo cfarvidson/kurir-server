@@ -6,7 +6,7 @@ import { Archive, Clock, Bell, CornerDownLeft } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
-import { showUndoToast } from "@/components/mail/undo-toast";
+import { performOptimisticArchive } from "@/lib/mail/optimistic-archive";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface MobileThreadActionsProps {
   messageId: string;
   returnPath: string;
   timezone?: string;
+  threadKey?: string;
   showArchive?: boolean;
   showSnooze?: boolean;
   showFollowUp?: boolean;
@@ -24,6 +25,7 @@ export function MobileThreadActions({
   messageId,
   returnPath,
   timezone = "UTC",
+  threadKey,
   showArchive = true,
   showSnooze = true,
   showFollowUp = true,
@@ -31,17 +33,16 @@ export function MobileThreadActions({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleArchive = async () => {
-    showUndoToast({
-      id: `archive-${messageId}`,
-      label: "Archived",
-      onUndo: () => {
-        unarchiveConversation(messageId).then(() => router.refresh());
-      },
+  const handleArchive = () => {
+    performOptimisticArchive({
+      messageId,
+      threadKey,
+      returnPath,
+      queryClient,
+      router,
+      archiveConversation,
+      unarchiveConversation,
     });
-    await archiveConversation(messageId, returnPath);
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
   };
 
   const handleSnooze = async (until: Date) => {

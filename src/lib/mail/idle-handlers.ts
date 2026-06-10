@@ -3,10 +3,32 @@ import { db } from "@/lib/db";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
 import { pushToUser } from "./push-sender";
+import { isSyncLockHeld } from "./sync-lock";
 import {
   connectionManager,
   type EmailConnectionConn,
 } from "./connection-manager";
+
+/**
+ * Debounce window for rapid 'exists' arrivals (ms).
+ */
+const EXISTS_DEBOUNCE_MS = 200;
+
+/**
+ * Backoff schedule for deferring a new-message check while the sync lock is
+ * held. One entry per retry attempt (~5s, ~15s, ~30s ≈ 50s of coverage). On
+ * exhaustion the 60s sync job is the backstop, so a dropped check is bounded.
+ */
+const SYNC_LOCK_RETRY_BACKOFF_MS = [5_000, 15_000, 30_000];
+
+/**
+ * Shared debounce key for the 'exists' new-message check. Both the initial
+ * debounce and every deferred retry schedule under this key in
+ * `conn.debounceTimers`, so timers REPLACE rather than stack — at most one
+ * pending check per connection, and connection teardown's existing
+ * `debounceTimers` cleanup cancels it for free.
+ */
+const EXISTS_TIMER_KEY = "exists";
 
 /**
  * Wrap an async handler so unhandled rejections don't crash Node.js.
@@ -42,20 +64,10 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
     "exists",
     safeAsync(async (_data: { count?: number; prevCount?: number }) => {
       connectionManager.touchActivity(connectionId);
-      // Debounce rapid arrivals (200ms)
-      const key = "exists";
-      const existing = conn.debounceTimers.get(key);
-      if (existing) clearTimeout(existing);
-
-      conn.debounceTimers.set(
-        key,
-        setTimeout(() => {
-          conn.debounceTimers.delete(key);
-          handleNewMessages(connectionId, userId, folderId, client).catch(
-            (err) => console.error("[idle] handleNewMessages error:", err),
-          );
-        }, 200),
-      );
+      // A fresh arrival resets the sync-lock retry budget.
+      conn.newMessageRetryAttempts = 0;
+      // Debounce rapid arrivals, then run a lock-aware new-message check.
+      scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
     }),
   );
 
@@ -92,21 +104,208 @@ export function registerIdleHandlers(conn: EmailConnectionConn): void {
 }
 
 /**
- * Handle new messages from IDLE 'exists' event.
- * Checks sync lock, then fetches only new UIDs.
+ * Schedule a lock-aware new-message check for a connection after `delayMs`,
+ * replacing any pending check (debounce or deferred retry) under the shared
+ * `EXISTS_TIMER_KEY`. Storing the timer in `conn.debounceTimers` means at most
+ * one pending check exists per connection and connection teardown cancels it.
+ *
+ * If the connection is no longer live (torn down / not yet reconnected) the
+ * schedule is silently abandoned — a missing connection has nowhere to run.
  */
-async function handleNewMessages(
+function scheduleNewMessageCheck(connectionId: string, delayMs: number): void {
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return;
+
+  const existing = conn.debounceTimers.get(EXISTS_TIMER_KEY);
+  if (existing) clearTimeout(existing);
+
+  conn.debounceTimers.set(
+    EXISTS_TIMER_KEY,
+    setTimeout(() => {
+      // Re-resolve the live connection at fire time; clear our own timer entry.
+      const liveConn = connectionManager.getConnection(connectionId);
+      liveConn?.debounceTimers.delete(EXISTS_TIMER_KEY);
+      checkForNewMessages(connectionId).catch((err) =>
+        console.error("[idle] checkForNewMessages error:", err),
+      );
+    }, delayMs),
+  );
+}
+
+/**
+ * Run one lock-aware new-message UID-delta check for a connection.
+ *
+ * This is the single ingestion path the IDLE 'exists' handler uses; it is also
+ * the entry point for boot-time / post-reconnect catch-up (U5). The connection
+ * and live client are re-resolved from the connection manager at call time, so
+ * callers must not close over a possibly-reconnected client.
+ *
+ * Behavior:
+ * - If the connection is gone, returns silently (nothing to fetch).
+ * - If the sync lock is held (stale-aware via `isSyncLockHeld`), the check is
+ *   deferred via {@link scheduleNewMessageCheck} with bounded backoff rather
+ *   than dropped; on attempt exhaustion it logs once and gives up (the 60s
+ *   sync job is the backstop).
+ * - A per-connection in-flight guard coalesces a retry that fires alongside a
+ *   fresh debounced event into a single execution.
+ */
+export async function checkForNewMessages(connectionId: string): Promise<void> {
+  // In-flight guard: a check already running coalesces concurrent triggers —
+  // but reschedule rather than drop, so mail arriving mid-ingest is picked up
+  // by a fresh check (which re-reads lastUid) instead of waiting for the 60s job.
+  const before = connectionManager.getConnection(connectionId);
+  if (!before) return; // connection torn down — nothing to do
+  if (before.newMessageCheckInFlight) {
+    scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
+    return;
+  }
+
+  // Defer (never drop) while a full sync holds the lock. Stale-aware: a crashed
+  // lock older than STALE_LOCK_MS reads as not held and we proceed immediately.
+  const lockHeld = await isSyncLockHeld(connectionId);
+
+  // Re-resolve after the await: the connection may have been torn down or
+  // recreated meanwhile — guard/budget writes to the old object would be lost
+  // and the captured client could be a dead socket.
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return;
+  if (conn.newMessageCheckInFlight) {
+    scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
+    return;
+  }
+
+  if (lockHeld) {
+    const attempt = conn.newMessageRetryAttempts;
+    if (attempt >= SYNC_LOCK_RETRY_BACKOFF_MS.length) {
+      console.log(
+        `[idle] Sync lock held; new-message check deferred ${attempt} time(s) for connection ${connectionId}, giving up (next sync job is the backstop)`,
+      );
+      conn.newMessageRetryAttempts = 0;
+      return;
+    }
+    conn.newMessageRetryAttempts = attempt + 1;
+    scheduleNewMessageCheck(connectionId, SYNC_LOCK_RETRY_BACKOFF_MS[attempt]);
+    return;
+  }
+
+  // Lock free — this check will complete; clear the deferral budget.
+  conn.newMessageRetryAttempts = 0;
+
+  conn.newMessageCheckInFlight = true;
+  try {
+    await ingestNewMessages(connectionId, conn.userId, conn.folderId, conn.client);
+  } finally {
+    conn.newMessageCheckInFlight = false;
+  }
+}
+
+/**
+ * Upper bound on new UIDs a boot/reconnect catch-up will ingest inline. A
+ * larger backlog is deferred to the sync job, which batches properly rather
+ * than fetching every message body in one IDLE pass.
+ */
+const CATCH_UP_MAX_NEW_UIDS = 50;
+
+/**
+ * Pure gating decision for the boot/reconnect new-mail catch-up.
+ *
+ * - `lastUid === 0`: the folder has no cached messages, so a `lastUid+1:*`
+ *   range would span the entire mailbox. Defer to the sync job (it does the
+ *   initial bulk ingest in batches).
+ * - `newUidCount > threshold`: a large downtime backlog. Defer to the sync job
+ *   rather than fetching that many bodies inline at boot.
+ * - Otherwise (a handful of new UIDs): run the cheap range-fetch catch-up.
+ *
+ * Exported for unit testing the gating in isolation from ImapFlow.
+ */
+export function shouldRunBootCatchUp(args: {
+  lastUid: number;
+  newUidCount: number;
+  threshold?: number;
+}): boolean {
+  const threshold = args.threshold ?? CATCH_UP_MAX_NEW_UIDS;
+  if (args.lastUid <= 0) return false;
+  if (args.newUidCount <= 0) return false;
+  if (args.newUidCount > threshold) return false;
+  return true;
+}
+
+/**
+ * Bounded new-mail catch-up, invoked once after a connection's INBOX lock is
+ * established (initial connect AND reconnect — same site as the CONDSTORE
+ * flags catch-up). Closes the gap where mail arrived while there was no IDLE
+ * connection (server downtime or a disconnection window).
+ *
+ * Bounding (see {@link shouldRunBootCatchUp}): a cheap UID-only probe counts
+ * how many UIDs sit above our stored max. Zero cached messages or a large
+ * backlog defers to the sync job; the common case (a few new UIDs) falls
+ * through to the lock-aware {@link checkForNewMessages} range fetch.
+ *
+ * Returns silently if the connection is gone. Probe failures are logged and
+ * treated as "defer to sync job" (no inline fetch).
+ */
+export async function catchUpNewMessages(connectionId: string): Promise<void> {
+  const conn = connectionManager.getConnection(connectionId);
+  if (!conn) return;
+  const { client, folderId } = conn;
+
+  const lastMsg = await db.message.findFirst({
+    where: { folderId, uid: { gt: 0 } },
+    orderBy: { uid: "desc" },
+    select: { uid: true },
+  });
+  const lastUid = lastMsg?.uid ?? 0;
+
+  // Zero cached messages — defer the initial bulk ingest to the sync job
+  // without even probing (a `1:*` probe could be the whole mailbox).
+  if (lastUid <= 0) {
+    console.log(
+      `[idle] Catch-up skipped for ${connectionId}: no cached messages, deferring to sync job`,
+    );
+    return;
+  }
+
+  // Cheap UID-only probe (no body fetch) to size the backlog.
+  let newUidCount = 0;
+  try {
+    const result = await client.search(
+      { uid: `${lastUid + 1}:*` },
+      { uid: true },
+    );
+    const newUids = Array.isArray(result) ? result : [];
+    // The `lastUid+1:*` range can echo lastUid itself when it is the max UID.
+    newUidCount = newUids.filter((uid) => uid > lastUid).length;
+  } catch (err) {
+    console.error("[idle] Catch-up probe error:", err);
+    return; // defer to sync job
+  }
+
+  if (!shouldRunBootCatchUp({ lastUid, newUidCount })) {
+    if (newUidCount > CATCH_UP_MAX_NEW_UIDS) {
+      console.log(
+        `[idle] Catch-up skipped for ${connectionId}: ${newUidCount} new UIDs exceed bound, deferring to sync job`,
+      );
+    }
+    return;
+  }
+
+  console.log(
+    `[idle] Catch-up: ${newUidCount} new UID(s) for connection ${connectionId}`,
+  );
+  await checkForNewMessages(connectionId);
+}
+
+/**
+ * Fetch UIDs above our stored max for the folder, process them (deduping per
+ * UID and tolerating a P2002 race with a concurrent sync), and emit SSE / push
+ * for genuinely new messages only.
+ */
+async function ingestNewMessages(
   connectionId: string,
   userId: string,
   folderId: string,
   client: ImapFlow,
 ): Promise<void> {
-  // Skip if full sync is running for this connection
-  const syncState = await db.syncState.findUnique({
-    where: { emailConnectionId: connectionId },
-  });
-  if (syncState?.isSyncing) return;
-
   // Find highest UID we already have for this folder
   const lastMsg = await db.message.findFirst({
     where: { folderId, uid: { gt: 0 } },
@@ -146,7 +345,7 @@ async function handleNewMessages(
     )) {
       if (msg.uid <= lastUid) continue; // range may include lastUid
 
-      // Check if we already have this message
+      // Check if we already have this message (sync may have ingested it).
       const exists = await db.message.findFirst({
         where: { folderId, uid: msg.uid },
         select: { id: true },
@@ -159,16 +358,20 @@ async function handleNewMessages(
         emailConn?.sendAsEmail,
         ...(emailConn?.aliases ?? []),
       ].filter(Boolean) as string[];
-      const message = await processMessage(
-        msg,
-        userId,
-        connectionId,
-        folderId,
-        {
+
+      let message;
+      try {
+        message = await processMessage(msg, userId, connectionId, folderId, {
           isInbox: true,
           userEmails,
-        },
-      );
+        });
+      } catch (err) {
+        // A concurrent sync can insert the same [folderId, uid] between our
+        // existence check and this write (P2002). That row is already present,
+        // so skip it without aborting the loop or treating it as a failure.
+        if (isUniqueViolation(err)) continue;
+        throw err;
+      }
       count++;
 
       // Collect Imbox messages for push notifications
@@ -204,6 +407,16 @@ async function handleNewMessages(
       }).catch((err) => console.error("[push] error:", err));
     }
   }
+}
+
+/** Prisma P2002 = unique constraint violation. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
 }
 
 /**

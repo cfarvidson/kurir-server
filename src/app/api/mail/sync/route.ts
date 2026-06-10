@@ -3,14 +3,13 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
+import { claimSyncLock, releaseSyncLock } from "@/lib/mail/sync-lock";
 import {
   checkExpiredFollowUps,
   wakeExpiredSnoozes,
 } from "@/lib/jobs/maintenance-tasks";
 import { pushToUser } from "@/lib/mail/push-sender";
 import { rateLimitSync, tooManyRequests } from "@/lib/rate-limit";
-
-const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
 async function clearConnectionMailCache(emailConnectionId: string) {
   // Delete messages, folders, and senders for this specific connection
@@ -23,45 +22,6 @@ async function clearConnectionMailCache(emailConnectionId: string) {
       data: { lastFullSync: null, syncError: null },
     }),
   ]);
-}
-
-async function claimSyncLock(emailConnectionId: string): Promise<boolean> {
-  // Ensure SyncState exists for this connection
-  await db.syncState.upsert({
-    where: { emailConnectionId },
-    create: { emailConnectionId },
-    update: {},
-  });
-
-  // Atomic claim: only succeeds if not currently syncing (or lock is stale)
-  const claimed = await db.syncState.updateMany({
-    where: {
-      emailConnectionId,
-      OR: [
-        { isSyncing: false },
-        { syncStartedAt: { lt: new Date(Date.now() - STALE_LOCK_MS) } },
-      ],
-    },
-    data: { isSyncing: true, syncStartedAt: new Date(), syncError: null },
-  });
-
-  return claimed.count > 0;
-}
-
-async function releaseSyncLock(
-  emailConnectionId: string,
-  error?: string,
-  log?: string,
-) {
-  await db.syncState.updateMany({
-    where: { emailConnectionId },
-    data: {
-      isSyncing: false,
-      syncError: error || null,
-      lastSyncLog: log || null,
-      ...(!error ? { lastFullSync: new Date() } : {}),
-    },
-  });
 }
 
 function buildSyncLog(results: SyncResult[]): string {

@@ -1,49 +1,11 @@
 import { Worker, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
+import { claimSyncLock, releaseSyncLock } from "@/lib/mail/sync-lock";
 import { pushToUser } from "@/lib/mail/push-sender";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { sseSubscribers, emitToUser } from "@/lib/mail/sse-subscribers";
 import { getRedisConnection, SYNC_QUEUE, getSyncQueue } from "./queue";
-
-const STALE_LOCK_MS = 5 * 60 * 1000; // 5 minutes
-
-async function claimSyncLock(emailConnectionId: string): Promise<boolean> {
-  await db.syncState.upsert({
-    where: { emailConnectionId },
-    create: { emailConnectionId },
-    update: {},
-  });
-
-  const claimed = await db.syncState.updateMany({
-    where: {
-      emailConnectionId,
-      OR: [
-        { isSyncing: false },
-        { syncStartedAt: { lt: new Date(Date.now() - STALE_LOCK_MS) } },
-      ],
-    },
-    data: { isSyncing: true, syncStartedAt: new Date(), syncError: null },
-  });
-
-  return claimed.count > 0;
-}
-
-async function releaseSyncLock(
-  emailConnectionId: string,
-  error?: string,
-  log?: string,
-) {
-  await db.syncState.updateMany({
-    where: { emailConnectionId },
-    data: {
-      isSyncing: false,
-      syncError: error || null,
-      lastSyncLog: log || null,
-      ...(!error ? { lastFullSync: new Date() } : {}),
-    },
-  });
-}
 
 function buildSyncLog(results: SyncResult[]): string {
   return results
