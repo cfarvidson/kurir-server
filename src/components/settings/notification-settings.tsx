@@ -9,9 +9,16 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export function NotificationSettings() {
-  const { isSupported, permission, isSubscribed, subscribe, unsubscribe } =
-    usePushNotifications();
+  const {
+    isSupported,
+    isConfigured,
+    permission,
+    isSubscribed,
+    subscribe,
+    unsubscribe,
+  } = usePushNotifications();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isSupported) {
     return (
@@ -21,19 +28,32 @@ export function NotificationSettings() {
     );
   }
 
+  if (!isConfigured) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Push notifications are not configured on this server.
+      </p>
+    );
+  }
+
   const iosPwa = isIosNonPwa();
   const isDenied = permission === "denied";
 
   const handleToggle = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (isSubscribed) {
         await unsubscribe();
       } else {
         await subscribe();
       }
-    } catch {
-      // Handle error silently
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -70,6 +90,7 @@ export function NotificationSettings() {
           </Button>
         )}
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
       {isDenied && (
         <p className="text-xs text-muted-foreground">
           Notifications are blocked by your browser. To enable them, go to your
