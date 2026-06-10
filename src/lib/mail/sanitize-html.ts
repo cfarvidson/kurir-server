@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { isLikelyTracker } from "./tracker-detection";
 
 export interface CidAttachment {
   id: string;
@@ -17,6 +18,14 @@ export interface SanitizeOptions {
    * false (remote images are proxied as before).
    */
   blockRemoteImages?: boolean;
+  /**
+   * When true (and `blockRemoteImages` is false), remote images are loaded
+   * (proxied) EXCEPT those detected as trackers — known tracker domains and
+   * invisible spy pixels — which are stripped to `data-blocked-src` exactly
+   * like the full block. This is the "load images, block trackers" middle
+   * ground. Ignored when `blockRemoteImages` is true. Defaults to false.
+   */
+  blockTrackers?: boolean;
 }
 
 export interface SanitizeResult {
@@ -27,6 +36,11 @@ export interface SanitizeResult {
    * `blockRemoteImages` was enabled. Zero when blocking is off.
    */
   blockedRemoteImages: number;
+  /**
+   * Number of remote images stripped specifically because they were detected
+   * as trackers in `blockTrackers` mode. Zero in the other modes.
+   */
+  blockedTrackers: number;
 }
 
 /** Build the proxied URL used to load a remote image through our own server. */
@@ -169,7 +183,7 @@ export function sanitizeEmailHtmlWithMeta(
 ): SanitizeResult {
   if (typeof window === "undefined") {
     // Server-side: return empty string — the iframe renders client-side only.
-    return { html: "", blockedRemoteImages: 0 };
+    return { html: "", blockedRemoteImages: 0, blockedTrackers: 0 };
   }
 
   const purify = DOMPurify(window);
@@ -206,8 +220,10 @@ export function sanitizeEmailHtmlWithMeta(
   }
 
   // 3. Filter dangerous img src, rewrite CID to attachment URLs, proxy or block
-  //    external images.
+  //    external images. Tracker detection runs here, BEFORE step 4 strips inline
+  //    style url()s, so `display:none` / `width:0` pixels are still detectable.
   let blockedRemoteImages = 0;
+  let blockedTrackers = 0;
   doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") ?? "";
     if (src.startsWith("/api/attachments/")) {
@@ -229,6 +245,12 @@ export function sanitizeEmailHtmlWithMeta(
         img.setAttribute("data-blocked-src", src);
         img.removeAttribute("src");
         blockedRemoteImages += 1;
+      } else if (options.blockTrackers && isLikelyTracker(img, src).tracker) {
+        // Load images mode, but this one is a known tracker / spy pixel —
+        // strip it the same way (no request fires) and count it separately.
+        img.setAttribute("data-blocked-src", src);
+        img.removeAttribute("src");
+        blockedTrackers += 1;
       } else {
         img.setAttribute("src", proxiedImageUrl(src));
       }
@@ -263,5 +285,5 @@ export function sanitizeEmailHtmlWithMeta(
     });
   }
 
-  return { html: doc.body.innerHTML, blockedRemoteImages };
+  return { html: doc.body.innerHTML, blockedRemoteImages, blockedTrackers };
 }

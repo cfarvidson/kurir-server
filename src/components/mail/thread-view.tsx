@@ -19,6 +19,12 @@ import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { RecipientList } from "@/components/mail/recipient-list";
 import type { RecipientNameMap } from "@/lib/mail/recipient-names";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
+import { BlockedTrackersIndicator } from "@/components/mail/blocked-trackers-indicator";
+import {
+  imagePolicyToSanitizeFlags,
+  resolveEffectiveMessagePolicy,
+  type RemoteImagePolicy,
+} from "@/lib/mail/image-policy";
 
 interface ThreadMessage {
   id: string;
@@ -54,8 +60,8 @@ interface ThreadViewProps {
   messages: ThreadMessage[];
   currentUserEmail: string;
   userEmails?: Set<string>;
-  /** User's global preference to block remote images (tracker blocker). */
-  blockRemoteImages?: boolean;
+  /** User's global remote-image policy (block all / block trackers / allow all). */
+  remoteImagePolicy?: RemoteImagePolicy;
   /** Lowercased address → contact name, for recipient display. */
   recipientNames?: RecipientNameMap;
 }
@@ -69,7 +75,12 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
+interface SanitizeImageFlags {
+  blockRemoteImages: boolean;
+  blockTrackers: boolean;
+}
+
+function buildEmailHtml(message: ThreadMessage, imageFlags: SanitizeImageFlags) {
   const senderName = escapeHtml(
     message.sender?.displayName || message.fromName || message.fromAddress,
   );
@@ -79,7 +90,10 @@ function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
   const ccAddresses = escapeHtml(message.ccAddresses.join(", "));
   const date = new Date(message.sentAt || message.receivedAt).toLocaleString();
   const body = message.htmlBody
-    ? sanitizeEmailHtml(message.htmlBody, { blockRemoteImages })
+    ? sanitizeEmailHtml(message.htmlBody, {
+        blockRemoteImages: imageFlags.blockRemoteImages,
+        blockTrackers: imageFlags.blockTrackers,
+      })
     : `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(message.textBody || "")}</pre>`;
 
   return `<!DOCTYPE html>
@@ -101,10 +115,10 @@ function buildEmailHtml(message: ThreadMessage, blockRemoteImages: boolean) {
 </body></html>`;
 }
 
-function printEmail(message: ThreadMessage, blockRemoteImages: boolean) {
+function printEmail(message: ThreadMessage, imageFlags: SanitizeImageFlags) {
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(buildEmailHtml(message, blockRemoteImages));
+  win.document.write(buildEmailHtml(message, imageFlags));
   win.document.close();
   win.addEventListener("load", () => win.print());
 }
@@ -114,14 +128,14 @@ function MessageBubble({
   isFromCurrentUser,
   isCollapsed: initialCollapsed,
   isFirst,
-  blockRemoteImages = false,
+  remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
   isCollapsed: boolean;
   isFirst: boolean;
-  blockRemoteImages?: boolean;
+  remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: RecipientNameMap;
 }) {
   const router = useRouter();
@@ -130,15 +144,19 @@ function MessageBubble({
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
   const [imagesRevealed, setImagesRevealed] = useState(false);
   const [blockedCount, setBlockedCount] = useState(0);
+  const [blockedTrackers, setBlockedTrackers] = useState(0);
 
-  // Block remote images unless the user disabled blocking, the sender is
-  // trusted, the user already revealed images, or this is the user's own
-  // outbound message (your own images aren't tracking you).
-  const shouldBlockImages =
-    blockRemoteImages &&
-    !isFromCurrentUser &&
-    !message.sender?.allowRemoteImages &&
-    !imagesRevealed;
+  // The effective per-message policy (see resolveEffectiveMessagePolicy for the
+  // override rules). Drives the sanitizer flags for this message body.
+  const effectivePolicy = resolveEffectiveMessagePolicy({
+    globalPolicy: remoteImagePolicy,
+    isFromCurrentUser,
+    senderAllowsRemoteImages: message.sender?.allowRemoteImages ?? false,
+    imagesRevealed,
+  });
+  const sanitizeFlags = imagePolicyToSanitizeFlags(effectivePolicy);
+  // True only in full block-all mode — drives the "Load images" banner + print.
+  const shouldBlockImages = sanitizeFlags.blockRemoteImages;
 
   const hasHtmlQuotes =
     /<blockquote|class="gmail_quote"|class="moz-cite-prefix"/.test(
@@ -241,7 +259,7 @@ function MessageBubble({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        printEmail(message, shouldBlockImages);
+                        printEmail(message, sanitizeFlags);
                       }}
                       className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                       title="Print this email"
@@ -271,12 +289,17 @@ function MessageBubble({
                           onLoadImages={() => setImagesRevealed(true)}
                         />
                       )}
+                      {sanitizeFlags.blockTrackers && blockedTrackers > 0 && (
+                        <BlockedTrackersIndicator count={blockedTrackers} />
+                      )}
                       <EmailBodyFrame
                         html={message.htmlBody}
                         collapseQuotes={quotesCollapsed && hasHtmlQuotes}
                         attachments={message.attachments}
-                        blockRemoteImages={shouldBlockImages}
+                        blockRemoteImages={sanitizeFlags.blockRemoteImages}
+                        blockTrackers={sanitizeFlags.blockTrackers}
                         onBlockedCount={setBlockedCount}
+                        onTrackerCount={setBlockedTrackers}
                       />
                     </>
                   ) : (
@@ -320,7 +343,7 @@ export function ThreadView({
   messages,
   currentUserEmail,
   userEmails,
-  blockRemoteImages = false,
+  remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
 }: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
@@ -333,7 +356,7 @@ export function ThreadView({
           isFromCurrentUser={emailSet.has(message.fromAddress.toLowerCase())}
           isCollapsed={i < messages.length - 1}
           isFirst={i === 0}
-          blockRemoteImages={blockRemoteImages}
+          remoteImagePolicy={remoteImagePolicy}
           recipientNames={recipientNames}
         />
       ))}

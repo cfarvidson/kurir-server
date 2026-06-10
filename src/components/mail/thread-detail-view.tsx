@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import { getThreadMessages } from "@/lib/mail/threads";
+import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
@@ -23,7 +24,7 @@ async function getUserInfo(userId: string, connectionId: string) {
     }),
     db.user.findUnique({
       where: { id: userId },
-      select: { timezone: true, blockRemoteImages: true },
+      select: { timezone: true, blockRemoteImages: true, blockTrackers: true },
     }),
   ]);
   const allEmails = new Set(
@@ -35,7 +36,10 @@ async function getUserInfo(userId: string, connectionId: string) {
     email: conn?.email || "",
     allEmails,
     timezone: user?.timezone || "UTC",
-    blockRemoteImages: user?.blockRemoteImages ?? true,
+    remoteImagePolicy: resolveImagePolicy({
+      blockRemoteImages: user?.blockRemoteImages ?? true,
+      blockTrackers: user?.blockTrackers ?? true,
+    }),
   };
 }
 
@@ -286,7 +290,7 @@ export async function ThreadDetailView({
                 rfcMessageId={lastMessage.messageId ?? undefined}
                 references={lastMessage.references}
                 userTimezone={userInfo.timezone}
-                blockRemoteImages={userInfo.blockRemoteImages}
+                remoteImagePolicy={userInfo.remoteImagePolicy}
                 recipientNames={recipientNames}
               />
             </div>

@@ -4,6 +4,11 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+### Added
+
+- A third remote-image privacy mode: **Load images, block trackers**. In addition to "Block all remote images" (the default) and "Load all remote images", you can now load ordinary content images while still stripping known email trackers and invisible spy pixels (1×1 / 0px / `display:none` images). Detection runs before any network request fires, so blocked trackers never load. A new Privacy section in Settings → Mail lets you choose the mode, and tracked threads show a compact "N trackers blocked" indicator. Per-sender trust and the one-time "Load images" action continue to load everything.
+  - **Self-hosting note:** this adds a `blockTrackers` column to the `User` table (default `true`). Because the production database shares its instance with another app, apply it as explicit SQL rather than `prisma db push` — the statement is in `prisma/migrations/tracker_blocker.sql` (idempotent `ADD COLUMN IF NOT EXISTS`). **Run it before deploying the new app image**, since the thread and settings pages `SELECT` the column and will error if it is missing: `bin/deploy app exec --reuse "psql \"$DATABASE_URL\" -f -" < prisma/migrations/tracker_blocker.sql`.
+
 ### Fixed
 
 - Push notifications in the PWA now work reliably. The VAPID public key was inlined into the client bundle at build time while the private key was read (and could be auto-generated) at runtime, so the two could drift apart and pushes would silently fail to deliver. The public key is now served from a runtime endpoint, making the runtime environment the single source of truth for both keys. The settings screen now shows a clear message when subscribing fails or when push is not configured on the server, instead of a dead "Enable" button.

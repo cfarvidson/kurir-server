@@ -472,6 +472,92 @@ describe("sanitizeEmailHtml", () => {
     });
   });
 
+  describe("blockTrackers (load images, block trackers middle ground)", () => {
+    const TRACKER_MODE = { blockRemoteImages: false, blockTrackers: true };
+
+    it("strips a known-tracker domain image and counts it as a tracker", () => {
+      const { html, blockedRemoteImages, blockedTrackers } =
+        sanitizeEmailHtmlWithMeta(
+          '<img src="https://emltrk.com/abc123" width="20" height="20" />',
+          TRACKER_MODE,
+        );
+      expect(html).not.toMatch(/\ssrc="https:\/\/emltrk\.com/);
+      expect(html).not.toContain("/api/proxy/image");
+      expect(html).toContain("data-blocked-src");
+      expect(blockedTrackers).toBe(1);
+      expect(blockedRemoteImages).toBe(0);
+    });
+
+    it("strips a 1x1 invisible pixel from any domain and counts it", () => {
+      const { html, blockedTrackers } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://cdn.example.com/p.gif" width="1" height="1" />',
+        TRACKER_MODE,
+      );
+      expect(html).not.toMatch(/\ssrc="https:/);
+      expect(html).toContain("data-blocked-src");
+      expect(blockedTrackers).toBe(1);
+    });
+
+    it("strips a display:none pixel (style read before url() cleanup)", () => {
+      const { blockedTrackers } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://cdn.example.com/p.gif" style="display:none" />',
+        TRACKER_MODE,
+      );
+      expect(blockedTrackers).toBe(1);
+    });
+
+    it("proxies an ordinary content image (not a tracker)", () => {
+      const { html, blockedTrackers } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://cdn.example.com/hero.png" width="600" />',
+        TRACKER_MODE,
+      );
+      expect(html).toContain("/api/proxy/image?url=");
+      expect(blockedTrackers).toBe(0);
+    });
+
+    it("handles a mix: tracker stripped, content image proxied", () => {
+      const { html, blockedTrackers } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://emltrk.com/x" width="1" height="1" />' +
+          '<img src="https://cdn.example.com/hero.png" width="600" />',
+        TRACKER_MODE,
+      );
+      expect(blockedTrackers).toBe(1);
+      expect(html).toContain("/api/proxy/image?url=");
+    });
+
+    it("never affects CID / internal attachment images", () => {
+      const { blockedTrackers, blockedRemoteImages } =
+        sanitizeEmailHtmlWithMeta(
+          '<img src="/api/attachments/att-1" /><img src="cid:x@y" />',
+          {
+            ...TRACKER_MODE,
+            attachments: [{ id: "att-2", contentId: "x@y" }],
+          },
+        );
+      expect(blockedTrackers).toBe(0);
+      expect(blockedRemoteImages).toBe(0);
+    });
+
+    it("BLOCK_ALL mode is unchanged: trackers and content both blocked as images", () => {
+      const { blockedRemoteImages, blockedTrackers } =
+        sanitizeEmailHtmlWithMeta(
+          '<img src="https://emltrk.com/x" /><img src="https://cdn.example.com/hero.png" />',
+          { blockRemoteImages: true },
+        );
+      expect(blockedRemoteImages).toBe(2);
+      expect(blockedTrackers).toBe(0);
+    });
+
+    it("ALLOW_ALL mode proxies a tracker URL (no filtering)", () => {
+      const { html, blockedTrackers } = sanitizeEmailHtmlWithMeta(
+        '<img src="https://emltrk.com/x" width="20" height="20" />',
+        { blockRemoteImages: false, blockTrackers: false },
+      );
+      expect(html).toContain("/api/proxy/image?url=");
+      expect(blockedTrackers).toBe(0);
+    });
+  });
+
   describe("no remote-load vector survives besides <img src> (defense in depth)", () => {
     // The blocking guarantee only inspects <img src>. These assert that every
     // OTHER remote-loading vector is stripped by the allowlist, so a tracker
