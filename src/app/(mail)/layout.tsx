@@ -69,6 +69,7 @@ export default async function MailLayout({
         isInImbox: true,
         isRead: false,
         isSnoozed: false,
+        isReplyLater: false,
       },
     }),
     db.scheduledMessage.count({
@@ -86,6 +87,7 @@ export default async function MailLayout({
         isInFeed: true,
         isRead: false,
         isSnoozed: false,
+        isReplyLater: false,
       },
     }),
     db.message.count({
@@ -94,6 +96,7 @@ export default async function MailLayout({
         isInPaperTrail: true,
         isRead: false,
         isSnoozed: false,
+        isReplyLater: false,
       },
     }),
     getBadgePreferences(session.user.id),
