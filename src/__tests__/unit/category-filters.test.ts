@@ -43,6 +43,16 @@ describe("getMessages category filters", () => {
       userId: "user-1",
       isInImbox: true,
       isSnoozed: false,
+      isReplyLater: false,
     });
+  });
+
+  it("excludes reply-later messages from imbox, feed, and paper trail", async () => {
+    for (const category of ["imbox", "feed", "paper-trail"]) {
+      expect(await capturedWhere(category)).toMatchObject({
+        isReplyLater: false,
+      });
+      vi.clearAllMocks();
+    }
   });
 });
