@@ -4,6 +4,12 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.06.11] - 2026-06-11
+
+### Changed
+
+- Marking a thread Reply Later now removes it from the Imbox, Feed, and Paper Trail lists (and their unread badge counts) until the flag is cleared, mirroring how snoozed messages behave. Deferred threads no longer linger in the lists they were deferred from.
+
 ## [v2026.06.10.2] - 2026-06-10
 
 ### Added
