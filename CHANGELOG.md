@@ -4,6 +4,12 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.06.22] - 2026-06-22
+
+### Fixed
+
+- Eliminated a UI freeze in the PWA when navigating between views and performing actions, making the interface noticeably snappier.
+
 ## [v2026.06.11] - 2026-06-11
 
 ### Changed

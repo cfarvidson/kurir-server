@@ -1,8 +1,8 @@
 {
-  "version": "2026.06.11",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.11",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.11",
-  "changelog": "Reply-later threads are now hidden from Imbox, Feed, and Paper Trail until you reply or remove them from the Reply Later stack.",
+  "version": "2026.06.22",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.22",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.22",
+  "changelog": "Fixed UI freezing during navigation and actions in the PWA for noticeably snappier performance.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-06-11T14:48:12Z"
+  "releasedAt": "2026-06-22T08:09:49Z"
 }
