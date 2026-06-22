@@ -2,7 +2,10 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { sseSubscribers, type MailEvent } from "@/lib/mail/sse-subscribers";
 
-export const runtime = "nodejs"; // not edge — needs access to sseSubscribers
+// Node.js is the default runtime in Next 16, so no explicit `runtime` export is
+// needed (this route needs Node — it accesses sseSubscribers, not edge-safe).
+// An explicit `export const runtime` is also rejected when experimental.useCache
+// is enabled (see next.config.ts), so it must stay omitted.
 
 export async function GET(request: NextRequest) {
   const session = await auth();
