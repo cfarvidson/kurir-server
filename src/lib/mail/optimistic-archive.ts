@@ -174,8 +174,11 @@ interface PerformOptimisticArchiveOptions {
  * Derive the thread key from the cache when the caller could not compute it
  * server-side. Looks up the message across every `["messages", *]` cache and
  * uses `threadKeyOf`. Falls back to the message id (a thread of one).
+ *
+ * Exported so other optimistic-action helpers (e.g. snooze) can share the same
+ * pending-suppression store and cache-derived thread keying.
  */
-function resolveThreadKey(
+export function resolveThreadKey(
   queryClient: QueryClient,
   messageId: string,
   explicitKey?: string,

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
-import { snoozeConversation } from "@/actions/snooze";
+import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
+import { performOptimisticSnooze } from "@/lib/mail/optimistic-snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 
 interface SnoozeButtonProps {
@@ -20,10 +21,18 @@ export function SnoozeButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleSnooze = async (until: Date) => {
-    await snoozeConversation(messageId, until);
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
+  const handleSnooze = (until: Date) => {
+    // Fire-and-navigate: the UI updates immediately instead of locking behind
+    // the server round-trip.
+    void performOptimisticSnooze({
+      messageId,
+      until,
+      returnPath,
+      queryClient,
+      router,
+      snoozeConversation,
+      unsnoozeConversation,
+    });
   };
 
   return (

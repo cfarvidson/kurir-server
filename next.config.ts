@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
+    // Enables the `"use cache"` directive (without the full cacheComponents
+    // static-by-default model). Powers the cached sidebar counts in
+    // src/lib/mail/sidebar-counts.ts, invalidated by the existing
+    // updateTag("sidebar-counts") calls across src/actions/.
+    useCache: true,
     serverActions: {
       bodySizeLimit: "10mb",
     },

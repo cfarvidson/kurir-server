@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, Newspaper, Receipt, X, Check, Loader2 } from "lucide-react";
+import { Inbox, Newspaper, Receipt, X, Check } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { changeSenderCategory, rejectSender } from "@/actions/senders";
+import { runOptimisticSenderAction } from "@/lib/mail/optimistic-sender";
 import { cn } from "@/lib/utils";
 import type { SenderCategory } from "@prisma/client";
 
@@ -45,50 +46,74 @@ export function CategoryPicker({
   currentCategory,
 }: CategoryPickerProps) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [optimisticCategory, setOptimisticCategory] =
+    useState<SenderCategory>(currentCategory);
+  const [blocked, setBlocked] = useState(false);
+  // Guards against a second action firing before the first settles (which would
+  // capture a stale `previous` and revert to the wrong category).
+  const inFlight = useRef(false);
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const current = CATEGORY_CONFIG[currentCategory];
+  // Re-anchor to the server-confirmed category once an RSC refresh delivers a
+  // new prop (e.g. the sender was re-categorized from another surface). Fires
+  // only after the prop actually changes, so it never clobbers an in-flight
+  // optimistic value.
+  useEffect(() => {
+    setOptimisticCategory(currentCategory);
+  }, [currentCategory]);
+
+  const current = CATEGORY_CONFIG[optimisticCategory];
   const CurrentIcon = current.icon;
 
+  // Reconcile lists/counts in the background without blocking the click.
+  const reconcile = () => {
+    inFlight.current = false;
+    queryClient.invalidateQueries({ queryKey: ["messages"] });
+    startTransition(() => router.refresh());
+  };
+
   function handleSelect(category: SenderCategory) {
-    if (category === currentCategory) {
-      setOpen(false);
-      return;
-    }
     setOpen(false);
-    startTransition(async () => {
-      await changeSenderCategory(senderId, category);
-      queryClient.invalidateQueries({ queryKey: ["messages"] });
-      router.refresh();
+    if (category === optimisticCategory || inFlight.current) return;
+    inFlight.current = true;
+    const previous = optimisticCategory;
+    runOptimisticSenderAction({
+      action: () => changeSenderCategory(senderId, category),
+      applyOptimistic: () => setOptimisticCategory(category),
+      revert: () => setOptimisticCategory(previous),
+      reconcile,
+      errorLabel: "Couldn't move sender — please try again",
     });
   }
 
   function handleReject() {
     setOpen(false);
-    startTransition(async () => {
-      await rejectSender(senderId);
-      queryClient.invalidateQueries({ queryKey: ["messages"] });
-      router.refresh();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    runOptimisticSenderAction({
+      action: () => rejectSender(senderId),
+      applyOptimistic: () => setBlocked(true),
+      revert: () => setBlocked(false),
+      reconcile,
+      errorLabel: "Couldn't block sender — please try again",
     });
   }
+
+  // Optimistically removed from the list when blocked.
+  if (blocked) return null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          disabled={isPending}
           className={cn(
             "inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80",
             current.color,
           )}
         >
-          {isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <CurrentIcon className="h-3 w-3" />
-          )}
+          <CurrentIcon className="h-3 w-3" />
           {current.label}
         </button>
       </PopoverTrigger>
@@ -97,7 +122,7 @@ export function CategoryPicker({
           {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
             const config = CATEGORY_CONFIG[cat];
             const Icon = config.icon;
-            const isActive = cat === currentCategory;
+            const isActive = cat === optimisticCategory;
             return (
               <button
                 key={cat}

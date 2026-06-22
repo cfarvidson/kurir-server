@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerContent } from "@/components/screener/screener-content";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
+import { getUserEmails } from "@/lib/mail/user-emails";
 
 async function getPendingSenders(userId: string, excludedEmails?: string[]) {
   return db.sender.findMany({
@@ -81,18 +82,7 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
-  const connections = await db.emailConnection.findMany({
-    where: { userId: session.user.id },
-    select: { email: true, sendAsEmail: true, aliases: true },
-  });
-  const userEmails = [
-    ...new Set(
-      connections
-        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
-        .filter(Boolean)
-        .map((e) => e!.trim().toLowerCase()),
-    ),
-  ];
+  const userEmails = await getUserEmails(session.user.id);
 
   const [pendingSenders, skippedSenders, screenedSenders] = await Promise.all([
     getPendingSenders(session.user.id, userEmails),

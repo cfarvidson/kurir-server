@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Clock, Bell, CornerDownLeft } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
-import { snoozeConversation } from "@/actions/snooze";
+import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
 import { performOptimisticArchive } from "@/lib/mail/optimistic-archive";
+import { performOptimisticSnooze } from "@/lib/mail/optimistic-snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { cn } from "@/lib/utils";
@@ -45,10 +46,18 @@ export function MobileThreadActions({
     });
   };
 
-  const handleSnooze = async (until: Date) => {
-    await snoozeConversation(messageId, until);
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
+  const handleSnooze = (until: Date) => {
+    // Fire-and-navigate so the PWA action bar doesn't lock behind the server.
+    void performOptimisticSnooze({
+      messageId,
+      until,
+      threadKey,
+      returnPath,
+      queryClient,
+      router,
+      snoozeConversation,
+      unsnoozeConversation,
+    });
   };
 
   const scrollToReply = () => {
