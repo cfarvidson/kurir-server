@@ -188,6 +188,11 @@ export async function POST(request: NextRequest) {
   }, 0);
 
   if (totalNew > 0) {
+    // New mail changes unread/screener/category counts. Sidebar counts are now
+    // cached ("use cache" tag: "sidebar-counts"); router.refresh() does NOT bust
+    // that cache, so invalidate the tag explicitly or badges stay stale until TTL.
+    revalidateTag("sidebar-counts", { expire: 0 });
+
     console.log(
       `[push] Sync found ${totalNew} new messages, checking for Imbox messages...`,
     );

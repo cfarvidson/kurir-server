@@ -15,23 +15,7 @@ import {
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
-import { getBadgePreferences } from "@/actions/badge-preferences";
-
-async function getUserEmails(userId: string): Promise<string[]> {
-  const connections = await db.emailConnection.findMany({
-    where: { userId },
-    select: { email: true, sendAsEmail: true, aliases: true },
-  });
-  return [
-    ...new Set(
-      connections
-        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
-        .filter(Boolean)
-        .map((e) => e!.trim().toLowerCase()),
-    ),
-  ];
-}
+import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 
 export default async function MailLayout({
   children,
@@ -44,62 +28,24 @@ export default async function MailLayout({
     redirect("/login");
   }
 
-  const userEmails = await getUserEmails(session.user.id);
-
+  // Sidebar counts are cached (tag: "sidebar-counts") so navigation and
+  // router.refresh() no longer block on ~8 DB count queries. Theme is a single
+  // cheap query and is corrected client-side by next-themes, so it stays
+  // uncached in the dynamic layout.
   const [
-    screenerCount,
-    imboxUnreadCount,
-    scheduledCount,
-    followUpCount,
-    replyLaterCount,
-    feedUnreadCount,
-    paperTrailUnreadCount,
-    badgePreferences,
+    {
+      screenerCount,
+      imboxUnreadCount,
+      scheduledCount,
+      followUpCount,
+      replyLaterCount,
+      feedUnreadCount,
+      paperTrailUnreadCount,
+      badgePreferences,
+    },
     userTheme,
   ] = await Promise.all([
-    db.sender.count({
-      where: visiblePendingSenderWhere(
-        session.user.id,
-        userEmails.length > 0 ? userEmails : null,
-      ),
-    }),
-    db.message.count({
-      where: {
-        userId: session.user.id,
-        isInImbox: true,
-        isRead: false,
-        isSnoozed: false,
-        isReplyLater: false,
-      },
-    }),
-    db.scheduledMessage.count({
-      where: { userId: session.user.id, status: "PENDING" },
-    }),
-    db.message.count({
-      where: { userId: session.user.id, isFollowUp: true, isArchived: false },
-    }),
-    db.message.count({
-      where: { userId: session.user.id, isReplyLater: true, isArchived: false },
-    }),
-    db.message.count({
-      where: {
-        userId: session.user.id,
-        isInFeed: true,
-        isRead: false,
-        isSnoozed: false,
-        isReplyLater: false,
-      },
-    }),
-    db.message.count({
-      where: {
-        userId: session.user.id,
-        isInPaperTrail: true,
-        isRead: false,
-        isSnoozed: false,
-        isReplyLater: false,
-      },
-    }),
-    getBadgePreferences(session.user.id),
+    getSidebarCounts(session.user.id),
     db.user
       .findUnique({
         where: { id: session.user.id },

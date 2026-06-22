@@ -1,18 +1,8 @@
 import { db } from "@/lib/db";
+import { getUserEmails } from "@/lib/mail/user-emails";
 
 export async function checkExpiredFollowUps(userId: string): Promise<number> {
-  const connections = await db.emailConnection.findMany({
-    where: { userId },
-    select: { email: true, sendAsEmail: true, aliases: true },
-  });
-  const userEmails = [
-    ...new Set(
-      connections
-        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
-        .filter(Boolean)
-        .map((e) => e!.trim().toLowerCase()),
-    ),
-  ];
+  const userEmails = await getUserEmails(userId);
 
   const result: { count: number }[] = await db.$queryRawUnsafe(
     `
