@@ -14,6 +14,7 @@ import {
   type ContactSearchResult,
 } from "@/lib/mail/search-contacts";
 import { MessageList } from "@/components/mail/message-list";
+import { EmptyState } from "@/components/mail/empty-state";
 
 const categoryConfig = {
   IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
@@ -92,17 +93,11 @@ export async function SearchResults({
 
   if (messages.length === 0 && contacts.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        {emptyIcon || (
-          <div className="rounded-full bg-muted p-4">
-            <BookUser className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
-        <h2 className="mt-4 text-lg font-medium">No results found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          No messages or contacts match &quot;{query}&quot;
-        </p>
-      </div>
+      <EmptyState
+        icon={emptyIcon || <BookUser />}
+        title="No results found"
+        description={`No messages or contacts match “${query}”`}
+      />
     );
   }
 

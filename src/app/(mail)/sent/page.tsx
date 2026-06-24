@@ -9,9 +9,11 @@ import {
   Inbox,
   Newspaper,
   Receipt,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MessageList } from "@/components/mail/message-list";
+import { EmptyState } from "@/components/mail/empty-state";
 import { SearchInput } from "@/components/mail/search-input";
 import { searchMessages } from "@/lib/mail/search";
 import {
@@ -153,11 +155,12 @@ export default async function SentPage({
         <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
           <h1 className="text-xl font-semibold md:text-2xl">Sent</h1>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <h2 className="text-lg font-medium">No sent folder found</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sync your mailbox to see sent messages.
-          </p>
+        <div className="flex-1 overflow-auto">
+          <EmptyState
+            icon={<Send />}
+            title="No sent folder found"
+            description="Sync your mailbox to see sent messages."
+          />
         </div>
       </div>
     );
@@ -222,31 +225,15 @@ export default async function SentPage({
 
         {/* Messages */}
         {messages.length === 0 && contacts.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-muted p-4">
-              <svg
-                className="h-8 w-8 text-muted-foreground"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </div>
-            <h2 className="mt-4 text-lg font-medium">
-              {isSearching ? "No results found" : "No sent messages"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isSearching
-                ? `No messages or contacts match "${q}"`
-                : "Messages you send will appear here."}
-            </p>
-          </div>
+          <EmptyState
+            icon={<Send />}
+            title={isSearching ? "No results found" : "No sent messages"}
+            description={
+              isSearching
+                ? `No messages or contacts match “${q}”`
+                : "Messages you send will appear here."
+            }
+          />
         ) : (
           <div>
             {isSearching && contacts.length > 0 && messages.length > 0 && (

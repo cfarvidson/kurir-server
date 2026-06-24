@@ -5,6 +5,8 @@ import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { PushNotificationBanner } from "@/components/mail/push-notification-banner";
 import { SearchResults } from "@/components/mail/search-results";
+import { EmptyState } from "@/components/mail/empty-state";
+import { Inbox } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
 
 export default async function ImboxPage({
@@ -42,23 +44,7 @@ export default async function ImboxPage({
             basePath="/imbox"
             showArchiveAction
             showSnoozeAction
-            emptyIcon={
-              <div className="rounded-full bg-primary/10 p-4">
-                <svg
-                  className="h-8 w-8 text-primary"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                  />
-                </svg>
-              </div>
-            }
+            emptyIcon={<Inbox />}
           />
         ) : (
           <PaginatedImbox userId={session.user.id} />
@@ -73,27 +59,11 @@ async function PaginatedImbox({ userId }: { userId: string }) {
 
   if (!result || result.messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-primary/10 p-4">
-          <svg
-            className="h-8 w-8 text-primary"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
-          </svg>
-        </div>
-        <h2 className="mt-4 text-lg font-medium">Your Imbox is empty</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Approve senders in the Screener to see their emails here.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Inbox />}
+        title="Your Imbox is empty"
+        description="Approve senders in the Screener to see their emails here."
+      />
     );
   }
 
