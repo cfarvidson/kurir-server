@@ -17,16 +17,16 @@ import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
 
 const categoryConfig = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
+  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
   FEED: {
     label: "Feed",
     icon: Newspaper,
-    color: "text-blue-600 dark:text-blue-400",
+    color: "text-feed",
   },
   PAPER_TRAIL: {
     label: "Paper Trail",
     icon: Receipt,
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-paper-trail",
   },
 } as const;
 

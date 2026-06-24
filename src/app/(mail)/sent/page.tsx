@@ -23,16 +23,16 @@ import {
 import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
 
 const categoryConfig = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
+  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
   FEED: {
     label: "Feed",
     icon: Newspaper,
-    color: "text-blue-600 dark:text-blue-400",
+    color: "text-feed",
   },
   PAPER_TRAIL: {
     label: "Paper Trail",
     icon: Receipt,
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-paper-trail",
   },
 } as const;
 
@@ -153,7 +153,7 @@ export default async function SentPage({
     return (
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-          <h1 className="text-xl font-semibold md:text-2xl">Sent</h1>
+          <h1 className="text-xl font-semibold tracking-tight md:text-title">Sent</h1>
         </div>
         <div className="flex-1 overflow-auto">
           <EmptyState
@@ -204,7 +204,7 @@ export default async function SentPage({
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold md:text-2xl">Sent</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-title">Sent</h1>
         <SearchInput />
       </div>
 

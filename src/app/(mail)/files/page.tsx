@@ -28,7 +28,7 @@ export default async function FilesPage({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold md:text-2xl">Files</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-title">Files</h1>
         <SearchInput />
       </div>
 

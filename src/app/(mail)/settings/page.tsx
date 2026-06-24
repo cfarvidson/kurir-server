@@ -528,7 +528,7 @@ export default async function SettingsPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold md:text-2xl">Settings</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-title">Settings</h1>
       </div>
 
       <div className="flex-1 overflow-auto p-4 md:p-6">

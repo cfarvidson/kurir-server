@@ -49,7 +49,7 @@ export default async function ContactGroupsPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-semibold md:text-2xl">Groups</h1>
+          <h1 className="text-xl font-semibold tracking-tight md:text-title">Groups</h1>
         </div>
         <div className="text-sm text-muted-foreground">
           {groups.length} {groups.length === 1 ? "group" : "groups"}

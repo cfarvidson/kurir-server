@@ -18,21 +18,20 @@ const CATEGORY_CONFIG = {
   IMBOX: {
     label: "Imbox",
     icon: Inbox,
-    color: "text-primary bg-primary/10",
-    iconColor: "text-primary",
+    color: "text-imbox bg-imbox/10",
+    iconColor: "text-imbox",
   },
   FEED: {
     label: "Feed",
     icon: Newspaper,
-    color: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
-    iconColor: "text-blue-600 dark:text-blue-400",
+    color: "text-feed bg-feed/10",
+    iconColor: "text-feed",
   },
   PAPER_TRAIL: {
     label: "Paper Trail",
     icon: Receipt,
-    color:
-      "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30",
-    iconColor: "text-amber-600 dark:text-amber-400",
+    color: "text-paper-trail bg-paper-trail/10",
+    iconColor: "text-paper-trail",
   },
 } as const;
 

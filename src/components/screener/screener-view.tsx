@@ -377,7 +377,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden rounded-xl border bg-card shadow-lg"
+              className="overflow-hidden rounded-xl border bg-card shadow-sm"
               onAnimationComplete={() => {
                 if (lastInteractionRef.current === "keyboard") {
                   const firstAction = document.querySelector<HTMLButtonElement>(
@@ -391,7 +391,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               <div className="border-b bg-muted/50 p-4 md:p-6">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-base font-semibold md:text-lg">
+                    <h3 className="truncate text-lg font-semibold tracking-tight md:text-title">
                       {currentSender.displayName || currentSender.email}
                     </h3>
                     <p className="truncate text-xs text-muted-foreground md:text-sm">
@@ -410,10 +410,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               {/* Latest Message Preview */}
               {latestMessage && (
                 <div className="p-4 md:p-6">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <p className="text-eyebrow font-medium uppercase text-muted-foreground">
                     Latest Message
                   </p>
-                  <h4 className="mt-2 font-medium">
+                  <h4 className="mt-2 text-lead font-medium">
                     {latestMessage.subject || "(no subject)"}
                   </h4>
                   {latestMessage.snippet && (
@@ -563,7 +563,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                           }}
                           className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
                         >
-                          <Inbox className="h-5 w-5 text-primary" />
+                          <Inbox className="h-5 w-5 text-imbox" />
                           <span className="text-xs font-medium">Imbox</span>
                           <kbd
                             aria-hidden="true"
@@ -582,7 +582,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                           }}
                           className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
                         >
-                          <Newspaper className="h-5 w-5 text-blue-500" />
+                          <Newspaper className="h-5 w-5 text-feed" />
                           <span className="text-xs font-medium">The Feed</span>
                           <kbd
                             aria-hidden="true"
@@ -601,7 +601,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                           }}
                           className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
                         >
-                          <Receipt className="h-5 w-5 text-amber-500" />
+                          <Receipt className="h-5 w-5 text-paper-trail" />
                           <span className="text-xs font-medium">
                             Paper Trail
                           </span>
@@ -689,7 +689,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   disabled={isProcessing}
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 py-3.5 text-xs font-medium transition-colors md:gap-2 md:py-4 md:text-sm",
-                    "hover:bg-green-50 hover:text-green-600 active:bg-green-100",
+                    "hover:bg-primary/10 hover:text-primary active:bg-primary/20",
                     isProcessing && "cursor-not-allowed opacity-50",
                   )}
                 >

@@ -637,7 +637,7 @@ export function ComposeClientPage({
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold md:text-2xl">
+          <h1 className="truncate text-xl font-semibold tracking-tight md:text-title">
             {isEditingScheduled ? "Edit Scheduled Message" : "New Message"}
           </h1>
           {editScheduled && (

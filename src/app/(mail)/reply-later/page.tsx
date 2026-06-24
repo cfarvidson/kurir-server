@@ -31,7 +31,7 @@ export default async function ReplyLaterPage() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="flex items-center gap-2 text-xl font-semibold md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight md:text-title">
           <Reply className="h-5 w-5 text-muted-foreground" />
           Reply Later
         </h1>
