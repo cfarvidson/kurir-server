@@ -193,7 +193,7 @@ function MessageBubble({
                 {isFromCurrentUser ? "You" : senderName}
               </span>
               {message.isArchived && (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
                   <Archive className="h-2.5 w-2.5" />
                   archived
                 </span>

@@ -37,16 +37,16 @@ interface ContactListProps {
 }
 
 const categoryConfig = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
+  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
   FEED: {
     label: "Feed",
     icon: Newspaper,
-    color: "text-blue-600 dark:text-blue-400",
+    color: "text-feed",
   },
   PAPER_TRAIL: {
     label: "Paper Trail",
     icon: Receipt,
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-paper-trail",
   },
 } as const;
 
@@ -236,24 +236,29 @@ export function ContactList({ contacts }: ContactListProps) {
             >
               {contacts.length === 0 && !search && filter === "ALL" ? (
                 <>
-                  <div className="rounded-full bg-muted p-4">
-                    <BookUser className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium">No contacts yet</p>
+                  <BookUser
+                    aria-hidden="true"
+                    className="h-7 w-7 text-muted-foreground/35"
+                  />
+                  <p className="mt-4 text-sm font-medium">No contacts yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Add one or approve senders in the Screener.
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="rounded-full bg-muted p-4">
-                    {filter === "UNCATEGORIZED" ? (
-                      <CircleDashed className="h-6 w-6 text-muted-foreground" />
-                    ) : (
-                      <Search className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">
+                  {filter === "UNCATEGORIZED" ? (
+                    <CircleDashed
+                      aria-hidden="true"
+                      className="h-7 w-7 text-muted-foreground/35"
+                    />
+                  ) : (
+                    <Search
+                      aria-hidden="true"
+                      className="h-7 w-7 text-muted-foreground/35"
+                    />
+                  )}
+                  <p className="mt-4 text-sm text-muted-foreground">
                     {search
                       ? "No contacts match your search"
                       : "No contacts in this category"}

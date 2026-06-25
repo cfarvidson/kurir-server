@@ -79,11 +79,12 @@ export function GroupList({ groups, contactEmailOptions }: GroupListProps) {
               key={group.id}
               className="flex items-center gap-3 rounded-lg border p-3"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Users className="h-4 w-4" />
-              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
+                  <Users
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-muted-foreground/50"
+                  />
                   <span className="truncate font-medium">{group.name}</span>
                   <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
                     {group.defaultTarget === "BCC" ? "Bcc" : "To"}

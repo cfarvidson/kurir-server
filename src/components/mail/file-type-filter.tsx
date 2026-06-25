@@ -33,18 +33,19 @@ export function FileTypeFilter({ active }: { active: FileGroup | null }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-4">
       {TABS.map((tab) => {
         const isActive = tab.value === active;
         return (
           <Link
             key={tab.label}
             href={hrefFor(tab.value)}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              "border-b-2 pb-1.5 text-xs font-medium transition-colors",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {tab.label}

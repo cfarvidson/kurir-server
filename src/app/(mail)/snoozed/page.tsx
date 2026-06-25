@@ -6,7 +6,8 @@ import { SearchInput } from "@/components/mail/search-input";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
-import { Clock } from "lucide-react";
+import { EmptyState } from "@/components/mail/empty-state";
+import { AlarmClock } from "lucide-react";
 
 export default async function SnoozedPage({
   searchParams,
@@ -36,11 +37,7 @@ export default async function SnoozedPage({
             basePath="/snoozed"
             showSnoozeAction
             showSnoozedUntil
-            emptyIcon={
-              <div className="rounded-full bg-muted p-4">
-                <Clock className="h-8 w-8 text-muted-foreground" />
-              </div>
-            }
+            emptyIcon={<AlarmClock />}
           />
         ) : (
           <PaginatedSnoozed userId={session.user.id} />
@@ -55,15 +52,11 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
 
   if (!result || result.messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-4">
-          <Clock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="mt-4 text-lg font-medium">No snoozed conversations</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Snoozed conversations will appear here until they wake up.
-        </p>
-      </div>
+      <EmptyState
+        icon={<AlarmClock />}
+        title="No snoozed conversations"
+        description="Snoozed conversations will appear here until they wake up."
+      />
     );
   }
 

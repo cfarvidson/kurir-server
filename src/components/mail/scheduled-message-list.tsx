@@ -8,6 +8,7 @@ import {
   cancelScheduledMessage,
   sendScheduledMessageNow,
 } from "@/actions/scheduled-messages";
+import { EmptyState } from "@/components/mail/empty-state";
 
 export interface ScheduledMessageItem {
   id: string;
@@ -30,15 +31,11 @@ export function ScheduledMessageList({
 }: ScheduledMessageListProps) {
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-4">
-          <Clock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="mt-4 text-lg font-medium">No scheduled messages</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Messages you schedule to send later will appear here.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Clock />}
+        title="No scheduled messages"
+        description="Messages you schedule to send later will appear here."
+      />
     );
   }
 
