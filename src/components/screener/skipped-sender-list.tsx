@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { approveSender, rejectSender, unskipSender } from "@/actions/senders";
-import { X, Undo2, Loader2, Clock, Check } from "lucide-react";
+import {
+  X,
+  Undo2,
+  Loader2,
+  Clock,
+  Check,
+  Inbox,
+  Newspaper,
+  Receipt,
+} from "lucide-react";
 
 import type { SenderCategory } from "@prisma/client";
 
@@ -19,9 +28,9 @@ interface SkippedSender {
 }
 
 const CATEGORY_CONFIG = {
-  IMBOX: { label: "Imbox", dot: "bg-imbox" },
-  FEED: { label: "The Feed", dot: "bg-feed" },
-  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
+  IMBOX: { label: "Imbox", Icon: Inbox, color: "text-imbox" },
+  FEED: { label: "The Feed", Icon: Newspaper, color: "text-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", Icon: Receipt, color: "text-paper-trail" },
 } as const;
 
 function formatTimeRemaining(until: Date | null): string {
@@ -150,8 +159,8 @@ export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
                       disabled={isPending}
                       className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted/50"
                     >
-                      <span
-                        className={cn("size-2 shrink-0 rounded-full", c.dot)}
+                      <c.Icon
+                        className={cn("size-4 shrink-0", c.color)}
                         aria-hidden="true"
                       />
                       {c.label}
