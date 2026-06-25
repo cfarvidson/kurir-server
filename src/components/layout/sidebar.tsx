@@ -96,7 +96,9 @@ export function Sidebar({
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
         <KurirLogo className="h-8 w-8" />
-        <span className="text-xl font-semibold tracking-tight">Kurir</span>
+        <span className="font-serif text-2xl font-semibold tracking-tight">
+          Kurir
+        </span>
         <div className="ml-auto">
           <SyncStatusIndicator
             status={syncState.status}
