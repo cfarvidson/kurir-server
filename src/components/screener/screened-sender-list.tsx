@@ -9,7 +9,14 @@ import {
   rejectSender,
   changeSenderCategory,
 } from "@/actions/senders";
-import { X, Loader2, Check } from "lucide-react";
+import {
+  X,
+  Loader2,
+  Check,
+  Inbox,
+  Newspaper,
+  Receipt,
+} from "lucide-react";
 
 import type { SenderStatus, SenderCategory } from "@prisma/client";
 
@@ -25,9 +32,9 @@ interface ScreenedSender {
 }
 
 const CATEGORY_CONFIG = {
-  IMBOX: { label: "Imbox", dot: "bg-imbox" },
-  FEED: { label: "The Feed", dot: "bg-feed" },
-  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
+  IMBOX: { label: "Imbox", Icon: Inbox, color: "text-imbox" },
+  FEED: { label: "The Feed", Icon: Newspaper, color: "text-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", Icon: Receipt, color: "text-paper-trail" },
 } as const;
 
 export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
@@ -128,11 +135,8 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                               : "text-muted-foreground/50 hover:bg-muted/50 hover:text-foreground",
                           )}
                         >
-                          <span
-                            className={cn(
-                              "size-2 shrink-0 rounded-full",
-                              c.dot,
-                            )}
+                          <c.Icon
+                            className={cn("size-4 shrink-0", c.color)}
                             aria-hidden="true"
                           />
                           <span className="hidden sm:inline">{c.label}</span>
@@ -204,11 +208,8 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                           title={`Approve to ${c.label}`}
                           className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground/50 transition-colors hover:bg-muted/50 hover:text-foreground"
                         >
-                          <span
-                            className={cn(
-                              "size-2 shrink-0 rounded-full",
-                              c.dot,
-                            )}
+                          <c.Icon
+                            className={cn("size-4 shrink-0", c.color)}
                             aria-hidden="true"
                           />
                           <span className="hidden sm:inline">{c.label}</span>

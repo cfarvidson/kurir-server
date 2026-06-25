@@ -28,6 +28,9 @@ import {
   Clock,
   ChevronDown,
   ArrowRight,
+  Inbox,
+  Newspaper,
+  Receipt,
 } from "lucide-react";
 
 interface Sender {
@@ -554,16 +557,29 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                       >
                         {(
                           [
-                            { cat: "IMBOX", label: "Imbox", dot: "bg-imbox", key: "1" },
-                            { cat: "FEED", label: "The Feed", dot: "bg-feed", key: "2" },
+                            {
+                              cat: "IMBOX",
+                              label: "Imbox",
+                              Icon: Inbox,
+                              color: "text-imbox",
+                              key: "1",
+                            },
+                            {
+                              cat: "FEED",
+                              label: "The Feed",
+                              Icon: Newspaper,
+                              color: "text-feed",
+                              key: "2",
+                            },
                             {
                               cat: "PAPER_TRAIL",
                               label: "Paper Trail",
-                              dot: "bg-paper-trail",
+                              Icon: Receipt,
+                              color: "text-paper-trail",
                               key: "3",
                             },
                           ] as const
-                        ).map(({ cat, label, dot, key }) => (
+                        ).map(({ cat, label, Icon, color, key }) => (
                           <button
                             key={cat}
                             role="radio"
@@ -575,8 +591,8 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                             }}
                             className="-mx-1 flex items-center gap-2.5 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/50"
                           >
-                            <span
-                              className={cn("size-2 shrink-0 rounded-full", dot)}
+                            <Icon
+                              className={cn("size-4 shrink-0", color)}
                               aria-hidden="true"
                             />
                             <span className="flex-1 text-sm font-medium text-foreground">
