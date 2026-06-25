@@ -328,7 +328,9 @@ export function MessageRow({
           <span
             className={cn(
               "truncate text-sm",
-              !message.isRead && "font-semibold",
+              !message.isRead
+                ? "font-semibold text-foreground"
+                : "font-medium text-foreground",
             )}
           >
             {message.sender?.displayName ||
@@ -353,14 +355,16 @@ export function MessageRow({
         </div>
         <div
           className={cn(
-            "truncate text-sm",
-            !message.isRead ? "text-foreground" : "text-muted-foreground",
+            "truncate",
+            !message.isRead
+              ? "text-lead font-medium text-foreground"
+              : "text-[0.9375rem] text-muted-foreground",
           )}
         >
           {message.subject || "(no subject)"}
         </div>
         {message.snippet && (
-          <div className="truncate text-sm text-muted-foreground">
+          <div className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">
             {message.snippet}
           </div>
         )}

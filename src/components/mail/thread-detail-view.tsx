@@ -270,7 +270,7 @@ export async function ThreadDetailView({
       <div className="flex min-h-0 flex-1">
         <div className="flex-1 overflow-auto pb-16 md:pb-0" data-thread-scroll>
           <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
-            <h1 className="font-serif text-xl font-semibold tracking-tight text-foreground md:text-3xl">
+            <h1 className="font-serif text-2xl font-semibold text-foreground md:text-display">
               {subject}
             </h1>
 

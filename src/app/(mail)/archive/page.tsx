@@ -5,6 +5,7 @@ import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
+import { EmptyState } from "@/components/mail/empty-state";
 import { Archive } from "lucide-react";
 
 export default async function ArchivePage({
@@ -25,7 +26,7 @@ export default async function ArchivePage({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold md:text-2xl">Archive</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-title">Archive</h1>
         <SearchInput />
       </div>
 
@@ -37,11 +38,7 @@ export default async function ArchivePage({
             query={q!}
             categoryFilter={Prisma.sql`AND "isArchived" = true`}
             basePath="/archive"
-            emptyIcon={
-              <div className="rounded-full bg-muted p-4">
-                <Archive className="h-8 w-8 text-muted-foreground" />
-              </div>
-            }
+            emptyIcon={<Archive />}
           />
         ) : (
           <PaginatedArchive userId={session.user.id} />
@@ -56,15 +53,11 @@ async function PaginatedArchive({ userId }: { userId: string }) {
 
   if (!result || result.messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-muted p-4">
-          <Archive className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="mt-4 text-lg font-medium">Archive is empty</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Archived conversations will appear here.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Archive />}
+        title="Archive is empty"
+        description="Archived conversations will appear here."
+      />
     );
   }
 
