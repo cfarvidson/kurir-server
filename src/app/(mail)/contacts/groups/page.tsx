@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { listGroups } from "@/actions/contact-groups";
 import { db } from "@/lib/db";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { GroupList } from "@/components/contacts/group-list";
 
 export default async function ContactGroupsPage() {
@@ -40,21 +41,21 @@ export default async function ContactGroupsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <div className="flex items-center gap-2">
+      <PageMasthead
+        eyebrow="People"
+        title="Groups"
+        meta={`${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
+        actions={
           <Link
             href="/contacts"
-            className="rounded p-1 text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             aria-label="Back to contacts"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4" />
+            Contacts
           </Link>
-          <h1 className="text-xl font-semibold tracking-tight md:text-title">Groups</h1>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {groups.length} {groups.length === 1 ? "group" : "groups"}
-        </div>
-      </div>
+        }
+      />
 
       <div className="flex-1 overflow-auto">
         <GroupList groups={groups} contactEmailOptions={contactEmailOptions} />

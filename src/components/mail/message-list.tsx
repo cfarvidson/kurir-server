@@ -15,7 +15,6 @@ import {
   Check,
   Loader2,
   Paperclip,
-  MessageSquare,
 } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
@@ -314,11 +313,11 @@ export function MessageRow({
         </button>
       )}
 
-      {/* Unread dot — sits in the row gutter, no layout shift */}
+      {/* Unread tick — terracotta left rule in the row gutter, no layout shift */}
       {!isSelectionMode && !message.isRead && (
         <span
           aria-hidden="true"
-          className="absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary md:left-2.5"
+          className="absolute left-0 top-1/2 h-[60%] w-[3px] -translate-y-1/2 rounded-r-full bg-primary"
         />
       )}
 
@@ -338,16 +337,15 @@ export function MessageRow({
               message.fromAddress}
           </span>
           {hasThread && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">
-              <MessageSquare className="h-2.5 w-2.5" />
-              {message.threadCount}
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              ·{message.threadCount}
             </span>
           )}
           {message.hasAttachments && (
             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
           <span
-            className="ml-auto shrink-0 text-xs text-muted-foreground"
+            className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
             suppressHydrationWarning
           >
             {formatDistanceToNow(new Date(message.receivedAt))}
@@ -507,8 +505,7 @@ export function MessageRow({
         onClick={handleClick}
         data-keyboard-focused={isFocused || undefined}
         className={cn(
-          "group relative flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
-          !message.isRead && "bg-primary/5",
+          "group relative flex cursor-pointer items-start gap-3 border-b border-border px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           isSelected && "bg-primary/10",
           actionPending && "opacity-50 pointer-events-none",
           focusRing,
@@ -535,8 +532,7 @@ export function MessageRow({
         onClick={handleClick}
         data-keyboard-focused={isFocused || undefined}
         className={cn(
-          "group relative flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
-          !message.isRead && "bg-primary/5",
+          "group relative flex items-start gap-3 border-b border-border px-4 py-3 transition-colors hover:bg-muted/50 md:gap-4 md:px-6 md:py-4",
           actionPending && "opacity-50 pointer-events-none",
           focusRing,
         )}

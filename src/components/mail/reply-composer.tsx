@@ -321,7 +321,7 @@ export function ReplyComposer({
             "group flex w-full items-center gap-3 rounded-xl border bg-muted/30",
             "px-4 py-3.5 text-sm text-muted-foreground",
             "transition-all duration-200",
-            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground hover:shadow-xs",
+            "hover:border-primary/40 hover:bg-primary/5 hover:text-foreground",
             "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
@@ -366,7 +366,7 @@ export function ReplyComposer({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15 }}
-          className="overflow-hidden rounded-xl border shadow-md ring-1 ring-primary/10"
+          className="overflow-hidden rounded-xl border ring-1 ring-primary/10"
         >
           {/* Composer header */}
           <div className="flex items-start justify-between gap-2 border-b bg-muted/30 px-4 py-2">

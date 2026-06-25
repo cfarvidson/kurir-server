@@ -107,7 +107,7 @@ export function ScreenerContent({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search senders..."
-            className="h-9 w-full rounded-lg border bg-muted/30 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary/20"
+            className="h-9 w-full rounded-md border border-border bg-muted/20 pl-9 pr-8 text-sm placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary/20"
           />
           {search && (
             <button
@@ -122,20 +122,21 @@ export function ScreenerContent({
 
       {/* Content */}
       {totalResults === 0 && !isSearching ? (
-        <div className="flex h-full flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-green-100 p-4">
-            <Check className="h-8 w-8 text-green-600" strokeWidth={1.5} />
-          </div>
-          <h2 className="mt-4 text-lg font-medium">No senders yet</h2>
+        <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+          <Check
+            className="h-8 w-8 text-muted-foreground/40"
+            strokeWidth={1.5}
+          />
+          <h2 className="mt-4 font-serif text-headline font-semibold text-foreground">
+            All clear
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Sync your email to start screening senders.
           </p>
         </div>
       ) : isSearching && totalResults === 0 ? (
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <div className="rounded-full bg-muted p-4">
-            <Search className="h-6 w-6 text-muted-foreground" />
-          </div>
+          <Search className="h-6 w-6 text-muted-foreground/40" />
           <p className="mt-3 text-sm text-muted-foreground">
             No senders match &ldquo;{search.trim()}&rdquo;
           </p>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { clearReplyLater } from "@/actions/reply-later";
+import { EmptyState } from "@/components/mail/empty-state";
 
 export interface ReplyLaterItem {
   id: string;
@@ -42,15 +43,11 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
 
   if (queue.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-emerald-100 p-4 dark:bg-emerald-900/30">
-          <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <h2 className="mt-4 text-lg font-medium">All caught up</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Nothing left to reply to. Nice work.
-        </p>
-      </div>
+      <EmptyState
+        icon={<CheckCircle2 />}
+        title="All caught up"
+        description="Nothing left to reply to. Nice work."
+      />
     );
   }
 
@@ -89,7 +86,7 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
       </div>
 
       {/* Current thread card */}
-      <div className="rounded-xl border bg-card p-5 shadow-xs">
+      <div className="rounded-xl border bg-card p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{sender}</p>

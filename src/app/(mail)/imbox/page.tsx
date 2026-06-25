@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { PushNotificationBanner } from "@/components/mail/push-notification-banner";
 import { SearchResults } from "@/components/mail/search-results";
 import { EmptyState } from "@/components/mail/empty-state";
@@ -25,11 +26,7 @@ export default async function ImboxPage({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Imbox</h1>
-        <SearchInput />
-      </div>
+      <PageMasthead eyebrow="Mailbox" title="Imbox" actions={<SearchInput />} />
 
       {/* Push notification discovery banner */}
       <PushNotificationBanner />

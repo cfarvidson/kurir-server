@@ -6,7 +6,7 @@ import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
-import { ChevronRight, PlusCircle, Shield, Database } from "lucide-react";
+import { ChevronRight, PlusCircle, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
@@ -20,6 +20,13 @@ import { ThemeSettings } from "@/components/settings/theme-settings";
 import { ImagePrivacySettings } from "@/components/settings/image-privacy-settings";
 import { getBadgePreferences } from "@/actions/badge-preferences";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
+import { PageMasthead } from "@/components/layout/page-masthead";
+import {
+  Stat,
+  SectionHeading,
+  DefinitionList,
+  DefinitionRow,
+} from "@/components/ui/editorial";
 
 interface StorageRow {
   name: string;
@@ -213,58 +220,54 @@ export default async function SettingsPage() {
   /* ── Tab content ─────────────────────────────────────────────── */
 
   const accountContent = (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-10 md:space-y-12">
       {/* Profile */}
       <section>
-        <h2 className="text-lg font-medium">Profile</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <dl className="space-y-3">
-            <DisplayNameField currentName={user?.displayName ?? null} />
-            <div className="flex justify-between">
-              <dt className="text-sm text-muted-foreground">Account created</dt>
-              <dd className="text-sm font-medium">
-                {user?.createdAt.toLocaleDateString()}
-              </dd>
-            </div>
-          </dl>
-        </div>
+        <SectionHeading eyebrow="Account" title="Profile" />
+        <DefinitionList className="mt-4">
+          <DisplayNameField currentName={user?.displayName ?? null} />
+          <DefinitionRow label="Account created">
+            {user?.createdAt.toLocaleDateString()}
+          </DefinitionRow>
+        </DefinitionList>
       </section>
 
       {/* Passkeys */}
       <section>
-        <h2 className="text-lg font-medium">Passkeys</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <div className="mb-3">
-            <p className="text-xs text-muted-foreground">
-              {passkeys.length === 0
-                ? "No passkeys registered"
-                : `${passkeys.length} passkey${passkeys.length !== 1 ? "s" : ""} registered`}
-            </p>
-          </div>
+        <SectionHeading
+          eyebrow="Security"
+          title="Passkeys"
+          description={
+            passkeys.length === 0
+              ? "No passkeys registered"
+              : `${passkeys.length} passkey${passkeys.length !== 1 ? "s" : ""} registered`
+          }
+        />
+        <div className="mt-4">
           <PasskeysList passkeys={passkeys} />
         </div>
       </section>
 
       {/* Notifications */}
       <section>
-        <h2 className="text-lg font-medium">Notifications</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
+        <SectionHeading eyebrow="Alerts" title="Notifications" />
+        <div className="mt-4">
           <NotificationSettings />
         </div>
       </section>
 
       {/* Appearance */}
       <section>
-        <h2 className="text-lg font-medium">Appearance</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
+        <SectionHeading eyebrow="Display" title="Appearance" />
+        <div className="mt-4">
           <ThemeSettings />
         </div>
       </section>
 
       {/* Badge preferences */}
       <section>
-        <h2 className="text-lg font-medium">Badge preferences</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
+        <SectionHeading eyebrow="Navigation" title="Badge preferences" />
+        <div className="mt-4">
           <BadgePreferencesSettings initialPrefs={badgePrefs} />
         </div>
       </section>
@@ -272,11 +275,11 @@ export default async function SettingsPage() {
   );
 
   const mailContent = (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-10 md:space-y-12">
       {/* Email connections */}
       <section>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Email connections</h2>
+        <div className="flex items-start justify-between gap-4">
+          <SectionHeading eyebrow="Mail" title="Email connections" />
           {canManageConnections && (
             <Button
               asChild
@@ -301,11 +304,16 @@ export default async function SettingsPage() {
 
       {/* Privacy — remote image / tracker blocking */}
       <section>
-        <h2 className="flex items-center gap-2 text-lg font-medium">
-          <Shield className="h-4 w-4" />
-          Privacy
-        </h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
+        <SectionHeading
+          eyebrow="Privacy"
+          title={
+            <span className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              Privacy
+            </span>
+          }
+        />
+        <div className="mt-4">
           <ImagePrivacySettings initialPolicy={imagePolicy} />
         </div>
       </section>
@@ -313,79 +321,75 @@ export default async function SettingsPage() {
       {/* Synced folders */}
       {stats.folders.length > 0 && (
         <section>
-          <h2 className="text-lg font-medium">Synced folders</h2>
-          <div className="mt-4 divide-y rounded-lg border bg-card">
+          <SectionHeading eyebrow="Mail" title="Synced folders" />
+          <DefinitionList className="mt-4">
             {stats.folders.map((f) => (
-              <div
+              <DefinitionRow
                 key={f.path}
-                className="flex items-center justify-between px-4 py-2.5"
+                label={
+                  <span className="block min-w-0">
+                    <span className="block truncate font-medium text-foreground">
+                      {f.path}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {f.specialUse || "\u2014"}
+                      {f.lastSyncedAt && (
+                        <>
+                          {" "}
+                          &middot; synced{" "}
+                          {new Date(f.lastSyncedAt).toLocaleString()}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                }
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{f.path}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {f.specialUse || "\u2014"}
-                    {f.lastSyncedAt && (
-                      <>
-                        {" "}
-                        &middot; synced{" "}
-                        {new Date(f.lastSyncedAt).toLocaleString()}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="text-sm font-medium tabular-nums">
-                  {f._count.messages.toLocaleString()}
-                </div>
-              </div>
+                {f._count.messages.toLocaleString()}
+              </DefinitionRow>
             ))}
-          </div>
+          </DefinitionList>
         </section>
       )}
 
       {/* Import */}
       <section>
-        <h2 className="text-lg font-medium">Import</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">
-            Import all messages from your IMAP accounts. Progress will appear at
-            the bottom of the screen.
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Resync erases all cached mail and sender decisions, then re-imports
-            from IMAP. All senders return to the Screener.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <ImportButton />
-            <ImportButton mode="resync" />
-          </div>
+        <SectionHeading
+          eyebrow="Mail"
+          title="Import"
+          description="Import all messages from your IMAP accounts. Progress will appear at the bottom of the screen."
+        />
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Resync erases all cached mail and sender decisions, then re-imports
+          from IMAP. All senders return to the Screener.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <ImportButton />
+          <ImportButton mode="resync" />
         </div>
       </section>
 
       {/* Screener */}
       <section>
-        <h2 className="text-lg font-medium">Screener</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">
-            Auto-approve pending senders whose most recent message is older than
-            90 days. They go to the Imbox so you only need to manually screen
-            recent senders.
-          </p>
-          <div className="mt-4">
-            <ScreenRecentButton />
-          </div>
+        <SectionHeading
+          eyebrow="Mail"
+          title="Screener"
+          description="Auto-approve pending senders whose most recent message is older than 90 days. They go to the Imbox so you only need to manually screen recent senders."
+        />
+        <div className="mt-4">
+          <ScreenRecentButton />
         </div>
       </section>
     </div>
   );
 
   const systemContent = (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-10 md:space-y-12">
       {/* Admin link */}
       {isAdmin && (
         <section>
           <Link
             href="/settings/admin"
-            className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+            className="group flex items-center justify-between gap-3 border-b border-border py-3.5 transition-colors hover:bg-accent/40"
           >
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-primary" />
@@ -403,104 +407,82 @@ export default async function SettingsPage() {
 
       {/* Statistics */}
       <section>
-        <h2 className="text-lg font-medium">Statistics</h2>
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.messageCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Total synced</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.senderCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Senders</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.imboxCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Imbox</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.feedCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Feed</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.paperTrailCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Paper Trail</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.archivedCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">Archived</div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-2xl font-bold">
-              {stats.pendingCount.toLocaleString()}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Pending screening
-            </div>
-          </div>
+        <SectionHeading eyebrow="Overview" title="Statistics" />
+        <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4">
+          <Stat
+            value={stats.messageCount.toLocaleString()}
+            label="Total synced"
+          />
+          <Stat value={stats.senderCount.toLocaleString()} label="Senders" />
+          <Stat value={stats.imboxCount.toLocaleString()} label="Imbox" />
+          <Stat value={stats.feedCount.toLocaleString()} label="Feed" />
+          <Stat
+            value={stats.paperTrailCount.toLocaleString()}
+            label="Paper Trail"
+          />
+          <Stat
+            value={stats.archivedCount.toLocaleString()}
+            label="Archived"
+          />
+          <Stat
+            value={stats.pendingCount.toLocaleString()}
+            label="Pending screening"
+          />
         </div>
       </section>
 
       {/* Storage (admin only) */}
       {storage && (
         <section>
-          <h2 className="text-lg font-medium">Storage</h2>
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
-              <Database className="h-5 w-5 text-primary" />
-              <div>
-                <div className="text-2xl font-bold">{storage.totalSize}</div>
-                <div className="text-sm text-muted-foreground">
-                  Database size
-                </div>
-              </div>
-            </div>
-            <div className="divide-y rounded-lg border bg-card">
-              <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                <span className="flex-1">Table</span>
-                <span className="w-20 text-right">Total</span>
-                <span className="w-20 text-right">Data</span>
-                <span className="w-20 text-right">Indexes</span>
-              </div>
-              {storage.tables.map((t) => (
-                <div key={t.name} className="flex items-center gap-3 px-4 py-2">
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {t.name}
-                  </span>
-                  <span className="w-20 text-right text-sm tabular-nums">
-                    {t.total}
-                  </span>
-                  <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
-                    {t.data}
-                  </span>
-                  <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
-                    {t.indexes}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <SectionHeading eyebrow="Admin" title="Storage" />
+          <div className="mt-5">
+            <Stat value={storage.totalSize} label="Database size" />
           </div>
+          <DefinitionList className="mt-6">
+            <div className="flex items-center gap-3 py-2">
+              <span className="eyebrow flex-1 text-muted-foreground">
+                Table
+              </span>
+              <span className="eyebrow w-20 text-right text-muted-foreground">
+                Total
+              </span>
+              <span className="eyebrow w-20 text-right text-muted-foreground">
+                Data
+              </span>
+              <span className="eyebrow w-20 text-right text-muted-foreground">
+                Indexes
+              </span>
+            </div>
+            {storage.tables.map((t) => (
+              <div key={t.name} className="flex items-center gap-3 py-2">
+                <span className="flex-1 truncate text-sm font-medium">
+                  {t.name}
+                </span>
+                <span className="w-20 text-right text-sm tabular-nums">
+                  {t.total}
+                </span>
+                <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                  {t.data}
+                </span>
+                <span className="w-20 text-right text-sm tabular-nums text-muted-foreground">
+                  {t.indexes}
+                </span>
+              </div>
+            ))}
+          </DefinitionList>
         </section>
       )}
 
       {/* Danger zone */}
       <section>
-        <h2 className="text-lg font-medium text-destructive">Danger zone</h2>
-        <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-destructive/30 bg-card p-4">
+        <SectionHeading
+          eyebrow="Danger zone"
+          title={<span className="text-destructive">Danger zone</span>}
+        />
+        <div className="mt-4 divide-y divide-destructive/30 border-y border-destructive/30">
+          <div className="py-4">
             <p className="text-sm font-medium">Clear all messages</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               Delete all messages, senders, and folders. Your email connections
               are kept — just re-import afterwards.
             </p>
@@ -508,9 +490,9 @@ export default async function SettingsPage() {
               <WipeMailButton />
             </div>
           </div>
-          <div className="rounded-lg border border-destructive/30 bg-card p-4">
+          <div className="py-4">
             <p className="text-sm font-medium">Wipe everything</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               Delete all email connections, messages, senders, and folders. Your
               account and passkeys are kept. You will be redirected to set up a
               new connection.
@@ -526,10 +508,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Settings</h1>
-      </div>
+      <PageMasthead eyebrow="Account" title="Settings" />
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         <div className="mx-auto max-w-2xl">

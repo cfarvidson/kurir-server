@@ -24,6 +24,12 @@ import {
 import { keyboardState } from "@/lib/keyboard-state";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 
+const GROUP_HEADING_CLASS =
+  "**:[[cmdk-group-heading]]:eyebrow **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-muted-foreground";
+
+const ITEM_CLASS =
+  "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 text-sm text-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground";
+
 /** Centralized action registry — single source of truth for all actions. */
 export interface PaletteAction {
   id: string;
@@ -335,7 +341,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
       {/* Palette */}
       <Command
-        className="relative w-full max-w-[520px] overflow-hidden rounded-xl border bg-card shadow-2xl"
+        className="relative w-full max-w-[520px] overflow-hidden rounded-xl border border-border bg-card shadow-overlay"
         loop
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -358,16 +364,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </Command.Empty>
 
           {groups.compose.length > 0 && (
-            <Command.Group
-              heading="Compose"
-              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
-            >
+            <Command.Group heading="Compose" className={GROUP_HEADING_CLASS}>
               {groups.compose.map((action) => (
                 <Command.Item
                   key={action.id}
                   value={action.label}
                   onSelect={action.onSelect}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-sm text-foreground aria-selected:bg-primary/10 aria-selected:text-primary"
+                  className={ITEM_CLASS}
                 >
                   <span className="text-muted-foreground">{action.icon}</span>
                   <span className="flex-1">{action.label}</span>
@@ -378,16 +381,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           )}
 
           {groups.actions.length > 0 && (
-            <Command.Group
-              heading="Actions"
-              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
-            >
+            <Command.Group heading="Actions" className={GROUP_HEADING_CLASS}>
               {groups.actions.map((action) => (
                 <Command.Item
                   key={action.id}
                   value={action.label}
                   onSelect={action.onSelect}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-sm text-foreground aria-selected:bg-primary/10 aria-selected:text-primary"
+                  className={ITEM_CLASS}
                 >
                   <span className="text-muted-foreground">{action.icon}</span>
                   <span className="flex-1">{action.label}</span>
@@ -398,16 +398,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           )}
 
           {groups.navigation.length > 0 && (
-            <Command.Group
-              heading="Navigation"
-              className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-muted-foreground/50"
-            >
+            <Command.Group heading="Navigation" className={GROUP_HEADING_CLASS}>
               {groups.navigation.map((action) => (
                 <Command.Item
                   key={action.id}
                   value={action.label}
                   onSelect={action.onSelect}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-sm text-foreground aria-selected:bg-primary/10 aria-selected:text-primary"
+                  className={ITEM_CLASS}
                 >
                   <span className="text-muted-foreground">{action.icon}</span>
                   <span className="flex-1">{action.label}</span>

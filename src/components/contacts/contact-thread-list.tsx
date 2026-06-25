@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
-import { Paperclip, MessageSquare } from "lucide-react";
+import { Paperclip } from "lucide-react";
 
 interface Conversation {
   id: string;
@@ -63,9 +63,8 @@ export function ContactThreadList({
                   {msg.subject || "(no subject)"}
                 </span>
                 {hasThread && (
-                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">
-                    <MessageSquare className="h-2.5 w-2.5" />
-                    {msg.threadCount}
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                    ·{msg.threadCount}
                   </span>
                 )}
                 {msg.hasAttachments && (

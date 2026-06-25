@@ -143,6 +143,17 @@
   --text-display--line-height: 1.06;
   --text-display--letter-spacing: -0.022em;
 
+  /*
+   * Depth policy (sharpened editorial redesign): the app's chrome gets its depth
+   * from the surface ramp (background → card → sidebar), hairline borders, and
+   * whitespace — NOT from decorative drop shadows. Cards, inputs, list rows, the
+   * sidebar, and the composer carry NO shadow. The single shadow token below is
+   * reserved for genuinely floating layers (dialog, popover, command palette,
+   * mobile sheet, toast) where a lift off the page is functionally meaningful.
+   */
+  --shadow-overlay:
+    0 12px 32px -12px hsl(25 35% 6% / 0.22), 0 4px 12px -6px hsl(25 35% 6% / 0.14);
+
   --animate-fade-in-up: fadeInUp 0.4s ease-out;
   --animate-slide-in-right: slideInRight 0.3s ease-out;
   --animate-pulse-slow: pulse 2s infinite;
@@ -290,6 +301,21 @@
     border-top-width: 1px;
     @apply border-input;
   }
+}
+
+/*
+ * Eyebrow: the small-caps kicker that sits above page/section titles. This is
+ * the signature editorial move of the redesign — a tracked, uppercase label in
+ * the muted ink that frames a serif title below it. Pairs with `text-eyebrow`
+ * (which already carries the size/line-height/tracking) but bakes in the
+ * uppercase + weight so call sites stay terse: `<p className="eyebrow">`.
+ */
+@utility eyebrow {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  letter-spacing: var(--text-eyebrow--letter-spacing);
+  font-weight: 500;
+  text-transform: uppercase;
 }
 
 @layer utilities {

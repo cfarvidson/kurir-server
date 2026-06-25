@@ -59,7 +59,7 @@ export function RecipientGroupChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border bg-muted/60 py-1 pl-2 pr-1 text-sm",
+        "inline-flex items-center gap-1 rounded-md border border-border bg-transparent py-1 pl-2 pr-1 text-sm",
         isEmpty && "opacity-50",
       )}
     >
@@ -67,12 +67,14 @@ export function RecipientGroupChip({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-h-[28px] items-center gap-1.5 rounded-full px-1 hover:text-primary"
+            className="flex min-h-[28px] items-center gap-1.5 rounded px-1 hover:text-primary"
             aria-label={`Group ${group.name}, ${liveCount} recipients. Edit members.`}
           >
-            <Users className="h-3.5 w-3.5 shrink-0" />
+            <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <span className="font-medium">{group.name}</span>
-            <span className="text-muted-foreground">({liveCount})</span>
+            <span className="text-muted-foreground tabular-nums">
+              ({liveCount})
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72">
@@ -86,10 +88,10 @@ export function RecipientGroupChip({
                     type="button"
                     onClick={() => onMoveTarget(t.value)}
                     className={cn(
-                      "rounded px-1.5 py-0.5 text-xs",
+                      "rounded px-1.5 py-0.5 text-xs transition-colors",
                       target === t.value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                        ? "bg-secondary font-medium text-secondary-foreground"
+                        : "text-muted-foreground hover:bg-muted",
                     )}
                   >
                     {t.label}
@@ -156,7 +158,7 @@ export function RecipientGroupChip({
       <button
         type="button"
         onClick={onDismiss}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
         aria-label={`Remove group ${group.name}`}
       >
         <X className="h-3.5 w-3.5" />

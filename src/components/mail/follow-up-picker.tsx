@@ -143,10 +143,16 @@ export function FollowUpPicker({
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align={align} side={side} className="w-56 p-0">
+      <PopoverContent
+        align={align}
+        side={side}
+        className="w-56 p-0 shadow-overlay"
+      >
         <div className="py-1">
           <div className="px-3 py-2">
-            <p className="text-sm font-medium">Follow up if no reply in...</p>
+            <p className="eyebrow text-muted-foreground">
+              Follow up if no reply in
+            </p>
           </div>
           {FOLLOW_UP_OPTIONS.map((option, index) => {
             const Icon = option.icon;
@@ -158,7 +164,7 @@ export function FollowUpPicker({
                 disabled={isPending}
                 className={cn(
                   "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
-                  focusedOption === index ? "bg-muted" : "hover:bg-muted",
+                  focusedOption === index ? "bg-accent" : "hover:bg-accent",
                 )}
               >
                 {isPending ? (

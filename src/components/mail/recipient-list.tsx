@@ -41,7 +41,7 @@ export function RecipientList({ label, addresses, nameMap }: RecipientListProps)
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            className="text-primary hover:underline"
+            className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             {expanded ? "show less" : `+${overflow} more`}
           </button>

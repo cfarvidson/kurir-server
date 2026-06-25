@@ -263,7 +263,7 @@ export function SnoozePicker({
       <PopoverContent
         align={align}
         side={side}
-        className="w-64 p-0"
+        className="w-64 p-0 shadow-overlay"
         onInteractOutside={(e) => {
           // Prevent Radix from closing the popover when the browser's
           // native date/time picker overlay is opened (it lives outside the DOM)
@@ -276,7 +276,7 @@ export function SnoozePicker({
         {!showCustom ? (
           <div className="py-1">
             <div className="px-3 py-2">
-              <p className="text-sm font-medium">Snooze until...</p>
+              <p className="eyebrow text-muted-foreground">Snooze until</p>
             </div>
             {options.map((option, index) => {
               const Icon = option.icon;
@@ -291,14 +291,14 @@ export function SnoozePicker({
                   disabled={isPending}
                   className={cn(
                     "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
-                    focusedOption === index ? "bg-muted" : "hover:bg-muted",
+                    focusedOption === index ? "bg-accent" : "hover:bg-accent",
                   )}
                 >
                   <Icon className="h-4 w-4 text-muted-foreground" />
                   <div className="flex-1">
                     <span className="font-medium">{option.label}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs tabular-nums text-muted-foreground">
                     {option.description}
                   </span>
                   <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50">
@@ -307,14 +307,14 @@ export function SnoozePicker({
                 </button>
               );
             })}
-            <div className="border-t" />
+            <div className="border-t border-border" />
             <button
               onClick={() => setShowCustom(true)}
               onMouseEnter={() => setFocusedOption(customIndex)}
               disabled={isPending}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
-                focusedOption === customIndex ? "bg-muted" : "hover:bg-muted",
+                focusedOption === customIndex ? "bg-accent" : "hover:bg-accent",
               )}
             >
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
@@ -323,7 +323,9 @@ export function SnoozePicker({
           </div>
         ) : (
           <div className="p-3">
-            <p className="mb-3 text-sm font-medium">Pick date &amp; time</p>
+            <p className="eyebrow mb-3 text-muted-foreground">
+              Pick date &amp; time
+            </p>
             <div className="space-y-2">
               <div className="relative">
                 <input
@@ -332,7 +334,7 @@ export function SnoozePicker({
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
                   min={todayStr}
-                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-sm tabular-nums focus:outline-hidden focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
                   onClick={() => dateInputRef.current?.showPicker?.()}
                 />
               </div>
@@ -340,13 +342,13 @@ export function SnoozePicker({
                 type="time"
                 value={customTime}
                 onChange={(e) => setCustomTime(e.target.value)}
-                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring"
+                className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-sm tabular-nums focus:outline-hidden focus:ring-1 focus:ring-ring"
               />
             </div>
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => setShowCustom(false)}
-                className="flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+                className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent"
               >
                 Back
               </button>

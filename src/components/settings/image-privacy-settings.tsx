@@ -59,8 +59,8 @@ export function ImagePrivacySettings({
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
+    <div className="space-y-3">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Control how remote images in emails are loaded. Trackers (spy pixels)
         are used to tell senders when and where you opened a message.
       </p>

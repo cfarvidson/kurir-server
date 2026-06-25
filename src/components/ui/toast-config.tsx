@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * consistent card chrome.
  */
 export const TOAST_SHELL_CLASS =
-  "border border-border bg-card text-card-foreground shadow-lg";
+  "border border-border bg-card text-card-foreground shadow-overlay";
 
 export const TOAST_SHELL_STYLE = {
   "--toast-bg": "hsl(var(--card))",

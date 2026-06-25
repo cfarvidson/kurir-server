@@ -193,7 +193,7 @@ function MessageBubble({
                 {isFromCurrentUser ? "You" : senderName}
               </span>
               {message.isArchived && (
-                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
                   <Archive className="h-2.5 w-2.5" />
                   archived
                 </span>
@@ -223,7 +223,7 @@ function MessageBubble({
           {/* Expanded content */}
           {!collapsed && (
             <div style={{ overflowAnchor: "none" }}>
-              <div className="mt-1 rounded-lg border border-border/50 bg-card px-3 py-3 shadow-xs md:px-4 md:py-4">
+              <div className="mt-1 rounded-lg border border-border/60 bg-card px-3 py-3 md:px-4 md:py-4">
                 {/* Recipients + actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-xs text-muted-foreground">

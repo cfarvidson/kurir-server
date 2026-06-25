@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ScreenerContent } from "@/components/screener/screener-content";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { getUserEmails } from "@/lib/mail/user-emails";
 
@@ -92,15 +93,15 @@ export default async function ScreenerPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Screener</h1>
-        {pendingSenders.length > 0 && (
-          <div className="text-sm text-muted-foreground">
-            {pendingSenders.length} awaiting
-          </div>
-        )}
-      </div>
+      <PageMasthead
+        eyebrow="Triage"
+        title="The Screener"
+        meta={
+          pendingSenders.length > 0
+            ? `${pendingSenders.length} awaiting`
+            : undefined
+        }
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-auto">

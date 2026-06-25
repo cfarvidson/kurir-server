@@ -8,9 +8,6 @@ import {
   ArrowLeft,
   Mail,
   PenSquare,
-  Inbox,
-  Newspaper,
-  Receipt,
   Star,
   Split,
   X,
@@ -33,6 +30,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ContactThreadList } from "@/components/contacts/contact-thread-list";
+import { PageMasthead } from "@/components/layout/page-masthead";
+import { EmptyState } from "@/components/mail/empty-state";
 import {
   updateContactName,
   deleteContact,
@@ -90,22 +89,11 @@ interface ContactDetailProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const categoryConfig: Record<
-  string,
-  { label: string; icon: typeof Inbox; color: string }
-> = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary bg-primary/10" },
-  FEED: {
-    label: "Feed",
-    icon: Newspaper,
-    color: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30",
-  },
-  PAPER_TRAIL: {
-    label: "Paper Trail",
-    icon: Receipt,
-    color:
-      "text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30",
-  },
+const categoryConfig: Record<string, { label: string; dot: string }> = {
+  IMBOX: { label: "Imbox", dot: "bg-imbox" },
+  FEED: { label: "Feed", dot: "bg-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
+  SCREENER: { label: "Screener", dot: "bg-screener" },
 };
 
 
@@ -354,15 +342,20 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-16 items-center gap-4 border-b px-4 md:px-6">
-        <Link
-          href="/contacts"
-          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Contacts
-        </Link>
-      </div>
+      <PageMasthead
+        eyebrow="People"
+        title={displayName}
+        actions={
+          <Link
+            href="/contacts"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Back to contacts"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Contacts
+          </Link>
+        }
+      />
 
       {/* Contact profile */}
       <div className="border-b px-4 py-5 md:px-6 md:py-6">
@@ -502,13 +495,12 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
               {categories.map((cat) => {
                 const config = categoryConfig[cat];
                 if (!config) return null;
-                const CatIcon = config.icon;
                 return (
                   <span
                     key={cat}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.color}`}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
                   >
-                    <CatIcon className="h-3 w-3" />
+                    <span className={`size-2 rounded-full ${config.dot}`} />
                     {config.label}
                   </span>
                 );
@@ -516,7 +508,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
 
               {/* Message count */}
               {totalMessages > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
                   <Mail className="h-3 w-3" />
                   {totalMessages} message{totalMessages !== 1 ? "s" : ""}
                 </span>
@@ -563,15 +555,11 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
       {/* Conversations */}
       <div className="flex-1 overflow-auto">
         {conversations.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-muted p-4">
-              <Mail className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h2 className="mt-4 text-lg font-medium">No conversations yet</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Messages with {displayName} will appear here.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Mail />}
+            title="No conversations yet"
+            description={`Messages with ${displayName} will appear here.`}
+          />
         ) : (
           <ContactThreadList
             conversations={conversations}

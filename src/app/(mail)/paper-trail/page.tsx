@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { SearchResults } from "@/components/mail/search-results";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Receipt } from "lucide-react";
@@ -24,10 +25,11 @@ export default async function PaperTrailPage({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Paper Trail</h1>
-        <SearchInput />
-      </div>
+      <PageMasthead
+        eyebrow="Records"
+        title="Paper Trail"
+        actions={<SearchInput />}
+      />
 
       <div className="flex-1 overflow-auto">
         {isSearching ? (

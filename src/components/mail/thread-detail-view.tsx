@@ -227,16 +227,12 @@ export async function ThreadDetailView({
           href={returnPath}
           className="flex min-w-0 flex-1 items-center gap-3 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-            <ArrowLeft className="h-4 w-4" />
-          </div>
-          <span className="text-xs font-medium uppercase tracking-wider">
-            {categoryLabel}
-          </span>
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          <span className="eyebrow text-muted-foreground">{categoryLabel}</span>
         </Link>
         {messages.length > 1 && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
-            {messages.length}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            ·{messages.length}
           </span>
         )}
         {targetMessage.sender && !isSentView && (

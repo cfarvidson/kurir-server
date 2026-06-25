@@ -24,9 +24,6 @@ import {
 import {
   Check,
   X,
-  Inbox,
-  Newspaper,
-  Receipt,
   Loader2,
   Clock,
   ChevronDown,
@@ -377,7 +374,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden rounded-xl border bg-card shadow-sm"
+              className="overflow-hidden rounded-xl border border-border bg-card"
               onAnimationComplete={() => {
                 if (lastInteractionRef.current === "keyboard") {
                   const firstAction = document.querySelector<HTMLButtonElement>(
@@ -388,10 +385,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               }}
             >
               {/* Sender Header */}
-              <div className="border-b bg-muted/50 p-4 md:p-6">
+              <div className="border-b border-border p-4 md:p-6">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-lg font-semibold tracking-tight md:text-title">
+                    <h3 className="truncate font-serif text-title font-semibold text-foreground">
                       {currentSender.displayName || currentSender.email}
                     </h3>
                     <p className="truncate text-xs text-muted-foreground md:text-sm">
@@ -400,8 +397,10 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground md:mt-4 md:text-sm">
-                  <span>{currentSender._count.messages} email(s)</span>
+                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground md:mt-4 md:text-sm">
+                  <span className="tabular-nums">
+                    {currentSender._count.messages} email(s)
+                  </span>
                   <span>&middot;</span>
                   <span>from {currentSender.domain}</span>
                 </div>
@@ -410,7 +409,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
               {/* Latest Message Preview */}
               {latestMessage && (
                 <div className="p-4 md:p-6">
-                  <p className="text-eyebrow font-medium uppercase text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     Latest Message
                   </p>
                   <h4 className="mt-2 text-lead font-medium">
@@ -542,76 +541,55 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="border-t bg-muted/30"
+                    className="border-t border-border bg-muted/20"
                   >
                     <div className="p-4">
-                      <p className="mb-3 text-sm font-medium">
+                      <p className="eyebrow mb-3 text-muted-foreground">
                         Where should their emails go?
                       </p>
                       <div
-                        className="grid grid-cols-3 gap-2"
+                        className="flex flex-col"
                         role="radiogroup"
                         aria-label="Email category"
                       >
-                        <button
-                          role="radio"
-                          aria-checked={false}
-                          aria-keyshortcuts="1"
-                          onClick={() => {
-                            lastInteractionRef.current = "mouse";
-                            handleApprove(currentSender.id, "IMBOX");
-                          }}
-                          className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
-                        >
-                          <Inbox className="h-5 w-5 text-imbox" />
-                          <span className="text-xs font-medium">Imbox</span>
-                          <kbd
-                            aria-hidden="true"
-                            className="hidden h-5 min-w-[18px] items-center justify-center rounded border border-border/70 bg-muted/50 px-1 font-mono text-[10px] font-medium leading-none text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] md:inline-flex"
+                        {(
+                          [
+                            { cat: "IMBOX", label: "Imbox", dot: "bg-imbox", key: "1" },
+                            { cat: "FEED", label: "The Feed", dot: "bg-feed", key: "2" },
+                            {
+                              cat: "PAPER_TRAIL",
+                              label: "Paper Trail",
+                              dot: "bg-paper-trail",
+                              key: "3",
+                            },
+                          ] as const
+                        ).map(({ cat, label, dot, key }) => (
+                          <button
+                            key={cat}
+                            role="radio"
+                            aria-checked={false}
+                            aria-keyshortcuts={key}
+                            onClick={() => {
+                              lastInteractionRef.current = "mouse";
+                              handleApprove(currentSender.id, cat);
+                            }}
+                            className="-mx-1 flex items-center gap-2.5 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/50"
                           >
-                            1
-                          </kbd>
-                        </button>
-                        <button
-                          role="radio"
-                          aria-checked={false}
-                          aria-keyshortcuts="2"
-                          onClick={() => {
-                            lastInteractionRef.current = "mouse";
-                            handleApprove(currentSender.id, "FEED");
-                          }}
-                          className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
-                        >
-                          <Newspaper className="h-5 w-5 text-feed" />
-                          <span className="text-xs font-medium">The Feed</span>
-                          <kbd
-                            aria-hidden="true"
-                            className="hidden h-5 min-w-[18px] items-center justify-center rounded border border-border/70 bg-muted/50 px-1 font-mono text-[10px] font-medium leading-none text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] md:inline-flex"
-                          >
-                            2
-                          </kbd>
-                        </button>
-                        <button
-                          role="radio"
-                          aria-checked={false}
-                          aria-keyshortcuts="3"
-                          onClick={() => {
-                            lastInteractionRef.current = "mouse";
-                            handleApprove(currentSender.id, "PAPER_TRAIL");
-                          }}
-                          className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted"
-                        >
-                          <Receipt className="h-5 w-5 text-paper-trail" />
-                          <span className="text-xs font-medium">
-                            Paper Trail
-                          </span>
-                          <kbd
-                            aria-hidden="true"
-                            className="hidden h-5 min-w-[18px] items-center justify-center rounded border border-border/70 bg-muted/50 px-1 font-mono text-[10px] font-medium leading-none text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] md:inline-flex"
-                          >
-                            3
-                          </kbd>
-                        </button>
+                            <span
+                              className={cn("size-2 shrink-0 rounded-full", dot)}
+                              aria-hidden="true"
+                            />
+                            <span className="flex-1 text-sm font-medium text-foreground">
+                              {label}
+                            </span>
+                            <kbd
+                              aria-hidden="true"
+                              className="hidden h-5 min-w-[18px] items-center justify-center rounded border border-border/70 bg-muted/50 px-1 font-mono text-[10px] font-medium leading-none text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] md:inline-flex"
+                            >
+                              {key}
+                            </kbd>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </motion.div>

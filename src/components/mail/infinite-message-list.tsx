@@ -273,7 +273,7 @@ export function InfiniteMessageList({
         {newMessages.length > 0 && (
           <section>
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
-              <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
+              <h2 className="eyebrow px-4 py-3 text-muted-foreground md:px-6">
                 New For You
               </h2>
             </div>
@@ -286,7 +286,7 @@ export function InfiniteMessageList({
         {seenMessages.length > 0 && (
           <section>
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
-              <h2 className="px-4 py-3 text-sm font-medium text-muted-foreground md:px-6">
+              <h2 className="eyebrow px-4 py-3 text-muted-foreground md:px-6">
                 Previously Seen
               </h2>
             </div>

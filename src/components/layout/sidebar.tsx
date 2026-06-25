@@ -135,10 +135,10 @@ export function Sidebar({
               key={item.name}
               href={item.href}
               className={cn(
-                "group/nav flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
+                "group/nav relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
                 isActive
-                  ? "bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -148,10 +148,10 @@ export function Sidebar({
               badgePreferences[badgeKeyToPref[item.badgeKey]] !== false ? (
                 <span
                   className={cn(
-                    "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+                    "text-xs font-medium tabular-nums",
                     item.badgeKey === "followUp"
-                      ? "bg-amber-500 text-white dark:bg-amber-600"
-                      : "bg-primary text-primary-foreground",
+                      ? "text-amber-600 dark:text-amber-500"
+                      : "text-primary",
                   )}
                 >
                   {badgeCounts[item.badgeKey] > 99
@@ -179,10 +179,10 @@ export function Sidebar({
         <Link
           href="/settings"
           className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
+            "relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
             pathname === "/settings"
-              ? "bg-primary/10 font-medium text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
           )}
         >
           <Settings className="h-5 w-5" />
@@ -192,10 +192,10 @@ export function Sidebar({
           <Link
             href="/admin"
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-normal transition-colors",
+              "relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
               pathname.startsWith("/admin")
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
             )}
           >
             <Shield className="h-5 w-5" />
@@ -204,7 +204,7 @@ export function Sidebar({
         )}
         <button
           onClick={openCommandPalette}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <Command className="h-5 w-5" />
           <span className="flex-1 text-left">Commands</span>
@@ -219,7 +219,7 @@ export function Sidebar({
         </button>
         <button
           onClick={showShortcuts}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <Keyboard className="h-5 w-5" />
           <span className="flex-1 text-left">Shortcuts</span>
@@ -229,7 +229,7 @@ export function Sidebar({
         </button>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <LogOut className="h-5 w-5" />
           Sign out

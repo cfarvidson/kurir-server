@@ -70,23 +70,30 @@ export function BadgePreferencesSettings({
   };
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
+    <div>
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Choose which navigation items show count badges.
       </p>
-      {badges.map((badge) => (
-        <div key={badge.key} className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">{badge.label}</p>
-            <p className="text-xs text-muted-foreground">{badge.description}</p>
+      <div className="mt-2 divide-y divide-border">
+        {badges.map((badge) => (
+          <div
+            key={badge.key}
+            className="flex items-center justify-between gap-4 py-3.5"
+          >
+            <div>
+              <p className="text-sm font-medium">{badge.label}</p>
+              <p className="text-xs text-muted-foreground">
+                {badge.description}
+              </p>
+            </div>
+            <Switch
+              checked={prefs[badge.key]}
+              onCheckedChange={(checked) => handleToggle(badge.key, checked)}
+              disabled={isPending}
+            />
           </div>
-          <Switch
-            checked={prefs[badge.key]}
-            onCheckedChange={(checked) => handleToggle(badge.key, checked)}
-            disabled={isPending}
-          />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

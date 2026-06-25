@@ -7,23 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Mail,
   Lock,
   Server,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import { KurirLogo } from "@/components/logo";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
@@ -139,32 +131,30 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
   const isSuccess = verifyState === "success";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
+    <AuthShell>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="w-full max-w-md"
+        className="space-y-6"
       >
-        <Card>
-          <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              <KurirLogo className="h-8 w-8" />
-            </div>
-            <CardTitle className="text-2xl">
-              {isAddMode
-                ? "Add another email"
-                : "Connect your first email account"}
-            </CardTitle>
-            <CardDescription>
-              {isAddMode
-                ? "Add another email account to your Kurir inbox."
-                : "Add your first email account to start receiving mail in Kurir."}
-            </CardDescription>
-          </CardHeader>
+        <div>
+          <p className="eyebrow text-muted-foreground">
+            {isAddMode ? "Add email" : "Connect email"}
+          </p>
+          <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+            {isAddMode
+              ? "Add another email"
+              : "Connect your first email account"}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {isAddMode
+              ? "Add another email account to your Kurir inbox."
+              : "Add your first email account to start receiving mail in Kurir."}
+          </p>
+        </div>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -472,10 +462,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
                     disabled={isLoading || isSuccess}
                   >
                     {isSuccess ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        Connected!
-                      </>
+                      "Connected!"
                     ) : isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -488,29 +475,27 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
                 </>
               )}
 
-              {isAddMode ? (
-                <p className="text-center text-sm text-muted-foreground">
-                  <Link
-                    href="/settings"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Back to settings
-                  </Link>
-                </p>
-              ) : (
-                <p className="text-center text-sm text-muted-foreground">
-                  <Link
-                    href="/imbox"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Skip for now
-                  </Link>
-                </p>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+          {isAddMode ? (
+            <p className="text-sm text-muted-foreground">
+              <Link
+                href="/settings"
+                className="hover:text-foreground transition-colors"
+              >
+                Back to settings
+              </Link>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              <Link
+                href="/imbox"
+                className="hover:text-foreground transition-colors"
+              >
+                Skip for now
+              </Link>
+            </p>
+          )}
+        </form>
       </motion.div>
-    </div>
+    </AuthShell>
   );
 }

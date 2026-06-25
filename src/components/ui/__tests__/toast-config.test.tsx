@@ -69,7 +69,7 @@ describe("TOAST_UNSTYLED_RESET_CLASS", () => {
     const edgeOverrides: Record<string, string> = {
       border: "!border-0", // border width
       "bg-card": "!bg-transparent", // background
-      "shadow-lg": "!shadow-none", // shadow
+      "shadow-overlay": "!shadow-none", // shadow (floating-layer token)
     };
 
     for (const [chromeToken, expectedOverride] of Object.entries(

@@ -6,22 +6,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Fingerprint,
-  Mail,
-  Loader2,
-  ShieldCheck,
-  ChevronRight,
-} from "lucide-react";
+import { Fingerprint, Mail, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { KurirLogo } from "@/components/logo";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 type Step = "intro" | "name" | "passkey" | "done";
 
@@ -106,7 +93,7 @@ export default function RegisterForm({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
+    <AuthShell>
       <AnimatePresence mode="wait">
         {step === "intro" && (
           <motion.div
@@ -115,63 +102,60 @@ export default function RegisterForm({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25 }}
-            className="w-full max-w-md"
+            className="space-y-6"
           >
-            <Card>
-              <CardHeader className="text-center pb-4">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <KurirLogo className="h-8 w-8" />
-                </div>
-                <CardTitle className="text-2xl">Create your account</CardTitle>
-                <CardDescription>
-                  Kurir uses passkeys for secure, passwordless sign-in. No
-                  master password to remember or lose.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <span className="text-xs font-semibold text-primary">
-                        1
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Create your passkey</p>
-                      <p className="text-xs text-muted-foreground">
-                        Your device (Touch ID, Face ID, or security key) becomes
-                        your login.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <span className="text-xs font-semibold text-primary">
-                        2
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Connect your email</p>
-                      <p className="text-xs text-muted-foreground">
-                        Link one or more email accounts via IMAP/SMTP.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            <div>
+              <p className="eyebrow text-muted-foreground">Get started</p>
+              <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                Create your account
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Kurir uses passkeys for secure, passwordless sign-in. No master
+                password to remember or lose.
+              </p>
+            </div>
 
-                <Button className="w-full" onClick={() => setStep("name")}>
-                  Get started
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+            <ol className="space-y-4 border-t border-border pt-5">
+              <li className="flex items-baseline gap-3">
+                <span className="text-eyebrow font-semibold text-primary tabular-nums">
+                  01
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Create your passkey
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Your device (Touch ID, Face ID, or security key) becomes
+                    your login.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-baseline gap-3">
+                <span className="text-eyebrow font-semibold text-primary tabular-nums">
+                  02
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Connect your email
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Link one or more email accounts via IMAP/SMTP.
+                  </p>
+                </div>
+              </li>
+            </ol>
 
-                <p className="text-center text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <Link href="/login" className="text-primary hover:underline">
-                    Sign in
-                  </Link>
-                </p>
-              </CardContent>
-            </Card>
+            <Button className="w-full" onClick={() => setStep("name")}>
+              Get started
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <p className="text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                Sign in
+              </Link>
+            </p>
           </motion.div>
         )}
 
@@ -182,51 +166,46 @@ export default function RegisterForm({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25 }}
-            className="w-full max-w-md"
+            className="space-y-6"
           >
-            <Card>
-              <CardHeader className="text-center pb-4">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <KurirLogo className="h-8 w-8" />
-                </div>
-                <CardTitle className="text-2xl">
-                  What should we call you?
-                </CardTitle>
-                <CardDescription>
-                  This name appears in email replies you send.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleNameSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="displayName">Your name</Label>
-                    <Input
-                      id="displayName"
-                      placeholder="Alex Smith"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      autoFocus
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={!displayName.trim()}
-                  >
-                    Continue
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => setStep("intro")}
-                    className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Back
-                  </button>
-                </form>
-              </CardContent>
-            </Card>
+            <div>
+              <p className="eyebrow text-muted-foreground">Your name</p>
+              <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                What should we call you?
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This name appears in email replies you send.
+              </p>
+            </div>
+
+            <form onSubmit={handleNameSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Your name</Label>
+                <Input
+                  id="displayName"
+                  placeholder="Alex Smith"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!displayName.trim()}
+              >
+                Continue
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <button
+                type="button"
+                onClick={() => setStep("intro")}
+                className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back
+              </button>
+            </form>
           </motion.div>
         )}
 
@@ -237,62 +216,62 @@ export default function RegisterForm({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25 }}
-            className="w-full max-w-md"
+            className="space-y-6"
           >
-            <Card>
-              <CardHeader className="text-center pb-4">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <Fingerprint className="h-7 w-7 text-primary" />
+            <div>
+              <p className="eyebrow text-muted-foreground">Secure your account</p>
+              <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                Create your passkey
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your browser will ask you to authenticate with Touch ID, Face
+                ID, Windows Hello, or a hardware security key.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  {error}
                 </div>
-                <CardTitle className="text-2xl">Create your passkey</CardTitle>
-                <CardDescription>
-                  Your browser will ask you to authenticate with Touch ID, Face
-                  ID, Windows Hello, or a hardware security key.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {error && (
-                  <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                    {error}
-                  </div>
+              )}
+
+              <p className="border-t border-border pt-4 text-sm text-muted-foreground">
+                Creating passkey for{" "}
+                <span className="font-medium text-foreground">
+                  {displayName}
+                </span>
+              </p>
+
+              <Button
+                className="w-full"
+                onClick={handleRegisterPasskey}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating passkey...
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="h-4 w-4" />
+                    Create passkey
+                  </>
                 )}
+              </Button>
 
-                <div className="rounded-lg border bg-muted/40 p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Creating passkey for{" "}
-                    <span className="font-medium text-foreground">
-                      {displayName}
-                    </span>
-                  </p>
-                </div>
-
-                <Button
-                  className="w-full"
-                  onClick={handleRegisterPasskey}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating passkey...
-                    </>
-                  ) : (
-                    <>
-                      <Fingerprint className="h-4 w-4" />
-                      Create passkey
-                    </>
-                  )}
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => setStep("name")}
-                  className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Back
-                </button>
-              </CardContent>
-            </Card>
+              <button
+                type="button"
+                onClick={() => setStep("name")}
+                className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back
+              </button>
+            </div>
           </motion.div>
         )}
 
@@ -302,34 +281,26 @@ export default function RegisterForm({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0.25 }}
-            className="w-full max-w-md"
+            className="space-y-6"
           >
-            <Card>
-              <CardHeader className="text-center pb-4">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-                  <ShieldCheck className="h-7 w-7 text-emerald-600" />
-                </div>
-                <CardTitle className="text-2xl">
-                  You&apos;re in, {displayName.split(" ")[0]}!
-                </CardTitle>
-                <CardDescription>
-                  Your account is secured with a passkey. Now connect your first
-                  email account to get started.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full"
-                  onClick={() => router.push("/setup")}
-                >
-                  <Mail className="h-4 w-4" />
-                  Connect email account
-                </Button>
-              </CardContent>
-            </Card>
+            <div>
+              <p className="eyebrow text-primary">Account secured</p>
+              <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                You&apos;re in, {displayName.split(" ")[0]}!
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your account is secured with a passkey. Now connect your first
+                email account to get started.
+              </p>
+            </div>
+
+            <Button className="w-full" onClick={() => router.push("/setup")}>
+              <Mail className="h-4 w-4" />
+              Connect email account
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </AuthShell>
   );
 }

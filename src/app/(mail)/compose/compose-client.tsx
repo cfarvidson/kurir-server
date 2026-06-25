@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { FromPicker, type FromConnection } from "@/components/mail/from-picker";
 import { MarkdownComposer } from "@/components/mail/markdown-composer";
 import {
@@ -634,17 +635,12 @@ export function ComposeClientPage({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold tracking-tight md:text-title">
-            {isEditingScheduled ? "Edit Scheduled Message" : "New Message"}
-          </h1>
-          {editScheduled && (
-            <p
-              className="truncate text-xs text-muted-foreground"
-              suppressHydrationWarning
-            >
+      <PageMasthead
+        eyebrow="Compose"
+        title={isEditingScheduled ? "Edit scheduled message" : "New message"}
+        meta={
+          editScheduled ? (
+            <span suppressHydrationWarning>
               Scheduled for{" "}
               {new Date(editScheduled.scheduledFor).toLocaleString("en-US", {
                 month: "short",
@@ -654,62 +650,68 @@ export function ComposeClientPage({
                 timeZoneName: "short",
                 timeZone: userTimezone,
               })}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 md:gap-2">
-          {!isEditingScheduled && <DraftStatusIndicator status={draftStatus} />}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              cancelPendingSave();
-              if (!isEditingScheduled) removeDraft();
-              router.push(origin);
-            }}
-          >
-            <X className="h-4 w-4" />
-            <span className="hidden sm:inline">Cancel</span>
-          </Button>
-          <div className="flex items-center gap-1">
-            <Button size="sm" onClick={handleSend}>
-              <Send className="h-4 w-4" />
-              Send
+            </span>
+          ) : undefined
+        }
+        actions={
+          <>
+            {!isEditingScheduled && (
+              <DraftStatusIndicator status={draftStatus} />
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                cancelPendingSave();
+                if (!isEditingScheduled) removeDraft();
+                router.push(origin);
+              }}
+            >
+              <X className="h-4 w-4" />
+              <span className="hidden sm:inline">Cancel</span>
             </Button>
-            <SchedulePicker
-              onSchedule={handleScheduleSend}
-              userTimezone={userTimezone}
-              isPending={scheduling}
-              open={scheduleOpen}
-              onOpenChange={setScheduleOpen}
-              trigger={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="px-2"
-                  disabled={scheduling}
-                >
-                  <CalendarClock className="h-4 w-4" />
-                </Button>
-              }
-            />
-          </div>
-        </div>
-      </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" onClick={handleSend}>
+                <Send className="h-4 w-4" />
+                Send
+              </Button>
+              <SchedulePicker
+                onSchedule={handleScheduleSend}
+                userTimezone={userTimezone}
+                isPending={scheduling}
+                open={scheduleOpen}
+                onOpenChange={setScheduleOpen}
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-2"
+                    disabled={scheduling}
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                  </Button>
+                }
+              />
+            </div>
+          </>
+        }
+      />
 
       {/* Form */}
       <div className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="mx-auto max-w-2xl space-y-4">
+        <div className="mx-auto max-w-2xl divide-y divide-border">
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
           {/* From picker — only shown when user has multiple connections */}
           {hasMultipleConnections && (
-            <div className="space-y-2">
-              <Label htmlFor="from">From</Label>
+            <div className="space-y-2 pb-4">
+              <Label htmlFor="from" className="eyebrow text-muted-foreground">
+                From
+              </Label>
               <FromPicker
                 connections={connections}
                 value={fromConnectionId}
@@ -720,10 +722,12 @@ export function ComposeClientPage({
           )}
 
           {/* To field */}
-          <div className="space-y-2">
+          <div className="space-y-2 py-4 first:pt-0">
             <div className="flex items-center justify-between">
-              <Label htmlFor="to">To</Label>
-              <div className="flex items-center gap-2 text-xs">
+              <Label htmlFor="to" className="eyebrow text-muted-foreground">
+                To
+              </Label>
+              <div className="flex items-center gap-3 text-xs">
                 {!showCc && (
                   <button
                     type="button"
@@ -808,7 +812,7 @@ export function ComposeClientPage({
               {hasSuggestions && (
                 <div
                   ref={suggestionsRef}
-                  className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border bg-popover shadow-lg"
+                  className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-overlay"
                 >
                   {loading && results.length === 0 ? (
                     <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
@@ -830,11 +834,6 @@ export function ComposeClientPage({
                             : "hover:bg-muted/60"
                         }`}
                       >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                          {(contact.displayName || contact.email)
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
                         <div className="min-w-0 flex-1">
                           {contact.displayName ? (
                             <>
@@ -875,8 +874,10 @@ export function ComposeClientPage({
 
           {/* Cc field */}
           {showCc && (
-            <div className="space-y-2">
-              <Label htmlFor="cc">Cc</Label>
+            <div className="space-y-2 py-4">
+              <Label htmlFor="cc" className="eyebrow text-muted-foreground">
+                Cc
+              </Label>
               <Input
                 id="cc"
                 type="email"
@@ -905,8 +906,10 @@ export function ComposeClientPage({
 
           {/* Bcc field */}
           {showBcc && (
-            <div className="space-y-2">
-              <Label htmlFor="bcc">Bcc</Label>
+            <div className="space-y-2 py-4">
+              <Label htmlFor="bcc" className="eyebrow text-muted-foreground">
+                Bcc
+              </Label>
               <Input
                 id="bcc"
                 type="email"
@@ -933,8 +936,10 @@ export function ComposeClientPage({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="subject" className="eyebrow text-muted-foreground">
+              Subject
+            </Label>
             <Input
               id="subject"
               placeholder="What's this about?"
@@ -943,8 +948,10 @@ export function ComposeClientPage({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="body">Message</Label>
+          <div className="space-y-2 pt-4">
+            <Label htmlFor="body" className="eyebrow text-muted-foreground">
+              Message
+            </Label>
             <MarkdownComposer
               value={body}
               onChange={setBody}

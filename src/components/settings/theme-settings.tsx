@@ -31,7 +31,7 @@ export function ThemeSettings() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Choose how Kurir looks to you.
       </p>
       <div className="grid grid-cols-3 gap-2">

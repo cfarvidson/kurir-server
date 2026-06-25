@@ -220,12 +220,12 @@ export function MarkdownComposer({
       onDrop={handleDrop}
     >
       <Tabs value={tab} onValueChange={setTab}>
-        <div className="flex items-center justify-between">
-          <TabsList className="h-8">
-            <TabsTrigger value="write" className="px-3 py-1 text-xs">
+        <div className="flex items-center justify-between border-b border-border pb-2">
+          <TabsList className="h-8 bg-muted/60 p-0.5">
+            <TabsTrigger value="write" className="px-2.5 py-1 text-xs">
               Write
             </TabsTrigger>
-            <TabsTrigger value="preview" className="px-3 py-1 text-xs">
+            <TabsTrigger value="preview" className="px-2.5 py-1 text-xs">
               Preview
             </TabsTrigger>
           </TabsList>
@@ -255,9 +255,9 @@ export function MarkdownComposer({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              "block w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono",
+              "block w-full resize-none border-0 bg-transparent px-0 py-1 text-sm font-mono",
               "placeholder:text-muted-foreground/50",
-              "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+              "focus-visible:outline-hidden focus-visible:ring-0",
               "disabled:opacity-50",
             )}
             style={{ minHeight: `${minHeight}px` }}
@@ -266,9 +266,7 @@ export function MarkdownComposer({
 
         <TabsContent value="preview" className="mt-2 md:mt-2">
           <div
-            className={cn(
-              "prose rounded-md border border-input px-3 py-2 text-sm",
-            )}
+            className={cn("prose px-0 py-1 text-sm")}
             style={{ minHeight: `${minHeight}px` }}
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
@@ -276,11 +274,13 @@ export function MarkdownComposer({
       </Tabs>
 
       {/* Attachment chips (non-image files — images are shown inline) */}
-      <AttachmentChips
-        attachments={attachments}
-        onRemove={onFileRemove}
-        excludeImages
-      />
+      <div className="mt-3 border-t border-border pt-3 empty:hidden">
+        <AttachmentChips
+          attachments={attachments}
+          onRemove={onFileRemove}
+          excludeImages
+        />
+      </div>
 
       {/* Hidden file input */}
       <input
@@ -298,7 +298,7 @@ export function MarkdownComposer({
 
       {/* Drag overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
             <Upload className="h-5 w-5" />
             Drop files to attach

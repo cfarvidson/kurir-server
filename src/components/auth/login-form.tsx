@@ -4,16 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Fingerprint, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { KurirLogo } from "@/components/logo";
+import { AuthShell } from "@/components/auth/auth-shell";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 type LoginState = "idle" | "waiting" | "loading" | "error";
@@ -129,85 +122,85 @@ export default function LoginForm() {
   const isWorking = state === "waiting" || state === "loading";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 p-4">
+    <AuthShell>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="w-full max-w-md"
+        className="space-y-6"
       >
-        <Card>
-          <CardHeader className="text-center pb-4">
-            <KurirLogo className="mx-auto mb-2 h-16 w-16" />
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>
-              Sign in to Kurir with your passkey.
-            </CardDescription>
-          </CardHeader>
+        <div>
+          <p className="eyebrow text-muted-foreground">Sign in</p>
+          <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+            Welcome back
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sign in to Kurir with your passkey.
+          </p>
+        </div>
 
-          <CardContent className="space-y-4">
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="rounded-md bg-destructive/10 p-3 text-sm text-destructive overflow-hidden"
-              >
-                {error}
-              </motion.div>
+        {error && (
+          <motion.div
+            role="alert"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive overflow-hidden"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        <div className="space-y-4">
+          {/* Passkey sign-in button — the primary action */}
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleSignIn}
+            disabled={isWorking}
+          >
+            {isWorking ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {state === "waiting"
+                  ? "Waiting for passkey..."
+                  : "Signing in..."}
+              </>
+            ) : (
+              <>
+                <Fingerprint className="h-4 w-4" />
+                Sign in with passkey
+              </>
             )}
+          </Button>
 
-            {/* Passkey sign-in button — the primary action */}
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleSignIn}
-              disabled={isWorking}
-            >
-              {isWorking ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {state === "waiting"
-                    ? "Waiting for passkey..."
-                    : "Signing in..."}
-                </>
-              ) : (
-                <>
-                  <Fingerprint className="h-4 w-4" />
-                  Sign in with passkey
-                </>
-              )}
-            </Button>
+          {/* Hint for conditional UI / autofill */}
+          <p className="text-xs text-muted-foreground">
+            Your browser may also prompt you automatically with a saved passkey.
+          </p>
 
-            {/* Hint for conditional UI / autofill */}
-            <p className="text-center text-xs text-muted-foreground">
-              Your browser may also prompt you automatically with a saved
-              passkey.
-            </p>
+          {/*
+            Passkey autofill target — hidden input for browsers that support
+            conditional mediation. The browser attaches the autofill UI here.
+          */}
+          <input
+            type="text"
+            autoComplete="username webauthn"
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly
+          />
+        </div>
 
-            {/*
-              Passkey autofill target — hidden input for browsers that support
-              conditional mediation. The browser attaches the autofill UI here.
-            */}
-            <input
-              type="text"
-              autoComplete="username webauthn"
-              className="sr-only"
-              aria-hidden="true"
-              tabIndex={-1}
-              readOnly
-            />
-
-            <div className="border-t pt-4">
-              <p className="text-center text-sm text-muted-foreground">
-                New to Kurir?{" "}
-                <Link href="/register" className="text-primary hover:underline">
-                  Create an account
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="border-t border-border pt-4">
+          <p className="text-sm text-muted-foreground">
+            New to Kurir?{" "}
+            <Link href="/register" className="text-primary hover:underline">
+              Create an account
+            </Link>
+          </p>
+        </div>
       </motion.div>
-    </div>
+    </AuthShell>
   );
 }
