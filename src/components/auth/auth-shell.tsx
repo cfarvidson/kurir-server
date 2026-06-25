@@ -19,8 +19,10 @@ export function AuthShell({
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-[1fr_1px_minmax(0,28rem)]">
-        {/* Left rail — type-led masthead */}
-        <aside className="flex flex-col justify-between px-6 pt-12 pb-8 lg:px-12 lg:py-16">
+        {/* Left rail — type-led masthead. The wordmark block is vertically
+            centered so it aligns with the form across the hairline; the tagline
+            is pinned to the bottom corner as an editorial footer. */}
+        <aside className="relative flex flex-col justify-center px-6 pt-12 pb-8 lg:px-12 lg:py-16">
           <div>
             <p className="eyebrow text-muted-foreground">Email for humans</p>
             <h1 className="mt-3 font-serif text-display font-semibold tracking-tight text-foreground">
@@ -31,7 +33,7 @@ export function AuthShell({
               Screener, the people you care about land up front.
             </p>
           </div>
-          <p className="mt-10 hidden text-eyebrow text-muted-foreground lg:block">
+          <p className="absolute bottom-8 left-6 hidden text-eyebrow text-muted-foreground lg:left-12 lg:block">
             Passwordless. Passkey-first.
           </p>
         </aside>
