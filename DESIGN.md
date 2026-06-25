@@ -26,8 +26,32 @@ system-ui as a primary).
 | Editorial display | **Playfair Display** (serif) | `font-serif` | Reading-pane subject headlines — and only sparing, intentional editorial moments |
 | Mono | **JetBrains Mono** | `font-mono` | Code, raw headers, technical values |
 
-Playfair is the signature. It earns its place on the subject line of an open
-message and almost nowhere else — don't scatter it.
+Playfair is the signature. The 2026-06 "aggressive editorial" redesign **widened
+its intentional homes** (this is a deliberate change from the earlier "subject line
+and almost nowhere else" rule):
+
+- Open-message subject (the original home)
+- **Page mastheads** — every page title, via `PageMasthead`
+- **Section headings** in settings / dense surfaces, via `SectionHeading`
+- **Empty-state headlines** (already)
+- **Editorial figures** — large stat numerals, via `Stat`
+- The **auth/onboarding wordmark + headline**
+
+It is still **not** scattered into body copy, labels, buttons, table cells, or list
+metadata — those stay Inter. The rule is now "Playfair frames; Inter informs."
+
+### The eyebrow + masthead system
+
+The signature structural move is the **eyebrow**: a small-caps, tracked, uppercase
+kicker (`.eyebrow` utility / `text-eyebrow` token) in muted ink, sitting above a
+serif title. Every page is framed this way through `PageMasthead`
+(`src/components/layout/page-masthead.tsx`): `eyebrow → serif title → meta → hairline`.
+Use `SectionHeading` (`src/components/ui/editorial.tsx`) for the in-page echo.
+
+Deploy the full editorial scale deliberately: list subjects use `text-lead`, page
+titles `text-title`, hero/auth/empty `text-display`/`headline`. The jump from
+`text-sm` body to serif display must be unmistakable. All counts, dates, and sizes
+use `tabular-nums`.
 
 ## Color
 
@@ -64,12 +88,22 @@ distinction. Never use it as a page background or button fill.)
 
 ## Shape & spacing
 
-- **Radius**: base `--radius: 0.75rem`. Use `rounded-lg/md/sm` (derived from it),
-  not arbitrary values.
-- **Elevation**: shadows are whisper-quiet — `shadow-xs`/`shadow-sm` on interactive
-  surfaces, nothing heavier. Depth comes from the surface ramp, not big shadows.
+- **Radius**: base `--radius: 0.625rem`. Use `rounded-lg/md/sm/xs` (derived from it),
+  not arbitrary values. `radius-xs` is for chips, dots, and category rails.
+- **Elevation (sharpened)**: app chrome carries **no decorative shadow**. Cards,
+  inputs, list rows, the sidebar, the masthead, and the composer get their depth
+  from the **surface ramp** (`background → card → sidebar`), **hairline borders**
+  (`border-border`), and **whitespace**. The single `shadow-overlay` token is
+  reserved for genuinely floating layers — dialog, popover, command palette, mobile
+  sheet, toast. Do not reach for `shadow-xs`/`shadow-sm` on resting surfaces; that
+  was the old "fake depth" tell and the redesign removes it.
 - **Density**: comfortable, not cramped. Whitespace and proportion (padding,
   line-height, alignment) carry the design — fix those before reaching for color.
+- **No pill chrome**: counts render as `tabular-nums` numerals, thread counts as
+  mono `·N`, categories as a dot/2px rail/faint tint. Filled rounded-pill badges
+  as primary chrome are a banned "AI" tell — don't reintroduce them.
+- **Unread = a terracotta tick**: unread list rows are marked with a short
+  terracotta left rule/tick + foreground weight, not a tinted row fill.
 
 ## Motion
 
@@ -107,8 +141,10 @@ Build new UI by composing these first.
 ## Quick checklist before shipping UI
 
 - [ ] Uses semantic tokens, works in light **and** dark
-- [ ] Body in Inter; Playfair only where editorially intentional
+- [ ] Body in Inter; Playfair on mastheads/sections/empty/auth/subject — never body/labels/buttons
+- [ ] Page chrome uses `PageMasthead` (eyebrow → serif title → hairline)
 - [ ] Composes existing `ui/` primitives + `cn()` + CVA where variants are needed
-- [ ] Radius/shadow/spacing from the scale, not arbitrary
-- [ ] No avatars, no purple gradients, no icon-grid filler
-- [ ] Focus states visible; category colors used only as signifiers
+- [ ] Radius/spacing from the scale; **no resting-surface shadow** (ramp + hairline + space)
+- [ ] No avatars, no purple gradients, no gradient hero, no icon-in-circle, no pill badges
+- [ ] Counts are `tabular-nums`; unread is a terracotta tick; categories are quiet signifiers
+- [ ] Focus states visible; terracotta is the only loud accent
