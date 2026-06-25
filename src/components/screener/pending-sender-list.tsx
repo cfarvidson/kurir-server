@@ -25,12 +25,12 @@ interface PendingSender {
 }
 
 const CATEGORY_CONFIG = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-primary" },
-  FEED: { label: "The Feed", icon: Newspaper, color: "text-blue-500" },
+  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
+  FEED: { label: "The Feed", icon: Newspaper, color: "text-feed" },
   PAPER_TRAIL: {
     label: "Paper Trail",
     icon: Receipt,
-    color: "text-amber-500",
+    color: "text-paper-trail",
   },
 } as const;
 

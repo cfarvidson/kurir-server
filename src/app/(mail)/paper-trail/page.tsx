@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { SearchResults } from "@/components/mail/search-results";
+import { EmptyState } from "@/components/mail/empty-state";
+import { Receipt } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
 
 export default async function PaperTrailPage({
@@ -36,23 +38,7 @@ export default async function PaperTrailPage({
             basePath="/paper-trail"
             showArchiveAction
             showSnoozeAction
-            emptyIcon={
-              <div className="rounded-full bg-amber-100 p-4">
-                <svg
-                  className="h-8 w-8 text-amber-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-            }
+            emptyIcon={<Receipt />}
           />
         ) : (
           <PaginatedPaperTrail userId={session.user.id} />
@@ -67,27 +53,11 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
 
   if (!result || result.messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <div className="rounded-full bg-amber-100 p-4">
-          <svg
-            className="h-8 w-8 text-amber-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-        </div>
-        <h2 className="mt-4 text-lg font-medium">No receipts yet</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Screen in transactional senders and send them to Paper Trail.
-        </p>
-      </div>
+      <EmptyState
+        icon={<Receipt />}
+        title="No receipts yet"
+        description="Screen in transactional senders and send them to Paper Trail."
+      />
     );
   }
 
