@@ -12,6 +12,7 @@ import {
 } from "@/actions/admin";
 import { Check, Loader2, Pencil, ShieldCheck, User } from "lucide-react";
 import { toast } from "sonner";
+import { SectionHeading } from "@/components/ui/editorial";
 
 interface AdminPanelProps {
   currentUserId: string;
@@ -47,9 +48,9 @@ export function AdminPanel({
 
       {/* Registration toggle */}
       <section>
-        <h2 className="text-lg font-medium">Registration</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between">
+        <SectionHeading eyebrow="Admin" title="Registration" />
+        <div className="mt-4 divide-y divide-border">
+          <div className="flex items-center justify-between gap-4 py-3.5">
             <div>
               <p className="text-sm font-medium">Open signups</p>
               <p className="text-xs text-muted-foreground">
@@ -78,9 +79,9 @@ export function AdminPanel({
 
       {/* Self-service account management toggle */}
       <section>
-        <h2 className="text-lg font-medium">Account Management</h2>
-        <div className="mt-4 rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between">
+        <SectionHeading eyebrow="Admin" title="Account management" />
+        <div className="mt-4 divide-y divide-border">
+          <div className="flex items-center justify-between gap-4 py-3.5">
             <div>
               <p className="text-sm font-medium">
                 Self-service account management
@@ -111,8 +112,8 @@ export function AdminPanel({
 
       {/* Users table */}
       <section>
-        <h2 className="text-lg font-medium">Users</h2>
-        <div className="mt-4 rounded-lg border bg-card divide-y">
+        <SectionHeading eyebrow="Admin" title="Users" />
+        <div className="mt-4 divide-y divide-border">
           {users.map((user) => (
             <AdminUserRow
               key={user.id}
@@ -176,7 +177,7 @@ function AdminUserRow({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3">
+    <div className="flex items-center justify-between gap-4 py-3.5">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           {editingName ? (
@@ -215,10 +216,8 @@ function AdminUserRow({
             </button>
           )}
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-              isAdmin
-                ? "bg-primary/10 text-primary"
-                : "bg-secondary text-secondary-foreground"
+            className={`eyebrow inline-flex items-center gap-1 ${
+              isAdmin ? "text-primary" : "text-muted-foreground"
             }`}
           >
             {isAdmin ? (

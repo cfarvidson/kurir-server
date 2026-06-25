@@ -7,26 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Fingerprint,
   Mail,
   Lock,
   Server,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   ChevronRight,
   ExternalLink,
   RefreshCw,
   Inbox,
 } from "lucide-react";
-import { KurirLogo } from "@/components/logo";
+import { cn } from "@/lib/utils";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
 
 // ---------------------------------------------------------------------------
@@ -61,48 +54,34 @@ function StepIndicator({ current }: { current: WizardStep }) {
   const currentIdx = STEPS.findIndex(
     (s) => s.key === current || (current === "passkey" && s.key === "welcome"),
   );
+  const stepNumber = String(currentIdx + 1).padStart(2, "0");
+  const label = STEPS[currentIdx]?.label ?? "";
 
   return (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {STEPS.map((step, i) => {
-        const isComplete = i < currentIdx;
-        const isCurrent = i === currentIdx;
-        return (
-          <div key={step.key} className="flex items-center gap-2">
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                  isComplete
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
-                    : isCurrent
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {isComplete ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-              </div>
-              <span
-                className={`text-[10px] mt-1 ${
-                  isCurrent
-                    ? "text-foreground font-medium"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {step.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={`h-px w-8 mb-4 ${
-                  isComplete
-                    ? "bg-emerald-300 dark:bg-emerald-700"
-                    : "bg-border"
-                }`}
-              />
+    <div className="mb-8 space-y-3">
+      {/* Typographic step marker — terracotta number, no circles */}
+      <p className="eyebrow text-muted-foreground">
+        <span className="text-primary">Step {stepNumber}</span>
+        {" — "}
+        {label}
+        <span className="text-muted-foreground/60">
+          {" "}
+          of {String(STEPS.length).padStart(2, "0")}
+        </span>
+      </p>
+
+      {/* Thin progress rule — filled segments in terracotta */}
+      <div className="flex gap-1.5" aria-hidden="true">
+        {STEPS.map((step, i) => (
+          <div
+            key={step.key}
+            className={cn(
+              "h-px flex-1 transition-colors",
+              i <= currentIdx ? "bg-primary" : "bg-border",
             )}
-          </div>
-        );
-      })}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -422,8 +401,8 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   // ----- Render -----
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-amber-50/50 to-stone-50/30 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900 p-4">
-      <div className="w-full max-w-md">
+    <AuthShell>
+      <div>
         <StepIndicator current={step} />
 
         <AnimatePresence mode="wait">
@@ -435,45 +414,42 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
+              className="space-y-6"
             >
-              <Card>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                    <KurirLogo className="h-8 w-8" />
-                  </div>
-                  <CardTitle className="text-2xl">Welcome to Kurir</CardTitle>
-                  <CardDescription>
-                    Let&apos;s set up your email in a few quick steps. First,
-                    create your admin account.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleNameSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="displayName">Your name</Label>
-                      <Input
-                        id="displayName"
-                        placeholder="Alex Smith"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        autoFocus
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        This appears in emails you send.
-                      </p>
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={!displayName.trim()}
-                    >
-                      Continue
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              <div>
+                <p className="eyebrow text-muted-foreground">Welcome</p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  Welcome to Kurir
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Let&apos;s set up your email in a few quick steps. First,
+                  create your admin account.
+                </p>
+              </div>
+              <form onSubmit={handleNameSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Your name</Label>
+                  <Input
+                    id="displayName"
+                    placeholder="Alex Smith"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoFocus
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This appears in emails you send.
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={!displayName.trim()}
+                >
+                  Continue
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </form>
             </motion.div>
           )}
 
@@ -485,77 +461,77 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
+              className="space-y-6"
             >
-              <Card>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                    <Fingerprint className="h-7 w-7 text-primary" />
-                  </div>
-                  <CardTitle className="text-2xl">
-                    Create your passkey
-                  </CardTitle>
-                  <CardDescription>
-                    Kurir uses passkeys for secure, passwordless sign-in. Your
-                    browser will prompt you to authenticate with Touch ID, Face
-                    ID, or a security key.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <AnimatePresence>
-                    {error && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
+              <div>
+                <p className="eyebrow text-muted-foreground">
+                  Secure your account
+                </p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  Create your passkey
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Kurir uses passkeys for secure, passwordless sign-in. Your
+                  browser will prompt you to authenticate with Touch ID, Face
+                  ID, or a security key.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div
+                        role="alert"
+                        className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
                       >
-                        <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                          {error}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {error}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-                  <div className="rounded-lg border bg-muted/40 p-4">
-                    <p className="text-sm text-muted-foreground">
-                      Creating admin account for{" "}
-                      <span className="font-medium text-foreground">
-                        {displayName}
-                      </span>
-                    </p>
-                  </div>
+                <p className="border-t border-border pt-4 text-sm text-muted-foreground">
+                  Creating admin account for{" "}
+                  <span className="font-medium text-foreground">
+                    {displayName}
+                  </span>
+                </p>
 
-                  <Button
-                    className="w-full"
-                    onClick={handleCreatePasskey}
-                    disabled={passkeyLoading}
-                  >
-                    {passkeyLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Creating passkey...
-                      </>
-                    ) : (
-                      <>
-                        <Fingerprint className="h-4 w-4" />
-                        Create passkey
-                      </>
-                    )}
-                  </Button>
+                <Button
+                  className="w-full"
+                  onClick={handleCreatePasskey}
+                  disabled={passkeyLoading}
+                >
+                  {passkeyLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating passkey...
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="h-4 w-4" />
+                      Create passkey
+                    </>
+                  )}
+                </Button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("welcome");
-                      setError(null);
-                    }}
-                    className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Back
-                  </button>
-                </CardContent>
-              </Card>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("welcome");
+                    setError(null);
+                  }}
+                  className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Back
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -567,35 +543,36 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
+              className="space-y-6"
             >
-              <Card>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                    <Mail className="h-7 w-7 text-primary" />
-                  </div>
-                  <CardTitle className="text-2xl">Connect your email</CardTitle>
-                  <CardDescription>
-                    Add your email account so Kurir can fetch and send mail.
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <form onSubmit={handleEmailSubmit} className="space-y-4">
-                    <AnimatePresence>
-                      {error && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                            {error}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+              <div>
+                <p className="eyebrow text-muted-foreground">Connect email</p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  Connect your email
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Add your email account so Kurir can fetch and send mail.
+                </p>
+              </div>
+              <form onSubmit={handleEmailSubmit} className="space-y-4">
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div
+                        role="alert"
+                        className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+                      >
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {error}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                     {/* Provider */}
                     <div className="space-y-2">
@@ -809,8 +786,6 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                       </>
                     )}
                   </form>
-                </CardContent>
-              </Card>
             </motion.div>
           )}
 
@@ -822,72 +797,74 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
+              className="space-y-6"
             >
-              <Card>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                    {syncStatus === "done" ? (
-                      <CheckCircle2 className="h-7 w-7 text-emerald-600" />
-                    ) : syncStatus === "error" ? (
-                      <AlertCircle className="h-7 w-7 text-destructive" />
-                    ) : (
-                      <RefreshCw className="h-7 w-7 text-primary animate-spin" />
-                    )}
-                  </div>
-                  <CardTitle className="text-2xl">
-                    {syncStatus === "done"
-                      ? "Sync complete"
-                      : syncStatus === "error"
-                        ? "Sync failed"
-                        : "Syncing your email..."}
-                  </CardTitle>
-                  <CardDescription>
-                    {syncStatus === "done"
-                      ? "Your messages are ready."
-                      : syncStatus === "error"
-                        ? "Something went wrong during the initial sync."
-                        : "Fetching your messages from the server. This may take a moment."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border bg-muted/40 p-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                      {syncMessage}
-                    </p>
-                  </div>
-
-                  {syncStatus === "error" && (
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={triggerSync}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Retry sync
-                    </Button>
+              <div>
+                <p
+                  className={cn(
+                    "eyebrow flex items-center gap-2",
+                    syncStatus === "error"
+                      ? "text-destructive"
+                      : "text-muted-foreground",
                   )}
-
-                  {syncStatus === "done" && (
-                    <Button
-                      className="w-full"
-                      onClick={() => leaveSync("done")}
-                    >
-                      Continue
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  )}
-
+                >
                   {(syncStatus === "starting" || syncStatus === "syncing") && (
-                    <button
-                      type="button"
-                      onClick={() => leaveSync("done")}
-                      className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Skip — sync in background
-                    </button>
+                    <RefreshCw className="h-3 w-3 animate-spin text-primary" />
                   )}
-                </CardContent>
-              </Card>
+                  {syncStatus === "done"
+                    ? "Sync complete"
+                    : syncStatus === "error"
+                      ? "Sync failed"
+                      : "Syncing"}
+                </p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  {syncStatus === "done"
+                    ? "Sync complete"
+                    : syncStatus === "error"
+                      ? "Sync failed"
+                      : "Syncing your email..."}
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {syncStatus === "done"
+                    ? "Your messages are ready."
+                    : syncStatus === "error"
+                      ? "Something went wrong during the initial sync."
+                      : "Fetching your messages from the server. This may take a moment."}
+                </p>
+              </div>
+              <div className="space-y-4">
+                <p className="border-t border-border pt-4 text-sm text-muted-foreground">
+                  {syncMessage}
+                </p>
+
+                {syncStatus === "error" && (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={triggerSync}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Retry sync
+                  </Button>
+                )}
+
+                {syncStatus === "done" && (
+                  <Button className="w-full" onClick={() => leaveSync("done")}>
+                    Continue
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {(syncStatus === "starting" || syncStatus === "syncing") && (
+                  <button
+                    type="button"
+                    onClick={() => leaveSync("done")}
+                    className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Skip — sync in background
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -898,31 +875,26 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring", duration: 0.4, bounce: 0.25 }}
+              className="space-y-6"
             >
-              <Card>
-                <CardHeader className="text-center pb-4">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900">
-                    <Inbox className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <CardTitle className="text-2xl">
-                    You&apos;re all set, {displayName.split(" ")[0]}!
-                  </CardTitle>
-                  <CardDescription>
-                    Your Kurir instance is ready. New messages from unknown
-                    senders will appear in your Screener for you to approve.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full" size="lg" onClick={handleFinish}>
-                    <Inbox className="h-4 w-4" />
-                    Go to your Imbox
-                  </Button>
-                </CardContent>
-              </Card>
+              <div>
+                <p className="eyebrow text-primary">All set</p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  You&apos;re all set, {displayName.split(" ")[0]}!
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Your Kurir instance is ready. New messages from unknown
+                  senders will appear in your Screener for you to approve.
+                </p>
+              </div>
+              <Button className="w-full" size="lg" onClick={handleFinish}>
+                <Inbox className="h-4 w-4" />
+                Go to your Imbox
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </AuthShell>
   );
 }

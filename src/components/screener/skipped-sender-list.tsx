@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { approveSender, rejectSender, unskipSender } from "@/actions/senders";
-import {
-  Inbox,
-  Newspaper,
-  Receipt,
-  X,
-  Undo2,
-  Loader2,
-  Clock,
-  Check,
-} from "lucide-react";
+import { X, Undo2, Loader2, Clock, Check } from "lucide-react";
 
 import type { SenderCategory } from "@prisma/client";
 
@@ -28,9 +19,9 @@ interface SkippedSender {
 }
 
 const CATEGORY_CONFIG = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
-  FEED: { label: "The Feed", icon: Newspaper, color: "text-feed" },
-  PAPER_TRAIL: { label: "Paper Trail", icon: Receipt, color: "text-paper-trail" },
+  IMBOX: { label: "Imbox", dot: "bg-imbox" },
+  FEED: { label: "The Feed", dot: "bg-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
 } as const;
 
 function formatTimeRemaining(until: Date | null): string {
@@ -81,11 +72,11 @@ export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
   };
 
   return (
-    <div className="border-t">
-      <div className="px-6 py-4">
-        <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+    <div className="border-t border-border">
+      <div className="px-4 py-4 md:px-6">
+        <h2 className="eyebrow flex items-center gap-2 text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
-          Skipped ({senders.length})
+          Skipped <span className="tabular-nums">({senders.length})</span>
         </h2>
       </div>
 
@@ -94,15 +85,18 @@ export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
         const isExpanded = expandedId === sender.id;
 
         return (
-          <div key={sender.id} className="border-b">
-            <div className="flex items-center gap-3 px-6 py-3">
+          <div key={sender.id} className="border-b border-border">
+            <div className="flex items-center gap-3 px-4 py-3.5 md:px-6">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">
+                <div className="truncate font-medium text-foreground">
                   {sender.displayName || sender.email}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {sender.email} &middot; {sender._count.messages} email(s)
-                  &middot;{" "}
+                <div className="truncate text-sm text-muted-foreground">
+                  {sender.email} &middot;{" "}
+                  <span className="tabular-nums">
+                    {sender._count.messages}
+                  </span>{" "}
+                  email(s) &middot;{" "}
                   <span className="text-muted-foreground/70">
                     returns in {formatTimeRemaining(sender.skippedUntil)}
                   </span>
@@ -137,7 +131,7 @@ export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
                     }
                     disabled={isPending}
                     title="Screen In"
-                    className="rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:text-green-600 hover:bg-green-50"
+                    className="rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:bg-primary/10 hover:text-primary"
                   >
                     <Check className="h-4 w-4" />
                   </button>
@@ -146,21 +140,20 @@ export function SkippedSenderList({ senders }: { senders: SkippedSender[] }) {
             </div>
 
             {isExpanded && (
-              <div className="flex gap-2 px-6 pb-3">
+              <div className="flex flex-wrap gap-1 px-4 pb-3 md:px-6">
                 {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                   const c = CATEGORY_CONFIG[cat];
-                  const CatIcon = c.icon;
                   return (
                     <button
                       key={cat}
                       onClick={() => handleApprove(sender.id, cat)}
                       disabled={isPending}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted",
-                        c.color,
-                      )}
+                      className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted/50"
                     >
-                      <CatIcon className="h-3.5 w-3.5" />
+                      <span
+                        className={cn("size-2 shrink-0 rounded-full", c.dot)}
+                        aria-hidden="true"
+                      />
                       {c.label}
                     </button>
                   );

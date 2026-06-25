@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2, Loader2, Eraser } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { wipeAllData, wipeMailData } from "@/actions/wipe";
 
 function ConfirmButton({
@@ -43,7 +44,15 @@ function ConfirmButton({
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="destructive" onClick={handleClick} disabled={isPending}>
+      <Button
+        variant={step === "confirm" ? "destructive" : "outline"}
+        onClick={handleClick}
+        disabled={isPending}
+        className={cn(
+          step !== "confirm" &&
+            "border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive",
+        )}
+      >
         {isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (

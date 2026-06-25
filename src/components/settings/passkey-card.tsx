@@ -3,14 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
-import {
-  Fingerprint,
-  Trash2,
-  Loader2,
-  Monitor,
-  Smartphone,
-  Pencil,
-} from "lucide-react";
+import { Trash2, Loader2, Monitor, Smartphone, Pencil } from "lucide-react";
 
 export interface PasskeyInfo {
   id: string;
@@ -82,10 +75,6 @@ export function PasskeyCard({
   return (
     <div className="rounded-lg border bg-card">
       <div className="flex items-center gap-3 p-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <Fingerprint className="h-4 w-4 text-primary" />
-        </div>
-
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <DeviceIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -121,7 +110,7 @@ export function PasskeyCard({
               </button>
             )}
             {passkey.backedUp && (
-              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <span className="eyebrow text-emerald-600 dark:text-emerald-400">
                 Synced
               </span>
             )}

@@ -106,9 +106,7 @@ export async function SearchResults({
       {/* Contact results */}
       {contacts.length > 0 && (
         <div className="border-b px-4 py-3 md:px-6">
-          <h3 className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Contacts
-          </h3>
+          <h3 className="eyebrow mb-1 text-muted-foreground">Contacts</h3>
           <div>
             {contacts.map((contact) => (
               <ContactResultRow key={contact.id} contact={contact} />
@@ -122,9 +120,7 @@ export async function SearchResults({
         <div>
           {contacts.length > 0 && (
             <div className="px-4 pb-1 pt-3 md:px-6">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Messages
-              </h3>
+              <h3 className="eyebrow text-muted-foreground">Messages</h3>
             </div>
           )}
           <MessageList

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
 import { Bell } from "lucide-react";
@@ -23,11 +24,11 @@ export default async function FollowUpPage({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Follow Up</h1>
-        <SearchInput />
-      </div>
+      <PageMasthead
+        eyebrow="Triage"
+        title="Follow Up"
+        actions={<SearchInput />}
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-auto">

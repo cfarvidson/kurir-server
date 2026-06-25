@@ -3,7 +3,7 @@ export function KurirLogo({ className }: { className?: string }) {
     <img
       src="/logo.png"
       alt="Kurir"
-      className={`rounded-xl ${className ?? ""}`}
+      className={`rounded-lg ${className ?? ""}`}
       draggable={false}
     />
   );

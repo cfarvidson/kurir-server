@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Reply } from "lucide-react";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { getMessages } from "@/lib/mail/messages";
 import { collapseToThreads } from "@/lib/mail/threads";
 import {
@@ -29,13 +29,7 @@ export default async function ReplyLaterPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight md:text-title">
-          <Reply className="h-5 w-5 text-muted-foreground" />
-          Reply Later
-        </h1>
-      </div>
+      <PageMasthead eyebrow="Later" title="Reply Later" />
 
       {/* Focus stack */}
       <div className="flex-1 overflow-auto">

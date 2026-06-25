@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
 import { SearchInput } from "@/components/mail/search-input";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import { searchMessages } from "@/lib/mail/search";
 import {
   searchContacts,
@@ -152,9 +153,7 @@ export default async function SentPage({
   if (!sentFolder) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-          <h1 className="text-xl font-semibold tracking-tight md:text-title">Sent</h1>
-        </div>
+        <PageMasthead eyebrow="Outbound" title="Sent" />
         <div className="flex-1 overflow-auto">
           <EmptyState
             icon={<Send />}
@@ -203,10 +202,11 @@ export default async function SentPage({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Sent</h1>
-        <SearchInput />
-      </div>
+      <PageMasthead
+        eyebrow="Outbound"
+        title="Sent"
+        actions={<SearchInput />}
+      />
 
       <div className="flex-1 overflow-auto">
         {/* Contact results when searching */}

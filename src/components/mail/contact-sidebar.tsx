@@ -61,7 +61,7 @@ export async function ContactSidebar({
               currentCategory={context.sender.category}
             />
           ) : context.sender?.status === "PENDING" ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            <span className="eyebrow text-muted-foreground">
               Awaiting decision
             </span>
           ) : null}
@@ -95,9 +95,7 @@ export async function ContactSidebar({
         {/* Recent threads */}
         {context.recentThreads.length > 0 && (
           <div className="mt-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Recent threads
-            </p>
+            <p className="eyebrow mb-2 text-muted-foreground">Recent threads</p>
             <div className="space-y-1">
               {context.recentThreads.map((thread) => {
                 const route = getThreadRoute(thread);
@@ -113,8 +111,8 @@ export async function ContactSidebar({
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span>{timeAgo(thread.receivedAt)}</span>
                       {thread.threadCount > 1 && (
-                        <span className="rounded bg-muted px-1">
-                          {thread.threadCount}
+                        <span className="font-mono tabular-nums">
+                          ·{thread.threadCount}
                         </span>
                       )}
                     </div>

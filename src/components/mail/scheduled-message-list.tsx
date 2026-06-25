@@ -110,12 +110,10 @@ function ScheduledMessageRow({
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">To: {message.to}</span>
           {message.status === "FAILED" && (
-            <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
-              Failed
-            </span>
+            <span className="eyebrow shrink-0 text-destructive">Failed</span>
           )}
           {message.status === "PENDING" && (
-            <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+            <span className="eyebrow shrink-0 text-blue-600 dark:text-blue-400">
               Pending
             </span>
           )}

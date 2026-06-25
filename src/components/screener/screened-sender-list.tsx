@@ -9,7 +9,7 @@ import {
   rejectSender,
   changeSenderCategory,
 } from "@/actions/senders";
-import { Inbox, Newspaper, Receipt, X, Loader2 } from "lucide-react";
+import { X, Loader2, Check } from "lucide-react";
 
 import type { SenderStatus, SenderCategory } from "@prisma/client";
 
@@ -25,9 +25,9 @@ interface ScreenedSender {
 }
 
 const CATEGORY_CONFIG = {
-  IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
-  FEED: { label: "The Feed", icon: Newspaper, color: "text-feed" },
-  PAPER_TRAIL: { label: "Paper Trail", icon: Receipt, color: "text-paper-trail" },
+  IMBOX: { label: "Imbox", dot: "bg-imbox" },
+  FEED: { label: "The Feed", dot: "bg-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
 } as const;
 
 export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
@@ -73,46 +73,46 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
   const rejected = senders.filter((s) => s.status === "REJECTED");
 
   return (
-    <div className="border-t">
-      <div className="px-6 py-4">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          Previously Screened
-        </h2>
+    <div className="border-t border-border">
+      <div className="px-4 py-4 md:px-6">
+        <h2 className="eyebrow text-muted-foreground">Previously Screened</h2>
       </div>
 
       {approved.length > 0 && (
         <section>
-          <div className="bg-muted/30 px-6 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Approved ({approved.length})
+          <div className="px-4 py-2 md:px-6">
+            <span className="eyebrow text-muted-foreground/70">
+              Approved{" "}
+              <span className="tabular-nums">({approved.length})</span>
             </span>
           </div>
           {approved.map((sender) => {
             const isProcessing = processingId === sender.id;
-            const config = CATEGORY_CONFIG[sender.category ?? "IMBOX"];
-            const Icon = config.icon;
 
             return (
               <div
                 key={sender.id}
-                className="flex items-center gap-3 border-b px-6 py-3"
+                className="flex items-center gap-3 border-b border-border px-4 py-3.5 md:px-6"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
+                  <div className="truncate font-medium text-foreground">
                     {sender.displayName || sender.email}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {sender.email} &middot; {sender._count.messages} email(s)
+                  <div className="truncate text-sm text-muted-foreground">
+                    {sender.email} &middot;{" "}
+                    <span className="tabular-nums">
+                      {sender._count.messages}
+                    </span>{" "}
+                    email(s)
                   </div>
                 </div>
 
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                       const c = CATEGORY_CONFIG[cat];
-                      const CatIcon = c.icon;
                       const isActive = sender.category === cat;
                       return (
                         <button
@@ -120,14 +120,28 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                           onClick={() => handleChangeCategory(sender.id, cat)}
                           disabled={isPending}
                           title={c.label}
+                          aria-pressed={isActive}
                           className={cn(
-                            "rounded-md p-1.5 transition-colors",
+                            "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors",
                             isActive
-                              ? `${c.color} bg-muted`
-                              : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50",
+                              ? "text-primary"
+                              : "text-muted-foreground/50 hover:bg-muted/50 hover:text-foreground",
                           )}
                         >
-                          <CatIcon className="h-4 w-4" />
+                          <span
+                            className={cn(
+                              "size-2 shrink-0 rounded-full",
+                              c.dot,
+                            )}
+                            aria-hidden="true"
+                          />
+                          <span className="hidden sm:inline">{c.label}</span>
+                          {isActive && (
+                            <Check
+                              className="h-3 w-3 text-primary"
+                              aria-hidden="true"
+                            />
+                          )}
                         </button>
                       );
                     })}
@@ -135,7 +149,7 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
                       onClick={() => handleReject(sender.id)}
                       disabled={isPending}
                       title="Reject"
-                      className="ml-1 rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:text-destructive hover:bg-destructive/10"
+                      className="ml-1 rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -149,9 +163,10 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
 
       {rejected.length > 0 && (
         <section>
-          <div className="bg-muted/30 px-6 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Rejected ({rejected.length})
+          <div className="px-4 py-2 md:px-6">
+            <span className="eyebrow text-muted-foreground/70">
+              Rejected{" "}
+              <span className="tabular-nums">({rejected.length})</span>
             </span>
           </div>
           {rejected.map((sender) => {
@@ -160,33 +175,43 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
             return (
               <div
                 key={sender.id}
-                className="flex items-center gap-3 border-b px-6 py-3 opacity-60"
+                className="flex items-center gap-3 border-b border-border px-4 py-3.5 opacity-60 md:px-6"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
+                  <div className="truncate font-medium text-foreground">
                     {sender.displayName || sender.email}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {sender.email} &middot; {sender._count.messages} email(s)
+                  <div className="truncate text-sm text-muted-foreground">
+                    {sender.email} &middot;{" "}
+                    <span className="tabular-nums">
+                      {sender._count.messages}
+                    </span>{" "}
+                    email(s)
                   </div>
                 </div>
 
                 {isProcessing ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                       const c = CATEGORY_CONFIG[cat];
-                      const CatIcon = c.icon;
                       return (
                         <button
                           key={cat}
                           onClick={() => handleApprove(sender.id, cat)}
                           disabled={isPending}
                           title={`Approve to ${c.label}`}
-                          className="rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground hover:bg-muted/50"
+                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground/50 transition-colors hover:bg-muted/50 hover:text-foreground"
                         >
-                          <CatIcon className="h-4 w-4" />
+                          <span
+                            className={cn(
+                              "size-2 shrink-0 rounded-full",
+                              c.dot,
+                            )}
+                            aria-hidden="true"
+                          />
+                          <span className="hidden sm:inline">{c.label}</span>
                         </button>
                       );
                     })}

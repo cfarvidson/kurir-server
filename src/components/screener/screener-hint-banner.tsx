@@ -47,20 +47,23 @@ export function ScreenerHintBanner() {
           transition={{ duration: 0.2 }}
           className="hidden overflow-hidden md:block"
         >
-          <div className="flex items-center gap-3 border-b bg-primary/5 px-4 py-2.5 text-sm md:px-6">
-            <Keyboard
-              className="h-4 w-4 shrink-0 text-primary"
+          <div className="flex items-center gap-4 border-b border-border px-4 py-3 md:px-6">
+            <span
+              className="eyebrow flex shrink-0 items-center gap-1.5 text-muted-foreground"
               aria-hidden="true"
-            />
-            <span className="flex-1 text-muted-foreground">
-              Use keys: <InlineKey>Y</InlineKey> screen in &middot;{" "}
+            >
+              <Keyboard className="h-3.5 w-3.5" />
+              Shortcuts
+            </span>
+            <span className="flex-1 text-sm text-muted-foreground">
+              <InlineKey>Y</InlineKey> screen in &middot;{" "}
               <InlineKey>N</InlineKey> screen out &middot;{" "}
               <InlineKey>H</InlineKey> skip &middot;{" "}
               <InlineKey>Space</InlineKey> preview
             </span>
             <button
               onClick={dismiss}
-              className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="shrink-0 rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Dismiss keyboard hint"
             >
               <X className="h-4 w-4" />

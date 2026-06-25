@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { PageMasthead } from "@/components/layout/page-masthead";
 import {
   ScheduledMessageList,
   type ScheduledMessageItem,
@@ -62,10 +63,7 @@ export default async function ScheduledPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight md:text-title">Scheduled</h1>
-      </div>
+      <PageMasthead eyebrow="Outbound" title="Scheduled" />
 
       {/* Content */}
       <div className="flex-1 overflow-auto">

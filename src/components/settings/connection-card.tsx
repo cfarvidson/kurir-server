@@ -215,27 +215,20 @@ export function ConnectionCard({
     <article
       aria-label={`Email connection: ${connection.email}`}
       className={cn(
-        "rounded-lg border bg-card transition-shadow",
-        connection.isDefault && "ring-1 ring-primary/20",
+        "rounded-lg border bg-card",
+        connection.isDefault && "border-primary/40",
       )}
     >
       {/* Header row */}
       <div className="flex items-start gap-3 p-4">
-        {/* Email avatar */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <Mail className="h-4 w-4 text-primary" />
-        </div>
-
         {/* Connection info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <p className="text-sm font-medium truncate">
               {connection.displayName || connection.email}
             </p>
             {connection.isDefault && (
-              <span className="inline-flex items-center rounded-full border border-primary/30 px-2 py-0.5 text-xs font-medium text-primary/80">
-                Default
-              </span>
+              <span className="eyebrow text-primary">Default</span>
             )}
           </div>
           {connection.displayName && (
@@ -406,9 +399,7 @@ export function ConnectionCard({
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           {connection.oauthProvider ? (
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                OAuth
-              </span>
+              <span className="eyebrow text-primary">OAuth</span>
               {connection.oauthProvider === "microsoft"
                 ? "Microsoft"
                 : "Google"}

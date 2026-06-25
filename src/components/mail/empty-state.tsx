@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
  */
 export function EmptyState({
   icon,
+  eyebrow,
   title,
   description,
   className,
 }: {
   icon?: React.ReactNode;
+  /** Optional small-caps kicker above the headline, matching PageMasthead. */
+  eyebrow?: string;
   title: string;
   description?: React.ReactNode;
   className?: string;
@@ -31,6 +34,9 @@ export function EmptyState({
         >
           {icon}
         </div>
+      )}
+      {eyebrow && (
+        <p className="eyebrow mb-2 text-muted-foreground/70">{eyebrow}</p>
       )}
       <h2 className="font-serif text-title text-foreground">{title}</h2>
       {description && (

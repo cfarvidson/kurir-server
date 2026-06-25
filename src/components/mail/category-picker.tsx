@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Inbox, Newspaper, Receipt, X, Check } from "lucide-react";
+import { X, Check, ChevronDown } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -15,24 +15,9 @@ import { cn } from "@/lib/utils";
 import type { SenderCategory } from "@prisma/client";
 
 const CATEGORY_CONFIG = {
-  IMBOX: {
-    label: "Imbox",
-    icon: Inbox,
-    color: "text-imbox bg-imbox/10",
-    iconColor: "text-imbox",
-  },
-  FEED: {
-    label: "Feed",
-    icon: Newspaper,
-    color: "text-feed bg-feed/10",
-    iconColor: "text-feed",
-  },
-  PAPER_TRAIL: {
-    label: "Paper Trail",
-    icon: Receipt,
-    color: "text-paper-trail bg-paper-trail/10",
-    iconColor: "text-paper-trail",
-  },
+  IMBOX: { label: "Imbox", dot: "bg-imbox" },
+  FEED: { label: "Feed", dot: "bg-feed" },
+  PAPER_TRAIL: { label: "Paper Trail", dot: "bg-paper-trail" },
 } as const;
 
 interface CategoryPickerProps {
@@ -64,7 +49,6 @@ export function CategoryPicker({
   }, [currentCategory]);
 
   const current = CATEGORY_CONFIG[optimisticCategory];
-  const CurrentIcon = current.icon;
 
   // Reconcile lists/counts in the background without blocking the click.
   const reconcile = () => {
@@ -107,45 +91,50 @@ export function CategoryPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className={cn(
-            "inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80",
-            current.color,
-          )}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
-          <CurrentIcon className="h-3 w-3" />
+          <span
+            className={cn("size-2 shrink-0 rounded-full", current.dot)}
+            aria-hidden="true"
+          />
           {current.label}
+          <ChevronDown className="h-3 w-3 opacity-50" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-48 p-0">
         <div className="py-1">
           {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
             const config = CATEGORY_CONFIG[cat];
-            const Icon = config.icon;
             const isActive = cat === optimisticCategory;
             return (
               <button
                 key={cat}
                 onClick={() => handleSelect(cat)}
                 className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-                  isActive ? "bg-muted font-medium" : "hover:bg-muted/50",
+                  "flex w-full items-center gap-2.5 px-3 py-1.5 text-sm transition-colors",
+                  isActive
+                    ? "font-medium text-primary"
+                    : "text-foreground hover:bg-muted/50",
                 )}
               >
-                <Icon className={cn("h-3.5 w-3.5", config.iconColor)} />
+                <span
+                  className={cn("size-2 shrink-0 rounded-full", config.dot)}
+                  aria-hidden="true"
+                />
                 <span>{config.label}</span>
                 <Check
                   className={cn(
-                    "ml-auto h-3 w-3",
+                    "ml-auto h-3.5 w-3.5 text-primary",
                     isActive ? "opacity-100" : "opacity-0",
                   )}
                 />
               </button>
             );
           })}
-          <div className="my-1 border-t" />
+          <div className="my-1 border-t border-border" />
           <button
             onClick={handleReject}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
           >
             <X className="h-3.5 w-3.5" />
             <span>Block sender</span>

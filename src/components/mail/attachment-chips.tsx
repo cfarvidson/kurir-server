@@ -1,6 +1,7 @@
 "use client";
 
 import { Paperclip, Loader2, X, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { UploadedAttachment } from "@/hooks/use-attachments";
 
 function formatSize(bytes: number): string {
@@ -32,21 +33,20 @@ export function AttachmentChips({
       {visible.map((attachment) => (
         <div
           key={attachment.id}
-          className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
-            attachment.status === "error"
-              ? "border-destructive/40 bg-destructive/5 text-destructive"
-              : "border-border bg-muted/30 text-foreground"
-          }`}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border border-border bg-transparent px-2 py-1 text-xs",
+            attachment.status === "error" && "border-destructive/30 text-destructive",
+          )}
         >
           {attachment.status === "uploading" ? (
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
           ) : attachment.status === "error" ? (
-            <AlertCircle className="h-3 w-3" />
+            <AlertCircle className="h-3 w-3 text-destructive" />
           ) : (
             <Paperclip className="h-3 w-3 text-muted-foreground" />
           )}
           <span className="max-w-[150px] truncate">{attachment.filename}</span>
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground tabular-nums">
             {formatSize(attachment.size)}
           </span>
           <button

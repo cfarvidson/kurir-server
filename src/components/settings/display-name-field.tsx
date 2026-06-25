@@ -31,7 +31,7 @@ export function DisplayNameField({
 
   if (!editing) {
     return (
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between gap-4 py-3.5">
         <dt className="text-sm text-muted-foreground">Display name</dt>
         <dd className="flex items-center gap-2">
           <span className="text-sm font-medium">
@@ -51,7 +51,7 @@ export function DisplayNameField({
   }
 
   return (
-    <div className="flex justify-between items-center gap-2">
+    <div className="flex items-center justify-between gap-4 py-3.5">
       <dt className="text-sm text-muted-foreground">Display name</dt>
       <dd className="flex items-center gap-1.5">
         <Input

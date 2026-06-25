@@ -197,8 +197,8 @@ export function SchedulePicker({
       >
         {!showCustom ? (
           <div className="py-1">
-            <div className="px-3 py-2">
-              <p className="text-sm font-medium">Schedule send...</p>
+            <div className="px-3 pb-2 pt-2.5">
+              <p className="eyebrow text-muted-foreground">Schedule send</p>
             </div>
             {options.map((option) => {
               const Icon = option.icon;
@@ -222,7 +222,7 @@ export function SchedulePicker({
                 </button>
               );
             })}
-            <div className="border-t" />
+            <div className="border-t border-border" />
             <button
               onClick={() => setShowCustom(true)}
               disabled={isPending}
@@ -234,7 +234,9 @@ export function SchedulePicker({
           </div>
         ) : (
           <div className="p-3">
-            <p className="mb-3 text-sm font-medium">Pick date &amp; time</p>
+            <p className="mb-3 eyebrow text-muted-foreground">
+              Pick date &amp; time
+            </p>
             <div className="space-y-2">
               <div className="relative">
                 <input
@@ -243,7 +245,7 @@ export function SchedulePicker({
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
                   min={todayStr}
-                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-sm tabular-nums focus:outline-hidden focus:ring-1 focus:ring-ring [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0"
                   onClick={() => dateInputRef.current?.showPicker?.()}
                 />
               </div>
@@ -251,13 +253,13 @@ export function SchedulePicker({
                 type="time"
                 value={customTime}
                 onChange={(e) => setCustomTime(e.target.value)}
-                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring"
+                className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-sm tabular-nums focus:outline-hidden focus:ring-1 focus:ring-ring"
               />
             </div>
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => setShowCustom(false)}
-                className="flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+                className="flex-1 rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted"
               >
                 Back
               </button>

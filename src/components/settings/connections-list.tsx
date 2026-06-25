@@ -63,9 +63,7 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
     return (
       <div className="rounded-lg border border-dashed bg-card">
         <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-            <Mail className="h-5 w-5 text-muted-foreground" />
-          </div>
+          <Mail className="h-5 w-5 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium">
             No email accounts connected
           </p>

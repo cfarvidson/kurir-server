@@ -223,7 +223,7 @@ export function MobileTabBar({
                 <div className="relative">
                   <tab.icon className="h-5 w-5" />
                   {showBadge && (
-                    <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    <span className="absolute -right-2 -top-1.5 text-[9px] font-medium tabular-nums text-primary">
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
@@ -263,7 +263,7 @@ export function MobileTabBar({
       {sheetOpen && (
         <div
           ref={sheetRef}
-          className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl"
+          className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-card shadow-overlay"
           style={{
             transform: "translateY(0)",
             transition: TRANSITION,
@@ -297,9 +297,9 @@ export function MobileTabBar({
                   href={item.href}
                   onClick={closeSheet}
                   className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
+                    "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
                     isActive
-                      ? "bg-primary/10 font-medium text-primary"
+                      ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
                       : "text-foreground active:bg-muted",
                   )}
                 >
@@ -308,10 +308,10 @@ export function MobileTabBar({
                   {showBadge && (
                     <span
                       className={cn(
-                        "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+                        "text-xs font-medium tabular-nums",
                         item.badgeKey === "followUp"
-                          ? "bg-amber-500 text-white dark:bg-amber-600"
-                          : "bg-primary text-primary-foreground",
+                          ? "text-amber-600 dark:text-amber-500"
+                          : "text-primary",
                       )}
                     >
                       {count > 99 ? "99+" : count}
@@ -329,9 +329,9 @@ export function MobileTabBar({
               href="/settings"
               onClick={closeSheet}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
+                "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
                 pathname === "/settings"
-                  ? "bg-primary/10 font-medium text-primary"
+                  ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
                   : "text-foreground active:bg-muted",
               )}
             >
@@ -343,7 +343,7 @@ export function MobileTabBar({
                 closeSheet();
                 window.dispatchEvent(new CustomEvent("open-command-palette"));
               }}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
+              className="flex w-full items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal text-foreground transition-colors active:bg-muted"
             >
               <Command className="h-5 w-5 text-muted-foreground" />
               Commands
@@ -353,9 +353,9 @@ export function MobileTabBar({
                 href="/admin"
                 onClick={closeSheet}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal transition-colors",
+                  "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
                   pathname.startsWith("/admin")
-                    ? "bg-primary/10 font-medium text-primary"
+                    ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
                     : "text-foreground active:bg-muted",
                 )}
               >
@@ -368,7 +368,7 @@ export function MobileTabBar({
                 closeSheet();
                 signOut({ callbackUrl: "/login" });
               }}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-normal text-foreground transition-colors active:bg-muted"
+              className="flex w-full items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal text-foreground transition-colors active:bg-muted"
             >
               <LogOut className="h-5 w-5 text-muted-foreground" />
               Sign out

@@ -109,7 +109,7 @@ export function FromPicker({
             aria-label="Select sender"
             className={cn(
               "absolute left-0 top-full z-50 mt-1",
-              "min-w-[260px] overflow-hidden rounded-lg border bg-popover shadow-lg",
+              "min-w-[260px] overflow-hidden rounded-lg border border-border bg-popover shadow-overlay",
             )}
           >
             <div className="py-1">

@@ -176,7 +176,7 @@ export function AttachmentViewer({
         aria-describedby={undefined}
         className="flex h-[88vh] w-[96vw] max-w-4xl flex-col gap-0 overflow-hidden p-0"
       >
-        <div className="flex items-center gap-2 border-b px-4 py-3 pr-12">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
           <DialogTitle className="min-w-0 flex-1 truncate text-sm font-medium">
             {attachment.filename}
           </DialogTitle>
