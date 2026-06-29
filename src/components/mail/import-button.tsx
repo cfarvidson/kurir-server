@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, RotateCcw } from "lucide-react";
 
@@ -32,7 +33,7 @@ export function ImportButton({ mode = "import" }: ImportButtonProps) {
           } catch {
             // Ignore JSON parse errors
           }
-          window.alert(message);
+          toast.error(message);
           return;
         }
         setTriggered(true);
