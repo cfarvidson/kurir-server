@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Clock, Bell, CornerDownLeft } from "lucide-react";
+import { toast } from "sonner";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
@@ -60,6 +61,20 @@ export function MobileThreadActions({
     });
   };
 
+  const handleFollowUp = (until: Date) => {
+    // Fire-and-forget + toast so the action bar gives instant feedback instead
+    // of locking behind the server round-trip (matches the other actions in
+    // this bar, which are already optimistic). Following up keeps the message
+    // on the thread, so there is no navigation — just refresh on settle.
+    const diffDays = Math.ceil(
+      (until.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+    );
+    toast.success(
+      `Following up ${diffDays === 1 ? "tomorrow" : `in ${diffDays} days`}`,
+    );
+    setFollowUp(messageId, until).then(() => router.refresh());
+  };
+
   const scrollToReply = () => {
     // Scroll to reply composer and focus it
     const replyButton = document.querySelector<HTMLButtonElement>(
@@ -87,10 +102,7 @@ export function MobileThreadActions({
 
         {showFollowUp && (
           <FollowUpPicker
-            onFollowUp={async (until) => {
-              await setFollowUp(messageId, until);
-              router.refresh();
-            }}
+            onFollowUp={handleFollowUp}
             align="center"
             side="top"
             trigger={

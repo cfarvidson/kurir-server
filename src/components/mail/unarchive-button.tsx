@@ -4,23 +4,34 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArchiveRestore } from "lucide-react";
 import { unarchiveConversation } from "@/actions/archive";
+import { performOptimisticUnarchive } from "@/lib/mail/optimistic-archive";
 
 interface UnarchiveButtonProps {
   messageId: string;
   returnPath?: string;
+  threadKey?: string;
 }
 
 export function UnarchiveButton({
   messageId,
   returnPath = "/archive",
+  threadKey,
 }: UnarchiveButtonProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleUnarchive = async () => {
-    await unarchiveConversation(messageId);
-    queryClient.removeQueries({ queryKey: ["messages"] });
-    router.push(returnPath);
+  const handleUnarchive = () => {
+    // Navigate-then-fire so the button never looks frozen behind the server
+    // round-trip. The shared pending store suppresses the row in the archive
+    // list until the action settles, so there is no flash-back.
+    void performOptimisticUnarchive({
+      messageId,
+      threadKey,
+      returnPath,
+      queryClient,
+      router,
+      unarchiveConversation,
+    });
   };
 
   return (
