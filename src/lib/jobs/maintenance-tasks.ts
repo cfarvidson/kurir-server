@@ -4,7 +4,7 @@ import { getUserEmails } from "@/lib/mail/user-emails";
 export async function checkExpiredFollowUps(userId: string): Promise<number> {
   const userEmails = await getUserEmails(userId);
 
-  const result: { count: number }[] = await db.$queryRawUnsafe(
+  const count = await db.$executeRawUnsafe(
     `
     WITH expired AS (
       SELECT DISTINCT "threadId", "followUpSetAt"
@@ -37,7 +37,7 @@ export async function checkExpiredFollowUps(userId: string): Promise<number> {
     userEmails,
   );
 
-  return result.length > 0 && "count" in result[0] ? result[0].count : 0;
+  return count;
 }
 
 export async function wakeExpiredSnoozes(userId: string): Promise<number> {

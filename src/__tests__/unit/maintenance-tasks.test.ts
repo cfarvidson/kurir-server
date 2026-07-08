@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({
   db: {
     message: { updateMany: vi.fn() },
+    emailConnection: { findMany: vi.fn() },
+    $executeRawUnsafe: vi.fn(),
   },
 }));
 
@@ -35,5 +37,21 @@ describe("wakeExpiredSnoozes", () => {
     // reappear as unread ("new") when its snooze expires.
     expect(call.data).toEqual({ isSnoozed: false, snoozedUntil: null });
     expect(call.data).not.toHaveProperty("isRead");
+  });
+});
+
+describe("checkExpiredFollowUps", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns the affected-row count from $executeRawUnsafe", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.$executeRawUnsafe).mockResolvedValue(3 as never);
+
+    const { checkExpiredFollowUps } = await import("@/lib/jobs/maintenance-tasks");
+    const count = await checkExpiredFollowUps("user-1");
+
+    expect(count).toBe(3);
+    expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(1);
   });
 });

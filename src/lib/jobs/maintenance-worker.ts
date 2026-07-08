@@ -76,7 +76,7 @@ async function processAllUsersFollowUps(): Promise<void> {
 }
 
 async function expireOldAttachments(): Promise<void> {
-  const result: { count: number }[] = await db.$queryRawUnsafe(`
+  const count = await db.$executeRawUnsafe(`
     UPDATE "Attachment"
     SET content = NULL
     WHERE content IS NOT NULL
@@ -88,7 +88,6 @@ async function expireOldAttachments(): Promise<void> {
       )
   `);
 
-  const count = result.length > 0 && "count" in result[0] ? result[0].count : 0;
   if (count > 0) {
     console.log(`[maintenance] Expired ${count} attachment contents`);
   }
