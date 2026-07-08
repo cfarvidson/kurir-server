@@ -18,13 +18,13 @@ Rejected senders are silently ignored forever.
 
 | Layer             | Technology                                               |
 | ----------------- | -------------------------------------------------------- |
-| Framework         | Next.js 15 (App Router, Turbopack)                       |
-| Language          | TypeScript 5.7, strict mode                              |
+| Framework         | Next.js 16 (App Router, Turbopack)                       |
+| Language          | TypeScript 6, strict mode                                |
 | React             | React 19                                                 |
 | Auth              | NextAuth.js v5 beta, WebAuthn/passkeys (SimpleWebAuthn)  |
-| ORM               | Prisma 6                                                 |
+| ORM               | Prisma 7                                                 |
 | Database          | PostgreSQL 16                                            |
-| IMAP              | ImapFlow 1.0.171                                         |
+| IMAP              | ImapFlow 1.3                                             |
 | SMTP              | Nodemailer                                               |
 | Email parsing     | MailParser                                               |
 | Styling           | Tailwind CSS (HSL variables), shadcn/ui components (CVA) |

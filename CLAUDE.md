@@ -1,6 +1,6 @@
 # Kurir Server
 
-Hey.com-inspired email client. Next.js 15, NextAuth v5 beta, Prisma 6, PostgreSQL 16, IMAP/SMTP via ImapFlow + nodemailer.
+Hey.com-inspired email client. Next.js 16, NextAuth v5 beta, Prisma 7, PostgreSQL 16, IMAP/SMTP via ImapFlow + nodemailer.
 
 **Building or modifying UI? Read `DESIGN.md` first** — it captures Kurir's design system (warm terracotta accent, Inter/Playfair typography, category colors, shadcn/CVA conventions, the no-avatars rule).
 
