@@ -10,6 +10,7 @@ import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
+import { badgeUpdate } from "@/components/layout/sidebar";
 import { Loader2, CheckSquare } from "lucide-react";
 
 interface PageData {
@@ -198,6 +199,57 @@ export function InfiniteMessageList({
     [queryClient, category, data],
   );
 
+  // Opening a thread marks it read server-side, but the query cache never
+  // hears about it — within staleTime the just-read row would still render
+  // bold under "New For You" when navigating back. Mirror the read state
+  // into the cache (and the tab-bar badge) at open time.
+  const handleOpened = useCallback(
+    (threadKey: string) => {
+      // Badge counts are per-message, so count every loaded unread message in
+      // the thread (best effort — unloaded pages self-heal on the next server
+      // count refresh, which also resets the client-side deltas).
+      const unreadCount = (data?.pages ?? [])
+        .flatMap((p) => p.messages)
+        .filter((m) => !m.isRead && threadKeyOf(m) === threadKey).length;
+
+      // Defer the cache write past the navigation transition: react-query
+      // notifies subscribers synchronously (urgent), so an immediate write
+      // would visibly regroup the row into "Previously Seen" under the
+      // user's finger before the thread skeleton takes over. Writing to the
+      // cache after unmount is safe — the cache outlives the component.
+      window.setTimeout(() => {
+        queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
+          ["messages", category],
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) =>
+                  !m.isRead && threadKeyOf(m) === threadKey
+                    ? { ...m, isRead: true }
+                    : m,
+                ),
+              })),
+            };
+          },
+        );
+      }, 300);
+
+      // The badge lives in the persistent layout (tab bar / sidebar), so an
+      // immediate decrement is pure feedback with no layout shift.
+      if (unreadCount > 0) {
+        const badgeKeys: Partial<
+          Record<InfiniteMessageListProps["category"], string>
+        > = { imbox: "imbox", feed: "feed", "paper-trail": "paperTrail" };
+        const badgeKey = badgeKeys[category];
+        if (badgeKey) badgeUpdate(badgeKey, -unreadCount);
+      }
+    },
+    [queryClient, category, data],
+  );
+
   // Resolve selected threadKeys to representative message IDs for the server action
   const selectedMessageIds = useMemo(() => {
     return threads
@@ -223,6 +275,7 @@ export function InfiniteMessageList({
           showSnoozedUntil={showSnoozedUntil}
           showFollowUpAction={showFollowUpAction}
           onArchived={handleArchived}
+          onOpen={() => handleOpened(threadKey)}
           isSelectionMode={isSelectionMode}
           isSelected={selectedIds.has(threadKey)}
           onToggleSelect={() => toggleSelection(threadKey)}

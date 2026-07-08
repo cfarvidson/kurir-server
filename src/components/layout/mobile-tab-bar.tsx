@@ -80,6 +80,9 @@ export function MobileTabBar({
 }: MobileTabBarProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const pathname = usePathname();
+  // Optimistic navigation target: highlight the tapped tab immediately
+  // instead of waiting for the server render to commit the new pathname.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -100,9 +103,10 @@ export function MobileTabBar({
     replyLaterCount,
   });
 
-  // Close sheet on route change
+  // Close sheet and clear the optimistic highlight on route change
   useEffect(() => {
     setSheetOpen(false);
+    setPendingHref(null);
     document.body.style.overflow = "";
   }, [pathname]);
 
@@ -189,10 +193,15 @@ export function MobileTabBar({
   const isSubPage = segments.length > 1;
   if (isSubPage) return null;
 
+  // Effective location: the optimistic target while a navigation is in
+  // flight, the committed pathname otherwise.
+  const activeHref = pendingHref ?? pathname;
+
   // Check if any "more" item is active (to highlight the More tab)
   const moreHrefs = [...moreItems.map((i) => i.href), "/settings", "/admin"];
   const isMoreActive = moreHrefs.some(
-    (href) => pathname === href || (href !== "/" && pathname.startsWith(href)),
+    (href) =>
+      activeHref === href || (href !== "/" && activeHref.startsWith(href)),
   );
 
   return (
@@ -201,7 +210,7 @@ export function MobileTabBar({
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-xs pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch">
           {tabs.map((tab) => {
-            const isActive = pathname === tab.href;
+            const isActive = activeHref === tab.href;
             const count = tab.badgeKey ? badgeCounts[tab.badgeKey] : 0;
             const prefKey = tab.badgeKey
               ? badgeKeyToPref[tab.badgeKey]
@@ -213,6 +222,7 @@ export function MobileTabBar({
               <Link
                 key={tab.href}
                 href={tab.href}
+                onClick={() => setPendingHref(tab.href)}
                 className={cn(
                   "relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
                   isActive
@@ -282,8 +292,8 @@ export function MobileTabBar({
                 return null;
 
               const isActive =
-                pathname === item.href ||
-                (item.href !== "/" && pathname.startsWith(item.href));
+                activeHref === item.href ||
+                (item.href !== "/" && activeHref.startsWith(item.href));
               const count = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
               const prefKey = item.badgeKey
                 ? badgeKeyToPref[item.badgeKey]
@@ -295,7 +305,10 @@ export function MobileTabBar({
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={closeSheet}
+                  onClick={() => {
+                    setPendingHref(item.href);
+                    closeSheet();
+                  }}
                   className={cn(
                     "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
                     isActive
@@ -327,10 +340,13 @@ export function MobileTabBar({
           <div className="px-4 py-2">
             <Link
               href="/settings"
-              onClick={closeSheet}
+              onClick={() => {
+                setPendingHref("/settings");
+                closeSheet();
+              }}
               className={cn(
                 "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
-                pathname === "/settings"
+                activeHref === "/settings"
                   ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
                   : "text-foreground active:bg-muted",
               )}
@@ -351,10 +367,13 @@ export function MobileTabBar({
             {isAdmin && (
               <Link
                 href="/admin"
-                onClick={closeSheet}
+                onClick={() => {
+                  setPendingHref("/admin");
+                  closeSheet();
+                }}
                 className={cn(
                   "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
-                  pathname.startsWith("/admin")
+                  activeHref.startsWith("/admin")
                     ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
                     : "text-foreground active:bg-muted",
                 )}
