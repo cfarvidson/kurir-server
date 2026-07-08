@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
@@ -12,6 +13,26 @@ import type { EmailConnection, ScheduledMessage } from "@prisma/client";
 
 const STALE_SENDING_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_ATTEMPTS = 5;
+
+/**
+ * Ensure the message has a stable outbound Message-ID persisted BEFORE any
+ * SMTP attempt. Reused verbatim on every retry so receiving MTAs collapse
+ * duplicate deliveries by Message-ID.
+ */
+export async function ensureOutboundMessageId(
+  msg: ScheduledMessage,
+  fromAddress: string,
+): Promise<string> {
+  if (msg.outboundMessageId) return msg.outboundMessageId;
+  const domain = fromAddress.split("@")[1] || "kurir.local";
+  const outboundMessageId = `<${randomUUID()}@${domain}>`;
+  await db.scheduledMessage.update({
+    where: { id: msg.id },
+    data: { outboundMessageId },
+  });
+  msg.outboundMessageId = outboundMessageId;
+  return outboundMessageId;
+}
 
 /** Backoff schedule in milliseconds: 1m, 5m, 15m, 1h, 4h */
 const BACKOFF_STEPS_MS = [
@@ -257,6 +278,7 @@ export async function sendScheduledEmail(
   const textBody = decrypt(msg.textBody);
   const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : undefined;
   const fromAddress = credentials.sendAsEmail || credentials.email;
+  const outboundMessageId = await ensureOutboundMessageId(msg, fromAddress);
 
   // Convert markdown to email HTML if no explicit html
   let emailHtml = htmlBody;
@@ -291,6 +313,7 @@ export async function sendScheduledEmail(
     subject: msg.subject,
     text: textBody,
     html: emailHtml,
+    messageId: outboundMessageId,
     ...(msg.inReplyToMessageId && { inReplyTo: msg.inReplyToMessageId }),
     ...(refList.length > 0 && { references: refList.join(" ") }),
     ...(loaded.nodemailerAttachments.length > 0 && {
