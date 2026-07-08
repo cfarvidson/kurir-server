@@ -27,6 +27,16 @@ vi.mock("@/lib/mail/persist-sent", () => ({
   appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+  return {
+    ...actual,
+    rateLimitSend: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 30, retryAfter: 0 }),
+  };
+});
+
 const mockSendMail = vi
   .fn()
   .mockResolvedValue({ messageId: "<sent@example.com>" });
@@ -391,5 +401,26 @@ describe("POST /api/mail/send", () => {
         fromAddress: "me@personal.com",
       }),
     );
+  });
+
+  it("returns 429 with Retry-After when the send rate limit is exceeded", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+
+    const { rateLimitSend } = await import("@/lib/rate-limit");
+    vi.mocked(rateLimitSend).mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 42,
+    });
+
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({ to: "someone@example.com" });
+    const response = await POST(req);
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("42");
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(rateLimitSend).toHaveBeenCalledWith("user-1");
   });
 });

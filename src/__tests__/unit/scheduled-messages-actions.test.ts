@@ -7,7 +7,11 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/db", () => ({
   db: {
-    scheduledMessage: { updateMany: vi.fn() },
+    scheduledMessage: {
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -15,6 +19,16 @@ vi.mock("@/lib/crypto", () => ({ encrypt: vi.fn(), decrypt: vi.fn() }));
 vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
 vi.mock("@/lib/mail/scheduled-send", () => ({ sendScheduledEmail: vi.fn() }));
 vi.mock("@/lib/mail/persist-sent", () => ({ createLocalSentMessage: vi.fn() }));
+
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+  return {
+    ...actual,
+    rateLimitSend: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 30, retryAfter: 0 }),
+  };
+});
 
 // holdScheduledMessage / restoreScheduledMessage are the atomic compare-and-set
 // gates that close the scheduled-message double-send race (issue #52). They must
@@ -144,6 +158,51 @@ describe("hold/restore scheduled message actions", () => {
         "Unauthorized",
       );
       expect(db.scheduledMessage.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("sendScheduledMessageNow", () => {
+    it("rejects and leaves the message unsent when the send rate limit is exceeded", async () => {
+      await authedUser("user-1");
+      const { db } = await import("@/lib/db");
+      vi.mocked(db.scheduledMessage.updateMany).mockResolvedValue({
+        count: 1,
+      } as never);
+      vi.mocked(db.scheduledMessage.findUnique).mockResolvedValue({
+        id: "sched-1",
+        smtpMessageId: null,
+        emailConnectionId: "conn-1",
+        emailConnection: { email: "me@example.com", sendAsEmail: null },
+      } as never);
+
+      const { rateLimitSend } = await import("@/lib/rate-limit");
+      vi.mocked(rateLimitSend).mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        retryAfter: 42,
+      });
+
+      const { sendScheduledEmail } = await import("@/lib/mail/scheduled-send");
+
+      const { sendScheduledMessageNow } = await import(
+        "@/actions/scheduled-messages"
+      );
+      await expect(sendScheduledMessageNow("sched-1")).rejects.toThrow(
+        /Too many messages/,
+      );
+
+      expect(sendScheduledEmail).not.toHaveBeenCalled();
+      // Rolled back to PENDING, not marked SENT.
+      expect(db.scheduledMessage.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PENDING" }),
+        }),
+      );
+      expect(db.scheduledMessage.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "SENT" }),
+        }),
+      );
     });
   });
 });
