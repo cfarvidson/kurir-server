@@ -22,6 +22,8 @@ export interface EmailConnectionConn {
   newMessageCheckInFlight: boolean;
   isGmail: boolean;
   lastActivity: Date;
+  /** Set before a deliberate teardown so the close handler skips auto-reconnect. */
+  intentionalClose: boolean;
 }
 
 const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 min
@@ -163,6 +165,7 @@ class ConnectionManager {
       newMessageCheckInFlight: false,
       isGmail,
       lastActivity: new Date(),
+      intentionalClose: false,
     };
 
     this.connections.set(connectionId, conn);
@@ -191,7 +194,7 @@ class ConnectionManager {
       this.reconnectAttempts.delete(connectionId);
 
       client.on("close", () => {
-        if (!this.stopping) {
+        if (!this.stopping && !conn.intentionalClose) {
           this.scheduleReconnect(connectionId);
         }
       });
@@ -242,6 +245,8 @@ class ConnectionManager {
   }
 
   private cleanupConnection(conn: EmailConnectionConn) {
+    conn.intentionalClose = true;
+
     // Clear all debounce timers
     for (const timer of conn.debounceTimers.values()) {
       clearTimeout(timer);
