@@ -121,6 +121,7 @@ export function MessageRow({
   showSnoozedUntil,
   showFollowUpAction,
   onArchived,
+  onOpen,
   isSelectionMode,
   isSelected,
   onToggleSelect,
@@ -134,6 +135,8 @@ export function MessageRow({
   showSnoozedUntil?: boolean;
   showFollowUpAction?: boolean;
   onArchived?: (messageId?: string) => void;
+  /** Fires when the row is actually being opened (navigation, not selection). */
+  onOpen?: () => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -286,7 +289,9 @@ export function MessageRow({
     if (isSelectionMode && onToggleSelect) {
       e.preventDefault();
       onToggleSelect();
+      return;
     }
+    onOpen?.();
   };
 
   const rowContent = (
