@@ -121,6 +121,14 @@ export async function rateLimitUploads(
 }
 
 /**
+ * Rate limit outbound mail sends (compose, reply, send-now).
+ * 30 per 10 minutes per user.
+ */
+export async function rateLimitSend(userId: string): Promise<RateLimitResult> {
+  return checkRateLimit(`send:${userId}`, 30, 600);
+}
+
+/**
  * Rate limit registration attempts.
  * 3 per 10 minutes per IP.
  */

@@ -9,6 +9,7 @@ import {
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
+import { rateLimitSend } from "@/lib/rate-limit";
 import { updateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
@@ -35,6 +36,13 @@ export async function replyToMessage(
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
+  }
+
+  const rl = await rateLimitSend(session.user.id);
+  if (!rl.allowed) {
+    throw new Error(
+      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+    );
   }
 
   const message = await db.message.findFirst({

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
 import { createLocalSentMessage } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
+import { rateLimitSend } from "@/lib/rate-limit";
 
 // Accept one or more comma/semicolon-separated recipients; store as a
 // normalized comma-joined string. Rejects the whole value if any is invalid.
@@ -266,6 +267,13 @@ export async function sendScheduledMessageNow(id: string) {
   if (!msg) throw new Error("Scheduled message not found");
 
   try {
+    const rl = await rateLimitSend(userId);
+    if (!rl.allowed) {
+      throw new Error(
+        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+      );
+    }
+
     // Idempotency: if already sent (has smtpMessageId), skip SMTP
     if (msg.smtpMessageId) {
       await db.scheduledMessage.update({

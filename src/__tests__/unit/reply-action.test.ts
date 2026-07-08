@@ -30,6 +30,16 @@ vi.mock("next/cache", () => ({
   updateTag: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+  return {
+    ...actual,
+    rateLimitSend: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 30, retryAfter: 0 }),
+  };
+});
+
 const mockSendMail = vi
   .fn()
   .mockResolvedValue({ messageId: "<reply@example.com>" });
@@ -206,5 +216,23 @@ describe("replyToMessage", () => {
         emailConnectionId: "conn-icloud",
       }),
     );
+  });
+
+  it("throws a rate-limit error and never sends when the send rate limit is exceeded", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+
+    const { rateLimitSend } = await import("@/lib/rate-limit");
+    vi.mocked(rateLimitSend).mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 42,
+    });
+
+    const { replyToMessage } = await import("@/actions/reply");
+    await expect(replyToMessage("msg-1", "Hello")).rejects.toThrow(
+      /Too many messages/,
+    );
+    expect(mockSendMail).not.toHaveBeenCalled();
   });
 });

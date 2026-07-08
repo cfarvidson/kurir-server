@@ -14,6 +14,7 @@ import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { findOrCreateContactForEmail } from "@/actions/contacts";
+import { rateLimitSend, tooManyRequests } from "@/lib/rate-limit";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = await rateLimitSend(session.user.id);
+  if (!rl.allowed) {
+    return tooManyRequests(rl.retryAfter);
   }
 
   let body;
