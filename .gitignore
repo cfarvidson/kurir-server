@@ -16,6 +16,7 @@ site/.astro
 .env.local
 .env.production
 .env.*.local
+*.rdb
 
 # Deployment (use .example files as templates)
 config/deploy.yml

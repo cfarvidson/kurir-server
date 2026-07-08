@@ -67,9 +67,9 @@ pnpm dev
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router, Turbopack)
+- **Framework:** Next.js 16 (App Router, Turbopack)
 - **Auth:** NextAuth.js v5 (passkeys via WebAuthn, OAuth for Gmail/Outlook)
-- **Database:** PostgreSQL 16 + Prisma 6
+- **Database:** PostgreSQL 16 + Prisma 7
 - **Email:** ImapFlow (IMAP), Nodemailer (SMTP)
 - **Search:** PostgreSQL full-text search (tsvector + GIN index)
 - **Cache:** Redis 7 (SSE push, sync jobs)
