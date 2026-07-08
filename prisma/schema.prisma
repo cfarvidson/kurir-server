@@ -491,6 +491,7 @@ model ScheduledMessage {
   nextRetryAt      DateTime? // null until first failure
   sendingStartedAt DateTime? // For stale-lock recovery (> 5min = stuck)
   smtpMessageId    String?   // Recorded after send for idempotency
+  outboundMessageId String? // RFC 5322 Message-ID, generated before first attempt; stable across retries
   error            String?   // Sanitized error message
 
   // Email content (encrypted at rest via crypto.ts)
