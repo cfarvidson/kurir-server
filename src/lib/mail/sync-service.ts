@@ -941,7 +941,11 @@ export async function syncEmailConnection(
     }
 
     const hasRemaining = results.some((r) => r.remaining > 0);
-    if (!hasRemaining) {
+    const processedMessages = results.reduce((sum, r) => sum + r.newMessages, 0);
+    // Thread relationships only change when a message was processed (created or
+    // reconciled) — a drained sync that touched nothing makes the repair a
+    // guaranteed no-op, so skip the full-table load.
+    if (!hasRemaining && processedMessages > 0) {
       await repairThreadIds(userId);
     }
 

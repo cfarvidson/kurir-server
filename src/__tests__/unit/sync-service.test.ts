@@ -159,6 +159,149 @@ describe("syncEmailConnection", () => {
   });
 });
 
+describe("thread repair gating", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const REPAIR_CALL = {
+    where: { userId: "user-1" },
+    select: { id: true, messageId: true, threadId: true, inReplyTo: true },
+  };
+
+  function mockCredentials() {
+    return {
+      email: "me@example.com",
+      sendAsEmail: null,
+      aliases: [],
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.example.com", port: 993 },
+      smtp: { host: "smtp.example.com", port: 587 },
+    };
+  }
+
+  function fakeMsg(uid: number) {
+    return {
+      uid,
+      envelope: {
+        messageId: `<msg-${uid}@example.com>`,
+        from: [{ address: "sender@example.com", name: "Sender" }],
+        to: [{ address: "me@example.com" }],
+        subject: "Test",
+        date: new Date(),
+        inReplyTo: null,
+      },
+      flags: new Set<string>(),
+      internalDate: new Date(),
+      source: Buffer.from("raw email"),
+    };
+  }
+
+  async function setupImapFlow(overrides: {
+    search: unknown;
+    messages?: ReturnType<typeof fakeMsg>[];
+  }) {
+    const { ImapFlow } = await import("imapflow");
+    const messages = overrides.messages ?? [];
+    vi.mocked(ImapFlow).mockImplementation(function () {
+      return {
+        connect: vi.fn().mockResolvedValue(undefined),
+        logout: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue([]),
+        search: vi.fn().mockResolvedValue(overrides.search),
+        status: vi.fn().mockResolvedValue({
+          messages: 0,
+          uidNext: 1,
+          uidValidity: 1n,
+          highestModseq: 1n,
+        }),
+        getMailboxLock: vi.fn().mockResolvedValue({ release: vi.fn() }),
+        fetch: vi.fn().mockImplementation(function* () {
+          yield* messages;
+        }),
+      };
+    } as any);
+  }
+
+  async function commonMocks() {
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue(
+      mockCredentials(),
+    );
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findUnique).mockResolvedValue({
+      userId: "user-1",
+    } as any);
+    vi.mocked(db.folder.findUnique).mockResolvedValue({
+      id: "folder-1",
+      uidValidity: null,
+      specialUse: "inbox",
+    } as any);
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.sender.upsert).mockResolvedValue({
+      id: "sender-1",
+      status: "PENDING",
+      category: "IMBOX",
+    } as any);
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.message.create).mockResolvedValue({ id: "msg-1" } as any);
+
+    const { simpleParser } = await import("mailparser");
+    vi.mocked(simpleParser).mockResolvedValue({
+      text: "Hello",
+      html: null,
+      attachments: [],
+      references: [],
+    } as any);
+
+    return db;
+  }
+
+  it("skips the repair when a caught-up sync processes no messages", async () => {
+    const db = await commonMocks();
+    await setupImapFlow({ search: [] });
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    const result = await syncEmailConnection("conn-1");
+
+    expect(result.success).toBe(true);
+    expect(result.results[0].newMessages).toBe(0);
+    expect(result.results[0].remaining).toBe(0);
+    expect(db.message.findMany).not.toHaveBeenCalledWith(REPAIR_CALL);
+  });
+
+  it("runs the repair when a drained sync processed one message", async () => {
+    const db = await commonMocks();
+    await setupImapFlow({ search: [5], messages: [fakeMsg(5)] });
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    const result = await syncEmailConnection("conn-1");
+
+    expect(result.success).toBe(true);
+    expect(result.results[0].newMessages).toBe(1);
+    expect(result.results[0].remaining).toBe(0);
+    expect(db.message.findMany).toHaveBeenCalledWith(REPAIR_CALL);
+  });
+
+  it("defers the repair while a backfill still has remaining messages", async () => {
+    const db = await commonMocks();
+    // Two UIDs on the server, batchSize of 1 leaves one remaining.
+    await setupImapFlow({ search: [5, 6], messages: [fakeMsg(6)] });
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    const result = await syncEmailConnection("conn-1", { batchSize: 1 });
+
+    expect(result.success).toBe(true);
+    expect(result.results[0].newMessages).toBe(1);
+    expect(result.results[0].remaining).toBe(1);
+    expect(db.message.findMany).not.toHaveBeenCalledWith(REPAIR_CALL);
+  });
+});
+
 describe("processMessage scoping", () => {
   it("stores message with emailConnectionId field", async () => {
     const { db } = await import("@/lib/db");
