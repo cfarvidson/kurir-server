@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { moveToArchiveViaImap } from "@/lib/mail/archive-imap";
-import { findOrCreateContactForEmail } from "@/actions/contacts";
+import {
+  approveSenderForUser,
+  rejectSenderForUser,
+} from "@/lib/mail/mutations";
 import { SenderCategory } from "@prisma/client";
 
 export async function approveSender(
@@ -17,50 +18,7 @@ export async function approveSender(
     throw new Error("Unauthorized");
   }
 
-  // Verify ownership
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  // Update sender status
-  await db.$transaction([
-    db.sender.update({
-      where: { id: senderId },
-      data: {
-        status: "APPROVED",
-        category,
-        decidedAt: new Date(),
-      },
-    }),
-    // Move non-archived messages from this sender to the appropriate location
-    db.message.updateMany({
-      where: { senderId, isArchived: false },
-      data: {
-        isInScreener: false,
-        isInImbox: category === "IMBOX",
-        isInFeed: category === "FEED",
-        isInPaperTrail: category === "PAPER_TRAIL",
-      },
-    }),
-  ]);
-
-  // Auto-create contact for approved sender
-  const approvedSender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { email: true, displayName: true },
-  });
-  if (approvedSender) {
-    await findOrCreateContactForEmail(
-      session.user.id,
-      approvedSender.email,
-      approvedSender.displayName,
-    );
-  }
+  await approveSenderForUser(session.user.id, senderId, category);
 
   updateTag("sidebar-counts");
   revalidatePath("/imbox");
@@ -76,61 +34,7 @@ export async function rejectSender(senderId: string) {
     throw new Error("Unauthorized");
   }
 
-  const userId = session.user.id;
-
-  // Verify ownership + get emailConnectionId for IMAP move
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true, emailConnectionId: true },
-  });
-
-  if (!sender || sender.userId !== userId) {
-    throw new Error("Sender not found");
-  }
-
-  // Fetch inbox UIDs for IMAP move (parallelize independent queries)
-  const [inboxMessages, inboxFolder] = await Promise.all([
-    db.message.findMany({
-      where: { senderId, isArchived: false, uid: { gt: 0 } },
-      select: { uid: true, folderId: true },
-    }),
-    db.folder.findFirst({
-      where: {
-        emailConnectionId: sender.emailConnectionId,
-        specialUse: "inbox",
-      },
-      select: { id: true },
-    }),
-  ]);
-
-  const inboxUids = inboxFolder
-    ? inboxMessages
-        .filter((m) => m.folderId === inboxFolder.id)
-        .map((m) => m.uid)
-    : [];
-
-  // Reject sender + archive messages (instead of limbo)
-  await db.$transaction([
-    db.sender.update({
-      where: { id: senderId },
-      data: {
-        status: "REJECTED",
-        decidedAt: new Date(),
-      },
-    }),
-    db.message.updateMany({
-      where: { senderId, isArchived: false },
-      data: {
-        isInScreener: false,
-        isInImbox: false,
-        isInFeed: false,
-        isInPaperTrail: false,
-        isArchived: true,
-        isSnoozed: false,
-        snoozedUntil: null,
-      },
-    }),
-  ]);
+  await rejectSenderForUser(session.user.id, senderId);
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");
@@ -138,33 +42,6 @@ export async function rejectSender(senderId: string) {
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
-
-  // Defer IMAP move to after response
-  if (inboxUids.length > 0 && inboxFolder) {
-    console.log(
-      `[reject] Moving ${inboxUids.length} message(s) to IMAP archive for sender ${senderId}`,
-    );
-    after(async () => {
-      console.log("[reject] after() callback fired for sender", senderId);
-      try {
-        await moveToArchiveViaImap(
-          userId,
-          sender.emailConnectionId,
-          inboxFolder.id,
-          inboxUids,
-        );
-        console.log(
-          `[reject] IMAP archive move complete for sender ${senderId}`,
-        );
-      } catch (err) {
-        console.error("IMAP archive move (reject) failed:", err);
-      }
-    });
-  } else {
-    console.log(
-      `[reject] No IMAP move needed for sender ${senderId} (${inboxUids.length} UIDs, inboxFolder=${!!inboxFolder})`,
-    );
-  }
 }
 
 export async function skipSender(senderId: string) {

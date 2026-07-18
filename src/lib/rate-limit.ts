@@ -129,6 +129,16 @@ export async function rateLimitSend(userId: string): Promise<RateLimitResult> {
 }
 
 /**
+ * Rate limit mobile login attempts (passkey options + verify + refresh).
+ * 20 per 10 minutes per IP.
+ */
+export async function rateLimitMobileLogin(
+  ip: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`mlogin:${ip}`, 20, 600);
+}
+
+/**
  * Rate limit registration attempts.
  * 3 per 10 minutes per IP.
  */

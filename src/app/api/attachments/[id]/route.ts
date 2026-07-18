@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ImapFlow } from "imapflow";
 import { getConnectionCredentials } from "@/lib/auth";
+import { getRequestUserId } from "@/lib/mobile/auth";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import {
   isSafeInlineImage,
@@ -88,8 +89,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  // Session cookie (web) or bearer token (mobile)
+  const userId = await getRequestUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -110,7 +112,7 @@ export async function GET(
     },
   });
 
-  if (!attachment || !isOwner(attachment, session.user.id)) {
+  if (!attachment || !isOwner(attachment, userId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -134,7 +136,7 @@ export async function GET(
 
   const credentials = await getConnectionCredentials(
     message.emailConnectionId,
-    session.user.id,
+    userId,
   );
   if (!credentials) {
     return NextResponse.json(

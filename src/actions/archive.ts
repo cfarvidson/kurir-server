@@ -8,45 +8,12 @@ import {
   moveToArchiveViaImap,
   moveToInboxViaImap,
 } from "@/lib/mail/archive-imap";
-
-/**
- * Find PENDING senders linked to the given messages. If all of a sender's
- * messages are now archived, auto-reject the sender so they don't
- * reappear in the Screener when new mail arrives.
- */
-async function autoRejectFullyArchivedSenders(messageIds: string[]) {
-  const affectedMessages = await db.message.findMany({
-    where: { id: { in: messageIds }, senderId: { not: null } },
-    select: { senderId: true },
-    distinct: ["senderId"],
-  });
-
-  const senderIds = affectedMessages
-    .map((m) => m.senderId)
-    .filter((id): id is string => id !== null);
-
-  if (senderIds.length === 0) return;
-
-  // Single query: find which senders still have non-archived messages
-  const sendersWithNonArchived = await db.message.findMany({
-    where: {
-      senderId: { in: senderIds },
-      isArchived: false,
-    },
-    select: { senderId: true },
-    distinct: ["senderId"],
-  });
-
-  const keepSet = new Set(sendersWithNonArchived.map((m) => m.senderId));
-  const rejectIds = senderIds.filter((id) => !keepSet.has(id));
-
-  if (rejectIds.length > 0) {
-    await db.sender.updateMany({
-      where: { id: { in: rejectIds }, status: "PENDING" },
-      data: { status: "REJECTED", decidedAt: new Date() },
-    });
-  }
-}
+import {
+  ARCHIVE_CLEAR_DATA,
+  autoRejectFullyArchivedSenders,
+  archiveThread,
+  unarchiveThread,
+} from "@/lib/mail/mutations";
 
 function categoryToPath(category: string | null | undefined): string {
   switch (category) {
@@ -59,23 +26,6 @@ function categoryToPath(category: string | null | undefined): string {
   }
 }
 
-// Flags applied when archiving a message. Clears every "placement" flag so an
-// archived thread cannot linger in Imbox/Feed/Paper Trail/Screener/Snoozed/
-// Reply Later/Follow Up. Shared by archiveConversation and archiveConversations.
-const ARCHIVE_CLEAR_DATA = {
-  isArchived: true,
-  isInImbox: false,
-  isInFeed: false,
-  isInPaperTrail: false,
-  isInScreener: false,
-  isSnoozed: false,
-  snoozedUntil: null,
-  isReplyLater: false,
-  isFollowUp: false,
-  followUpAt: null,
-  followUpSetAt: null,
-};
-
 export async function archiveConversation(
   messageId: string,
   sourcePath?: string,
@@ -83,49 +33,7 @@ export async function archiveConversation(
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: {
-      id: true,
-      threadId: true,
-      emailConnectionId: true,
-      uid: true,
-      folderId: true,
-    },
-  });
-
-  if (!message) throw new Error("Message not found");
-
-  const connectionId = message.emailConnectionId;
-
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true, uid: true, folderId: true },
-      })
-    : [{ id: message.id, uid: message.uid, folderId: message.folderId }];
-
-  const inboxFolder = await db.folder.findFirst({
-    where: { emailConnectionId: connectionId, specialUse: "inbox" },
-    select: { id: true },
-  });
-
-  const inboxMessageUids = inboxFolder
-    ? threadMessages
-        .filter((m) => m.folderId === inboxFolder.id && m.uid > 0)
-        .map((m) => m.uid)
-    : [];
-
-  // DB update + revalidation first
-  const messageIds = threadMessages.map((m) => m.id);
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: ARCHIVE_CLEAR_DATA,
-  });
-
-  await autoRejectFullyArchivedSenders(messageIds);
+  await archiveThread(session.user.id, messageId);
 
   updateTag("sidebar-counts");
   revalidatePath("/archive");
@@ -134,18 +42,6 @@ export async function archiveConversation(
   if (sourcePath) {
     const basePath = sourcePath.split("?")[0];
     revalidatePath(basePath);
-  }
-
-  // Defer IMAP to after response
-  if (inboxMessageUids.length > 0 && inboxFolder) {
-    after(() =>
-      moveToArchiveViaImap(
-        userId,
-        connectionId,
-        inboxFolder.id,
-        inboxMessageUids,
-      ).catch((err) => console.error("IMAP archive move failed:", err)),
-    );
   }
 }
 
@@ -246,82 +142,10 @@ export async function unarchiveConversation(messageId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: {
-      id: true,
-      threadId: true,
-      emailConnectionId: true,
-      uid: true,
-      folderId: true,
-      sender: { select: { category: true } },
-    },
-  });
-
-  if (!message) throw new Error("Message not found");
-
-  const connectionId = message.emailConnectionId;
-
-  const category = message.sender?.category ?? "IMBOX";
-  const categoryFlags = {
-    isInImbox: category === "IMBOX",
-    isInFeed: category === "FEED",
-    isInPaperTrail: category === "PAPER_TRAIL",
-  };
-
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true, uid: true, folderId: true },
-      })
-    : [{ id: message.id, uid: message.uid, folderId: message.folderId }];
-
-  const archiveFolder = await db.folder.findFirst({
-    where: {
-      emailConnectionId: connectionId,
-      specialUse: { in: ["archive", "all"] },
-    },
-    select: { id: true },
-  });
-
-  const archiveMessageUids = archiveFolder
-    ? threadMessages
-        .filter((m) => m.folderId === archiveFolder.id && m.uid > 0)
-        .map((m) => m.uid)
-    : [];
-
-  // DB update + revalidation first.
-  // Note: snooze and reply-later/follow-up state cleared on archive is NOT
-  // restored here — unarchive only re-derives the category placement. This is
-  // intentional and consistent with how snooze has always behaved on archive.
-  const messageIds = threadMessages.map((m) => m.id);
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      isArchived: false,
-      isInImbox: categoryFlags.isInImbox,
-      isInFeed: categoryFlags.isInFeed,
-      isInPaperTrail: categoryFlags.isInPaperTrail,
-      isInScreener: false,
-    },
-  });
+  const { category } = await unarchiveThread(session.user.id, messageId);
 
   updateTag("sidebar-counts");
   revalidatePath(categoryToPath(category));
-
-  // Defer IMAP to after response
-  if (archiveMessageUids.length > 0 && archiveFolder) {
-    after(() =>
-      moveToInboxViaImap(
-        userId,
-        connectionId,
-        archiveFolder.id,
-        archiveMessageUids,
-      ).catch((err) => console.error("IMAP unarchive move failed:", err)),
-    );
-  }
 }
 
 export async function unarchiveConversations(messageIds: string[]) {

@@ -29,8 +29,33 @@ export default auth((req) => {
   const isUpdaterCallback =
     req.nextUrl.pathname === "/api/admin/updates/status";
 
+  // Mobile API routes do their own bearer-token auth (no session cookie).
+  const isMobileApi = req.nextUrl.pathname.startsWith("/api/mobile");
+  // Existing routes that support dual auth (session OR bearer) validate the
+  // token in the handler. Only these exact paths may bypass the session
+  // check here — a blanket bearer bypass would expose any handler that
+  // relied solely on the proxy for auth.
+  const hasBearerToken = (req.headers.get("authorization") ?? "").startsWith(
+    "Bearer ",
+  );
+  const isBearerApiRequest =
+    hasBearerToken &&
+    (/^\/api\/mail\/message\/[^/]+\/body$/.test(req.nextUrl.pathname) ||
+      /^\/api\/attachments\/[^/]+$/.test(req.nextUrl.pathname));
+  // Apple App Site Association — must be publicly readable for iOS passkeys
+  const isAasa =
+    req.nextUrl.pathname === "/.well-known/apple-app-site-association";
+
   // Allow auth, setup check, health check, and updater callback routes
-  if (isAuthRoute || isSetupApi || isHealthCheck || isUpdaterCallback) {
+  if (
+    isAuthRoute ||
+    isSetupApi ||
+    isHealthCheck ||
+    isUpdaterCallback ||
+    isMobileApi ||
+    isBearerApiRequest ||
+    isAasa
+  ) {
     return NextResponse.next();
   }
 

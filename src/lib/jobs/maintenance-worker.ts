@@ -15,7 +15,8 @@ type MaintenanceJobType =
   | "wake-snoozes"
   | "check-follow-ups"
   | "expire-attachments"
-  | "cleanup-orphan-uploads";
+  | "cleanup-orphan-uploads"
+  | "prune-tombstones";
 
 interface MaintenanceJobData {
   task: MaintenanceJobType;
@@ -46,6 +47,15 @@ async function processMaintenanceJob(
     case "cleanup-orphan-uploads":
       await cleanupOrphanUploads();
       break;
+
+    case "prune-tombstones": {
+      const { pruneMessageTombstones } = await import("@/lib/mail/tombstones");
+      const count = await pruneMessageTombstones();
+      if (count > 0) {
+        console.log(`[maintenance] Pruned ${count} message tombstone(s)`);
+      }
+      break;
+    }
   }
 }
 
@@ -197,6 +207,16 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
     {
       jobId: "cleanup-orphan-uploads",
       repeat: { every: 6 * 60 * 60_000 },
+    },
+  );
+
+  // Prune mobile-sync tombstones: every 24 hours
+  await queue.add(
+    "prune-tombstones",
+    { task: "prune-tombstones" as const },
+    {
+      jobId: "prune-tombstones",
+      repeat: { every: 24 * 60 * 60_000 },
     },
   );
 

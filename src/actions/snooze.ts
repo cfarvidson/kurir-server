@@ -3,49 +3,15 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { snoozeThread, unsnoozeThread } from "@/lib/mail/mutations";
 
 export async function snoozeConversation(messageId: string, until: Date) {
-  if (until <= new Date()) {
-    throw new Error("Snooze date must be in the future");
-  }
-
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
-  const userId = session.user.id;
-
-  // Find the target message and its threadId
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: { id: true, threadId: true },
-  });
-
-  if (!message) {
-    throw new Error("Message not found");
-  }
-
-  // Find all messages in this thread
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true },
-      })
-    : [{ id: message.id }];
-
-  const messageIds = threadMessages.map((m) => m.id);
-
-  // Snooze all thread messages. Leave read state untouched so a message
-  // returns with its true read state when it wakes (read stays read,
-  // unread stays unread). Snoozed mail is excluded from lists and counts.
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      isSnoozed: true,
-      snoozedUntil: until,
-    },
-  });
+  await snoozeThread(session.user.id, messageId, until);
 
   updateTag("sidebar-counts");
   revalidatePath("/imbox");
@@ -60,37 +26,7 @@ export async function unsnoozeConversation(messageId: string) {
     throw new Error("Unauthorized");
   }
 
-  const userId = session.user.id;
-
-  // Find the target message and its threadId
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: { id: true, threadId: true },
-  });
-
-  if (!message) {
-    throw new Error("Message not found");
-  }
-
-  // Find all messages in this thread
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true },
-      })
-    : [{ id: message.id }];
-
-  const messageIds = threadMessages.map((m) => m.id);
-
-  // Unsnooze: clear snooze state only. Read state is preserved so only
-  // genuinely unread mail resurfaces as unread.
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      isSnoozed: false,
-      snoozedUntil: null,
-    },
-  });
+  await unsnoozeThread(session.user.id, messageId);
 
   updateTag("sidebar-counts");
   revalidatePath("/imbox");
