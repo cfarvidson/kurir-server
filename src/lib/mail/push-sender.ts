@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
+import { apnsConfigured, sendApnsNotification } from "@/lib/push/apns";
 
 let vapidInitialized = false;
 function ensureVapid() {
@@ -33,7 +34,8 @@ const DEDUP_TTL_MS = 120_000; // 2 minutes
 
 export async function pushToUser(userId: string, payload: PushPayload) {
   ensureVapid();
-  if (!getConfig().vapid.configured) return;
+  const webConfigured = getConfig().vapid.configured;
+  if (!webConfigured && !apnsConfigured()) return;
 
   // Dedup by URL (contains the message ID)
   const dedupeKey = `${userId}:${payload.url}`;
@@ -43,7 +45,13 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   const subscriptions = await db.pushSubscription.findMany({
     where: { userId },
-    select: { id: true, endpoint: true, p256dh: true, auth: true },
+    select: {
+      id: true,
+      platform: true,
+      endpoint: true,
+      p256dh: true,
+      auth: true,
+    },
   });
 
   if (subscriptions.length === 0) return;
@@ -59,8 +67,28 @@ export async function pushToUser(userId: string, payload: PushPayload) {
   };
 
   const results = await Promise.allSettled(
-    subscriptions.map((sub) =>
-      webpush
+    subscriptions.map(async (sub) => {
+      // iOS rows store the APNs device token as "apns:<token>"
+      if (sub.platform === "ios") {
+        const deviceToken = sub.endpoint.replace(/^apns:/, "");
+        const result = await sendApnsNotification(deviceToken, {
+          ...payload,
+          tag: safeTopic,
+        });
+        if (result.gone) {
+          await db.pushSubscription
+            .delete({ where: { id: sub.id } })
+            .catch(() => {});
+          console.log(`[push] Removed dead APNs token ${sub.id}`);
+        }
+        if (!result.ok) {
+          throw new Error(`APNs ${result.status ?? ""} ${result.reason ?? ""}`);
+        }
+        return;
+      }
+
+      if (!webConfigured) return;
+      await webpush
         .sendNotification(
           {
             endpoint: sub.endpoint,
@@ -77,8 +105,8 @@ export async function pushToUser(userId: string, payload: PushPayload) {
             console.log(`[push] Removed expired subscription ${sub.id}`);
           }
           throw err;
-        }),
-    ),
+        });
+    }),
   );
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
