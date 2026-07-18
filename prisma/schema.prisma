@@ -56,6 +56,44 @@ model User {
   drafts            Draft[]
   contacts          Contact[]
   contactGroups     ContactGroup[]
+  mobileTokens      MobileToken[]
+  messageTombstones MessageTombstone[]
+}
+
+// Bearer-token session for native mobile clients (iOS). One row per device
+// login. Both tokens are stored hashed (SHA-256) — the plaintext values exist
+// only in the login/refresh responses. The refresh token rotates on every use.
+model MobileToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  refreshTokenHash     String   @unique
+  accessTokenHash      String   @unique
+  accessTokenExpiresAt DateTime
+
+  deviceName String? // e.g. "iPhone 16 Pro"
+  lastUsedAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Records message deletions so mobile delta-sync clients can remove rows they
+// have already downloaded. Pruned after 30 days; clients with an older cursor
+// must do a full resync.
+model MessageTombstone {
+  id        String   @id @default(cuid())
+  deletedAt DateTime @default(now())
+
+  messageId String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId, deletedAt])
 }
 
 model Passkey {

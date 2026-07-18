@@ -5,6 +5,7 @@ import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
+import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
 
 /**
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
@@ -219,9 +220,7 @@ async function syncMailbox(
       folder.uidValidity !== uidValidity
     ) {
       // Delete all cached messages for this folder
-      await db.message.deleteMany({
-        where: { folderId: folder.id },
-      });
+      await deleteMessagesWithTombstones({ folderId: folder.id });
       // Update UIDVALIDITY
       await db.folder.update({
         where: { id: folder.id },
@@ -253,12 +252,10 @@ async function syncMailbox(
       (uid) => uid > 0 && !serverUidSet.has(uid),
     );
     if (deletedUids.length > 0) {
-      const { count } = await db.message.deleteMany({
-        where: {
-          folderId: folder.id,
-          uid: { in: deletedUids },
-          isArchived: false,
-        },
+      const count = await deleteMessagesWithTombstones({
+        folderId: folder.id,
+        uid: { in: deletedUids },
+        isArchived: false,
       });
       if (count > 0) {
         console.log(
@@ -810,8 +807,9 @@ async function moveRejectedToArchive(
   // with the correct folderId and UID via the messageId dedup path.
   // (Previously set uid=-1, but updateMany with a fixed uid violated
   // the @@unique([folderId, uid]) constraint when multiple messages moved.)
-  await db.message.deleteMany({
-    where: { id: { in: stale.map((m) => m.id) }, isArchived: true },
+  await deleteMessagesWithTombstones({
+    id: { in: stale.map((m) => m.id) },
+    isArchived: true,
   });
 }
 
