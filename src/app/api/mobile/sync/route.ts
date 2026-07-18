@@ -26,6 +26,7 @@ const MESSAGE_SELECT = {
   threadId: true,
   messageId: true,
   inReplyTo: true,
+  references: true,
   subject: true,
   fromAddress: true,
   fromName: true,

@@ -41,7 +41,10 @@ export default auth((req) => {
   const isBearerApiRequest =
     hasBearerToken &&
     (/^\/api\/mail\/message\/[^/]+\/body$/.test(req.nextUrl.pathname) ||
-      /^\/api\/attachments\/[^/]+$/.test(req.nextUrl.pathname));
+      /^\/api\/attachments\/[^/]+$/.test(req.nextUrl.pathname) ||
+      req.nextUrl.pathname === "/api/mail/send" ||
+      req.nextUrl.pathname === "/api/attachments/upload" ||
+      req.nextUrl.pathname === "/api/contacts/search");
   // Apple App Site Association — must be publicly readable for iOS passkeys
   const isAasa =
     req.nextUrl.pathname === "/.well-known/apple-app-site-association";
