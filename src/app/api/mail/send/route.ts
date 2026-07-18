@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
-  auth,
   getConnectionCredentials,
   getDefaultConnectionCredentials,
 } from "@/lib/auth";
+import { getRequestUserId } from "@/lib/mobile/auth";
 import { db } from "@/lib/db";
 import {
   createLocalSentMessage,
@@ -31,14 +31,14 @@ const sendSchema = z.object({
   attachmentIds: z.array(z.string()).optional(),
 });
 
-export async function POST(request: Request) {
-  const session = await auth();
-
-  if (!session?.user?.id) {
+export async function POST(request: NextRequest) {
+  // Session cookie (web) or bearer token (mobile)
+  const userId = await getRequestUserId(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = await rateLimitSend(session.user.id);
+  const rl = await rateLimitSend(userId);
   if (!rl.allowed) {
     return tooManyRequests(rl.retryAfter);
   }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   if (fromConnectionId) {
     // Verify the connection belongs to this user
     const conn = await db.emailConnection.findFirst({
-      where: { id: fromConnectionId, userId: session.user.id },
+      where: { id: fromConnectionId, userId: userId },
       select: { id: true },
     });
     if (!conn) {
@@ -119,11 +119,11 @@ export async function POST(request: Request) {
     }
     credentials = await getConnectionCredentials(
       fromConnectionId,
-      session.user.id,
+      userId,
     );
     resolvedConnectionId = fromConnectionId;
   } else {
-    const defaultCreds = await getDefaultConnectionCredentials(session.user.id);
+    const defaultCreds = await getDefaultConnectionCredentials(userId);
     if (!defaultCreds) {
       return NextResponse.json(
         {
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
     // Load attachments if provided
     const loaded = await loadAttachmentsForSend(
       attachmentIds || [],
-      session.user.id,
+      userId,
       inlineImageIds,
     );
 
@@ -199,7 +199,7 @@ export async function POST(request: Request) {
       }
       const existingThread = await db.message.findFirst({
         where: {
-          userId: session.user.id,
+          userId: userId,
           OR: [
             { messageId: { in: relatedIds } },
             { threadId: { in: relatedIds } },
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
     }
 
     await createLocalSentMessage({
-      userId: session.user.id,
+      userId: userId,
       emailConnectionId: resolvedConnectionId,
       messageId: result.messageId || null,
       threadId,
@@ -230,7 +230,7 @@ export async function POST(request: Request) {
 
     // Auto-create contacts for every recipient across To/Cc/Bcc (fire-and-forget)
     for (const recipient of [...recipients, ...ccRecipients, ...bccRecipients]) {
-      findOrCreateContactForEmail(session.user.id, recipient).catch((err) => {
+      findOrCreateContactForEmail(userId, recipient).catch((err) => {
         console.error("Auto-create contact failed:", err);
       });
     }

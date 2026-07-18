@@ -48,12 +48,16 @@ vi.mock("nodemailer", () => ({
   },
 }));
 
-function makeRequest(body: unknown): Request {
+import type { NextRequest } from "next/server";
+
+function makeRequest(body: unknown): NextRequest {
+  // Plain Request is enough for the handler (json() + headers.get); the
+  // NextRequest-only fields are never touched in these tests.
   return new Request("http://localhost/api/mail/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 describe("POST /api/mail/send", () => {

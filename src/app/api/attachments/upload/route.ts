@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getRequestUserId } from "@/lib/mobile/auth";
 import { rateLimitUploads, tooManyRequests } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_PENDING_TOTAL = 25 * 1024 * 1024; // 25MB total pending uploads
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  // Session cookie (web) or bearer token (mobile)
+  const userId = await getRequestUserId(request);
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const userId = session.user.id;
 
   // Rate limit
   const rl = await rateLimitUploads(userId);
