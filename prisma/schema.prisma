@@ -470,8 +470,12 @@ model PushSubscription {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
+  // "web" (Web Push) or "ios" (APNs). For ios rows, endpoint is
+  // "apns:<deviceToken>" and p256dh/auth are empty strings.
+  platform String @default("web")
+
   // Web Push subscription data
-  endpoint String @unique // Push service URL (always https://)
+  endpoint String @unique // Push service URL (web) or apns:<token> (ios)
   p256dh   String // Public key for payload encryption (base64url)
   auth     String // Auth secret (base64url)
 
