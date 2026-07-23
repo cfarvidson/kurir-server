@@ -42,6 +42,12 @@ env:
     # matching, persistent keypair — if they change between deploys, existing
     # push subscriptions break. The public key is served to clients at runtime.
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: your-vapid-public-key
+    # iOS app (optional): AASA association + APNs push. Team/bundle ids are
+    # public by nature (the AASA file serves them). Omit to disable.
+    # APPLE_APP_IDS: TEAMID.your.bundle.id
+    # APNS_TEAM_ID: TEAMID
+    # APNS_BUNDLE_ID: your.bundle.id
+    # APNS_SANDBOX: "true"  # dev-signed builds; "false" for TestFlight/App Store
   secret:
     - DATABASE_URL
     - AUTH_SECRET
@@ -52,6 +58,9 @@ env:
     - MICROSOFT_CLIENT_SECRET
     - GOOGLE_CLIENT_ID
     - GOOGLE_CLIENT_SECRET
+    # iOS push (optional): .p8 key contents (\n escapes ok) + key id
+    - APNS_KEY_P8
+    - APNS_KEY_ID
 
 # Use accessory services (secrets come from .kamal/secrets).
 accessories:
