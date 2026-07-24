@@ -4,6 +4,23 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.07.24] - 2026-07-24
+
+### Added
+
+- Mobile API for the native iOS client: sync, search, actions, compose/send with dual session/bearer auth, and APNs push registration (M1–M6).
+- Mobile full-text search endpoint backed by the same FTS index as the web.
+- Sync and search payloads now carry a flat `folderRole` so the iOS app can show a Sent list.
+- The message body endpoint returns attachment metadata (`id`, `filename`, `contentType`, `size`) so clients can list and open attachments.
+
+### Changed
+
+- Sharpened editorial redesign across the web client; screener uses category icons instead of dots.
+
+### Fixed
+
+- View switching in the mobile PWA feels instant.
+
 ## [v2026.06.22] - 2026-06-22
 
 ### Fixed
