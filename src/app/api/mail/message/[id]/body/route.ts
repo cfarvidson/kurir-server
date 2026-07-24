@@ -20,6 +20,16 @@ export async function GET(
       htmlBody: true,
       textBody: true,
       userId: true,
+      // The web thread view lists all attachments (including inline/CID
+      // ones) — mirror that contract for mobile.
+      attachments: {
+        select: {
+          id: true,
+          filename: true,
+          contentType: true,
+          size: true,
+        },
+      },
     },
   });
 
@@ -39,5 +49,6 @@ export async function GET(
     html,
     text,
     sizeBytes,
+    attachments: message.attachments,
   });
 }
