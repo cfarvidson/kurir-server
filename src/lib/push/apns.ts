@@ -23,6 +23,15 @@ interface ApnsConfig {
   host: string;
 }
 
+/**
+ * Restore real newlines in a .p8 key that traveled through env files.
+ * Each hop that escapes backslashes (e.g. Kamal's env-file write) turns
+ * "\n" into "\\n", so collapse any run of backslashes before an "n".
+ */
+export function normalizeP8Key(raw: string): string {
+  return raw.replace(/\\+n/g, "\n");
+}
+
 function getApnsConfig(): ApnsConfig | null {
   const { APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID } =
     process.env;
@@ -30,7 +39,7 @@ function getApnsConfig(): ApnsConfig | null {
     return null;
   }
   return {
-    key: APNS_KEY_P8.replace(/\\n/g, "\n"),
+    key: normalizeP8Key(APNS_KEY_P8),
     keyId: APNS_KEY_ID,
     teamId: APNS_TEAM_ID,
     bundleId: APNS_BUNDLE_ID,
