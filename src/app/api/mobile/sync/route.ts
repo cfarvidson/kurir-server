@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
-import { MESSAGE_SELECT } from "@/lib/mobile/message-select";
+import {
+  MESSAGE_SELECT,
+  flattenFolderRole,
+} from "@/lib/mobile/message-select";
 
 /**
  * GET /api/mobile/sync?cursor=<updatedAtISO>_<id>&limit=500
@@ -122,7 +125,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    messages: page,
+    messages: flattenFolderRole(page),
     senders,
     deletedMessageIds: tombstones.map((t) => t.messageId),
     connections,

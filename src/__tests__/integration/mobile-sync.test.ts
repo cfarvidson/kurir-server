@@ -153,6 +153,33 @@ describe("GET /api/mobile/sync", () => {
     expect(body.hasMore).toBe(false);
   });
 
+  it("flattens folder.specialUse into a flat folderRole", async () => {
+    await mockAuthed();
+    await mockEmptyTables();
+    const { db } = await import("@/lib/db");
+
+    const t1 = new Date("2026-07-01T10:00:00Z");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "a", updatedAt: t1, folder: { specialUse: "sent" } },
+      { id: "b", updatedAt: t1, folder: { specialUse: null } },
+      { id: "c", updatedAt: t1, folder: null },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.messages.map((m: { folderRole: string | null }) => m.folderRole))
+      .toEqual(["sent", null, null]);
+    for (const m of body.messages) {
+      expect("folder" in m).toBe(false);
+    }
+    // The select must ask Prisma for the nested folder role
+    const select = vi.mocked(db.message.findMany).mock.calls[0][0]!
+      .select as any;
+    expect(select.folder).toEqual({ select: { specialUse: true } });
+  });
+
   it("never returns message bodies", async () => {
     await mockAuthed();
     await mockEmptyTables();

@@ -36,4 +36,19 @@ export const MESSAGE_SELECT = {
   followUpAt: true,
   senderId: true,
   emailConnectionId: true,
+  folder: { select: { specialUse: true } },
 } as const;
+
+/**
+ * Flatten the nested `folder.specialUse` into a flat `folderRole` string so
+ * the iOS client's decoder stays flat. Both mobile endpoints must run their
+ * MESSAGE_SELECT rows through this before serializing.
+ */
+export function flattenFolderRole<
+  T extends { folder: { specialUse: string | null } | null },
+>(rows: T[]): (Omit<T, "folder"> & { folderRole: string | null })[] {
+  return rows.map(({ folder, ...rest }) => ({
+    ...rest,
+    folderRole: folder?.specialUse ?? null,
+  }));
+}
