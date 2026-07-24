@@ -111,6 +111,31 @@ describe("GET /api/mobile/search", () => {
     );
   });
 
+  it("flattens folder.specialUse into a flat folderRole", async () => {
+    await mockAuthed();
+    const { searchMessages } = await import("@/lib/mail/search");
+    const { db } = await import("@/lib/db");
+
+    vi.mocked(searchMessages).mockResolvedValue([
+      { id: "m1" },
+      { id: "m2" },
+    ] as any);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m1", folder: { specialUse: "sent" } },
+      { id: "m2", folder: null },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/search/route");
+    const res = await GET(makeRequest({ q: "hello" }));
+    const body = await res.json();
+
+    expect(body.messages.map((m: { folderRole: string | null }) => m.folderRole))
+      .toEqual(["sent", null]);
+    for (const m of body.messages) {
+      expect("folder" in m).toBe(false);
+    }
+  });
+
   it("drops ids the metadata fetch no longer finds", async () => {
     await mockAuthed();
     const { searchMessages } = await import("@/lib/mail/search");

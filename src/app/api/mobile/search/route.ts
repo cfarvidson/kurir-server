@@ -4,7 +4,10 @@ import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
 import { searchMessages } from "@/lib/mail/search";
-import { MESSAGE_SELECT } from "@/lib/mobile/message-select";
+import {
+  MESSAGE_SELECT,
+  flattenFolderRole,
+} from "@/lib/mobile/message-select";
 
 /**
  * GET /api/mobile/search?q=<query>&limit=50
@@ -50,5 +53,5 @@ export async function GET(req: NextRequest) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const messages = hits.flatMap((hit) => byId.get(hit.id) ?? []);
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({ messages: flattenFolderRole(messages) });
 }
