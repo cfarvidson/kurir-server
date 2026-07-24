@@ -2,6 +2,7 @@ import webpush from "web-push";
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 import { apnsConfigured, sendApnsNotification } from "@/lib/push/apns";
+import { relayConfigured, sendRelayNotification } from "@/lib/push/relay";
 
 let vapidInitialized = false;
 function ensureVapid() {
@@ -35,7 +36,7 @@ const DEDUP_TTL_MS = 120_000; // 2 minutes
 export async function pushToUser(userId: string, payload: PushPayload) {
   ensureVapid();
   const webConfigured = getConfig().vapid.configured;
-  if (!webConfigured && !apnsConfigured()) return;
+  if (!webConfigured && !apnsConfigured() && !relayConfigured()) return;
 
   // Dedup by URL (contains the message ID)
   const dedupeKey = `${userId}:${payload.url}`;
@@ -71,7 +72,12 @@ export async function pushToUser(userId: string, payload: PushPayload) {
       // iOS rows store the APNs device token as "apns:<token>"
       if (sub.platform === "ios") {
         const deviceToken = sub.endpoint.replace(/^apns:/, "");
-        const result = await sendApnsNotification(deviceToken, {
+        // Direct APNs wins when both are configured — the maintainer's own
+        // instance must not loop through the relay.
+        const sendIos = apnsConfigured()
+          ? sendApnsNotification
+          : sendRelayNotification;
+        const result = await sendIos(deviceToken, {
           ...payload,
           tag: safeTopic,
         });
