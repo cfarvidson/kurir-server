@@ -239,6 +239,7 @@ describe("thread repair gating", () => {
       id: "folder-1",
       uidValidity: null,
       specialUse: "inbox",
+      lastExaminedUid: 0,
     } as any);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.sender.upsert).mockResolvedValue({

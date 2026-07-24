@@ -60,6 +60,40 @@ export interface SyncResult {
 }
 
 /**
+ * UIDs worth fetching: above the folder's examined-UID watermark and not
+ * already cached. The watermark is what stops messages that were examined
+ * and dedup-skipped (Archive/All Mail copies of already-known messages)
+ * from being re-fetched as "new" on every sync cycle.
+ */
+export function selectSyncCandidates(
+  allUids: number[],
+  existingUids: Set<number>,
+  lastExaminedUid: number,
+): number[] {
+  return allUids.filter(
+    (uid) => uid > lastExaminedUid && !existingUids.has(uid),
+  );
+}
+
+/**
+ * New watermark after a sync pass. Only a complete, error-free pass may
+ * advance it (IMAP UIDs are strictly ascending while UIDVALIDITY holds), so
+ * backfill remainders and failed messages stay eligible for the next pass.
+ */
+export function advanceWatermark(args: {
+  current: number;
+  allUids: number[];
+  remaining: number;
+  errorCount: number;
+}): number {
+  const { current, allUids, remaining, errorCount } = args;
+  if (remaining > 0 || errorCount > 0 || allUids.length === 0) {
+    return current;
+  }
+  return Math.max(current, allUids.reduce((a, b) => Math.max(a, b), 0));
+}
+
+/**
  * Extract domain from email address
  */
 export function extractDomain(email: string): string {
@@ -225,10 +259,10 @@ async function syncMailbox(
     ) {
       // Delete all cached messages for this folder
       await deleteMessagesWithTombstones({ folderId: folder.id });
-      // Update UIDVALIDITY
-      await db.folder.update({
+      // Update UIDVALIDITY; UIDs start over, so the watermark must too
+      folder = await db.folder.update({
         where: { id: folder.id },
-        data: { uidValidity },
+        data: { uidValidity, lastExaminedUid: 0 },
       });
     }
 
@@ -246,8 +280,12 @@ async function syncMailbox(
     const allUids: number[] =
       searchResult === false ? [] : (searchResult as any[]).map(Number);
 
-    // Find new UIDs
-    const newUids = allUids.filter((uid) => !existingUids.has(uid));
+    // Find new UIDs (above the examined watermark and not cached)
+    const newUids = selectSyncCandidates(
+      allUids,
+      existingUids,
+      folder.lastExaminedUid,
+    );
 
     // Clean up messages deleted on the IMAP server.
     // Skip archived messages — they were intentionally moved by Kurir.
@@ -414,7 +452,7 @@ async function syncMailbox(
       errors.push(`Fetch error: ${outerErr}`);
     }
 
-    // Update folder sync time + highestModSeq
+    // Update folder sync time + highestModSeq + examined-UID watermark
     await db.folder.update({
       where: { id: folder.id },
       data: {
@@ -422,6 +460,12 @@ async function syncMailbox(
         highestModSeq: status.highestModseq
           ? BigInt(status.highestModseq)
           : undefined,
+        lastExaminedUid: advanceWatermark({
+          current: folder.lastExaminedUid,
+          allUids,
+          remaining,
+          errorCount: errors.length,
+        }),
       },
     });
 

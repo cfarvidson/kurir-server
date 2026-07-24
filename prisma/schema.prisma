@@ -266,6 +266,9 @@ model Folder {
   uidValidity   Int?
   highestModSeq BigInt?
   lastSyncedAt  DateTime?
+  // Highest UID a completed sync pass has examined. UIDs at or below this
+  // are never re-fetched, even when dedup skipped them without a row.
+  lastExaminedUid Int @default(0)
 
   // Flags
   isSelectable Boolean @default(true)
