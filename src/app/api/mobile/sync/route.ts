@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
+import { MESSAGE_SELECT } from "@/lib/mobile/message-select";
 
 /**
  * GET /api/mobile/sync?cursor=<updatedAtISO>_<id>&limit=500
@@ -19,41 +20,6 @@ import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
  */
 
 const MAX_LIMIT = 500;
-
-const MESSAGE_SELECT = {
-  id: true,
-  updatedAt: true,
-  threadId: true,
-  messageId: true,
-  inReplyTo: true,
-  references: true,
-  subject: true,
-  fromAddress: true,
-  fromName: true,
-  toAddresses: true,
-  ccAddresses: true,
-  replyTo: true,
-  sentAt: true,
-  receivedAt: true,
-  snippet: true,
-  isRead: true,
-  isFlagged: true,
-  isDraft: true,
-  isAnswered: true,
-  hasAttachments: true,
-  isInImbox: true,
-  isInScreener: true,
-  isInFeed: true,
-  isInPaperTrail: true,
-  isArchived: true,
-  isSnoozed: true,
-  snoozedUntil: true,
-  isReplyLater: true,
-  isFollowUp: true,
-  followUpAt: true,
-  senderId: true,
-  emailConnectionId: true,
-} as const;
 
 const SENDER_SELECT = {
   id: true,
