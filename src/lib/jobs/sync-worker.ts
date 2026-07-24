@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 import { claimSyncLock, releaseSyncLock } from "@/lib/mail/sync-lock";
 import { pushToUser } from "@/lib/mail/push-sender";
+import { selectImboxPushes } from "@/lib/mail/push-select";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { sseSubscribers, emitToUser } from "@/lib/mail/sse-subscribers";
 import { getRedisConnection, SYNC_QUEUE, getSyncQueue } from "./queue";
@@ -57,52 +58,20 @@ async function processSyncJob(job: Job<SyncJobData>): Promise<void> {
       });
     }
 
-    // Send push notifications only for new Imbox messages
-    const totalNewInbox = result.results
-      .filter((r) => r.folderPath === "INBOX")
-      .reduce((sum, r) => sum + r.newMessages, 0);
-    if (totalNewInbox > 0) {
-      await sendPushForNewMessages(userId);
+    // Send push notifications for the Imbox messages this sync ingested.
+    // Pushing from the sync results (not a createdAt window) survives long
+    // multi-folder jobs that finish well after the messages were saved.
+    for (const m of selectImboxPushes(result.results)) {
+      pushToUser(userId, {
+        title: m.fromName || m.fromAddress,
+        body: m.subject || "(no subject)",
+        url: `/imbox/${m.id}`,
+        tag: m.threadId || m.id,
+      }).catch((err) => console.error("[sync-worker] push error:", err));
     }
   } catch (err) {
     await releaseSyncLock(emailConnectionId, String(err));
     throw err; // Let BullMQ handle retry
-  }
-}
-
-async function sendPushForNewMessages(userId: string): Promise<void> {
-  const recentImbox = await db.message.findMany({
-    where: {
-      userId,
-      isInImbox: true,
-      createdAt: { gte: new Date(Date.now() - 120_000) },
-    },
-    select: {
-      id: true,
-      fromName: true,
-      fromAddress: true,
-      subject: true,
-      threadId: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
-
-  if (recentImbox.length === 0) return;
-
-  const byThread = new Map<string, (typeof recentImbox)[0]>();
-  for (const m of recentImbox) {
-    const key = m.threadId || m.id;
-    if (!byThread.has(key)) byThread.set(key, m);
-  }
-
-  for (const m of byThread.values()) {
-    pushToUser(userId, {
-      title: m.fromName || m.fromAddress,
-      body: m.subject || "(no subject)",
-      url: `/imbox/${m.id}`,
-      tag: m.threadId || m.id,
-    }).catch((err) => console.error("[sync-worker] push error:", err));
   }
 }
 

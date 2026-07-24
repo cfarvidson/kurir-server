@@ -6,6 +6,7 @@ import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
+import { type ImboxPushMessage } from "@/lib/mail/push-select";
 
 /**
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
@@ -54,6 +55,8 @@ export interface SyncResult {
   remaining: number;
   totalOnServer: number;
   totalCached: number;
+  /** New messages that landed in the Imbox — the push-notification set. */
+  newImboxMessages: ImboxPushMessage[];
 }
 
 /**
@@ -171,6 +174,7 @@ async function syncMailbox(
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
+  const newImboxMessages: ImboxPushMessage[] = [];
 
   // Get or create folder record scoped to the email connection
   let folder = await db.folder.findUnique({
@@ -277,6 +281,7 @@ async function syncMailbox(
         remaining: 0,
         totalOnServer: allUids.length,
         totalCached: existingUids.size - deletedUids.length,
+        newImboxMessages,
       };
     }
 
@@ -368,12 +373,27 @@ async function syncMailbox(
                 archived = true;
               }
 
-              await processMessage(msg, userId, emailConnectionId, folder.id, {
-                isInbox,
-                userEmails,
-                isArchived: archived,
-              });
+              const saved = await processMessage(
+                msg,
+                userId,
+                emailConnectionId,
+                folder.id,
+                {
+                  isInbox,
+                  userEmails,
+                  isArchived: archived,
+                },
+              );
               newMessages++;
+              if (saved?.isInImbox) {
+                newImboxMessages.push({
+                  id: saved.id,
+                  fromName: saved.fromName,
+                  fromAddress: saved.fromAddress,
+                  subject: saved.subject,
+                  threadId: saved.threadId,
+                });
+              }
             } catch (err) {
               errors.push(`Failed to process message ${msgUid}: ${err}`);
             }
@@ -413,6 +433,7 @@ async function syncMailbox(
       remaining,
       totalOnServer: allUids.length,
       totalCached: existingUids.size + newMessages,
+      newImboxMessages,
     };
   } finally {
     mailbox.release();
@@ -934,6 +955,7 @@ export async function syncEmailConnection(
           remaining: 0,
           totalOnServer: 0,
           totalCached: 0,
+          newImboxMessages: [],
         });
       }
     }

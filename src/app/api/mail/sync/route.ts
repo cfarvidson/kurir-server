@@ -9,6 +9,7 @@ import {
   wakeExpiredSnoozes,
 } from "@/lib/jobs/maintenance-tasks";
 import { pushToUser } from "@/lib/mail/push-sender";
+import { selectImboxPushes } from "@/lib/mail/push-select";
 import { rateLimitSync, tooManyRequests } from "@/lib/rate-limit";
 
 async function clearConnectionMailCache(emailConnectionId: string) {
@@ -197,45 +198,24 @@ export async function POST(request: NextRequest) {
       `[push] Sync found ${totalNew} new messages, checking for Imbox messages...`,
     );
 
-    // Find Imbox messages created in the last 2 minutes (this sync window)
-    const recentImbox = await db.message.findMany({
-      where: {
-        userId,
-        isInImbox: true,
-        createdAt: { gte: new Date(Date.now() - 120_000) },
-      },
-      select: {
-        id: true,
-        fromName: true,
-        fromAddress: true,
-        subject: true,
-        threadId: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+    // Push exactly the Imbox messages this sync ingested (from the sync
+    // results — a createdAt window misses messages when the job runs long).
+    const imboxPushes = selectImboxPushes(
+      allResults.flatMap((r) => (r.results as SyncResult[]) ?? []),
+    );
 
-    console.log(`[push] Found ${recentImbox.length} recent Imbox messages`);
+    console.log(`[push] Found ${imboxPushes.length} new Imbox messages`);
 
-    if (recentImbox.length > 0) {
-      // Dedupe by thread
-      const byThread = new Map<string, (typeof recentImbox)[0]>();
-      for (const m of recentImbox) {
-        const key = m.threadId || m.id;
-        if (!byThread.has(key)) byThread.set(key, m);
-      }
-
-      for (const m of byThread.values()) {
-        console.log(
-          `[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`,
-        );
-        pushToUser(userId, {
-          title: m.fromName || m.fromAddress,
-          body: m.subject || "(no subject)",
-          url: `/imbox/${m.id}`,
-          tag: m.threadId || m.id,
-        }).catch((err) => console.error("[push] sync error:", err));
-      }
+    for (const m of imboxPushes) {
+      console.log(
+        `[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`,
+      );
+      pushToUser(userId, {
+        title: m.fromName || m.fromAddress,
+        body: m.subject || "(no subject)",
+        url: `/imbox/${m.id}`,
+        tag: m.threadId || m.id,
+      }).catch((err) => console.error("[push] sync error:", err));
     }
   }
 
