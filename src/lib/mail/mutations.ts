@@ -634,6 +634,32 @@ export async function setSenderUnthreadForUser(
 }
 
 /**
+ * Set a sender's per-sender remote-image allowlist. When `allow` is true,
+ * remote images from this sender always load regardless of the global block
+ * default. Mirrors the web `setSenderImagePolicy` action, but takes `userId`
+ * directly so the mobile route can call it without a session.
+ */
+export async function setSenderAllowImagesForUser(
+  userId: string,
+  senderId: string,
+  allow: boolean,
+) {
+  const sender = await db.sender.findUnique({
+    where: { id: senderId },
+    select: { userId: true },
+  });
+
+  if (!sender || sender.userId !== userId) {
+    throw new Error("Sender not found");
+  }
+
+  await db.sender.update({
+    where: { id: senderId },
+    data: { allowRemoteImages: allow },
+  });
+}
+
+/**
  * Auto-approve all PENDING senders whose most recent message is older than
  * `days` days (into IMBOX). Returns the number of senders approved.
  */

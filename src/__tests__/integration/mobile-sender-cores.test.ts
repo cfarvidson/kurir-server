@@ -173,6 +173,33 @@ describe("setSenderUnthreadForUser", () => {
   });
 });
 
+describe("setSenderAllowImagesForUser", () => {
+  it("writes the allowRemoteImages flag", async () => {
+    dbMock.sender.findUnique.mockResolvedValue({ userId: USER });
+    const { setSenderAllowImagesForUser } = await import(
+      "@/lib/mail/mutations"
+    );
+
+    await setSenderAllowImagesForUser(USER, "s1", true);
+
+    expect(dbMock.sender.update).toHaveBeenCalledWith({
+      where: { id: "s1" },
+      data: { allowRemoteImages: true },
+    });
+  });
+
+  it("throws when the sender belongs to another user", async () => {
+    dbMock.sender.findUnique.mockResolvedValue({ userId: "someone-else" });
+    const { setSenderAllowImagesForUser } = await import(
+      "@/lib/mail/mutations"
+    );
+    await expect(
+      setSenderAllowImagesForUser(USER, "s1", true),
+    ).rejects.toThrow("Sender not found");
+    expect(dbMock.sender.update).not.toHaveBeenCalled();
+  });
+});
+
 describe("bulkApproveOldSendersForUser", () => {
   it("approves only senders with no message newer than the cutoff and returns the count", async () => {
     dbMock.sender.findMany.mockResolvedValue([{ id: "s1" }, { id: "s2" }]);

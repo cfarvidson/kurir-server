@@ -20,6 +20,7 @@ vi.mock("@/lib/mail/mutations", () => ({
   undoScreenActionForUser: vi.fn(),
   changeSenderCategoryForUser: vi.fn(),
   setSenderUnthreadForUser: vi.fn(),
+  setSenderAllowImagesForUser: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile/auth", () => ({
@@ -241,6 +242,46 @@ describe("POST /api/mobile/actions", () => {
       { id: "4", ok: true },
       { id: "5", ok: true },
     ]);
+  });
+
+  it("dispatches setSenderAllowImages to its core", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "setSenderAllowImages",
+            senderId: "s1",
+            allow: true,
+          },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mutations.setSenderAllowImagesForUser).toHaveBeenCalledWith(
+      "user-1",
+      "s1",
+      true,
+    );
+    const body = await res.json();
+    expect(body.results).toEqual([{ id: "1", ok: true }]);
+  });
+
+  it("rejects setSenderAllowImages without the allow flag", async () => {
+    await mockAuthed();
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [{ id: "1", type: "setSenderAllowImages", senderId: "s1" }],
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("reports changeSenderCategory on a non-approved sender as ok:false, not 500", async () => {
