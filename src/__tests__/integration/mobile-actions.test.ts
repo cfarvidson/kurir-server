@@ -15,6 +15,11 @@ vi.mock("@/lib/mail/mutations", () => ({
   setThreadReplyLater: vi.fn(),
   approveSenderForUser: vi.fn(),
   rejectSenderForUser: vi.fn(),
+  skipSenderForUser: vi.fn(),
+  unskipSenderForUser: vi.fn(),
+  undoScreenActionForUser: vi.fn(),
+  changeSenderCategoryForUser: vi.fn(),
+  setSenderUnthreadForUser: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile/auth", () => ({
@@ -181,6 +186,103 @@ describe("POST /api/mobile/actions", () => {
       { id: "3", ok: true },
       { id: "4", ok: true },
     ]);
+  });
+
+  it("dispatches the new sender screener actions to their cores", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          { id: "1", type: "skipSender", senderId: "s1" },
+          { id: "2", type: "unskipSender", senderId: "s2" },
+          { id: "3", type: "undoScreenAction", senderId: "s3" },
+          {
+            id: "4",
+            type: "changeSenderCategory",
+            senderId: "s4",
+            category: "PAPER_TRAIL",
+          },
+          {
+            id: "5",
+            type: "setSenderUnthread",
+            senderId: "s5",
+            unthread: true,
+          },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mutations.skipSenderForUser).toHaveBeenCalledWith("user-1", "s1");
+    expect(mutations.unskipSenderForUser).toHaveBeenCalledWith("user-1", "s2");
+    expect(mutations.undoScreenActionForUser).toHaveBeenCalledWith(
+      "user-1",
+      "s3",
+    );
+    expect(mutations.changeSenderCategoryForUser).toHaveBeenCalledWith(
+      "user-1",
+      "s4",
+      "PAPER_TRAIL",
+    );
+    expect(mutations.setSenderUnthreadForUser).toHaveBeenCalledWith(
+      "user-1",
+      "s5",
+      true,
+    );
+
+    const body = await res.json();
+    expect(body.results).toEqual([
+      { id: "1", ok: true },
+      { id: "2", ok: true },
+      { id: "3", ok: true },
+      { id: "4", ok: true },
+      { id: "5", ok: true },
+    ]);
+  });
+
+  it("reports changeSenderCategory on a non-approved sender as ok:false, not 500", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+    vi.mocked(mutations.changeSenderCategoryForUser).mockRejectedValue(
+      new Error("Sender must be approved first"),
+    );
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "changeSenderCategory",
+            senderId: "pending-sender",
+            category: "IMBOX",
+          },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results[0]).toEqual({
+      id: "1",
+      ok: false,
+      error: "Sender must be approved first",
+    });
+  });
+
+  it("rejects setSenderUnthread without the unthread flag", async () => {
+    await mockAuthed();
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [{ id: "1", type: "setSenderUnthread", senderId: "s1" }],
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("isolates per-action failures and keeps processing the batch", async () => {
