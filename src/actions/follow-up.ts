@@ -2,27 +2,10 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-
-async function getThreadMessageIds(userId: string, messageId: string) {
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: { id: true, threadId: true },
-  });
-
-  if (!message) {
-    throw new Error("Message not found");
-  }
-
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true },
-      })
-    : [{ id: message.id }];
-
-  return threadMessages.map((m) => m.id);
-}
+import {
+  setThreadFollowUp,
+  dismissThreadFollowUp,
+} from "@/lib/mail/mutations";
 
 function revalidateFollowUpPaths() {
   updateTag("sidebar-counts");
@@ -44,16 +27,7 @@ export async function setFollowUp(messageId: string, until: Date) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      followUpAt: until,
-      followUpSetAt: new Date(),
-      isFollowUp: false,
-    },
-  });
+  await setThreadFollowUp(session.user.id, messageId, until);
 
   revalidateFollowUpPaths();
 }
@@ -64,16 +38,7 @@ export async function dismissFollowUp(messageId: string) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      followUpAt: null,
-      followUpSetAt: null,
-      isFollowUp: false,
-    },
-  });
+  await dismissThreadFollowUp(session.user.id, messageId);
 
   revalidateFollowUpPaths();
 }
@@ -88,16 +53,7 @@ export async function extendFollowUp(messageId: string, until: Date) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      followUpAt: until,
-      followUpSetAt: new Date(),
-      isFollowUp: false,
-    },
-  });
+  await setThreadFollowUp(session.user.id, messageId, until);
 
   revalidateFollowUpPaths();
 }
@@ -108,16 +64,7 @@ export async function cancelFollowUp(messageId: string) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      followUpAt: null,
-      followUpSetAt: null,
-      isFollowUp: false,
-    },
-  });
+  await dismissThreadFollowUp(session.user.id, messageId);
 
   revalidateFollowUpPaths();
 }

@@ -10,6 +10,9 @@ vi.mock("@/lib/mail/mutations", () => ({
   setThreadReadState: vi.fn(),
   snoozeThread: vi.fn(),
   unsnoozeThread: vi.fn(),
+  setThreadFollowUp: vi.fn(),
+  dismissThreadFollowUp: vi.fn(),
+  setThreadReplyLater: vi.fn(),
   approveSenderForUser: vi.fn(),
   rejectSenderForUser: vi.fn(),
 }));
@@ -118,6 +121,57 @@ describe("POST /api/mobile/actions", () => {
       "user-1",
       "m3",
       new Date("2027-01-01T09:00:00.000Z"),
+    );
+
+    const body = await res.json();
+    expect(body.results).toEqual([
+      { id: "1", ok: true },
+      { id: "2", ok: true },
+      { id: "3", ok: true },
+      { id: "4", ok: true },
+    ]);
+  });
+
+  it("dispatches follow-up and reply-later actions to their cores", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "setFollowUp",
+            messageId: "m1",
+            until: "2027-01-01T08:00:00.000Z",
+          },
+          { id: "2", type: "dismissFollowUp", messageId: "m2" },
+          { id: "3", type: "setReplyLater", messageId: "m3" },
+          { id: "4", type: "clearReplyLater", messageId: "m4" },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mutations.setThreadFollowUp).toHaveBeenCalledWith(
+      "user-1",
+      "m1",
+      new Date("2027-01-01T08:00:00.000Z"),
+    );
+    expect(mutations.dismissThreadFollowUp).toHaveBeenCalledWith(
+      "user-1",
+      "m2",
+    );
+    expect(mutations.setThreadReplyLater).toHaveBeenCalledWith(
+      "user-1",
+      "m3",
+      true,
+    );
+    expect(mutations.setThreadReplyLater).toHaveBeenCalledWith(
+      "user-1",
+      "m4",
+      false,
     );
 
     const body = await res.json();

@@ -2,32 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-
-/**
- * Resolve every message id in the same thread as `messageId` (scoped to the
- * user). Mirrors the thread fan-out used by follow-up actions so the flag
- * applies to the whole conversation.
- */
-async function getThreadMessageIds(userId: string, messageId: string) {
-  const message = await db.message.findFirst({
-    where: { id: messageId, userId },
-    select: { id: true, threadId: true },
-  });
-
-  if (!message) {
-    throw new Error("Message not found");
-  }
-
-  const threadMessages = message.threadId
-    ? await db.message.findMany({
-        where: { userId, threadId: message.threadId },
-        select: { id: true },
-      })
-    : [{ id: message.id }];
-
-  return threadMessages.map((m) => m.id);
-}
+import { setThreadReplyLater } from "@/lib/mail/mutations";
 
 function revalidateReplyLaterPaths() {
   updateTag("sidebar-counts");
@@ -46,12 +21,7 @@ export async function setReplyLater(messageId: string) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: { isReplyLater: true },
-  });
+  await setThreadReplyLater(session.user.id, messageId, true);
 
   revalidateReplyLaterPaths();
 }
@@ -63,12 +33,7 @@ export async function clearReplyLater(messageId: string) {
     throw new Error("Unauthorized");
   }
 
-  const messageIds = await getThreadMessageIds(session.user.id, messageId);
-
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: { isReplyLater: false },
-  });
+  await setThreadReplyLater(session.user.id, messageId, false);
 
   revalidateReplyLaterPaths();
 }
