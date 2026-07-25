@@ -138,6 +138,39 @@ describe("GET /api/mobile/sync", () => {
     expect(body.hasMore).toBe(false);
   });
 
+  it("returns each connection's sendAsEmail and aliases", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.sender.findMany).mockResolvedValue([]);
+    vi.mocked(db.messageTombstone.findMany).mockResolvedValue([]);
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      {
+        id: "conn-1",
+        email: "me@work.com",
+        displayName: "Me",
+        isDefault: true,
+        sendAsEmail: "me@personal.com",
+        aliases: ["alias1@work.com", "alias2@work.com"],
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.connections[0].sendAsEmail).toBe("me@personal.com");
+    expect(body.connections[0].aliases).toEqual([
+      "alias1@work.com",
+      "alias2@work.com",
+    ]);
+    // The select must request the alias columns from Prisma.
+    const select = vi.mocked(db.emailConnection.findMany).mock.calls[0][0]!
+      .select as any;
+    expect(select.sendAsEmail).toBe(true);
+    expect(select.aliases).toBe(true);
+  });
+
   it("keeps the incoming cursor when nothing changed", async () => {
     await mockAuthed();
     await mockEmptyTables();

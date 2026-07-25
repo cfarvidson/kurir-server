@@ -2,10 +2,15 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import {
   approveSenderForUser,
   rejectSenderForUser,
+  skipSenderForUser,
+  unskipSenderForUser,
+  undoScreenActionForUser,
+  changeSenderCategoryForUser,
+  setSenderUnthreadForUser,
+  bulkApproveOldSendersForUser,
 } from "@/lib/mail/mutations";
 import { SenderCategory } from "@prisma/client";
 
@@ -50,20 +55,7 @@ export async function skipSender(senderId: string) {
     throw new Error("Unauthorized");
   }
 
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  // Hide from Screener for 24 hours
-  await db.sender.update({
-    where: { id: senderId },
-    data: { skippedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-  });
+  await skipSenderForUser(session.user.id, senderId);
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");
@@ -79,49 +71,7 @@ export async function undoScreenAction(senderId: string) {
     throw new Error("Unauthorized");
   }
 
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true, status: true, emailConnectionId: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  if (sender.status === "PENDING") {
-    return; // Already pending, nothing to undo
-  }
-
-  // Only restore inbox messages back to screener (not sent/all-mail messages)
-  const inboxFolder = await db.folder.findFirst({
-    where: { emailConnectionId: sender.emailConnectionId, specialUse: "inbox" },
-    select: { id: true },
-  });
-
-  await db.$transaction([
-    db.sender.update({
-      where: { id: senderId },
-      data: {
-        status: "PENDING",
-        category: null,
-        decidedAt: null,
-      },
-    }),
-    // Restore only inbox-folder messages from this sender back to screener
-    db.message.updateMany({
-      where: {
-        senderId,
-        ...(inboxFolder ? { folderId: inboxFolder.id } : {}),
-      },
-      data: {
-        isArchived: false,
-        isInScreener: true,
-        isInImbox: false,
-        isInFeed: false,
-        isInPaperTrail: false,
-      },
-    }),
-  ]);
+  await undoScreenActionForUser(session.user.id, senderId);
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");
@@ -137,19 +87,7 @@ export async function unskipSender(senderId: string) {
     throw new Error("Unauthorized");
   }
 
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  await db.sender.update({
-    where: { id: senderId },
-    data: { skippedUntil: null },
-  });
+  await unskipSenderForUser(session.user.id, senderId);
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");
@@ -166,49 +104,13 @@ export async function bulkApproveOldSenders(days: number = 90) {
     throw new Error("Unauthorized");
   }
 
-  const userId = session.user.id;
-  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-  // Find PENDING senders who have messages, but NONE within the last N days
-  const oldSenders = await db.sender.findMany({
-    where: {
-      userId,
-      status: "PENDING",
-      messages: {
-        some: {},
-        none: { receivedAt: { gte: cutoff } },
-      },
-    },
-    select: { id: true },
-  });
-
-  if (oldSenders.length === 0) return 0;
-
-  const senderIds = oldSenders.map((s) => s.id);
-
-  await db.$transaction([
-    db.sender.updateMany({
-      where: { id: { in: senderIds } },
-      data: {
-        status: "APPROVED",
-        category: "IMBOX",
-        decidedAt: new Date(),
-      },
-    }),
-    db.message.updateMany({
-      where: { senderId: { in: senderIds }, isArchived: false },
-      data: {
-        isInScreener: false,
-        isInImbox: true,
-      },
-    }),
-  ]);
+  const approved = await bulkApproveOldSendersForUser(session.user.id, days);
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");
   revalidatePath("/imbox");
 
-  return oldSenders.length;
+  return approved;
 }
 
 export async function changeSenderCategory(
@@ -220,35 +122,7 @@ export async function changeSenderCategory(
     throw new Error("Unauthorized");
   }
 
-  // Verify ownership
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true, status: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  if (sender.status !== "APPROVED") {
-    throw new Error("Sender must be approved first");
-  }
-
-  await db.$transaction([
-    db.sender.update({
-      where: { id: senderId },
-      data: { category },
-    }),
-    db.message.updateMany({
-      where: { senderId, isArchived: false },
-      data: {
-        isInScreener: false,
-        isInImbox: category === "IMBOX",
-        isInFeed: category === "FEED",
-        isInPaperTrail: category === "PAPER_TRAIL",
-      },
-    }),
-  ]);
+  await changeSenderCategoryForUser(session.user.id, senderId, category);
 
   updateTag("sidebar-counts");
   revalidatePath("/imbox");
@@ -267,19 +141,7 @@ export async function setSenderUnthread(senderId: string, unthread: boolean) {
     throw new Error("Unauthorized");
   }
 
-  const sender = await db.sender.findUnique({
-    where: { id: senderId },
-    select: { userId: true },
-  });
-
-  if (!sender || sender.userId !== session.user.id) {
-    throw new Error("Sender not found");
-  }
-
-  await db.sender.update({
-    where: { id: senderId },
-    data: { unthread },
-  });
+  await setSenderUnthreadForUser(session.user.id, senderId, unthread);
 
   // Unthread does not change category membership or unread counts, but it
   // does change how list rows collapse across every category page.

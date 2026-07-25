@@ -13,6 +13,11 @@ import {
   setThreadReplyLater,
   approveSenderForUser,
   rejectSenderForUser,
+  skipSenderForUser,
+  unskipSenderForUser,
+  undoScreenActionForUser,
+  changeSenderCategoryForUser,
+  setSenderUnthreadForUser,
 } from "@/lib/mail/mutations";
 
 /**
@@ -86,6 +91,33 @@ const actionSchema = z.discriminatedUnion("type", [
     type: z.literal("rejectSender"),
     senderId: z.string().min(1),
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("skipSender"),
+    senderId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("unskipSender"),
+    senderId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("undoScreenAction"),
+    senderId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("changeSenderCategory"),
+    senderId: z.string().min(1),
+    category: z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setSenderUnthread"),
+    senderId: z.string().min(1),
+    unthread: z.boolean(),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -152,6 +184,29 @@ export async function POST(req: NextRequest) {
           break;
         case "rejectSender":
           await rejectSenderForUser(userId, action.senderId);
+          break;
+        case "skipSender":
+          await skipSenderForUser(userId, action.senderId);
+          break;
+        case "unskipSender":
+          await unskipSenderForUser(userId, action.senderId);
+          break;
+        case "undoScreenAction":
+          await undoScreenActionForUser(userId, action.senderId);
+          break;
+        case "changeSenderCategory":
+          await changeSenderCategoryForUser(
+            userId,
+            action.senderId,
+            action.category,
+          );
+          break;
+        case "setSenderUnthread":
+          await setSenderUnthreadForUser(
+            userId,
+            action.senderId,
+            action.unthread,
+          );
           break;
       }
       results.push({ id: action.id, ok: true });

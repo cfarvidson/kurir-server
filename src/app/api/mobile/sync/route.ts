@@ -101,7 +101,14 @@ export async function GET(req: NextRequest) {
     }),
     db.emailConnection.findMany({
       where: { userId },
-      select: { id: true, email: true, displayName: true, isDefault: true },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        isDefault: true,
+        sendAsEmail: true,
+        aliases: true,
+      },
     }),
   ]);
 
