@@ -138,6 +138,40 @@ describe("GET /api/mobile/sync", () => {
     expect(body.hasMore).toBe(false);
   });
 
+  it("selects and returns each sender's allowRemoteImages flag", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.messageTombstone.findMany).mockResolvedValue([]);
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([]);
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      {
+        id: "s1",
+        updatedAt: new Date("2026-07-01T10:00:00Z"),
+        email: "a@b.c",
+        displayName: null,
+        domain: "b.c",
+        status: "APPROVED",
+        category: "IMBOX",
+        skippedUntil: null,
+        unthread: false,
+        allowRemoteImages: true,
+        messageCount: 1,
+        emailConnectionId: "conn-1",
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.senders[0].allowRemoteImages).toBe(true);
+    // The select must request the column from Prisma.
+    const select = vi.mocked(db.sender.findMany).mock.calls[0][0]!
+      .select as any;
+    expect(select.allowRemoteImages).toBe(true);
+  });
+
   it("returns each connection's sendAsEmail and aliases", async () => {
     await mockAuthed();
     const { db } = await import("@/lib/db");

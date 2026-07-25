@@ -34,6 +34,7 @@ const SENDER_SELECT = {
   category: true,
   skippedUntil: true,
   unthread: true,
+  allowRemoteImages: true,
   messageCount: true,
   emailConnectionId: true,
 } as const;

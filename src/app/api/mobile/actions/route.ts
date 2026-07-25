@@ -18,6 +18,7 @@ import {
   undoScreenActionForUser,
   changeSenderCategoryForUser,
   setSenderUnthreadForUser,
+  setSenderAllowImagesForUser,
 } from "@/lib/mail/mutations";
 
 /**
@@ -118,6 +119,12 @@ const actionSchema = z.discriminatedUnion("type", [
     senderId: z.string().min(1),
     unthread: z.boolean(),
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setSenderAllowImages"),
+    senderId: z.string().min(1),
+    allow: z.boolean(),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -206,6 +213,13 @@ export async function POST(req: NextRequest) {
             userId,
             action.senderId,
             action.unthread,
+          );
+          break;
+        case "setSenderAllowImages":
+          await setSenderAllowImagesForUser(
+            userId,
+            action.senderId,
+            action.allow,
           );
           break;
       }
