@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Fingerprint, Loader2 } from "lucide-react";
@@ -13,6 +13,7 @@ type LoginState = "idle" | "waiting" | "loading" | "error";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<LoginState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +76,18 @@ export default function LoginForm() {
         throw new Error(data.error || "Sign-in failed. Please try again.");
       }
 
-      router.push("/imbox");
+      // Return to the intended destination if one was passed (validated to a
+      // same-origin path — no open redirect; backslashes rejected since URL
+      // parsing folds "/\evil.com" into "//evil.com"), otherwise the inbox.
+      const next = searchParams.get("next");
+      const dest =
+        next &&
+        next.startsWith("/") &&
+        !next.startsWith("//") &&
+        !next.includes("\\")
+          ? next
+          : "/imbox";
+      router.push(dest);
       router.refresh();
     } catch (err) {
       setState("error");

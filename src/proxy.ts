@@ -62,9 +62,18 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Redirect logged-in users away from login page
+  // Redirect logged-in users away from login page. A `next` param (set when
+  // an unauthenticated visit was bounced here) survives login — validated to
+  // a same-origin path so it can't be used as an open redirect. Backslashes
+  // are rejected too: WHATWG URL parsing folds "/\evil.com" into
+  // protocol-relative "//evil.com".
   if (isLoggedIn && isOnLoginPage) {
-    return redirect(req, "/imbox");
+    const next = req.nextUrl.searchParams.get("next");
+    const dest =
+      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+        ? next
+        : "/imbox";
+    return redirect(req, dest);
   }
 
   // Return 401 JSON for unauthenticated API requests (instead of redirect)
@@ -72,9 +81,11 @@ export default auth((req) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Redirect non-logged-in users to login
+  // Redirect non-logged-in users to login, preserving the intended
+  // destination so the login form can return them there afterwards.
   if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
-    return redirect(req, "/login");
+    const next = req.nextUrl.pathname + req.nextUrl.search;
+    return redirect(req, `/login?next=${encodeURIComponent(next)}`);
   }
 
   return NextResponse.next();
