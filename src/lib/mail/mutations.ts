@@ -274,6 +274,88 @@ export async function unsnoozeThread(userId: string, messageId: string) {
   });
 }
 
+/**
+ * Set a follow-up deadline for a whole thread. `isFollowUp` stays false — the
+ * maintenance job flips it to true once the deadline passes, so the Follow-up
+ * list shows only overdue threads.
+ */
+export async function setThreadFollowUp(
+  userId: string,
+  messageId: string,
+  until: Date,
+) {
+  if (until <= new Date()) {
+    throw new Error("Follow-up date must be in the future");
+  }
+
+  const message = await db.message.findFirst({
+    where: { id: messageId, userId },
+    select: { id: true, threadId: true },
+  });
+
+  if (!message) throw new Error("Message not found");
+
+  const threadMessages = message.threadId
+    ? await db.message.findMany({
+        where: { userId, threadId: message.threadId },
+        select: { id: true },
+      })
+    : [{ id: message.id }];
+
+  await db.message.updateMany({
+    where: { id: { in: threadMessages.map((m) => m.id) } },
+    data: { followUpAt: until, followUpSetAt: new Date(), isFollowUp: false },
+  });
+}
+
+/** Clear any follow-up state for a whole thread. */
+export async function dismissThreadFollowUp(userId: string, messageId: string) {
+  const message = await db.message.findFirst({
+    where: { id: messageId, userId },
+    select: { id: true, threadId: true },
+  });
+
+  if (!message) throw new Error("Message not found");
+
+  const threadMessages = message.threadId
+    ? await db.message.findMany({
+        where: { userId, threadId: message.threadId },
+        select: { id: true },
+      })
+    : [{ id: message.id }];
+
+  await db.message.updateMany({
+    where: { id: { in: threadMessages.map((m) => m.id) } },
+    data: { followUpAt: null, followUpSetAt: null, isFollowUp: false },
+  });
+}
+
+/** Toggle the Reply Later flag for a whole thread (explicit target state). */
+export async function setThreadReplyLater(
+  userId: string,
+  messageId: string,
+  isReplyLater: boolean,
+) {
+  const message = await db.message.findFirst({
+    where: { id: messageId, userId },
+    select: { id: true, threadId: true },
+  });
+
+  if (!message) throw new Error("Message not found");
+
+  const threadMessages = message.threadId
+    ? await db.message.findMany({
+        where: { userId, threadId: message.threadId },
+        select: { id: true },
+      })
+    : [{ id: message.id }];
+
+  await db.message.updateMany({
+    where: { id: { in: threadMessages.map((m) => m.id) } },
+    data: { isReplyLater },
+  });
+}
+
 /** Approve a sender into a category and move their non-archived messages. */
 export async function approveSenderForUser(
   userId: string,

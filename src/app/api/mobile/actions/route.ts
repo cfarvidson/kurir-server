@@ -8,6 +8,9 @@ import {
   setThreadReadState,
   snoozeThread,
   unsnoozeThread,
+  setThreadFollowUp,
+  dismissThreadFollowUp,
+  setThreadReplyLater,
   approveSenderForUser,
   rejectSenderForUser,
 } from "@/lib/mail/mutations";
@@ -49,6 +52,27 @@ const actionSchema = z.discriminatedUnion("type", [
   z.object({
     id: z.string().min(1),
     type: z.literal("unsnooze"),
+    messageId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setFollowUp"),
+    messageId: z.string().min(1),
+    until: z.coerce.date(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("dismissFollowUp"),
+    messageId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setReplyLater"),
+    messageId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("clearReplyLater"),
     messageId: z.string().min(1),
   }),
   z.object({
@@ -110,6 +134,18 @@ export async function POST(req: NextRequest) {
           break;
         case "unsnooze":
           await unsnoozeThread(userId, action.messageId);
+          break;
+        case "setFollowUp":
+          await setThreadFollowUp(userId, action.messageId, action.until);
+          break;
+        case "dismissFollowUp":
+          await dismissThreadFollowUp(userId, action.messageId);
+          break;
+        case "setReplyLater":
+          await setThreadReplyLater(userId, action.messageId, true);
+          break;
+        case "clearReplyLater":
+          await setThreadReplyLater(userId, action.messageId, false);
           break;
         case "approveSender":
           await approveSenderForUser(userId, action.senderId, action.category);
