@@ -64,11 +64,15 @@ export default auth((req) => {
 
   // Redirect logged-in users away from login page. A `next` param (set when
   // an unauthenticated visit was bounced here) survives login — validated to
-  // a same-origin path so it can't be used as an open redirect.
+  // a same-origin path so it can't be used as an open redirect. Backslashes
+  // are rejected too: WHATWG URL parsing folds "/\evil.com" into
+  // protocol-relative "//evil.com".
   if (isLoggedIn && isOnLoginPage) {
     const next = req.nextUrl.searchParams.get("next");
     const dest =
-      next && next.startsWith("/") && !next.startsWith("//") ? next : "/imbox";
+      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+        ? next
+        : "/imbox";
     return redirect(req, dest);
   }
 

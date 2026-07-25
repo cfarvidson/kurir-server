@@ -77,10 +77,14 @@ export default function LoginForm() {
       }
 
       // Return to the intended destination if one was passed (validated to a
-      // same-origin path — no open redirect), otherwise the inbox.
+      // same-origin path — no open redirect; backslashes rejected since URL
+      // parsing folds "/\evil.com" into "//evil.com"), otherwise the inbox.
       const next = searchParams.get("next");
       const dest =
-        next && next.startsWith("/") && !next.startsWith("//")
+        next &&
+        next.startsWith("/") &&
+        !next.startsWith("//") &&
+        !next.includes("\\")
           ? next
           : "/imbox";
       router.push(dest);
