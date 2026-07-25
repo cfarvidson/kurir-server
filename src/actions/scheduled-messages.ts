@@ -1,45 +1,17 @@
 "use server";
 
 import { updateTag } from "next/cache";
-import { auth, getConnectionCredentialsInternal } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { decrypt, encrypt } from "@/lib/crypto";
+import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
-import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
-import { createLocalSentMessage } from "@/lib/mail/persist-sent";
-import { parseRecipients } from "@/lib/mail/recipients";
-import { rateLimitSend } from "@/lib/rate-limit";
-
-// Accept one or more comma/semicolon-separated recipients; store as a
-// normalized comma-joined string. Rejects the whole value if any is invalid.
-const recipientField = z.string().transform((val) => {
-  const { recipients, invalid } = parseRecipients(val);
-  if (invalid.length > 0) {
-    throw new Error(`Invalid recipient address: ${invalid.join(", ")}`);
-  }
-  if (recipients.length === 0) {
-    throw new Error("No valid recipient address provided");
-  }
-  return recipients.join(", ");
-});
-
-const createSchema = z.object({
-  to: recipientField,
-  subject: z.string(),
-  textBody: z.string(),
-  htmlBody: z.string().optional(),
-  scheduledFor: z.string().transform((s) => {
-    const date = new Date(s);
-    if (isNaN(date.getTime())) throw new Error("Invalid date");
-    if (date <= new Date())
-      throw new Error("scheduledFor must be in the future");
-    return date;
-  }),
-  emailConnectionId: z.string(),
-  inReplyToMessageId: z.string().optional(),
-  references: z.string().optional(),
-  attachmentIds: z.array(z.string()).optional(),
-});
+import {
+  recipientField,
+  createScheduledMessageForUser,
+  cancelScheduledForUser,
+  sendScheduledNowForUser,
+  type CreateScheduledInput,
+} from "@/lib/mail/scheduled-messages";
 
 const editSchema = z.object({
   to: recipientField.optional(),
@@ -62,68 +34,22 @@ const editSchema = z.object({
   attachmentIds: z.array(z.string()).optional(),
 });
 
-export async function createScheduledMessage(
-  data: z.input<typeof createSchema>,
-) {
+export async function createScheduledMessage(data: CreateScheduledInput) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-  const parsed = createSchema.parse(data);
-
-  // Verify connection belongs to user
-  const connection = await db.emailConnection.findFirst({
-    where: { id: parsed.emailConnectionId, userId },
-  });
-  if (!connection) throw new Error("Email connection not found");
-
-  // Encrypt body fields at rest
-  const encryptedTextBody = encrypt(parsed.textBody);
-  const encryptedHtmlBody = parsed.htmlBody ? encrypt(parsed.htmlBody) : null;
-
-  // Add 1–14 minutes of jitter so scheduled sends don't land exactly on the hour
-  const jitterMs = (1 + Math.random() * 13) * 60_000;
-  const jitteredTime = new Date(parsed.scheduledFor.getTime() + jitterMs);
-
-  const record = await db.scheduledMessage.create({
-    data: {
-      userId,
-      emailConnectionId: parsed.emailConnectionId,
-      to: parsed.to,
-      subject: parsed.subject,
-      textBody: encryptedTextBody,
-      htmlBody: encryptedHtmlBody,
-      scheduledFor: jitteredTime,
-      inReplyToMessageId: parsed.inReplyToMessageId ?? null,
-      references: parsed.references ?? null,
-      attachmentIds: parsed.attachmentIds ?? [],
-    },
-  });
-
-  updateTag("sidebar-counts");
-
-  return { id: record.id };
+  const { id } = await createScheduledMessageForUser(session.user.id, data);
+  return { id };
 }
 
 export async function cancelScheduledMessage(id: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-
-  const msg = await db.scheduledMessage.findFirst({
-    where: { id, userId },
-  });
-  if (!msg) throw new Error("Scheduled message not found");
-  if (msg.status !== "PENDING")
+  const result = await cancelScheduledForUser(session.user.id, id);
+  if (result === "not_found") throw new Error("Scheduled message not found");
+  if (result === "not_pending")
     throw new Error("Only PENDING messages can be cancelled");
-
-  await db.scheduledMessage.update({
-    where: { id },
-    data: { status: "CANCELLED" },
-  });
-
-  updateTag("sidebar-counts");
 }
 
 /**
@@ -246,120 +172,5 @@ export async function sendScheduledMessageNow(id: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-
-  // Atomic CAS: claim this message for sending
-  const claimed = await db.scheduledMessage.updateMany({
-    where: { id, userId, status: "PENDING" },
-    data: { status: "SENDING", sendingStartedAt: new Date() },
-  });
-
-  if (claimed.count === 0) {
-    throw new Error("Message is no longer PENDING");
-  }
-
-  // Fetch the full message with connection
-  const msg = await db.scheduledMessage.findUnique({
-    where: { id },
-    include: { emailConnection: true },
-  });
-
-  if (!msg) throw new Error("Scheduled message not found");
-
-  try {
-    const rl = await rateLimitSend(userId);
-    if (!rl.allowed) {
-      throw new Error(
-        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-      );
-    }
-
-    // Idempotency: if already sent (has smtpMessageId), skip SMTP
-    if (msg.smtpMessageId) {
-      await db.scheduledMessage.update({
-        where: { id },
-        data: { status: "SENT" },
-      });
-      updateTag("sidebar-counts");
-      return;
-    }
-
-    const credentials = await getConnectionCredentialsInternal(
-      msg.emailConnectionId,
-    );
-    if (!credentials) throw new Error("Email credentials not found");
-
-    const result = await sendScheduledEmail(
-      msg,
-      msg.emailConnection,
-      credentials,
-    );
-
-    // Record SMTP message ID and mark as SENT
-    await db.scheduledMessage.update({
-      where: { id },
-      data: { status: "SENT", smtpMessageId: result.messageId || null },
-    });
-
-    // Decrypt body for local persistence
-    const textBody = decrypt(msg.textBody);
-    const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null;
-
-    // Resolve thread context
-    let threadId: string | null = null;
-    const refList = msg.references
-      ? msg.references.split(" ").filter(Boolean)
-      : [];
-    if (msg.inReplyToMessageId || refList.length > 0) {
-      const relatedIds = [...refList];
-      if (
-        msg.inReplyToMessageId &&
-        !relatedIds.includes(msg.inReplyToMessageId)
-      ) {
-        relatedIds.push(msg.inReplyToMessageId);
-      }
-      const existingThread = await db.message.findFirst({
-        where: {
-          userId,
-          OR: [
-            { messageId: { in: relatedIds } },
-            { threadId: { in: relatedIds } },
-          ],
-          threadId: { not: null },
-        },
-        select: { threadId: true },
-      });
-      threadId = existingThread?.threadId || relatedIds[0] || null;
-    }
-
-    const fromAddress =
-      msg.emailConnection.sendAsEmail || msg.emailConnection.email;
-
-    await createLocalSentMessage({
-      userId,
-      emailConnectionId: msg.emailConnectionId,
-      messageId: result.messageId || null,
-      threadId,
-      inReplyTo: msg.inReplyToMessageId || null,
-      references: refList,
-      subject: msg.subject,
-      fromAddress,
-      toAddresses: parseRecipients(msg.to).recipients,
-      text: textBody,
-      html: htmlBody,
-    });
-
-    updateTag("sidebar-counts");
-  } catch (err) {
-    // Roll back to PENDING so user can retry
-    await db.scheduledMessage.update({
-      where: { id },
-      data: {
-        status: "PENDING",
-        sendingStartedAt: null,
-        error: err instanceof Error ? err.message : String(err),
-      },
-    });
-    throw err;
-  }
+  await sendScheduledNowForUser(session.user.id, id);
 }
