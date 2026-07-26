@@ -108,6 +108,8 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
       select: {
         id: true,
         to: true,
+        cc: true,
+        bcc: true,
         subject: true,
         textBody: true,
         scheduledFor: true,
@@ -147,6 +149,8 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
       editScheduled = {
         id: scheduled.id,
         to: scheduled.to,
+        cc: scheduled.cc ?? "",
+        bcc: scheduled.bcc ?? "",
         subject: scheduled.subject,
         body,
         bodyDecryptFailed,

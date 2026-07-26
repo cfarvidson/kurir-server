@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
     scheduledMessage: {
       updateMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
   },
@@ -204,5 +205,56 @@ describe("hold/restore scheduled message actions", () => {
         }),
       );
     });
+  });
+});
+
+// editScheduledMessage cc/bcc semantics: undefined leaves the stored value
+// untouched, an explicit empty string clears it (NULL), and provided
+// addresses are normalized like the create path.
+describe("editScheduledMessage cc/bcc", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  async function setupPendingRow() {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue({
+      id: "sched-1",
+      status: "PENDING",
+      emailConnectionId: "conn-1",
+    } as never);
+    return db;
+  }
+
+  it("writes normalized cc/bcc when provided and omits them when undefined", async () => {
+    const db = await setupPendingRow();
+    const { editScheduledMessage } = await import(
+      "@/actions/scheduled-messages"
+    );
+
+    await editScheduledMessage("sched-1", {
+      cc: "cc1@example.com; cc2@example.com",
+    });
+
+    const args = vi.mocked(db.scheduledMessage.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(args.data.cc).toBe("cc1@example.com, cc2@example.com");
+    // bcc untouched: the key must not appear in the update payload at all.
+    expect("bcc" in args.data).toBe(false);
+  });
+
+  it("clears cc to NULL when an explicit empty string is sent", async () => {
+    const db = await setupPendingRow();
+    const { editScheduledMessage } = await import(
+      "@/actions/scheduled-messages"
+    );
+
+    await editScheduledMessage("sched-1", { cc: "" });
+
+    const args = vi.mocked(db.scheduledMessage.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(args.data.cc).toBeNull();
   });
 });

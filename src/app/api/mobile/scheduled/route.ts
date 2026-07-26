@@ -13,7 +13,7 @@ import {
  * minute jitter, encryption and ownership checks) with the web composer so a
  * message scheduled on either surface is an identical row.
  *
- * GET  → { scheduled: [{ id, to, subject, scheduledFor, status, error }] }
+ * GET  → { scheduled: [{ id, to, cc, subject, scheduledFor, status, error }] }
  * POST → { id, scheduledFor }   create one (shared zod schema; future-dated)
  *
  * The list is fetched on demand (low frequency, always-fresh status) and is not

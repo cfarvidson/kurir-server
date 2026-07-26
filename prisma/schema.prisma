@@ -541,6 +541,8 @@ model ScheduledMessage {
 
   // Email content (encrypted at rest via crypto.ts)
   to       String
+  cc       String?
+  bcc      String?
   subject  String  @default("")
   textBody String  @default("")
   htmlBody String?

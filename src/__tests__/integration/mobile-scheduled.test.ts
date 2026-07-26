@@ -133,6 +133,83 @@ describe("/api/mobile/scheduled", () => {
     expect(new Date(json.scheduledFor).getTime()).toBe(persisted);
   });
 
+  it("(b2) POST with cc/bcc stores the normalized fields on the row", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue({
+      id: "conn-1",
+    } as never);
+    vi.mocked(db.scheduledMessage.create).mockResolvedValue({
+      id: "sched-1",
+    } as never);
+
+    const { POST } = await import("@/app/api/mobile/scheduled/route");
+    const res = await POST(
+      makeRequest({
+        to: "recipient@example.com",
+        cc: "cc1@example.com; cc2@example.com",
+        bcc: "hidden@example.com",
+        subject: "Hi",
+        textBody: "hello",
+        scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+        emailConnectionId: "conn-1",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const createArgs = vi.mocked(db.scheduledMessage.create).mock
+      .calls[0][0] as { data: { cc: string | null; bcc: string | null } };
+    // Semicolon-separated input is normalized to a comma-joined list.
+    expect(createArgs.data.cc).toBe("cc1@example.com, cc2@example.com");
+    expect(createArgs.data.bcc).toBe("hidden@example.com");
+  });
+
+  it("(b3) POST without cc/bcc stores NULL for both (no regression)", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue({
+      id: "conn-1",
+    } as never);
+    vi.mocked(db.scheduledMessage.create).mockResolvedValue({
+      id: "sched-1",
+    } as never);
+
+    const { POST } = await import("@/app/api/mobile/scheduled/route");
+    const res = await POST(
+      makeRequest({
+        to: "recipient@example.com",
+        subject: "Hi",
+        textBody: "hello",
+        scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+        emailConnectionId: "conn-1",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const createArgs = vi.mocked(db.scheduledMessage.create).mock
+      .calls[0][0] as { data: { cc: string | null; bcc: string | null } };
+    expect(createArgs.data.cc).toBeNull();
+    expect(createArgs.data.bcc).toBeNull();
+  });
+
+  it("(b4) POST with an invalid cc address returns 400 and never creates a row", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    const { POST } = await import("@/app/api/mobile/scheduled/route");
+    const res = await POST(
+      makeRequest({
+        to: "recipient@example.com",
+        cc: "not-an-address",
+        subject: "Hi",
+        textBody: "hello",
+        scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+        emailConnectionId: "conn-1",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(db.scheduledMessage.create).not.toHaveBeenCalled();
+  });
+
   it("(c) POST with a past scheduledFor returns 400 and never creates a row", async () => {
     await mockAuthed();
     const { db } = await import("@/lib/db");
