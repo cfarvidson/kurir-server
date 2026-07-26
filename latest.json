@@ -1,8 +1,8 @@
 {
-  "version": "2026.07.26.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.07.26.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.07.26.2",
-  "changelog": "Mobile API for the iOS companion (device login, delta sync, actions, drafts, scheduled send, contacts, files, push relay), Cc/Bcc on scheduled send, and reliability fixes.",
+  "version": "2026.07.27",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.07.27",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.07.27",
+  "changelog": "App-icon badge for the iOS app: pushes now carry the unread Imbox thread count as aps.badge (relayed for self-hosted instances).",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-07-26T11:14:54Z"
+  "releasedAt": "2026-07-26T22:03:31Z"
 }
