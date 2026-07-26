@@ -12,7 +12,7 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 - **Paper Trail** — Receipts and notifications, kept separate.
 - **Full-text search** — PostgreSQL-powered search across every email.
 - **Snooze & follow-ups** — Snooze messages until later. Set follow-up reminders.
-- **Scheduled send** — Write now, send later.
+- **Scheduled send** — Write now, send later. Full To/Cc/Bcc support.
 - **Threaded conversations** — Messages grouped by thread, reply inline.
 - **Compose in Markdown** — Rich email authoring with auto-save drafts.
 - **Keyboard-first** — Full shortcuts, command palette, vim-style navigation.
@@ -20,7 +20,8 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 - **Dark mode** — Light, dark, or match your system.
 - **Multi-account** — Connect multiple email accounts, send from any.
 - **Archive** — Archive with undo, swipe gestures on mobile.
-- **Contacts** — Browse all senders, view conversation history.
+- **Contacts** — Create, edit and group contacts, linked to your senders.
+- **Mobile API** — Bearer-token API with delta sync, offline-queued actions, drafts, scheduled send, contacts and files — powers a native iOS companion app. Device sign-in runs through your server's own login page (PKCE-bound), so it works against any self-hosted domain.
 - **Admin dashboard** — System health, sync status, user management.
 - **One-command install** — Single `curl` command provisions a fresh server.
 - **Auto-updates** — Checks for new versions, one-click update from admin.

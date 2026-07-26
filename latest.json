@@ -1,8 +1,8 @@
 {
-  "version": "2026.06.22",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.06.22",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.06.22",
-  "changelog": "Fixed UI freezing during navigation and actions in the PWA for noticeably snappier performance.",
+  "version": "2026.07.26.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.07.26.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.07.26.2",
+  "changelog": "Mobile API for the iOS companion (device login, delta sync, actions, drafts, scheduled send, contacts, files, push relay), Cc/Bcc on scheduled send, and reliability fixes.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-06-22T08:09:49Z"
+  "releasedAt": "2026-07-26T11:14:54Z"
 }
