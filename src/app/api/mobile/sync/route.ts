@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
       }
     : {};
 
-  const [messages, senders, tombstones, connections] = await Promise.all([
+  const [messages, senders, tombstones, connections, user] = await Promise.all([
     db.message.findMany({
       where: { userId, ...afterCursor },
       select: MESSAGE_SELECT,
@@ -110,6 +110,10 @@ export async function GET(req: NextRequest) {
         sendAsEmail: true,
         aliases: true,
       },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
     }),
   ]);
 
@@ -137,6 +141,9 @@ export async function GET(req: NextRequest) {
     senders,
     deletedMessageIds: tombstones.map((t) => t.messageId),
     connections,
+    // Additive: lets the app show admin-only entry points (a web link to
+    // /admin). Older apps ignore it.
+    role: user?.role ?? "USER",
     nextCursor,
     hasMore,
   });
