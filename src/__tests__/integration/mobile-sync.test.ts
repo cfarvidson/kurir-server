@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
     sender: { findMany: vi.fn() },
     messageTombstone: { findMany: vi.fn() },
     emailConnection: { findMany: vi.fn() },
+    user: { findUnique: vi.fn() },
   },
 }));
 
@@ -49,6 +50,7 @@ async function mockEmptyTables() {
   vi.mocked(db.sender.findMany).mockResolvedValue([]);
   vi.mocked(db.messageTombstone.findMany).mockResolvedValue([]);
   vi.mocked(db.emailConnection.findMany).mockResolvedValue([]);
+  vi.mocked(db.user.findUnique).mockResolvedValue(null);
 }
 
 describe("GET /api/mobile/sync", () => {
@@ -136,6 +138,22 @@ describe("GET /api/mobile/sync", () => {
     expect(body.deletedMessageIds).toEqual(["gone-1", "gone-2"]);
     expect(body.connections).toHaveLength(1);
     expect(body.hasMore).toBe(false);
+  });
+
+  it("returns the user's role, defaulting to USER when unknown", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    await mockEmptyTables();
+    vi.mocked(db.user.findUnique).mockResolvedValue({ role: "ADMIN" } as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const admin = await (await GET(makeRequest())).json();
+    expect(admin.role).toBe("ADMIN");
+
+    vi.mocked(db.user.findUnique).mockResolvedValue(null);
+    const fallback = await (await GET(makeRequest())).json();
+    expect(fallback.role).toBe("USER");
   });
 
   it("selects and returns each sender's allowRemoteImages flag", async () => {
