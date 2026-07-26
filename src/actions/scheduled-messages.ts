@@ -42,6 +42,7 @@ export async function createScheduledMessage(data: CreateScheduledInput) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const { id } = await createScheduledMessageForUser(session.user.id, data);
+  updateTag("sidebar-counts");
   return { id };
 }
 
@@ -53,6 +54,7 @@ export async function cancelScheduledMessage(id: string) {
   if (result === "not_found") throw new Error("Scheduled message not found");
   if (result === "not_pending")
     throw new Error("Only PENDING messages can be cancelled");
+  updateTag("sidebar-counts");
 }
 
 /**
@@ -179,4 +181,5 @@ export async function sendScheduledMessageNow(id: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   await sendScheduledNowForUser(session.user.id, id);
+  updateTag("sidebar-counts");
 }
