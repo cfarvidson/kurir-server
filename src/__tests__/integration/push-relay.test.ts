@@ -11,6 +11,9 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       delete: vi.fn(),
     },
+    message: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -96,6 +99,69 @@ describe("pushToUser via relay", () => {
     expect(db.pushSubscription.delete).toHaveBeenCalledWith({
       where: { id: "sub-1" },
     });
+  });
+
+  it("includes the unread Imbox thread count as badge in the relay payload", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, gone: false, status: 200 }),
+    });
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m1", threadId: "t1", sender: { unthread: false } },
+      { id: "m2", threadId: "t1", sender: { unthread: false } },
+    ] as any);
+
+    const { pushToUser } = await import("@/lib/mail/push-sender");
+    await pushToUser("user-1", payload());
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.notification.badge).toBe(1);
+  });
+
+  it("clamps the badge to 99999 when the unread count exceeds it", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, gone: false, status: 200 }),
+    });
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue(
+      Array.from({ length: 100_000 }, (_, i) => ({
+        id: `m${i}`,
+        threadId: `t${i}`,
+        sender: { unthread: false },
+      })) as any,
+    );
+
+    const { pushToUser } = await import("@/lib/mail/push-sender");
+    await pushToUser("user-1", payload());
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.notification.badge).toBe(99_999);
+  });
+
+  it("passes the badge through unclamped at exactly 99999", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, gone: false, status: 200 }),
+    });
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue(
+      Array.from({ length: 99_999 }, (_, i) => ({
+        id: `m${i}`,
+        threadId: `t${i}`,
+        sender: { unthread: false },
+      })) as any,
+    );
+
+    const { pushToUser } = await import("@/lib/mail/push-sender");
+    await pushToUser("user-1", payload());
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.notification.badge).toBe(99_999);
   });
 
   it("survives network errors without throwing and without pruning", async () => {
