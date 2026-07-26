@@ -45,10 +45,6 @@ export default auth((req) => {
       req.nextUrl.pathname === "/api/mail/send" ||
       req.nextUrl.pathname === "/api/attachments/upload" ||
       req.nextUrl.pathname === "/api/contacts/search");
-  // Apple App Site Association — must be publicly readable for iOS passkeys
-  const isAasa =
-    req.nextUrl.pathname === "/.well-known/apple-app-site-association";
-
   // Allow auth, setup check, health check, and updater callback routes
   if (
     isAuthRoute ||
@@ -56,8 +52,7 @@ export default auth((req) => {
     isHealthCheck ||
     isUpdaterCallback ||
     isMobileApi ||
-    isBearerApiRequest ||
-    isAasa
+    isBearerApiRequest
   ) {
     return NextResponse.next();
   }

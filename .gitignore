@@ -69,3 +69,7 @@ docs/superpowers/
 
 # Compound Engineering local config
 .compound-engineering/*.local.yaml
+
+# Local-only: implementation plans and Apple keys must never be committed
+plans/
+.kamal/*.p8
