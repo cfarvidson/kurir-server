@@ -35,6 +35,27 @@ set -a
 . "$SECRETS_FILE"
 set +a
 
+# Refuse to run with empty required secrets. An empty value silently reaches
+# production (kamal treats it as present) and the app then falls back to a
+# random per-boot AUTH_SECRET — every deploy logs out all web sessions.
+# Optional integrations (OAuth, APNs) are deliberately not listed.
+MISSING=""
+for var in KAMAL_DATABASE_URL KAMAL_AUTH_SECRET KAMAL_ENCRYPTION_KEY \
+           KAMAL_VAPID_PRIVATE_KEY KAMAL_REDIS_URL KAMAL_POSTGRES_PASSWORD \
+           DOCKER_REGISTRY_TOKEN; do
+  eval "value=\${$var:-}"
+  if [ -z "$value" ]; then
+    MISSING="$MISSING $var"
+  fi
+done
+
+if [ -n "$MISSING" ]; then
+  echo "error: required secrets are empty in $SECRETS_FILE:$MISSING" >&2
+  echo "       fill them in before deploying — an empty secret deploys" >&2
+  echo "       \"successfully\" and then breaks production auth." >&2
+  exit 1
+fi
+
 # Default to `deploy` if no subcommand was passed.
 if [ "$#" -eq 0 ]; then
   exec kamal deploy
