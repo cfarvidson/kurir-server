@@ -102,7 +102,13 @@ export interface ApnsSendResult {
  */
 export async function sendApnsNotification(
   deviceToken: string,
-  payload: { title: string; body: string; url: string; tag?: string },
+  payload: {
+    title: string;
+    body: string;
+    url: string;
+    tag?: string;
+    badge?: number;
+  },
 ): Promise<ApnsSendResult> {
   const config = getApnsConfig();
   if (!config) {
@@ -114,6 +120,7 @@ export async function sendApnsNotification(
       alert: { title: payload.title, body: payload.body },
       sound: "default",
       "thread-id": payload.tag ?? "kurir",
+      ...(payload.badge !== undefined ? { badge: payload.badge } : {}),
     },
     url: payload.url,
   });

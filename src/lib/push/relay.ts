@@ -12,7 +12,13 @@ export function relayConfigured(): boolean {
 
 export async function sendRelayNotification(
   deviceToken: string,
-  payload: { title: string; body: string; url: string; tag?: string },
+  payload: {
+    title: string;
+    body: string;
+    url: string;
+    tag?: string;
+    badge?: number;
+  },
 ): Promise<ApnsSendResult> {
   const res = await fetch(`${process.env.PUSH_RELAY_URL}/api/push`, {
     method: "POST",

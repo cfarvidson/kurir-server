@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 import { apnsConfigured, sendApnsNotification } from "@/lib/push/apns";
 import { relayConfigured, sendRelayNotification } from "@/lib/push/relay";
+import { getImboxUnreadThreadCount } from "@/lib/mail/unread-count";
 
 let vapidInitialized = false;
 function ensureVapid() {
@@ -57,6 +58,11 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   if (subscriptions.length === 0) return;
 
+  const hasIos = subscriptions.some((s) => s.platform === "ios");
+  const badge = hasIos
+    ? await getImboxUnreadThreadCount(userId).catch(() => undefined)
+    : undefined;
+
   const body = JSON.stringify(payload);
   // topic must be max 32 chars, URL-safe (no angle brackets from Message-IDs)
   const safeTopic = payload.tag?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
@@ -80,6 +86,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
         const result = await sendIos(deviceToken, {
           ...payload,
           tag: safeTopic,
+          ...(badge !== undefined ? { badge } : {}),
         });
         if (result.gone) {
           await db.pushSubscription
