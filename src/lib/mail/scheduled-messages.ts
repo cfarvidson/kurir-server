@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
@@ -15,6 +14,11 @@ import { rateLimitSend } from "@/lib/rate-limit";
  * take a `userId` and own everything else — the shared zod schema, the 1–14
  * minute jitter, body encryption, ownership checks and the send-now flow — so
  * both surfaces create identical rows and can never drift.
+ *
+ * Like the cores in `mutations.ts`, these do NOT touch the cache layer —
+ * `updateTag` throws outside a Server Action (it took every mobile route here
+ * down after the row had already been written), so the web wrappers own
+ * updateTag/revalidatePath.
  *
  * NB: the background worker (`sendDueScheduledMessages` in `scheduled-send.ts`)
  * is untouched; it just receives rows from a second source through this exact
@@ -130,8 +134,6 @@ export async function createScheduledMessageForUser(
     },
   });
 
-  updateTag("sidebar-counts");
-
   return { id: record.id, scheduledFor: jitteredTime };
 }
 
@@ -182,7 +184,6 @@ export async function cancelScheduledForUser(
   // Lost the race to the scheduler between the read and the write.
   if (result.count === 0) return "not_pending";
 
-  updateTag("sidebar-counts");
   return "cancelled";
 }
 
@@ -225,7 +226,6 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
         where: { id },
         data: { status: "SENT" },
       });
-      updateTag("sidebar-counts");
       return;
     }
 
@@ -295,8 +295,6 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
       text: textBody,
       html: htmlBody,
     });
-
-    updateTag("sidebar-counts");
   } catch (err) {
     // Roll back to PENDING so user can retry
     await db.scheduledMessage.update({

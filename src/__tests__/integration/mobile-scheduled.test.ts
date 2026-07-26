@@ -31,7 +31,18 @@ vi.mock("@/lib/crypto", () => ({
   decrypt: vi.fn((v: string) => v.replace(/^enc:/, "")),
 }));
 
-vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
+// The real updateTag THROWS outside a Server Action (i.e. in these route
+// handlers) — mirror that here so any shared core reached from the mobile
+// routes that touches the cache layer fails the suite. Regression: the
+// scheduled cores called updateTag and 400'd every mobile request in prod
+// after the row had already been written.
+vi.mock("next/cache", () => ({
+  updateTag: vi.fn(() => {
+    throw new Error(
+      "updateTag can only be called from within a Server Action",
+    );
+  }),
+}));
 
 vi.mock("@/lib/auth", () => ({
   getConnectionCredentialsInternal: vi.fn(),
