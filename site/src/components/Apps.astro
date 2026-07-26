@@ -1,0 +1,100 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<section class="bg-surface-50 px-6 py-24 md:py-32" id="apps">
+  <div class="mx-auto max-w-landing">
+    <!-- Asymmetric header: headline left, statement right -->
+    <div class="reveal grid gap-8 md:grid-cols-12 md:gap-16">
+      <div class="md:col-span-7">
+        <h2
+          class="text-3xl font-bold leading-[1.15] tracking-tight text-ink md:text-[2.75rem]"
+        >
+          In your pocket, two ways.
+        </h2>
+      </div>
+      <div class="md:col-span-5">
+        <p class="text-lg leading-relaxed text-ink-light">
+          The server, the web app, and the PWA are free and open source.
+          <strong class="text-ink">The native iPhone app is the one thing
+          that costs money</strong> — buying it is what funds the rest.
+        </p>
+      </div>
+    </div>
+
+    <!-- Two products, staggered -->
+    <div class="mt-16 grid gap-16 md:grid-cols-2 md:gap-12">
+      <!-- Native iPhone app -->
+      <div class="reveal reveal-delay-1">
+        <figure class="mx-auto max-w-[300px]">
+          <img
+            src={`${base}screenshots/native-imbox.png`}
+            alt="The native Kurir iPhone app showing the Imbox with personal mail"
+            class="rounded-[2rem] border border-surface-200 shadow-2xl shadow-accent/10"
+            width="780"
+            height="1696"
+            loading="lazy"
+          />
+        </figure>
+        <div class="mx-auto mt-10 max-w-md">
+          <span
+            class="text-xs font-semibold uppercase tracking-[0.15em] text-accent"
+          >
+            Paid &middot; coming to the App Store
+          </span>
+          <h3 class="mt-3 text-2xl font-bold text-ink">
+            The native iPhone app
+          </h3>
+          <p class="mt-3 leading-relaxed text-ink-light">
+            Real Swift, not a wrapped web page. Offline-first — every list
+            and thread reads instantly from a local store, and actions queue
+            up when you're off the grid. Push notifications the moment mail
+            lands in your Imbox.
+          </p>
+          <p class="mt-3 leading-relaxed text-ink-light">
+            It's the only part of Kurir you can pay for, and you never have
+            to. Think of it as the project's tip jar — with a really nice
+            app attached.
+          </p>
+        </div>
+      </div>
+
+      <!-- PWA -->
+      <div class="reveal reveal-delay-2 md:mt-20">
+        <figure class="mx-auto max-w-[300px]">
+          <img
+            src={`${base}screenshots/pwa-feed.png`}
+            alt="The Kurir PWA on a phone showing The Feed with newsletters"
+            class="rounded-[2rem] border border-surface-200 shadow-2xl shadow-accent/10"
+            width="780"
+            height="1600"
+            loading="lazy"
+          />
+        </figure>
+        <div class="mx-auto mt-10 max-w-md">
+          <span
+            class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-muted"
+          >
+            Free &middot; iOS &amp; Android
+          </span>
+          <h3 class="mt-3 text-2xl font-bold text-ink">
+            The PWA
+          </h3>
+          <p class="mt-3 leading-relaxed text-ink-light">
+            Install Kurir straight from your own server — no app store, no
+            account, no middleman. Full-screen, home-screen icon, push
+            notifications on iOS 16.4+ and Android.
+          </p>
+          <p class="mt-3 leading-relaxed text-ink-light">
+            Free and open source, like everything else that runs on your
+            server.
+            <a
+              href="docs/mobile-app"
+              class="font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-accent-dark hover:decoration-accent"
+            >Install guide</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

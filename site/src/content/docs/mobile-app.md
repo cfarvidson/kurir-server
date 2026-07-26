@@ -8,6 +8,8 @@ order: 5
 
 Kurir is a Progressive Web App (PWA), which means you can install it on your phone's home screen and use it like a native app — no App Store, no TestFlight, no extra account. It works on iOS 16.4+ and any modern Android device.
 
+> **Prefer a real native app?** There's also a native iPhone app — offline-first, built in Swift, coming to the App Store as a paid app. The PWA described on this page is free, like everything else you run on your own server.
+
 When installed, Kurir runs full-screen without browser chrome, supports push notifications, and survives reboots like a native app would.
 
 ## Requirements
