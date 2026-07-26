@@ -7,6 +7,7 @@ import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
 import {
   recipientField,
+  optionalRecipientField,
   createScheduledMessageForUser,
   cancelScheduledForUser,
   sendScheduledNowForUser,
@@ -15,6 +16,8 @@ import {
 
 const editSchema = z.object({
   to: recipientField.optional(),
+  cc: optionalRecipientField,
+  bcc: optionalRecipientField,
   subject: z.string().optional(),
   textBody: z.string().optional(),
   htmlBody: z.string().optional(),
@@ -140,6 +143,9 @@ export async function editScheduledMessage(
   // Build update payload, encrypting body fields if provided
   const updateData: Record<string, unknown> = {};
   if (parsed.to !== undefined) updateData.to = parsed.to;
+  // null (an explicit empty string) clears the field; undefined leaves it.
+  if (parsed.cc !== undefined) updateData.cc = parsed.cc;
+  if (parsed.bcc !== undefined) updateData.bcc = parsed.bcc;
   if (parsed.subject !== undefined) updateData.subject = parsed.subject;
   if (parsed.textBody !== undefined)
     updateData.textBody = encrypt(parsed.textBody);

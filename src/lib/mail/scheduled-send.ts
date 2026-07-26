@@ -193,6 +193,9 @@ async function processSingleMessage(
       msg.userId,
     );
 
+    const ccRecipients = parseRecipients(msg.cc ?? "").recipients;
+    const bccRecipients = parseRecipients(msg.bcc ?? "").recipients;
+
     await createLocalSentMessage({
       userId: msg.userId,
       emailConnectionId: msg.emailConnectionId,
@@ -203,6 +206,8 @@ async function processSingleMessage(
       subject: msg.subject,
       fromAddress,
       toAddresses: parseRecipients(msg.to).recipients,
+      ccAddresses: ccRecipients,
+      bccAddresses: bccRecipients,
       text: textBody,
       html: htmlBody,
       attachmentIds: sentLoaded.ids,
@@ -217,6 +222,8 @@ async function processSingleMessage(
       subject: msg.subject,
       fromAddress,
       toAddresses: parseRecipients(msg.to).recipients,
+      ccAddresses: ccRecipients,
+      bccAddresses: bccRecipients,
       text: textBody,
       html: htmlBody,
       attachments: sentLoaded.sentAttachments,
@@ -307,9 +314,16 @@ export async function sendScheduledEmail(
     ? msg.references.split(" ").filter(Boolean)
     : [];
 
+  // Mirror the direct-send route: normalize through parseRecipients and only
+  // include the cc/bcc keys when there are actual recipients.
+  const ccRecipients = parseRecipients(msg.cc ?? "").recipients;
+  const bccRecipients = parseRecipients(msg.bcc ?? "").recipients;
+
   const result = await transporter.sendMail({
     from: fromAddress,
     to: msg.to,
+    ...(ccRecipients.length > 0 && { cc: ccRecipients.join(", ") }),
+    ...(bccRecipients.length > 0 && { bcc: bccRecipients.join(", ") }),
     subject: msg.subject,
     text: textBody,
     html: emailHtml,

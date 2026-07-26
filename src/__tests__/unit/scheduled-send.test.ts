@@ -58,6 +58,8 @@ function makeMsg(overrides: Record<string, unknown> = {}) {
     userId: "user-1",
     emailConnectionId: "conn-1",
     to: "recipient@example.com",
+    cc: null as string | null,
+    bcc: null as string | null,
     subject: "Hello",
     textBody: "hi there",
     htmlBody: null,
@@ -140,5 +142,30 @@ describe("sendScheduledEmail", () => {
     const callArgs = sendMailMock.mock.calls[0][0];
     expect(callArgs.messageId).toBe("<stable-id@example.com>");
     expect(db.scheduledMessage.update).not.toHaveBeenCalled();
+  });
+
+  it("passes cc/bcc from the row to transporter.sendMail (normalized join)", async () => {
+    const { sendScheduledEmail } = await import("@/lib/mail/scheduled-send");
+    const msg = makeMsg({
+      cc: "cc1@example.com, cc2@example.com",
+      bcc: "hidden@example.com",
+    });
+
+    await sendScheduledEmail(msg as never, connection, credentials);
+
+    const callArgs = sendMailMock.mock.calls[0][0];
+    expect(callArgs.cc).toBe("cc1@example.com, cc2@example.com");
+    expect(callArgs.bcc).toBe("hidden@example.com");
+  });
+
+  it("omits the cc/bcc keys entirely when the row has none (regression)", async () => {
+    const { sendScheduledEmail } = await import("@/lib/mail/scheduled-send");
+    const msg = makeMsg();
+
+    await sendScheduledEmail(msg as never, connection, credentials);
+
+    const callArgs = sendMailMock.mock.calls[0][0];
+    expect("cc" in callArgs).toBe(false);
+    expect("bcc" in callArgs).toBe(false);
   });
 });

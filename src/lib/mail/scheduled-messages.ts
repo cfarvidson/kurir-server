@@ -34,6 +34,21 @@ export const recipientField = z.string().transform((val) => {
   return recipients.join(", ");
 });
 
+// Optional Cc/Bcc counterpart to `recipientField`: omitted means "leave as
+// is" (edit) / "none" (create); an empty or all-invalid-free empty list maps
+// to null so an explicit empty string clears the field on edit. Any provided
+// address must be valid — the whole value is rejected otherwise.
+export const optionalRecipientField = z
+  .string()
+  .transform((val) => {
+    const { recipients, invalid } = parseRecipients(val);
+    if (invalid.length > 0) {
+      throw new Error(`Invalid recipient address: ${invalid.join(", ")}`);
+    }
+    return recipients.length > 0 ? recipients.join(", ") : null;
+  })
+  .optional();
+
 /**
  * Shared create schema for both the web action and the mobile POST route, so
  * a single definition validates every scheduled message. `scheduledFor` must
@@ -41,6 +56,8 @@ export const recipientField = z.string().transform((val) => {
  */
 export const createScheduledSchema = z.object({
   to: recipientField,
+  cc: optionalRecipientField,
+  bcc: optionalRecipientField,
   subject: z.string(),
   textBody: z.string(),
   htmlBody: z.string().optional(),
@@ -101,6 +118,8 @@ export async function createScheduledMessageForUser(
       userId,
       emailConnectionId: parsed.emailConnectionId,
       to: parsed.to,
+      cc: parsed.cc ?? null,
+      bcc: parsed.bcc ?? null,
       subject: parsed.subject,
       textBody: encryptedTextBody,
       htmlBody: encryptedHtmlBody,
@@ -128,6 +147,7 @@ export async function listScheduledForUser(userId: string) {
     select: {
       id: true,
       to: true,
+      cc: true,
       subject: true,
       scheduledFor: true,
       status: true,
@@ -270,6 +290,8 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
       subject: msg.subject,
       fromAddress,
       toAddresses: parseRecipients(msg.to).recipients,
+      ccAddresses: parseRecipients(msg.cc ?? "").recipients,
+      bccAddresses: parseRecipients(msg.bcc ?? "").recipients,
       text: textBody,
       html: htmlBody,
     });
