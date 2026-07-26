@@ -168,4 +168,15 @@ describe("sendScheduledEmail", () => {
     expect("cc" in callArgs).toBe(false);
     expect("bcc" in callArgs).toBe(false);
   });
+
+  it("omits the to key for a Cc-only schedule (to stored as empty string)", async () => {
+    const { sendScheduledEmail } = await import("@/lib/mail/scheduled-send");
+    const msg = makeMsg({ to: "", cc: "cc-only@example.com" });
+
+    await sendScheduledEmail(msg as never, connection, credentials);
+
+    const callArgs = sendMailMock.mock.calls[0][0];
+    expect("to" in callArgs).toBe(false);
+    expect(callArgs.cc).toBe("cc-only@example.com");
+  });
 });

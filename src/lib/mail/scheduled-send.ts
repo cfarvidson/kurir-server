@@ -315,13 +315,15 @@ export async function sendScheduledEmail(
     : [];
 
   // Mirror the direct-send route: normalize through parseRecipients and only
-  // include the cc/bcc keys when there are actual recipients.
+  // include the to/cc/bcc keys when there are actual recipients (Cc- or
+  // Bcc-only schedules store to = "").
+  const toRecipients = parseRecipients(msg.to).recipients;
   const ccRecipients = parseRecipients(msg.cc ?? "").recipients;
   const bccRecipients = parseRecipients(msg.bcc ?? "").recipients;
 
   const result = await transporter.sendMail({
     from: fromAddress,
-    to: msg.to,
+    ...(toRecipients.length > 0 && { to: toRecipients.join(", ") }),
     ...(ccRecipients.length > 0 && { cc: ccRecipients.join(", ") }),
     ...(bccRecipients.length > 0 && { bcc: bccRecipients.join(", ") }),
     subject: msg.subject,

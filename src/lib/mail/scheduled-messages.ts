@@ -25,23 +25,11 @@ import { rateLimitSend } from "@/lib/rate-limit";
  * create-core.
  */
 
-// Accept one or more comma/semicolon-separated recipients; store as a
-// normalized comma-joined string. Rejects the whole value if any is invalid.
-export const recipientField = z.string().transform((val) => {
-  const { recipients, invalid } = parseRecipients(val);
-  if (invalid.length > 0) {
-    throw new Error(`Invalid recipient address: ${invalid.join(", ")}`);
-  }
-  if (recipients.length === 0) {
-    throw new Error("No valid recipient address provided");
-  }
-  return recipients.join(", ");
-});
-
-// Optional Cc/Bcc counterpart to `recipientField`: omitted means "leave as
-// is" (edit) / "none" (create); an empty or all-invalid-free empty list maps
-// to null so an explicit empty string clears the field on edit. Any provided
-// address must be valid — the whole value is rejected otherwise.
+// One optional recipient field (To/Cc/Bcc alike): accepts comma/semicolon-
+// separated addresses, stored as a normalized comma-joined string. Omitted
+// means "leave as is" (edit) / "none" (create); an empty string maps to null
+// so it clears the field on edit. Any provided address must be valid — the
+// whole value is rejected otherwise.
 export const optionalRecipientField = z
   .string()
   .transform((val) => {
@@ -59,7 +47,10 @@ export const optionalRecipientField = z
  * parse to a future instant (the jitter is added on top, server-side).
  */
 export const createScheduledSchema = z.object({
-  to: recipientField,
+  // To is optional like Cc/Bcc — a schedule must reach at least one recipient
+  // across the three fields (checked in the create/edit cores), mirroring the
+  // direct-send route's support for Cc- or Bcc-only mail.
+  to: optionalRecipientField,
   cc: optionalRecipientField,
   bcc: optionalRecipientField,
   subject: z.string(),
@@ -93,6 +84,11 @@ export async function createScheduledMessageForUser(
 ) {
   const parsed = createScheduledSchema.parse(input);
 
+  // At least one recipient across To/Cc/Bcc (direct-send parity).
+  if (!parsed.to && !parsed.cc && !parsed.bcc) {
+    throw new Error("No valid recipient address provided");
+  }
+
   // Verify connection belongs to user
   const connection = await db.emailConnection.findFirst({
     where: { id: parsed.emailConnectionId, userId },
@@ -121,7 +117,8 @@ export async function createScheduledMessageForUser(
     data: {
       userId,
       emailConnectionId: parsed.emailConnectionId,
-      to: parsed.to,
+      // `to` is a non-nullable column; a Cc/Bcc-only schedule stores "".
+      to: parsed.to ?? "",
       cc: parsed.cc ?? null,
       bcc: parsed.bcc ?? null,
       subject: parsed.subject,

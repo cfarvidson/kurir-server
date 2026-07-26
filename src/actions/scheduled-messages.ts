@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { z } from "zod";
 import {
-  recipientField,
   optionalRecipientField,
   createScheduledMessageForUser,
   cancelScheduledForUser,
@@ -15,7 +14,7 @@ import {
 } from "@/lib/mail/scheduled-messages";
 
 const editSchema = z.object({
-  to: recipientField.optional(),
+  to: optionalRecipientField,
   cc: optionalRecipientField,
   bcc: optionalRecipientField,
   subject: z.string().optional(),
@@ -142,10 +141,21 @@ export async function editScheduledMessage(
     if (!connection) throw new Error("Email connection not found");
   }
 
+  // The edited row must still reach at least one recipient across To/Cc/Bcc
+  // (undefined = field untouched, so fall back to the stored value).
+  const effectiveTo = parsed.to !== undefined ? parsed.to : msg.to;
+  const effectiveCc = parsed.cc !== undefined ? parsed.cc : msg.cc;
+  const effectiveBcc = parsed.bcc !== undefined ? parsed.bcc : msg.bcc;
+  if (!effectiveTo && !effectiveCc && !effectiveBcc) {
+    throw new Error("No valid recipient address provided");
+  }
+
   // Build update payload, encrypting body fields if provided
   const updateData: Record<string, unknown> = {};
-  if (parsed.to !== undefined) updateData.to = parsed.to;
-  // null (an explicit empty string) clears the field; undefined leaves it.
+  // For all three recipient fields: null (an explicit empty string) clears
+  // the field; undefined leaves it. `to` is a non-nullable column, so a
+  // cleared To stores "".
+  if (parsed.to !== undefined) updateData.to = parsed.to ?? "";
   if (parsed.cc !== undefined) updateData.cc = parsed.cc;
   if (parsed.bcc !== undefined) updateData.bcc = parsed.bcc;
   if (parsed.subject !== undefined) updateData.subject = parsed.subject;

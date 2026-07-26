@@ -214,7 +214,13 @@ describe("hold/restore scheduled message actions", () => {
 describe("editScheduledMessage cc/bcc", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  async function setupPendingRow() {
+  async function setupPendingRow(
+    row: Record<string, unknown> = {
+      to: "stored@example.com",
+      cc: null,
+      bcc: null,
+    },
+  ) {
     const { auth } = await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
     const { db } = await import("@/lib/db");
@@ -222,6 +228,7 @@ describe("editScheduledMessage cc/bcc", () => {
       id: "sched-1",
       status: "PENDING",
       emailConnectionId: "conn-1",
+      ...row,
     } as never);
     return db;
   }
@@ -256,5 +263,39 @@ describe("editScheduledMessage cc/bcc", () => {
       data: Record<string, unknown>;
     };
     expect(args.data.cc).toBeNull();
+  });
+
+  it("allows clearing To while Cc keeps a recipient (stored as empty string)", async () => {
+    const db = await setupPendingRow({
+      to: "stored@example.com",
+      cc: "cc@example.com",
+      bcc: null,
+    });
+    const { editScheduledMessage } = await import(
+      "@/actions/scheduled-messages"
+    );
+
+    await editScheduledMessage("sched-1", { to: "" });
+
+    const args = vi.mocked(db.scheduledMessage.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(args.data.to).toBe("");
+  });
+
+  it("rejects an edit that would leave the row without any recipient", async () => {
+    const db = await setupPendingRow({
+      to: "stored@example.com",
+      cc: null,
+      bcc: null,
+    });
+    const { editScheduledMessage } = await import(
+      "@/actions/scheduled-messages"
+    );
+
+    await expect(
+      editScheduledMessage("sched-1", { to: "" }),
+    ).rejects.toThrow(/No valid recipient/);
+    expect(db.scheduledMessage.update).not.toHaveBeenCalled();
   });
 });

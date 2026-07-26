@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/mail/empty-state";
 export interface ScheduledMessageItem {
   id: string;
   to: string;
+  cc: string | null;
   subject: string;
   snippet: string;
   scheduledFor: string; // ISO string
@@ -105,7 +106,13 @@ function ScheduledMessageRow({
       <div className="min-w-0 flex-1">
         {/* Recipient + subject */}
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">To: {message.to}</span>
+          <span className="truncate text-sm font-medium">
+            {message.to
+              ? `To: ${message.to}`
+              : message.cc
+                ? `Cc: ${message.cc}`
+                : "Bcc only"}
+          </span>
           {message.status === "FAILED" && (
             <span className="eyebrow shrink-0 text-destructive">Failed</span>
           )}
@@ -115,6 +122,12 @@ function ScheduledMessageRow({
             </span>
           )}
         </div>
+
+        {message.to && message.cc && (
+          <div className="truncate text-xs text-muted-foreground">
+            Cc: {message.cc}
+          </div>
+        )}
 
         <div className="truncate text-sm text-foreground/80">
           {message.subject || "(no subject)"}

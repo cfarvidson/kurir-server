@@ -32,6 +32,7 @@ async function getScheduledMessages(
     return {
       id: msg.id,
       to: msg.to,
+      cc: msg.cc,
       subject: msg.subject,
       snippet,
       scheduledFor: msg.scheduledFor.toISOString(),

@@ -203,6 +203,50 @@ describe("/api/mobile/scheduled", () => {
     expect(createArgs.data.bcc).toBeNull();
   });
 
+  it("(b5) POST with only Cc (no To) creates the row with to = \"\"", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findFirst).mockResolvedValue({
+      id: "conn-1",
+    } as never);
+    vi.mocked(db.scheduledMessage.create).mockResolvedValue({
+      id: "sched-1",
+    } as never);
+
+    const { POST } = await import("@/app/api/mobile/scheduled/route");
+    const res = await POST(
+      makeRequest({
+        cc: "cc-only@example.com",
+        subject: "Hi",
+        textBody: "hello",
+        scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+        emailConnectionId: "conn-1",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const createArgs = vi.mocked(db.scheduledMessage.create).mock
+      .calls[0][0] as { data: { to: string; cc: string | null } };
+    expect(createArgs.data.to).toBe("");
+    expect(createArgs.data.cc).toBe("cc-only@example.com");
+  });
+
+  it("(b6) POST with no recipient in any field returns 400 and never creates a row", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    const { POST } = await import("@/app/api/mobile/scheduled/route");
+    const res = await POST(
+      makeRequest({
+        subject: "Hi",
+        textBody: "hello",
+        scheduledFor: new Date(Date.now() + 3_600_000).toISOString(),
+        emailConnectionId: "conn-1",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(db.scheduledMessage.create).not.toHaveBeenCalled();
+  });
+
   it("(b4) POST with an invalid cc address returns 400 and never creates a row", async () => {
     await mockAuthed();
     const { db } = await import("@/lib/db");

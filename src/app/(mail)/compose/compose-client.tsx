@@ -429,14 +429,21 @@ export function ComposeClientPage({
       return;
     }
     const { recipients, invalid } = parseRecipients(to);
-    const { invalid: ccInvalid } = parseRecipients(cc);
-    const { invalid: bccInvalid } = parseRecipients(bcc);
+    const { recipients: ccRecipients, invalid: ccInvalid } =
+      parseRecipients(cc);
+    const { recipients: bccRecipients, invalid: bccInvalid } =
+      parseRecipients(bcc);
     const allInvalid = [...invalid, ...ccInvalid, ...bccInvalid];
     if (allInvalid.length > 0) {
       setError(`Invalid recipient address: ${allInvalid.join(", ")}`);
       return;
     }
-    if (recipients.length === 0) {
+    // Direct-send parity: any one field is enough (Cc- or Bcc-only is fine).
+    if (
+      recipients.length === 0 &&
+      ccRecipients.length === 0 &&
+      bccRecipients.length === 0
+    ) {
       setError("Please enter a recipient");
       return;
     }
