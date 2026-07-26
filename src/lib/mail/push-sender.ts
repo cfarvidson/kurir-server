@@ -60,7 +60,9 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   const hasIos = subscriptions.some((s) => s.platform === "ios");
   const badge = hasIos
-    ? await getImboxUnreadThreadCount(userId).catch(() => undefined)
+    ? await getImboxUnreadThreadCount(userId)
+        .then((n) => Math.min(n, 99_999))
+        .catch(() => undefined)
     : undefined;
 
   const body = JSON.stringify(payload);
