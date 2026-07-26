@@ -106,6 +106,10 @@ export interface ForwardData {
 export interface EditScheduledData {
   id: string;
   to: string;
+  /** Comma-joined Cc list; empty string when the row has none. */
+  cc: string;
+  /** Comma-joined Bcc list; empty string when the row has none. */
+  bcc: string;
   subject: string;
   body: string;
   /** ISO string of the current scheduled send time. */
@@ -152,10 +156,10 @@ export function ComposeClientPage({
   const [to, setTo] = useState(
     editScheduled?.to ?? searchParams.get("to") ?? "",
   );
-  const [cc, setCc] = useState("");
-  const [bcc, setBcc] = useState("");
-  const [showCc, setShowCc] = useState(false);
-  const [showBcc, setShowBcc] = useState(false);
+  const [cc, setCc] = useState(editScheduled?.cc ?? "");
+  const [bcc, setBcc] = useState(editScheduled?.bcc ?? "");
+  const [showCc, setShowCc] = useState(!!editScheduled?.cc);
+  const [showBcc, setShowBcc] = useState(!!editScheduled?.bcc);
   const [addedGroups, setAddedGroups] = useState<AddedGroupState[]>([]);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [subject, setSubject] = useState(
@@ -418,17 +422,18 @@ export function ComposeClientPage({
   };
 
   const handleScheduleSend = async (scheduledFor: Date) => {
-    // Scheduled sends store a single `to` string with no Cc/Bcc columns yet,
-    // so scheduling Cc/Bcc or groups is not supported (deferred). Send now instead.
-    if (cc.trim() || bcc.trim() || addedGroups.length > 0) {
-      setError(
-        "Scheduling doesn't support Cc, Bcc, or groups yet — send now instead.",
-      );
+    // Scheduled sends expand no groups (they resolve at send time in the
+    // direct path), so scheduling with groups is not supported (deferred).
+    if (addedGroups.length > 0) {
+      setError("Scheduling doesn't support groups yet — send now instead.");
       return;
     }
     const { recipients, invalid } = parseRecipients(to);
-    if (invalid.length > 0) {
-      setError(`Invalid recipient address: ${invalid.join(", ")}`);
+    const { invalid: ccInvalid } = parseRecipients(cc);
+    const { invalid: bccInvalid } = parseRecipients(bcc);
+    const allInvalid = [...invalid, ...ccInvalid, ...bccInvalid];
+    if (allInvalid.length > 0) {
+      setError(`Invalid recipient address: ${allInvalid.join(", ")}`);
       return;
     }
     if (recipients.length === 0) {
@@ -448,6 +453,9 @@ export function ComposeClientPage({
         // Update the existing scheduled message rather than creating a duplicate.
         await editScheduledMessage(editScheduled.id, {
           to: to.trim(),
+          // Always sent: an empty string clears a previously stored value.
+          cc: cc.trim(),
+          bcc: bcc.trim(),
           subject,
           // When the original body couldn't be decrypted at load time, omit
           // textBody so the existing ciphertext is preserved rather than
@@ -461,6 +469,8 @@ export function ComposeClientPage({
       } else {
         await createScheduledMessage({
           to: to.trim(),
+          cc: cc.trim(),
+          bcc: bcc.trim(),
           subject,
           textBody: body,
           scheduledFor: scheduledFor.toISOString(),

@@ -216,6 +216,8 @@ export function ReplyComposer({
 
       await createScheduledMessage({
         to: to.trim(),
+        cc: cc.trim(),
+        bcc: bcc.trim(),
         subject: replySubject,
         textBody: body.trim(),
         scheduledFor: scheduledFor.toISOString(),
