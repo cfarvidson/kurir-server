@@ -23,6 +23,11 @@ export default auth((req) => {
   const isOnLoginPage = req.nextUrl.pathname === "/login";
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
   const isOnRegisterPage = req.nextUrl.pathname === "/register";
+  // Public legal pages — App Store reviewers and users must reach these
+  // without an account.
+  const isLegalPage = ["/privacy", "/terms", "/support"].includes(
+    req.nextUrl.pathname,
+  );
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
   const isSetupApi = req.nextUrl.pathname === "/api/setup/check";
   const isHealthCheck = req.nextUrl.pathname === "/api/up";
@@ -78,7 +83,13 @@ export default auth((req) => {
 
   // Redirect non-logged-in users to login, preserving the intended
   // destination so the login form can return them there afterwards.
-  if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
+  if (
+    !isLoggedIn &&
+    !isOnLoginPage &&
+    !isOnSetupPage &&
+    !isOnRegisterPage &&
+    !isLegalPage
+  ) {
     const next = req.nextUrl.pathname + req.nextUrl.search;
     return redirect(req, `/login?next=${encodeURIComponent(next)}`);
   }

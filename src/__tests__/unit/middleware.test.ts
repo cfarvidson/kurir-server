@@ -3,6 +3,7 @@
  *
  * Invariants:
  * - /login, /setup, /register are public (no redirect when unauthenticated)
+ * - /privacy, /terms, /support are public legal pages (no session required)
  * - /api/auth/* routes always pass through
  * - All other routes require authentication
  * - Logged-in users visiting /login are redirected to /imbox
@@ -21,11 +22,18 @@ function evaluateMiddleware(
   const isOnLoginPage = pathname === "/login";
   const isOnSetupPage = pathname === "/setup";
   const isOnRegisterPage = pathname === "/register";
+  const isLegalPage = ["/privacy", "/terms", "/support"].includes(pathname);
   const isAuthRoute = pathname.startsWith("/api/auth");
 
   if (isAuthRoute) return { action: "next" };
   if (isLoggedIn && isOnLoginPage) return { action: "redirect", to: "/imbox" };
-  if (!isLoggedIn && !isOnLoginPage && !isOnSetupPage && !isOnRegisterPage) {
+  if (
+    !isLoggedIn &&
+    !isOnLoginPage &&
+    !isOnSetupPage &&
+    !isOnRegisterPage &&
+    !isLegalPage
+  ) {
     return { action: "redirect", to: "/login" };
   }
   return { action: "next" };
@@ -60,6 +68,22 @@ describe("middleware route protection", () => {
 
     it("allows access to /setup without redirect", () => {
       expect(evaluateMiddleware("/setup", false)).toEqual({ action: "next" });
+    });
+
+    it("allows access to /privacy without redirect", () => {
+      expect(evaluateMiddleware("/privacy", false)).toEqual({
+        action: "next",
+      });
+    });
+
+    it("allows access to /terms without redirect", () => {
+      expect(evaluateMiddleware("/terms", false)).toEqual({ action: "next" });
+    });
+
+    it("allows access to /support without redirect", () => {
+      expect(evaluateMiddleware("/support", false)).toEqual({
+        action: "next",
+      });
     });
 
     it("allows /api/auth/* routes through", () => {

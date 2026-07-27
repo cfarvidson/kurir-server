@@ -211,6 +211,19 @@ export default function LoginForm() {
               Create an account
             </Link>
           </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            <Link href="/privacy" className="hover:underline">
+              Privacy
+            </Link>
+            {" · "}
+            <Link href="/terms" className="hover:underline">
+              Terms
+            </Link>
+            {" · "}
+            <Link href="/support" className="hover:underline">
+              Support
+            </Link>
+          </p>
         </div>
       </motion.div>
     </AuthShell>
