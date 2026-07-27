@@ -223,6 +223,28 @@ describe("GET /api/mobile/sync", () => {
     expect(select.aliases).toBe(true);
   });
 
+  it("accepts the sender-advanced cursor it emits (empty id)", async () => {
+    await mockAuthed();
+    await mockEmptyTables();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+
+    const senderAt = new Date("2026-07-27T10:00:00Z");
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      { id: "s1", updatedAt: senderAt },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const first = await GET(makeRequest());
+    const body = await first.json();
+    // Message stream drained → cursor advanced to the newest sender, no id.
+    expect(body.nextCursor).toBe(`${senderAt.toISOString()}_`);
+
+    // The client stores that cursor and sends it back on the next sync.
+    const second = await GET(makeRequest({ cursor: body.nextCursor }));
+    expect(second.status).toBe(200);
+  });
+
   it("keeps the incoming cursor when nothing changed", async () => {
     await mockAuthed();
     await mockEmptyTables();

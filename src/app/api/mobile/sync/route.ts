@@ -45,7 +45,8 @@ function parseCursor(raw: string | null): { at: Date; id: string } | null {
   if (sep === -1) return null;
   const at = new Date(raw.slice(0, sep));
   const id = raw.slice(sep + 1);
-  if (isNaN(at.getTime()) || !id) return null;
+  // Empty id is valid: the sender-advanced cursor (below) has no message id.
+  if (isNaN(at.getTime())) return null;
   return { at, id };
 }
 
