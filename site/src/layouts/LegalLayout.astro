@@ -1,0 +1,22 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <Header />
+  <main class="px-6 py-16">
+    <article class="prose mx-auto max-w-content">
+      <slot />
+    </article>
+  </main>
+  <Footer />
+</BaseLayout>
