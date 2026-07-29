@@ -11,5 +11,11 @@ export default async function LoginPage() {
     redirect("/setup");
   }
 
-  return <LoginForm />;
+  // Demo instances (DEMO_LOGIN_* set) also offer password sign-in — the
+  // passkey-only flow is unusable for App Store reviewers.
+  const demoLoginEnabled = Boolean(
+    process.env.DEMO_LOGIN_EMAIL && process.env.DEMO_LOGIN_PASSWORD,
+  );
+
+  return <LoginForm demoLoginEnabled={demoLoginEnabled} />;
 }

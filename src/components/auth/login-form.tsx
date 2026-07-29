@@ -11,11 +11,17 @@ import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 type LoginState = "idle" | "waiting" | "loading" | "error";
 
-export default function LoginForm() {
+export default function LoginForm({
+  demoLoginEnabled = false,
+}: {
+  demoLoginEnabled?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState<LoginState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [demoEmail, setDemoEmail] = useState("");
+  const [demoPassword, setDemoPassword] = useState("");
 
   // Attempt conditional/autofill passkey on mount (discoverable credential)
   useEffect(() => {
@@ -60,6 +66,47 @@ export default function LoginForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Return to the intended destination if one was passed (validated to a
+  // same-origin path — no open redirect; backslashes rejected since URL
+  // parsing folds "/\evil.com" into "//evil.com"), otherwise the inbox.
+  const redirectAfterLogin = () => {
+    const next = searchParams.get("next");
+    const dest =
+      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+        ? next
+        : "/imbox";
+    router.push(dest);
+    router.refresh();
+  };
+
+  const handleDemoLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState("loading");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: demoEmail, password: demoPassword }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Sign-in failed. Please try again.");
+      }
+
+      redirectAfterLogin();
+    } catch (err) {
+      setState("error");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Sign-in failed. Please try again.",
+      );
+    }
+  };
+
   const handleVerify = async (credential: AuthenticationResponseJSON) => {
     setState("loading");
     setError(null);
@@ -76,19 +123,7 @@ export default function LoginForm() {
         throw new Error(data.error || "Sign-in failed. Please try again.");
       }
 
-      // Return to the intended destination if one was passed (validated to a
-      // same-origin path — no open redirect; backslashes rejected since URL
-      // parsing folds "/\evil.com" into "//evil.com"), otherwise the inbox.
-      const next = searchParams.get("next");
-      const dest =
-        next &&
-        next.startsWith("/") &&
-        !next.startsWith("//") &&
-        !next.includes("\\")
-          ? next
-          : "/imbox";
-      router.push(dest);
-      router.refresh();
+      redirectAfterLogin();
     } catch (err) {
       setState("error");
       setError(
@@ -202,6 +237,44 @@ export default function LoginForm() {
             tabIndex={-1}
             readOnly
           />
+
+          {/* Demo-instance password sign-in (DEMO_LOGIN_* set on server) */}
+          {demoLoginEnabled && (
+            <form onSubmit={handleDemoLogin} className="space-y-3 border-t border-border pt-4">
+              <p className="text-xs text-muted-foreground">
+                Demo instance — sign in with the demo credentials.
+              </p>
+              <input
+                type="email"
+                required
+                value={demoEmail}
+                onChange={(e) => setDemoEmail(e.target.value)}
+                placeholder="Email"
+                autoComplete="email"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                type="password"
+                required
+                value={demoPassword}
+                onChange={(e) => setDemoPassword(e.target.value)}
+                placeholder="Password"
+                autoComplete="current-password"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                className="w-full"
+                disabled={isWorking}
+              >
+                {state === "loading" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                Sign in with demo account
+              </Button>
+            </form>
+          )}
         </div>
 
         <div className="border-t border-border pt-4">
