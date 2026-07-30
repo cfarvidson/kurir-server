@@ -2,6 +2,7 @@ import { ImapFlow, FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
+import { isDemoInstance } from "@/lib/demo";
 import { suppressEcho } from "@/lib/mail/flag-push";
 import { findArchiveMailbox } from "@/lib/mail/imap-client";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
@@ -889,6 +890,12 @@ export async function syncEmailConnection(
   results: SyncResult[];
   error?: string;
 }> {
+  // Demo instances have fictional IMAP hosts — sync is a successful no-op
+  // so the seeded mail stays untouched and no error banner appears.
+  if (isDemoInstance()) {
+    return { success: true, results: [] };
+  }
+
   const credentials = await getConnectionCredentialsInternal(emailConnectionId);
 
   if (!credentials) {

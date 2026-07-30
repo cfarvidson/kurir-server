@@ -17,6 +17,7 @@ import { findOrCreateContactForEmail } from "@/actions/contacts";
 import { rateLimitSend, tooManyRequests } from "@/lib/rate-limit";
 import nodemailer from "nodemailer";
 import { z } from "zod";
+import { isDemoInstance } from "@/lib/demo";
 
 const sendSchema = z.object({
   to: z.string(),
@@ -41,6 +42,15 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimitSend(userId);
   if (!rl.allowed) {
     return tooManyRequests(rl.retryAfter);
+  }
+
+  // Demo instances have fictional SMTP hosts — fail fast with a clear
+  // message instead of a connection error.
+  if (isDemoInstance()) {
+    return NextResponse.json(
+      { error: "Sending is disabled on this demo instance." },
+      { status: 400 },
+    );
   }
 
   let body;

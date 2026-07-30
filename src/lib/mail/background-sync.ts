@@ -12,6 +12,7 @@ import {
 import { closeQueues } from "@/lib/jobs/queue";
 import { connectionManager } from "./connection-manager";
 import { db } from "@/lib/db";
+import { isDemoInstance } from "@/lib/demo";
 
 // Re-export for backward compatibility (used by sync route)
 export { checkExpiredFollowUps } from "@/lib/jobs/maintenance-tasks";
@@ -106,6 +107,12 @@ export async function startBootIdleConnections(): Promise<void> {
 export async function startBackgroundSync() {
   if (started) return;
   started = true;
+
+  // Demo instances (fictional IMAP hosts) never sync — see @/lib/demo.
+  if (isDemoInstance()) {
+    console.log("[bg-sync] Demo instance — background sync disabled");
+    return;
+  }
 
   console.log("[bg-sync] Starting BullMQ-based background sync");
 
