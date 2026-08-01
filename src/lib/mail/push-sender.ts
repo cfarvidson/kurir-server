@@ -1,7 +1,11 @@
 import webpush from "web-push";
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
-import { apnsConfigured, sendApnsNotification } from "@/lib/push/apns";
+import {
+  apnsConfigured,
+  sendApnsNotification,
+  type ApnsSendResult,
+} from "@/lib/push/apns";
 import { relayConfigured, sendRelayNotification } from "@/lib/push/relay";
 import { getImboxUnreadThreadCount } from "@/lib/mail/unread-count";
 
@@ -34,6 +38,48 @@ interface PushPayload {
 const recentlyNotified = new Set<string>();
 const DEDUP_TTL_MS = 120_000; // 2 minutes
 
+type IosSend = (
+  deviceToken: string,
+  payload: PushPayload & { badge?: number },
+  opts?: { sandbox?: boolean },
+) => Promise<ApnsSendResult>;
+
+/**
+ * Send to one APNs token, learning which gateway it belongs to. Dev (Xcode)
+ * builds carry sandbox tokens while TestFlight/App Store builds carry
+ * production tokens, and the same phone flips between them on reinstall — so
+ * BadDeviceToken from one gateway is retried against the other before the
+ * token is declared dead. `workedEnv` is the gateway that accepted the token
+ * (for persisting on the subscription), null when nothing did.
+ */
+export async function sendIosWithEnvFallback(
+  send: IosSend,
+  deviceToken: string,
+  payload: PushPayload & { badge?: number },
+  knownEnv: string | null,
+  defaultSandbox: boolean,
+): Promise<{
+  result: ApnsSendResult;
+  workedEnv: "sandbox" | "production" | null;
+}> {
+  const firstSandbox =
+    knownEnv !== null ? knownEnv === "sandbox" : defaultSandbox;
+  const first = await send(deviceToken, payload, { sandbox: firstSandbox });
+  if (first.ok) {
+    return { result: first, workedEnv: firstSandbox ? "sandbox" : "production" };
+  }
+  if (!first.gone) return { result: first, workedEnv: null };
+
+  const second = await send(deviceToken, payload, { sandbox: !firstSandbox });
+  if (second.ok) {
+    return {
+      result: second,
+      workedEnv: firstSandbox ? "production" : "sandbox",
+    };
+  }
+  return { result: second, workedEnv: null };
+}
+
 export async function pushToUser(userId: string, payload: PushPayload) {
   ensureVapid();
   const webConfigured = getConfig().vapid.configured;
@@ -53,6 +99,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
       endpoint: true,
       p256dh: true,
       auth: true,
+      apnsEnv: true,
     },
   });
 
@@ -82,14 +129,21 @@ export async function pushToUser(userId: string, payload: PushPayload) {
         const deviceToken = sub.endpoint.replace(/^apns:/, "");
         // Direct APNs wins when both are configured — the maintainer's own
         // instance must not loop through the relay.
-        const sendIos = apnsConfigured()
+        const sendIos: IosSend = apnsConfigured()
           ? sendApnsNotification
           : sendRelayNotification;
-        const result = await sendIos(deviceToken, {
-          ...payload,
-          tag: safeTopic,
-          ...(badge !== undefined ? { badge } : {}),
-        });
+        const { result, workedEnv } = await sendIosWithEnvFallback(
+          sendIos,
+          deviceToken,
+          { ...payload, tag: safeTopic, ...(badge !== undefined ? { badge } : {}) },
+          sub.apnsEnv,
+          process.env.APNS_SANDBOX === "true",
+        );
+        if (workedEnv && workedEnv !== sub.apnsEnv) {
+          await db.pushSubscription
+            .update({ where: { id: sub.id }, data: { apnsEnv: workedEnv } })
+            .catch(() => {});
+        }
         if (result.gone) {
           await db.pushSubscription
             .delete({ where: { id: sub.id } })

@@ -19,13 +19,14 @@ export async function sendRelayNotification(
     tag?: string;
     badge?: number;
   },
+  opts?: { sandbox?: boolean },
 ): Promise<ApnsSendResult> {
   const res = await fetch(`${process.env.PUSH_RELAY_URL}/api/push`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       deviceToken,
-      sandbox: process.env.APNS_SANDBOX === "true",
+      sandbox: opts?.sandbox ?? process.env.APNS_SANDBOX === "true",
       notification: payload,
     }),
     signal: AbortSignal.timeout(10_000),

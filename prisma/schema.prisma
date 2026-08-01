@@ -477,6 +477,12 @@ model PushSubscription {
   // "apns:<deviceToken>" and p256dh/auth are empty strings.
   platform String @default("web")
 
+  // APNs gateway that last accepted this token: "sandbox" | "production".
+  // Null until a send succeeds — dev (Xcode) builds get sandbox tokens while
+  // TestFlight/App Store builds get production tokens, so this is learned
+  // per token rather than configured instance-wide.
+  apnsEnv String?
+
   // Web Push subscription data
   endpoint String @unique // Push service URL (web) or apns:<token> (ios)
   p256dh   String // Public key for payload encryption (base64url)

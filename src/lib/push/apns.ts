@@ -32,7 +32,7 @@ export function normalizeP8Key(raw: string): string {
   return raw.replace(/\\+n/g, "\n");
 }
 
-function getApnsConfig(): ApnsConfig | null {
+function getApnsConfig(sandbox?: boolean): ApnsConfig | null {
   const { APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID } =
     process.env;
   if (!APNS_KEY_P8 || !APNS_KEY_ID || !APNS_TEAM_ID || !APNS_BUNDLE_ID) {
@@ -43,10 +43,9 @@ function getApnsConfig(): ApnsConfig | null {
     keyId: APNS_KEY_ID,
     teamId: APNS_TEAM_ID,
     bundleId: APNS_BUNDLE_ID,
-    host:
-      process.env.APNS_SANDBOX === "true"
-        ? "https://api.sandbox.push.apple.com"
-        : "https://api.push.apple.com",
+    host: (sandbox ?? process.env.APNS_SANDBOX === "true")
+      ? "https://api.sandbox.push.apple.com"
+      : "https://api.push.apple.com",
   };
 }
 
@@ -109,8 +108,9 @@ export async function sendApnsNotification(
     tag?: string;
     badge?: number;
   },
+  opts?: { sandbox?: boolean },
 ): Promise<ApnsSendResult> {
-  const config = getApnsConfig();
+  const config = getApnsConfig(opts?.sandbox);
   if (!config) {
     return { ok: false, gone: false, reason: "not configured" };
   }
