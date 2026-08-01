@@ -1,8 +1,8 @@
 {
-  "version": "2026.07.27",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.07.27",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.07.27",
-  "changelog": "App-icon badge for the iOS app: pushes now carry the unread Imbox thread count as aps.badge (relayed for self-hosted instances).",
+  "version": "2026.08.01",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.01",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.01",
+  "changelog": "Faster new-mail delivery: per-token APNs environment fallback (fixes silent push failures for TestFlight builds) and a 15s IMAP NOOP keepalive that works around iCloud dropping IDLE notifications. Also: demo-instance gating and public legal pages.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-07-26T22:03:31Z"
+  "releasedAt": "2026-08-01T14:16:50Z"
 }
