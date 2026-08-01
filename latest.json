@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.01",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.01",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.01",
-  "changelog": "Faster new-mail delivery: per-token APNs environment fallback (fixes silent push failures for TestFlight builds) and a 15s IMAP NOOP keepalive that works around iCloud dropping IDLE notifications. Also: demo-instance gating and public legal pages.",
+  "version": "2026.08.01.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.01.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.01.2",
+  "changelog": "Mobile API for contact groups: the iOS app (v2026.08.01) can now manage groups and send to them from the composer.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-01T14:16:50Z"
+  "releasedAt": "2026-08-01T18:36:25Z"
 }
