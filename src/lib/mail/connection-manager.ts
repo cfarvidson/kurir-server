@@ -14,6 +14,8 @@ export interface EmailConnectionConn {
   folderId: string;
   lock: MailboxLockObject | null;
   reconnectTimer: NodeJS.Timeout | null;
+  /** Periodic NOOP keepalive — see IDLE_NOOP_INTERVAL_MS. */
+  noopTimer: NodeJS.Timeout | null;
   reconnectAttempt: number;
   debounceTimers: Map<string, NodeJS.Timeout>;
   /** Consecutive sync-lock-deferred new-message retries (see idle-handlers). */
@@ -28,6 +30,14 @@ export interface EmailConnectionConn {
 
 const BACKOFF_SCHEDULE = [0, 5_000, 15_000, 30_000, 60_000, 300_000]; // max 5 min
 const MAX_IDLE_CONNECTIONS = 25;
+
+// iCloud (and other IMAP servers) silently stop pushing EXISTS updates on a
+// long-lived IDLE session — observed ingest lag is bimodal: 2–5s when IDLE
+// fires vs 23–114s when the 60s sync job has to catch the mail instead. A
+// periodic NOOP forces the server to flush pending untagged responses
+// (RFC 3501 §6.1.2); ImapFlow breaks IDLE for the NOOP and re-enters it
+// automatically, so the 'exists' handler ingests within seconds.
+const IDLE_NOOP_INTERVAL_MS = 15_000;
 
 /**
  * Options for {@link ConnectionManager.startConnection}.
@@ -159,6 +169,7 @@ class ConnectionManager {
       folderId: inboxFolder.id,
       lock: null,
       reconnectTimer: null,
+      noopTimer: null,
       reconnectAttempt: this.reconnectAttempts.get(connectionId) ?? 0,
       debounceTimers: new Map(),
       newMessageRetryAttempts: 0,
@@ -198,6 +209,12 @@ class ConnectionManager {
           this.scheduleReconnect(connectionId);
         }
       });
+
+      conn.noopTimer = setInterval(() => {
+        conn.client.noop().catch(() => {
+          // Connection errors surface via the 'close' handler's reconnect.
+        });
+      }, IDLE_NOOP_INTERVAL_MS);
 
       console.log(
         `[idle] Started IDLE for connection ${connectionId}${isGmail ? " (Gmail)" : ""}`,
@@ -256,6 +273,11 @@ class ConnectionManager {
     if (conn.reconnectTimer) {
       clearTimeout(conn.reconnectTimer);
       conn.reconnectTimer = null;
+    }
+
+    if (conn.noopTimer) {
+      clearInterval(conn.noopTimer);
+      conn.noopTimer = null;
     }
 
     if (conn.lock) {

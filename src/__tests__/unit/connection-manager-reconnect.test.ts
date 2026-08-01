@@ -25,6 +25,7 @@ class FakeImapFlow {
     FakeImapFlow.instances.push(this);
   }
   async connect(): Promise<void> {}
+  async noop(): Promise<void> {}
   async getMailboxLock(): Promise<{ release: () => void }> {
     return { release: () => {} };
   }
