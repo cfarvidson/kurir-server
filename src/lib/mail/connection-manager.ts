@@ -12,6 +12,10 @@ export interface EmailConnectionConn {
   userId: string;
   client: ImapFlow;
   folderId: string;
+  /** Sent-folder path for the UIDNEXT poll; null when none exists yet. */
+  sentPath: string | null;
+  /** Last observed Sent UIDNEXT; null until the first successful STATUS. */
+  sentUidNext: number | null;
   lock: MailboxLockObject | null;
   reconnectTimer: NodeJS.Timeout | null;
   /** Periodic NOOP keepalive — see IDLE_NOOP_INTERVAL_MS. */
@@ -151,6 +155,14 @@ class ConnectionManager {
       return;
     }
 
+    // For the Sent UIDNEXT poll below. A fresh account has no sent folder yet
+    // (the first sync creates it) — the poll just stays disabled until the
+    // next connection start.
+    const sentFolder = await db.folder.findFirst({
+      where: { emailConnectionId: connectionId, specialUse: "sent" },
+      select: { path: true },
+    });
+
     const isGmail = credentials.imap.host.includes("gmail.com");
 
     const client = new ImapFlow({
@@ -167,6 +179,8 @@ class ConnectionManager {
       userId: emailConn.userId,
       client,
       folderId: inboxFolder.id,
+      sentPath: sentFolder?.path ?? null,
+      sentUidNext: null,
       lock: null,
       reconnectTimer: null,
       noopTimer: null,
@@ -214,6 +228,9 @@ class ConnectionManager {
         conn.client.noop().catch(() => {
           // Connection errors surface via the 'close' handler's reconnect.
         });
+        this.checkSentFolder(conn).catch(() => {
+          // Same: a dead socket is the 'close' handler's problem.
+        });
       }, IDLE_NOOP_INTERVAL_MS);
 
       console.log(
@@ -227,6 +244,39 @@ class ConnectionManager {
       this.connections.delete(connectionId);
       this.scheduleReconnect(connectionId);
     }
+  }
+
+  /**
+   * Detect mail appended to the Sent folder by other clients (Mail.app etc.).
+   * IDLE only watches INBOX, so a sent-elsewhere message otherwise waits for
+   * the 60s sync job. STATUS on a non-selected mailbox is cheap and runs on
+   * the existing IDLE client (ImapFlow breaks and re-enters IDLE around it,
+   * exactly like the NOOP). When UIDNEXT advances, enqueue an immediate
+   * one-shot sync for the connection — the sync lock dedupes overlap with the
+   * repeatable job, and the UIDNEXT-suffixed jobId dedupes repeat ticks.
+   */
+  private async checkSentFolder(conn: EmailConnectionConn): Promise<void> {
+    if (!conn.sentPath) return;
+
+    const status = await conn.client.status(conn.sentPath, { uidNext: true });
+    if (status.uidNext === undefined) return;
+    const uidNext = Number(status.uidNext);
+
+    const prev = conn.sentUidNext;
+    conn.sentUidNext = uidNext;
+    // First observation is only a baseline (boot-time backlog is the sync
+    // job's business, mirroring catchUpNewMessages' cold-folder deferral).
+    if (prev === null || uidNext <= prev) return;
+
+    console.log(
+      `[idle] Sent UIDNEXT ${prev} -> ${uidNext} for connection ${conn.connectionId}, enqueueing sync`,
+    );
+    const { getSyncQueue } = await import("@/lib/jobs/queue");
+    await getSyncQueue().add(
+      "sync",
+      { emailConnectionId: conn.connectionId, userId: conn.userId },
+      { jobId: `sent-wake-${conn.connectionId}-${uidNext}`, priority: 1 },
+    );
   }
 
   private scheduleReconnect(connectionId: string) {
