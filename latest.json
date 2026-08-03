@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.01.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.01.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.01.2",
-  "changelog": "Mobile API for contact groups: the iOS app (v2026.08.01) can now manage groups and send to them from the composer.",
+  "version": "2026.08.03",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.03",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.03",
+  "changelog": "Mail sent from other clients now appears in Sent within seconds: a UIDNEXT probe on the IDLE keepalive detects Sent-folder appends (~15s) instead of waiting for the 60s sync job.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-01T18:36:25Z"
+  "releasedAt": "2026-08-03T14:24:25Z"
 }
