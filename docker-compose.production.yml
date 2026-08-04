@@ -55,7 +55,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/up"]
+      # 127.0.0.1, not localhost: BusyBox wget resolves localhost to ::1 first
+      # and Next.js binds IPv4 only, so localhost never connects.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/up"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,7 +90,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:

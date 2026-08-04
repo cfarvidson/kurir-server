@@ -186,7 +186,8 @@ detect_os() {
     . /etc/os-release
 
     OS_ID="${ID:-unknown}"
-    OS_VERSION="${VERSION_ID:-0}"
+    # Rolling-release distros (e.g. Arch) have no VERSION_ID in /etc/os-release.
+    OS_VERSION="${VERSION_ID:-rolling}"
 
     case "$OS_ID" in
         ubuntu)
@@ -683,7 +684,9 @@ ${app_ports_block}    environment:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/up"]
+      # 127.0.0.1, not localhost: BusyBox wget resolves localhost to ::1 first
+      # and Next.js binds IPv4 only, so localhost never connects.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/up"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -719,7 +722,7 @@ ${app_ports_block}    environment:
     command: >-
       redis-server
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy noeviction
       --appendonly yes
       --requirepass \${REDIS_PASSWORD}
     volumes:
@@ -803,7 +806,8 @@ start_services() {
     local attempts=0
     local max_attempts=60
     while [ $attempts -lt $max_attempts ]; do
-        if docker compose ps app --format '{{.Health}}' 2>/dev/null | grep -q "healthy"; then
+        # Exact match required: a plain `grep -q "healthy"` also matches "unhealthy".
+        if [ "$(docker compose ps app --format '{{.Health}}' 2>/dev/null)" = "healthy" ]; then
             ok "All services are running"
             return 0
         fi

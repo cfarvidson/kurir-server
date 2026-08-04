@@ -93,7 +93,7 @@ chmod 600 ~/.kamal/kurir-secrets.env
 
 Registry and Postgres host are configured per-environment in `config/deploy.yml` (see `config/deploy.yml.example`).
 
-**Do not enable `prisma db push` in `scripts/docker-entrypoint.sh` or the post-deploy hook.** The production DB shares its instance with an unrelated `epoch` application's tables. `prisma db push` would try to drop those. Apply kurir-server schema changes as explicit SQL via `bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"` (same pattern as `prisma/migrations/search_vector.sql`).
+**Do not enable `prisma db push` for non-empty databases in `scripts/docker-entrypoint.sh` or the post-deploy hook.** The production DB shares its instance with an unrelated `epoch` application's tables. `prisma db push` would try to drop those. (The entrypoint runs `db push` + all `prisma/migrations/*.sql` only when the database has zero tables in `public` — the fresh self-host install case — and skips it otherwise.) Apply kurir-server schema changes as explicit SQL via `bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"` (same pattern as `prisma/migrations/search_vector.sql`).
 
 ## Releasing
 
