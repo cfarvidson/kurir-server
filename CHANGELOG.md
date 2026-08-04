@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.04] - 2026-08-04
+
+### Fixed
+
+- Fresh self-host installs never got a database schema: the container entrypoint now bootstraps an empty database with `prisma db push` plus all ad-hoc SQL migrations, while non-empty databases (e.g. the shared production instance) are still never pushed
+- The `search_vector` full-text-search migration silently failed on every boot — Prisma 7 removed `db execute --schema`; the flag is dropped and real failures are now visible in the logs
+- Container healthcheck used `localhost`, which BusyBox wget resolves to `::1` while Next.js binds IPv4 only, so the app could never report healthy; now probes `127.0.0.1`
+- `install.sh` reported "All services are running" for an unhealthy app (`grep -q "healthy"` also matches "unhealthy"); the wait loop now requires an exact health-state match
+- Redis eviction policy changed from `allkeys-lru` to `noeviction` — BullMQ requires it, and eviction could silently drop queued jobs
+- Rolling-release distros without `VERSION_ID` (e.g. Arch) were reported as "arch 0" by the installer
+
 ## [v2026.07.24] - 2026-07-24
 
 ### Added

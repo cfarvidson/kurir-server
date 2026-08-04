@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.03",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.03",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.03",
-  "changelog": "Mail sent from other clients now appears in Sent within seconds: a UIDNEXT probe on the IDLE keepalive detects Sent-folder appends (~15s) instead of waiting for the 60s sync job.",
+  "version": "2026.08.04",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.04",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.04",
+  "changelog": "Fresh self-host installs now bootstrap the database schema automatically. Fixed the container healthcheck (IPv4) and the installer's health gating, and switched Redis to the noeviction policy BullMQ requires.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-03T14:24:25Z"
+  "releasedAt": "2026-08-04T09:03:16Z"
 }
