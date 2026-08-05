@@ -1,5 +1,167 @@
 [
   {
+    "version": "2026.08.05.1",
+    "date": "2026-08-05",
+    "changes": [
+      "Fix settings connection actions locking up when a request fails or stalls — errors now show inline and controls recover",
+      "Backfill this changelog with all releases since April; updating it is now part of every release"
+    ]
+  },
+  {
+    "version": "2026.08.05",
+    "date": "2026-08-05",
+    "changes": [
+      "Catch-all domains: treat every address on your own domain as yours — in Screener exclusion, sync-time auto-approve, and the mobile sync payload",
+      "Settings: catch-all toggle on the connection card next to alias management",
+      "Setup wizard collects aliases and the catch-all setting so they apply from the first sync",
+      "Sweep stale pending senders for your own addresses to approved/Imbox — hourly and immediately when aliases, send-as, or catch-all change"
+    ]
+  },
+  {
+    "version": "2026.08.04",
+    "date": "2026-08-04",
+    "changes": [
+      "Fix fresh self-host installs never getting a database schema — the entrypoint now bootstraps empty databases",
+      "Fix the search_vector migration silently failing on every boot since Prisma 7",
+      "Fix container healthcheck probing ::1 while the app binds IPv4 — installs could never report healthy",
+      "Fix install.sh reporting success for an unhealthy app",
+      "Redis eviction policy changed to noeviction — required by BullMQ, eviction could drop queued jobs",
+      "Fix installer OS detection on rolling-release distros like Arch"
+    ]
+  },
+  {
+    "version": "2026.07.24",
+    "date": "2026-07-24",
+    "changes": [
+      "Mobile API for the native iOS client: sync, search, actions, compose/send, and APNs push registration",
+      "Mobile full-text search backed by the same FTS index as the web",
+      "Message body endpoint returns attachment metadata so clients can list and open attachments",
+      "Sharpened editorial redesign across the web client; screener uses category icons",
+      "Fix sluggish view switching in the mobile PWA"
+    ]
+  },
+  {
+    "version": "2026.06.22",
+    "date": "2026-06-22",
+    "changes": [
+      "Fix a UI freeze in the PWA when navigating between views and performing actions"
+    ]
+  },
+  {
+    "version": "2026.06.11",
+    "date": "2026-06-11",
+    "changes": [
+      "Reply Later now removes threads from Imbox, Feed, and Paper Trail (and badge counts) until the flag is cleared, mirroring snooze"
+    ]
+  },
+  {
+    "version": "2026.06.10.2",
+    "date": "2026-06-10",
+    "changes": [
+      "New remote-image privacy mode: load images but block known trackers and invisible spy pixels, with a per-thread blocked-tracker indicator",
+      "Fix PWA push notifications silently failing when the VAPID keys drifted apart — the public key is now served at runtime"
+    ]
+  },
+  {
+    "version": "2026.06.10",
+    "date": "2026-06-10",
+    "changes": [
+      "Archiving from the thread view is now instant",
+      "New mail (including login codes) arrives within seconds — IMAP IDLE events are no longer dropped during full syncs and connections start at boot",
+      "Remove a faint extra border on undo toasts"
+    ]
+  },
+  {
+    "version": "2026.06.04",
+    "date": "2026-06-04",
+    "changes": [
+      "Remove initial-circle avatars app-wide",
+      "Snooze preserves read state so only unread mail is marked unread on wake",
+      "Fix scheduled-message double-send when using Send now within the undo window"
+    ]
+  },
+  {
+    "version": "2026.06.03",
+    "date": "2026-06-03",
+    "changes": [
+      "Contact groups: organize contacts into named groups",
+      "Compose supports multiple recipients in immediate and scheduled sends",
+      "Editorial redesign of the reading pane, message list, sidebar, and toasts"
+    ]
+  },
+  {
+    "version": "2026.05.31",
+    "date": "2026-05-31",
+    "changes": [
+      "PDF previews render inline on iOS via pdfjs",
+      "Fix snooze label, archive leaking into Reply Later/Follow-Up, badge-preferences authorization, and mobile tab-bar navigation parity"
+    ]
+  },
+  {
+    "version": "2026.05.30.2",
+    "date": "2026-05-30",
+    "changes": [
+      "Reply Later: stack messages and work through them in a dedicated focus mode",
+      "Spy-tracker blocker strips tracking pixels and proxies remote images",
+      "Fix vertical scrolling on mobile accidentally triggering swipe-to-archive"
+    ]
+  },
+  {
+    "version": "2026.05.30",
+    "date": "2026-05-30",
+    "changes": [
+      "Files library: browse every attachment across your mail with type filters, search, and paging (g+l shortcut)",
+      "Mobile attachments open through the native iOS share sheet",
+      "Fix PWA freezes during bursts of realtime activity — refreshes are debounced and the connection follows tab visibility"
+    ]
+  },
+  {
+    "version": "2026.05.20",
+    "date": "2026-05-20",
+    "changes": [
+      "Un-thread emails from noisy senders — each message renders as its own row, reversible at any time",
+      "Fix iOS swipe-back being swallowed in the PWA",
+      "Toasts now sit above the bottom bars so Undo is reachable on mobile"
+    ]
+  },
+  {
+    "version": "2026.05.15",
+    "date": "2026-05-15",
+    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+  },
+  {
+    "version": "2026.04.26.3",
+    "date": "2026-04-26",
+    "changes": [
+      "Reply composer preserves a custom To address when editing finishes"
+    ]
+  },
+  {
+    "version": "2026.04.26.2",
+    "date": "2026-04-26",
+    "changes": [
+      "Email body renders in a Shadow DOM instead of an iframe — no pop-in flash and natural mobile scrolling, same CSS isolation and sanitizer guarantees"
+    ]
+  },
+  {
+    "version": "2026.04.26",
+    "date": "2026-04-26",
+    "changes": [
+      "Swipe-left snoozes to tomorrow 8 AM with an undo toast",
+      "Mobile thread view: the bottom action bar is the single archive/snooze/follow-up surface",
+      "Fix stale list data after approving, rejecting, or recategorizing a sender"
+    ]
+  },
+  {
+    "version": "2026.04.21",
+    "date": "2026-04-21",
+    "changes": [
+      "Reply All with Cc and Bcc support and a new keyboard shortcut (a)",
+      "Upgrade major dependencies: Next.js 16, Prisma 7, Tailwind 4, TypeScript 6, Zod 4",
+      "Fix Prisma 7 deploy compatibility and extend the healthcheck timeout for Next.js 16 cold boots"
+    ]
+  },
+  {
     "version": "2026.04.10.4",
     "date": "2026-04-10",
     "changes": [

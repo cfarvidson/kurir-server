@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.05",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.05",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.05",
-  "changelog": "Catch-all domains: treat every address on your own domain as yours — auto-approved at sync, with a sweep that clears stale pending senders for your aliases. Configure in Settings or during setup.",
+  "version": "2026.08.05.1",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.05.1",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.05.1",
+  "changelog": "Settings no longer lock up when a connection change fails or stalls — errors show inline and the controls recover. The admin Updates changelog is backfilled with every release since April.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-05T07:24:40Z"
+  "releasedAt": "2026-08-05T08:52:33Z"
 }

@@ -19,9 +19,11 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 
 1. **Bump version** in `package.json`
 2. **Update `latest.json`** in the repo root with the new version, image tag, changelog, and release URL
-3. **Commit and push** to main
-4. **Deploy** via `kamal deploy`
-5. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+3. **Update `CHANGELOG.md`** with a section for the new version
+4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
+5. **Commit and push** to main
+6. **Deploy** via `kamal deploy`
+7. **Create a GitHub release** with the tag `vYYYY.MM.DD`
 
 ## `latest.json` format
 

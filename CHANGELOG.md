@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.05.1] - 2026-08-05
+
+### Fixed
+
+- Settings: connection-card actions (catch-all toggle, aliases, send-as, set-default, delete) no longer lock up permanently when a request fails or stalls. Requests now time out (30s; 5 min for sync), server errors surface as an inline message on the card, and a failed action re-enables the controls instead of replacing the settings page with the error boundary
+- Admin: the Updates changelog had not been updated since April — backfilled all releases from v2026.04.21 through v2026.08.05, and updating it is now a required step of the release process
+
 ## [v2026.08.05] - 2026-08-05
 
 ### Added
