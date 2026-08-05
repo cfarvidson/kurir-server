@@ -140,6 +140,58 @@ def current_app_image() -> str | None:
         return None
 
 
+def compose_image_ref() -> str | None:
+    """Return the image ref the compose file configures for the app service.
+
+    (`config --images SERVICE` does not filter by service on all compose
+    versions, so parse the full JSON config instead.)
+    """
+    result = subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "config", "--format", "json"],
+        cwd=WORKDIR,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_compose_env(),
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        config = json.loads(result.stdout)
+        image = config["services"][APP_SERVICE].get("image")
+        return image if isinstance(image, str) and image else None
+    except Exception as exc:
+        log(f"compose_image_ref failed: {exc}")
+        return None
+
+
+def pull_pinned(image_ref: str) -> None:
+    """Pull the exact release image and point the compose ref at it.
+
+    Pulling the compose file's own tag (`:latest`) races the release
+    pipeline: a pre-release main build can sit there before the tag build
+    finishes. Pulling the pinned ref either gets exactly the announced
+    release or fails cleanly (image not published yet).
+    """
+    log(f"pulling pinned release image {image_ref}")
+    result = subprocess.run(
+        ["docker", "pull", image_ref], capture_output=True, text=True, check=False
+    )
+    if result.stdout:
+        for line in result.stdout.rstrip().splitlines():
+            log(f"  {line}")
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"failed to pull {image_ref} — the release image may not be "
+            f"published yet; try again in a few minutes "
+            f"({result.stderr.strip() or 'no stderr'})"
+        )
+    ref = compose_image_ref() or current_app_image()
+    if ref and ref != image_ref:
+        log(f"tagging {image_ref} -> {ref}")
+        subprocess.run(["docker", "tag", image_ref, ref], check=True)
+
+
 def tag_rollback() -> str | None:
     image = current_app_image()
     if not image:
@@ -174,7 +226,7 @@ def wait_healthy() -> bool:
     return False
 
 
-def do_update(log_id: str, rollback: bool) -> None:
+def do_update(log_id: str, rollback: bool, image_ref: str | None = None) -> None:
     global _current_log_id
     try:
         log(f"=== {'rollback' if rollback else 'update'} starting (logId={log_id}) ===")
@@ -189,7 +241,11 @@ def do_update(log_id: str, rollback: bool) -> None:
             restore_rollback(previous)
         elif SKIP_PULL:
             log("SKIP_PULL set — skipping docker compose pull")
+        elif image_ref:
+            pull_pinned(image_ref)
         else:
+            # Older app versions don't send imageRef — fall back to pulling
+            # whatever the compose file references (`:latest`).
             run_compose("pull", APP_SERVICE)
 
         report_status(log_id, "restarting")
@@ -276,6 +332,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "missing logId"})
             return
 
+        image_ref = body.get("imageRef")
+        if not isinstance(image_ref, str) or not image_ref:
+            image_ref = None
+
         with _state_lock:
             if _current_log_id is not None:
                 self._send(
@@ -287,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
 
         rollback = self.path == "/rollback"
         threading.Thread(
-            target=do_update, args=(log_id, rollback), daemon=True
+            target=do_update, args=(log_id, rollback, image_ref), daemon=True
         ).start()
         self._send(202, {"accepted": True, "logId": log_id, "rollback": rollback})
 

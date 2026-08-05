@@ -13,6 +13,7 @@ const UPDATER_TOKEN = process.env.UPDATER_TOKEN ?? "";
 async function callUpdater(
   path: "/apply" | "/rollback",
   logId: string,
+  imageRef?: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status?: number }> {
   if (!UPDATER_TOKEN) {
     return {
@@ -31,7 +32,7 @@ async function callUpdater(
         "Content-Type": "application/json",
         "X-Updater-Token": UPDATER_TOKEN,
       },
-      body: JSON.stringify({ logId }),
+      body: JSON.stringify(imageRef ? { logId, imageRef } : { logId }),
       signal: controller.signal,
     });
 
@@ -78,6 +79,18 @@ export async function startUpdate(
     return { started: false, error: "An update is already in progress" };
   }
 
+  // Pin the exact release image from the manifest. `docker compose pull`
+  // would grab whatever `:latest` happens to point at, which races the
+  // release pipeline (a pre-release main build can sit there before the tag
+  // build finishes — new code, stale version stamp, missing migrations).
+  const settings = await db.systemSettings.findUnique({
+    where: { id: "singleton" },
+  });
+  const imageRef =
+    settings?.latestVersion === targetVersion
+      ? (settings.latestImageTag ?? undefined)
+      : undefined;
+
   const log = await db.updateLog.create({
     data: {
       fromVersion: pkg.version,
@@ -87,7 +100,7 @@ export async function startUpdate(
     },
   });
 
-  const result = await callUpdater("/apply", log.id);
+  const result = await callUpdater("/apply", log.id, imageRef);
   if (!result.ok) {
     await db.updateLog.update({
       where: { id: log.id },
