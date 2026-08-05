@@ -81,6 +81,7 @@ export function ConnectionCard({
     | "saving-aliases"
     | "saving-domain"
   >("idle");
+  const [actionError, setActionError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const sendAsInputRef = useRef<HTMLInputElement>(null);
   const [showAliasForm, setShowAliasForm] = useState(false);
@@ -115,31 +116,47 @@ export function ConnectionCard({
     }
   }, [showAliasForm]);
 
+  // Every action resets the busy flag even when the request fails or times
+  // out — otherwise the card wedges with all controls disabled.
+  const runAction = (
+    status: Exclude<typeof localStatus, "idle">,
+    action: () => Promise<void>,
+    onSuccess?: () => void,
+  ) => {
+    setActionError(null);
+    setLocalStatus(status);
+    startTransition(async () => {
+      try {
+        await action();
+        onSuccess?.();
+      } catch (err) {
+        setActionError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Something went wrong. Please try again.",
+        );
+      } finally {
+        setLocalStatus("idle");
+      }
+    });
+  };
+
   const handleSetDefault = () => {
     if (connection.isDefault) return;
     setMenuOpen(false);
-    setLocalStatus("setting-default");
-    startTransition(async () => {
-      await onSetDefault(connection.id);
-      setLocalStatus("idle");
-    });
+    runAction("setting-default", () => onSetDefault(connection.id));
   };
 
   const handleSync = () => {
-    setLocalStatus("syncing");
-    startTransition(async () => {
-      await onSync(connection.id);
-      setLocalStatus("idle");
-    });
+    runAction("syncing", () => onSync(connection.id));
   };
 
   const handleDeleteConfirm = () => {
-    setLocalStatus("deleting");
-    startTransition(async () => {
-      await onDelete(connection.id);
-      setLocalStatus("idle");
-      setShowDeleteConfirm(false);
-    });
+    runAction(
+      "deleting",
+      () => onDelete(connection.id),
+      () => setShowDeleteConfirm(false),
+    );
   };
 
   const handleSendAsSave = () => {
@@ -147,53 +164,48 @@ export function ConnectionCard({
     // Basic email validation
     if (trimmed && !trimmed.includes("@")) return;
 
-    setLocalStatus("saving-send-as");
-    startTransition(async () => {
-      await onUpdateSendAs(connection.id, trimmed || null);
-      setLocalStatus("idle");
-      setShowSendAsForm(false);
-    });
+    runAction(
+      "saving-send-as",
+      () => onUpdateSendAs(connection.id, trimmed || null),
+      () => setShowSendAsForm(false),
+    );
   };
 
   const handleSendAsRemove = () => {
-    setLocalStatus("saving-send-as");
-    startTransition(async () => {
-      await onUpdateSendAs(connection.id, null);
-      setSendAsValue("");
-      setLocalStatus("idle");
-      setShowSendAsForm(false);
-    });
+    runAction(
+      "saving-send-as",
+      () => onUpdateSendAs(connection.id, null),
+      () => {
+        setSendAsValue("");
+        setShowSendAsForm(false);
+      },
+    );
   };
 
   const handleAddAlias = () => {
     const trimmed = newAlias.trim().toLowerCase();
     if (!trimmed || !trimmed.includes("@")) return;
     if (connection.aliases.includes(trimmed)) return;
-    setLocalStatus("saving-aliases");
-    startTransition(async () => {
-      await onUpdateAliases(connection.id, [...connection.aliases, trimmed]);
-      setNewAlias("");
-      setLocalStatus("idle");
-    });
+    runAction(
+      "saving-aliases",
+      () => onUpdateAliases(connection.id, [...connection.aliases, trimmed]),
+      () => setNewAlias(""),
+    );
   };
 
   const handleRemoveAlias = (alias: string) => {
-    setLocalStatus("saving-aliases");
-    startTransition(async () => {
-      await onUpdateAliases(
+    runAction("saving-aliases", () =>
+      onUpdateAliases(
         connection.id,
         connection.aliases.filter((a) => a !== alias),
-      );
-      setLocalStatus("idle");
-    });
+      ),
+    );
   };
 
   const handleToggleTreatDomainAsOwn = (value: boolean) => {
-    setLocalStatus("saving-domain");
-    startTransition(async () => {
-      await onUpdateTreatDomainAsOwn(connection.id, value);
-      setLocalStatus("idle");
-    });
+    runAction("saving-domain", () =>
+      onUpdateTreatDomainAsOwn(connection.id, value),
+    );
   };
 
   const statusIcon = () => {
@@ -406,6 +418,16 @@ export function ConnectionCard({
           </div>
         </div>
       </div>
+
+      {/* Action error — failed or unreachable request */}
+      {actionError && (
+        <div className="border-t px-4 py-2.5 flex items-start gap-2">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+          <p className="text-xs text-destructive" role="alert">
+            {actionError}
+          </p>
+        </div>
+      )}
 
       {/* Server details */}
       <div className="border-t px-4 py-2.5 flex items-center gap-4">

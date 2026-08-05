@@ -15,57 +15,72 @@ interface ConnectionsListProps {
   connections: EmailConnection[];
 }
 
+/**
+ * Fetch that fails loudly: rejects with a readable message when the server
+ * is unreachable, the request times out, or the response is an error.
+ * Without this a stalled request left the connection card disabled forever.
+ */
+async function request(url: string, init: RequestInit & { timeoutMs?: number }) {
+  const { timeoutMs = 30_000, ...rest } = init;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...rest,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    throw new Error(
+      "Could not reach the server. Check your connection and try again.",
+    );
+  }
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(data?.error || "The server rejected the change.");
+  }
+}
+
 export function ConnectionsList({ connections }: ConnectionsListProps) {
   const router = useRouter();
 
-  const handleSetDefault = async (id: string) => {
-    await fetch(`/api/connections/${id}`, {
+  const patchConnection = async (id: string, body: object) => {
+    await request(`/api/connections/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isDefault: true }),
+      body: JSON.stringify(body),
     });
     router.refresh();
   };
 
+  const handleSetDefault = async (id: string) => {
+    await patchConnection(id, { isDefault: true });
+  };
+
   const handleDelete = async (id: string) => {
-    await fetch(`/api/connections/${id}`, {
-      method: "DELETE",
-    });
+    await request(`/api/connections/${id}`, { method: "DELETE" });
     router.refresh();
   };
 
   const handleSync = async (id: string) => {
-    await fetch(`/api/mail/sync?connectionId=${encodeURIComponent(id)}`, {
+    // Sync can legitimately run for minutes on large mailboxes.
+    await request(`/api/mail/sync?connectionId=${encodeURIComponent(id)}`, {
       method: "POST",
+      timeoutMs: 300_000,
     });
     router.refresh();
   };
 
   const handleUpdateSendAs = async (id: string, sendAsEmail: string | null) => {
-    await fetch(`/api/connections/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sendAsEmail }),
-    });
-    router.refresh();
+    await patchConnection(id, { sendAsEmail });
   };
 
   const handleUpdateAliases = async (id: string, aliases: string[]) => {
-    await fetch(`/api/connections/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aliases }),
-    });
-    router.refresh();
+    await patchConnection(id, { aliases });
   };
 
   const handleUpdateTreatDomainAsOwn = async (id: string, value: boolean) => {
-    await fetch(`/api/connections/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ treatDomainAsOwn: value }),
-    });
-    router.refresh();
+    await patchConnection(id, { treatDomainAsOwn: value });
   };
 
   if (connections.length === 0) {
