@@ -59,6 +59,15 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
     router.refresh();
   };
 
+  const handleUpdateTreatDomainAsOwn = async (id: string, value: boolean) => {
+    await fetch(`/api/connections/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ treatDomainAsOwn: value }),
+    });
+    router.refresh();
+  };
+
   if (connections.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-card">
@@ -97,6 +106,7 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
           onSync={handleSync}
           onUpdateSendAs={handleUpdateSendAs}
           onUpdateAliases={handleUpdateAliases}
+          onUpdateTreatDomainAsOwn={handleUpdateTreatDomainAsOwn}
           isOnly={connections.length === 1}
         />
       ))}

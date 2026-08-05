@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useTransition } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Mail,
   Star,
@@ -51,6 +52,7 @@ interface ConnectionCardProps {
   onSync: (id: string) => Promise<void>;
   onUpdateSendAs: (id: string, sendAsEmail: string | null) => Promise<void>;
   onUpdateAliases: (id: string, aliases: string[]) => Promise<void>;
+  onUpdateTreatDomainAsOwn: (id: string, value: boolean) => Promise<void>;
   /** Prevent deleting if this is the last connection */
   isOnly: boolean;
 }
@@ -62,6 +64,7 @@ export function ConnectionCard({
   onSync,
   onUpdateSendAs,
   onUpdateAliases,
+  onUpdateTreatDomainAsOwn,
   isOnly,
 }: ConnectionCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -76,6 +79,7 @@ export function ConnectionCard({
     | "deleting"
     | "saving-send-as"
     | "saving-aliases"
+    | "saving-domain"
   >("idle");
   const menuRef = useRef<HTMLDivElement>(null);
   const sendAsInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +88,7 @@ export function ConnectionCard({
   const aliasInputRef = useRef<HTMLInputElement>(null);
 
   const isBusy = isPending || localStatus !== "idle";
+  const domain = connection.email.split("@")[1] || "this domain";
 
   // Close overflow menu on outside click
   useEffect(() => {
@@ -179,6 +184,14 @@ export function ConnectionCard({
         connection.id,
         connection.aliases.filter((a) => a !== alias),
       );
+      setLocalStatus("idle");
+    });
+  };
+
+  const handleToggleTreatDomainAsOwn = (value: boolean) => {
+    setLocalStatus("saving-domain");
+    startTransition(async () => {
+      await onUpdateTreatDomainAsOwn(connection.id, value);
       setLocalStatus("idle");
     });
   };
@@ -529,6 +542,24 @@ export function ConnectionCard({
                 Additional email addresses you own. Messages from these
                 addresses won&apos;t appear in the Screener.
               </p>
+
+              <div className="mt-3 flex items-center justify-between gap-4 border-t pt-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    Treat every address on {domain} as mine (catch-all)
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    New addresses on this domain are yours automatically — no
+                    alias needed.
+                  </p>
+                </div>
+                <Switch
+                  checked={connection.treatDomainAsOwn}
+                  onCheckedChange={handleToggleTreatDomainAsOwn}
+                  disabled={isBusy}
+                  aria-label={`Treat every address on ${domain} as mine`}
+                />
+              </div>
 
               {connection.aliases.length > 0 && (
                 <div className="mt-2 space-y-1">
