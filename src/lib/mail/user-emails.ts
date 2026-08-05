@@ -42,13 +42,3 @@ export function isOwnAddress(email: string, own: OwnAddresses): boolean {
   const domain = lower.split("@")[1];
   return !!domain && own.domains.includes(domain);
 }
-
-/**
- * All addresses belonging to a user across their email connections (primary,
- * send-as, and aliases), lowercased, trimmed, and de-duplicated. Used to
- * exclude the user's own addresses from screener/pending-sender queries.
- */
-export async function getUserEmails(userId: string): Promise<string[]> {
-  const own = await getOwnAddresses(userId);
-  return own.emails;
-}

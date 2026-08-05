@@ -8,6 +8,7 @@ import { findArchiveMailbox } from "@/lib/mail/imap-client";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
 import { type ImboxPushMessage } from "@/lib/mail/push-select";
+import { type OwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 
 /**
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
@@ -127,12 +128,10 @@ async function getOrCreateSender(
   emailConnectionId: string,
   email: string,
   displayName: string | null,
-  userEmails?: string[],
+  own?: OwnAddresses,
 ) {
   const domain = extractDomain(email);
-  const isOwnEmail =
-    !!userEmails &&
-    userEmails.some((ue) => email.toLowerCase() === ue.toLowerCase());
+  const isOwnEmail = !!own && isOwnAddress(email, own);
 
   const sender = await db.sender.upsert({
     where: {
@@ -205,7 +204,7 @@ async function syncMailbox(
   mailboxPath: string,
   imapSpecialUse?: string,
   batchSize?: number,
-  userEmails?: string[],
+  own?: OwnAddresses,
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -399,12 +398,10 @@ async function syncMailbox(
 
               let isInbox = specialUse === "inbox";
               let archived = false;
-              if (specialUse === "all" && userEmails?.length) {
+              if (specialUse === "all" && own) {
                 const fromAddr =
                   msg.envelope?.from?.[0]?.address?.toLowerCase();
-                const isFromSelf =
-                  !!fromAddr &&
-                  userEmails.some((ue) => fromAddr === ue.toLowerCase());
+                const isFromSelf = !!fromAddr && isOwnAddress(fromAddr, own);
                 isInbox = false;
                 archived = !isFromSelf;
               } else if (specialUse === "archive") {
@@ -419,7 +416,7 @@ async function syncMailbox(
                 folder.id,
                 {
                   isInbox,
-                  userEmails,
+                  own,
                   isArchived: archived,
                 },
               );
@@ -487,7 +484,7 @@ async function syncMailbox(
 
 interface ProcessMessageOptions {
   isInbox: boolean;
-  userEmails?: string[];
+  own?: OwnAddresses;
   isArchived?: boolean;
 }
 
@@ -501,7 +498,7 @@ export async function processMessage(
   folderId: string,
   options: ProcessMessageOptions,
 ) {
-  const { isInbox, userEmails, isArchived = false } = options;
+  const { isInbox, own, isArchived = false } = options;
   const envelope = msg.envelope;
   const flags = msg.flags;
 
@@ -528,7 +525,7 @@ export async function processMessage(
     emailConnectionId,
     fromAddress,
     fromName,
-    userEmails,
+    own,
   );
 
   // Only categorize inbox messages; sent/other folders skip categorization
@@ -741,7 +738,7 @@ export async function processMessage(
   }
 
   // Auto-cancel/clear follow-up reminders when an incoming reply arrives
-  if (isInbox && threadId && userEmails && !userEmails.includes(fromAddress)) {
+  if (isInbox && threadId && own && !isOwnAddress(fromAddress, own)) {
     await db.message.updateMany({
       where: {
         userId,
@@ -981,6 +978,13 @@ export async function syncEmailConnection(
       );
     }
 
+    const own: OwnAddresses = {
+      emails: userEmails.map((e) => e.trim().toLowerCase()),
+      domains: credentials.treatDomainAsOwn
+        ? [credentials.email.trim().toLowerCase().split("@")[1]].filter(Boolean)
+        : [],
+    };
+
     for (const { path, specialUse } of toSync) {
       try {
         const result = await syncMailbox(
@@ -990,7 +994,7 @@ export async function syncEmailConnection(
           path,
           specialUse,
           options?.batchSize,
-          userEmails,
+          own,
         );
         console.log(
           `[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`,

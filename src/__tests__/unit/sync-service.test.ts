@@ -90,6 +90,7 @@ describe("syncEmailConnection", () => {
       email: "me@example.com",
       sendAsEmail: null,
       aliases: [],
+      treatDomainAsOwn: false,
       password: "pass",
       accessToken: null,
       oauthProvider: null,
@@ -129,6 +130,7 @@ describe("syncEmailConnection", () => {
       email: "me@gmail.com",
       sendAsEmail: null,
       aliases: [],
+      treatDomainAsOwn: false,
       password: "pass",
       accessToken: null,
       oauthProvider: null,
@@ -174,6 +176,7 @@ describe("thread repair gating", () => {
       email: "me@example.com",
       sendAsEmail: null,
       aliases: [],
+      treatDomainAsOwn: false,
       password: "pass",
       accessToken: null,
       oauthProvider: null,
@@ -347,7 +350,10 @@ describe("processMessage scoping", () => {
       "user-1",
       "conn-42", // emailConnectionId
       "folder-1",
-      { isInbox: true, userEmails: ["me@example.com"] },
+      {
+        isInbox: true,
+        own: { emails: ["me@example.com"], domains: [] },
+      },
     );
 
     // Verify message was created with the emailConnectionId

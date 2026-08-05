@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
-import { getUserEmails } from "@/lib/mail/user-emails";
+import { getOwnAddresses } from "@/lib/mail/user-emails";
 
 export async function checkExpiredFollowUps(userId: string): Promise<number> {
-  const userEmails = await getUserEmails(userId);
+  const own = await getOwnAddresses(userId);
 
   const count = await db.$executeRawUnsafe(
     `
@@ -25,6 +25,7 @@ export async function checkExpiredFollowUps(userId: string): Promise<number> {
           AND m2."userId" = $1
           AND m2."receivedAt" > e."followUpSetAt"
           AND LOWER(m2."fromAddress") != ALL($2::text[])
+          AND split_part(LOWER(m2."fromAddress"), '@', 2) != ALL($3::text[])
       )
     )
     UPDATE "Message" SET "isFollowUp" = true
@@ -34,7 +35,8 @@ export async function checkExpiredFollowUps(userId: string): Promise<number> {
       AND "isArchived" = false
     `,
     userId,
-    userEmails,
+    own.emails,
+    own.domains,
   );
 
   return count;
