@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { auth, getEmailConnection } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { approveOwnPendingSenders } from "@/lib/jobs/maintenance-tasks";
 import { z } from "zod";
 
 async function checkSelfService(
@@ -30,6 +32,7 @@ const updateConnectionSchema = z.object({
   sendAsEmail: z.email().nullable().optional(),
   aliases: z.array(z.email()).optional(),
   isDefault: z.boolean().optional(),
+  treatDomainAsOwn: z.boolean().optional(),
 });
 
 // PATCH /api/connections/[id] — update an email connection
@@ -78,6 +81,7 @@ export async function PATCH(
     sendAsEmail,
     aliases,
     isDefault,
+    treatDomainAsOwn,
   } = parsed.data;
 
   // Re-verify IMAP when password, host, or port changes (skip for OAuth connections)
@@ -131,8 +135,28 @@ export async function PATCH(
       ...(sendAsEmail !== undefined && { sendAsEmail }),
       ...(aliases !== undefined && { aliases }),
       ...(isDefault !== undefined && { isDefault }),
+      ...(treatDomainAsOwn !== undefined && { treatDomainAsOwn }),
     },
   });
+
+  // Sweep ghost PENDING senders if any own-address-affecting field was
+  // provided — the update may have brought a previously-pending sender
+  // into the user's own addresses (new alias, sendAs, or wildcard domain).
+  if (
+    "aliases" in body ||
+    "sendAsEmail" in body ||
+    "treatDomainAsOwn" in body
+  ) {
+    try {
+      const approved = await approveOwnPendingSenders(session.user.id);
+      if (approved > 0) revalidateTag("sidebar-counts", { expire: 0 });
+    } catch (err) {
+      console.error(
+        `[connections] own-sender sweep error for ${session.user.id}:`,
+        err,
+      );
+    }
+  }
 
   const { encryptedPassword: _, ...safe } = updated;
   return NextResponse.json({ connection: safe });

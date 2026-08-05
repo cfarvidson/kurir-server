@@ -4,11 +4,11 @@ import { redirect } from "next/navigation";
 import { ScreenerContent } from "@/components/screener/screener-content";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
-import { getUserEmails } from "@/lib/mail/user-emails";
+import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
 
-async function getPendingSenders(userId: string, excludedEmails?: string[]) {
+async function getPendingSenders(userId: string, own?: OwnAddresses | null) {
   return db.sender.findMany({
-    where: visiblePendingSenderWhere(userId, excludedEmails),
+    where: visiblePendingSenderWhere(userId, own),
     orderBy: { createdAt: "desc" },
     include: {
       messages: {
@@ -28,15 +28,13 @@ async function getPendingSenders(userId: string, excludedEmails?: string[]) {
   });
 }
 
-async function getSkippedSenders(userId: string, excludedEmails?: string[]) {
+async function getSkippedSenders(userId: string, ownEmails?: string[]) {
   return db.sender.findMany({
     where: {
       userId,
       status: "PENDING",
       skippedUntil: { gt: new Date() },
-      ...(excludedEmails?.length
-        ? { NOT: { email: { in: excludedEmails } } }
-        : {}),
+      ...(ownEmails?.length ? { NOT: { email: { in: ownEmails } } } : {}),
       messages: {
         some: { isArchived: false },
       },
@@ -53,14 +51,12 @@ async function getSkippedSenders(userId: string, excludedEmails?: string[]) {
   });
 }
 
-async function getScreenedSenders(userId: string, excludedEmails?: string[]) {
+async function getScreenedSenders(userId: string, ownEmails?: string[]) {
   return db.sender.findMany({
     where: {
       userId,
       status: { in: ["APPROVED", "REJECTED"] },
-      ...(excludedEmails?.length
-        ? { NOT: { email: { in: excludedEmails } } }
-        : {}),
+      ...(ownEmails?.length ? { NOT: { email: { in: ownEmails } } } : {}),
     },
     orderBy: { decidedAt: "desc" },
     select: {
@@ -83,12 +79,12 @@ export default async function ScreenerPage() {
     redirect("/login");
   }
 
-  const userEmails = await getUserEmails(session.user.id);
+  const own = await getOwnAddresses(session.user.id);
 
   const [pendingSenders, skippedSenders, screenedSenders] = await Promise.all([
-    getPendingSenders(session.user.id, userEmails),
-    getSkippedSenders(session.user.id, userEmails),
-    getScreenedSenders(session.user.id, userEmails),
+    getPendingSenders(session.user.id, own),
+    getSkippedSenders(session.user.id, own.emails),
+    getScreenedSenders(session.user.id, own.emails),
   ]);
 
   return (

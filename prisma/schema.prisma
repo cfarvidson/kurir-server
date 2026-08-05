@@ -142,6 +142,10 @@ model EmailConnection {
   // Additional owned email addresses (historical, not for sending)
   aliases String[] @default([])
 
+  // Treat every address on this connection's email domain as the user's own
+  // (catch-all domains). Opt-in per connection.
+  treatDomainAsOwn Boolean @default(false)
+
   // Password stored encrypted with AES-256-GCM (null for OAuth connections)
   encryptedPassword String?
 

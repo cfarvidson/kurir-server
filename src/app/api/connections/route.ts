@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getUserEmailConnections, auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { approveOwnPendingSenders } from "@/lib/jobs/maintenance-tasks";
 import { z } from "zod";
 import { rateLimitConnections, tooManyRequests } from "@/lib/rate-limit";
 
@@ -16,6 +18,7 @@ const createConnectionSchema = z.object({
   sendAsEmail: z.email().optional(),
   aliases: z.array(z.email()).optional().default([]),
   isDefault: z.boolean().optional().default(false),
+  treatDomainAsOwn: z.boolean().optional().default(false),
 });
 
 // GET /api/connections — list all email connections for the current user
@@ -85,6 +88,7 @@ export async function POST(request: NextRequest) {
       sendAsEmail,
       aliases,
       isDefault,
+      treatDomainAsOwn,
     } = parsed.data;
     const userId = session.user.id;
 
@@ -144,8 +148,23 @@ export async function POST(request: NextRequest) {
         sendAsEmail: sendAsEmail ?? null,
         aliases,
         isDefault: shouldBeDefault,
+        treatDomainAsOwn,
       },
     });
+
+    // Sweep ghost PENDING senders if the new connection brings own-address
+    // coverage that could reclassify an already-pending sender.
+    if (aliases.length > 0 || connection.treatDomainAsOwn) {
+      try {
+        const approved = await approveOwnPendingSenders(userId);
+        if (approved > 0) revalidateTag("sidebar-counts", { expire: 0 });
+      } catch (err) {
+        console.error(
+          `[connections] own-sender sweep error for ${userId}:`,
+          err,
+        );
+      }
+    }
 
     const { encryptedPassword: _, ...safe } = connection;
 

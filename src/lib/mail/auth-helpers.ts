@@ -7,6 +7,7 @@ export interface ConnectionCredentials {
   email: string;
   sendAsEmail: string | null;
   aliases: string[];
+  treatDomainAsOwn: boolean;
   password: string | null;
   accessToken: string | null;
   oauthProvider: string | null;

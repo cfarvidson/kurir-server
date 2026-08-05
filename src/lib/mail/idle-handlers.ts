@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { db } from "@/lib/db";
+import { type OwnAddresses } from "@/lib/mail/user-emails";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
 import { pushToUser } from "./push-sender";
@@ -328,7 +329,12 @@ async function ingestNewMessages(
   // Look up the email for this connection (for auto-approve logic)
   const emailConn = await db.emailConnection.findUnique({
     where: { id: connectionId },
-    select: { email: true, sendAsEmail: true, aliases: true },
+    select: {
+      email: true,
+      sendAsEmail: true,
+      aliases: true,
+      treatDomainAsOwn: true,
+    },
   });
 
   try {
@@ -358,12 +364,21 @@ async function ingestNewMessages(
         emailConn?.sendAsEmail,
         ...(emailConn?.aliases ?? []),
       ].filter(Boolean) as string[];
+      const own: OwnAddresses = {
+        emails: userEmails.map((e) => e.trim().toLowerCase()),
+        domains:
+          emailConn?.treatDomainAsOwn && emailConn.email
+            ? [emailConn.email.trim().toLowerCase().split("@")[1]].filter(
+                Boolean,
+              )
+            : [],
+      };
 
       let message;
       try {
         message = await processMessage(msg, userId, connectionId, folderId, {
           isInbox: true,
-          userEmails,
+          own,
         });
       } catch (err) {
         // A concurrent sync can insert the same [folderId, uid] between our

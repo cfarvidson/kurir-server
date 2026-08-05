@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
         isDefault: true,
         sendAsEmail: true,
         aliases: true,
+        treatDomainAsOwn: true,
       },
     }),
     db.user.findUnique({

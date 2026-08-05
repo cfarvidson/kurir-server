@@ -16,7 +16,8 @@ type MaintenanceJobType =
   | "check-follow-ups"
   | "expire-attachments"
   | "cleanup-orphan-uploads"
-  | "prune-tombstones";
+  | "prune-tombstones"
+  | "approve-own-senders";
 
 interface MaintenanceJobData {
   task: MaintenanceJobType;
@@ -56,6 +57,10 @@ async function processMaintenanceJob(
       }
       break;
     }
+
+    case "approve-own-senders":
+      await processAllUsersOwnSenderSweep();
+      break;
   }
 }
 
@@ -81,6 +86,19 @@ async function processAllUsersFollowUps(): Promise<void> {
       await checkExpiredFollowUps(user.id);
     } catch (err) {
       console.error(`[maintenance] follow-up error for ${user.id}:`, err);
+    }
+  }
+}
+
+async function processAllUsersOwnSenderSweep(): Promise<void> {
+  const { approveOwnPendingSenders } = await import("./maintenance-tasks");
+
+  const users = await db.user.findMany({ select: { id: true } });
+  for (const user of users) {
+    try {
+      await approveOwnPendingSenders(user.id);
+    } catch (err) {
+      console.error(`[maintenance] own-sender sweep error for ${user.id}:`, err);
     }
   }
 }
@@ -217,6 +235,16 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
     {
       jobId: "prune-tombstones",
       repeat: { every: 24 * 60 * 60_000 },
+    },
+  );
+
+  // Approve own-address pending senders: every hour
+  await queue.add(
+    "approve-own-senders",
+    { task: "approve-own-senders" as const },
+    {
+      jobId: "approve-own-senders",
+      repeat: { every: 60 * 60_000 },
     },
   );
 

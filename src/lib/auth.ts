@@ -88,6 +88,7 @@ async function getConnectionCredentialsQuery(
       smtpPort: true,
       sendAsEmail: true,
       aliases: true,
+      treatDomainAsOwn: true,
       oauthProvider: true,
       oauthAccessToken: true,
       oauthRefreshToken: true,
@@ -101,6 +102,7 @@ async function getConnectionCredentialsQuery(
     email: conn.email,
     sendAsEmail: conn.sendAsEmail,
     aliases: conn.aliases,
+    treatDomainAsOwn: conn.treatDomainAsOwn,
     imap: { host: conn.imapHost, port: conn.imapPort },
     smtp: { host: conn.smtpHost, port: conn.smtpPort },
   };

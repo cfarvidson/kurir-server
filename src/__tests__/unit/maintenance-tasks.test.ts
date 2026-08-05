@@ -4,7 +4,9 @@ vi.mock("@/lib/db", () => ({
   db: {
     message: { updateMany: vi.fn() },
     emailConnection: { findMany: vi.fn() },
+    sender: { findMany: vi.fn(), updateMany: vi.fn() },
     $executeRawUnsafe: vi.fn(),
+    $transaction: vi.fn(),
   },
 }));
 
@@ -53,5 +55,87 @@ describe("checkExpiredFollowUps", () => {
 
     expect(count).toBe(3);
     expect(db.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("approveOwnPendingSenders", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns 0 and skips sender queries when the user has no own addresses", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([] as never);
+
+    const { approveOwnPendingSenders } = await import(
+      "@/lib/jobs/maintenance-tasks"
+    );
+    const count = await approveOwnPendingSenders("user-1");
+
+    expect(count).toBe(0);
+    expect(db.sender.findMany).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 0 and skips the transaction when no PENDING ghosts match", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      { email: "me@example.com", sendAsEmail: null, aliases: [], treatDomainAsOwn: false },
+    ] as never);
+    vi.mocked(db.sender.findMany).mockResolvedValue([] as never);
+
+    const { approveOwnPendingSenders } = await import(
+      "@/lib/jobs/maintenance-tasks"
+    );
+    const count = await approveOwnPendingSenders("user-1");
+
+    expect(count).toBe(0);
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("approves matching ghost senders and reclassifies their non-archived messages into Imbox", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      { email: "me@example.com", sendAsEmail: null, aliases: [], treatDomainAsOwn: false },
+    ] as never);
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      { id: "sender-1" },
+      { id: "sender-2" },
+    ] as never);
+    vi.mocked(db.$transaction).mockResolvedValue([] as never);
+
+    const { approveOwnPendingSenders } = await import(
+      "@/lib/jobs/maintenance-tasks"
+    );
+    const count = await approveOwnPendingSenders("user-1");
+
+    expect(count).toBe(2);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+
+    const ops = vi.mocked(db.$transaction).mock.calls[0][0] as unknown as {
+      then: unknown;
+    }[];
+    expect(ops).toHaveLength(2);
+
+    // sender.updateMany was called with the exact ghost ids and target status.
+    expect(db.sender.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["sender-1", "sender-2"] } },
+      data: expect.objectContaining({
+        status: "APPROVED",
+        category: "IMBOX",
+      }),
+    });
+
+    // message.updateMany reclassifies non-archived messages into Imbox only.
+    expect(db.message.updateMany).toHaveBeenCalledWith({
+      where: {
+        senderId: { in: ["sender-1", "sender-2"] },
+        isArchived: false,
+      },
+      data: {
+        isInScreener: false,
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+      },
+    });
   });
 });
