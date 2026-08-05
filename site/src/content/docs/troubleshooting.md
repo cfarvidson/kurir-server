@@ -152,7 +152,7 @@ Kurir uses PostgreSQL full-text search with a `search_vector` column and GIN ind
 
 ```bash
 docker compose -f docker-compose.production.yml exec -T postgres \
-  psql -U kurir < prisma/migrations/search_vector.sql
+  psql -U kurir < prisma/migrations/0001_search_vector.sql
 ```
 
 ## Getting more help

@@ -171,7 +171,7 @@ fi
 
 # Re-apply search vector migration (trigger + index)
 log "Re-applying search vector migration..."
-SEARCH_VECTOR_SQL="/app/prisma/migrations/search_vector.sql"
+SEARCH_VECTOR_SQL="/app/prisma/migrations/0001_search_vector.sql"
 if [ -f "$SEARCH_VECTOR_SQL" ]; then
   psql "$DB_URL_CLEAN" < "$SEARCH_VECTOR_SQL" > /dev/null 2>&1 || {
     log "WARNING: search_vector migration had errors (may already exist)"

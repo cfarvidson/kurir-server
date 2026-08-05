@@ -42,17 +42,11 @@ docker compose -f docker-compose.production.yml up -d
 kamal deploy
 ```
 
-Kamal builds and pushes a new image from the current codebase, then performs a rolling deploy. The post-deploy hook automatically runs `prisma db push` to apply any schema changes.
+Kamal builds and pushes a new image from the current codebase, then performs a rolling deploy. Database schema changes are applied automatically by the container entrypoint on startup.
 
 ## Database migrations
 
-Database migrations run automatically on application startup. You do not need to run them manually.
-
-If you are using Kamal, the post-deploy hook handles `prisma db push`. The search vector migration (for full-text search) must be run manually once on first install:
-
-```bash
-kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"
-```
+Database migrations run automatically on application startup: the entrypoint applies the versioned SQL files in `prisma/migrations/` exactly once each, tracked in the `_kurir_migrations` table. You do not need to run anything manually — this includes the full-text search setup.
 
 ## Checking for updates
 

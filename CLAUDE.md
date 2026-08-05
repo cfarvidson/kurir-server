@@ -93,7 +93,9 @@ chmod 600 ~/.kamal/kurir-secrets.env
 
 Registry and Postgres host are configured per-environment in `config/deploy.yml` (see `config/deploy.yml.example`).
 
-**Do not enable `prisma db push` for non-empty databases in `scripts/docker-entrypoint.sh` or the post-deploy hook.** The production DB shares its instance with an unrelated `epoch` application's tables. `prisma db push` would try to drop those. (The entrypoint runs `db push` + all `prisma/migrations/*.sql` only when the database has zero tables in `public` — the fresh self-host install case — and skips it otherwise.) Apply kurir-server schema changes as explicit SQL via `bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"` (same pattern as `prisma/migrations/search_vector.sql`).
+**Every `prisma/schema.prisma` change MUST ship with a matching versioned SQL migration** in `prisma/migrations/` (numbered `NNNN_name.sql`, next free number). CI fails otherwise. Migrations must be idempotent (`IF NOT EXISTS` guards, guarded `CREATE TYPE`/backfills) and are immutable once shipped — fix mistakes with a new numbered file. The container entrypoint applies them on every boot via `scripts/apply-migrations.sh`, tracked apply-once in the `_kurir_migrations` table; this is the ONLY schema-change path for non-empty databases (existing self-host installs and production).
+
+**Do not enable `prisma db push` for non-empty databases in `scripts/docker-entrypoint.sh` or the post-deploy hook.** The production DB shares its instance with an unrelated `epoch` application's tables. `prisma db push` would try to drop those. The entrypoint runs `db push` only when the database has zero tables in `public` — the fresh self-host install case — and then runs the migration runner.
 
 ## Releasing
 

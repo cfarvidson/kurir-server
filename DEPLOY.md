@@ -53,11 +53,8 @@ sudo tailscale serve --bg --https=443 http://localhost:80
 # Provision servers, boot accessories (postgres) and deploy the app
 kamal setup
 
-# Apply database schema
-kamal app exec "prisma db push --skip-generate"
-
-# Set up full-text search (one-time)
-kamal app exec "prisma db execute --file prisma/migrations/search_vector.sql"
+# Schema and versioned migrations are applied automatically by the
+# container entrypoint on boot — nothing to run manually.
 
 # Create the first user
 kamal app exec -i "tsx scripts/add-user.ts"

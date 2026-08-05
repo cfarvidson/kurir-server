@@ -140,5 +140,5 @@ gpg --symmetric --cipher-algo AES256 kurir-backup-*.tar.gz
 
 ```bash
 docker compose -f docker-compose.production.yml exec -T postgres \
-  psql -U kurir < prisma/migrations/search_vector.sql
+  psql -U kurir < prisma/migrations/0001_search_vector.sql
 ```

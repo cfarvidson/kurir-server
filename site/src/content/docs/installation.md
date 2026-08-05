@@ -95,11 +95,7 @@ kamal setup    # First deploy: provisions server, boots accessories + app
 kamal deploy   # Subsequent deploys
 ```
 
-Post-deploy hooks automatically run `prisma db push` to apply schema changes. The search vector migration must be run manually once:
-
-```bash
-kamal app exec "npx prisma db execute --file prisma/migrations/search_vector.sql"
-```
+The container entrypoint applies the database schema and all versioned migrations automatically on startup — including the full-text search setup. Nothing to run manually.
 
 ## First-run setup wizard
 

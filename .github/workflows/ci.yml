@@ -50,3 +50,78 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 14
+
+  migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kurir
+          POSTGRES_PASSWORD: kurir
+          POSTGRES_DB: kurir
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kurir"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://kurir:kurir@localhost:5432/kurir
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Every schema.prisma change must ship a versioned migration file,
+      # otherwise existing self-host installs break on their next update
+      # (the entrypoint never runs `prisma db push` on non-empty databases).
+      - name: Require a migration alongside schema changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+            git fetch origin "${{ github.base_ref }}" --depth=1
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            RANGE="${{ github.event.before }}...${{ github.sha }}"
+          else
+            echo "No usable base commit; skipping schema guard."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$RANGE")
+          if echo "$CHANGED" | grep -q '^prisma/schema.prisma$' && \
+             ! echo "$CHANGED" | grep -q '^prisma/migrations/'; then
+            echo "::error file=prisma/schema.prisma::schema.prisma changed without a matching file in prisma/migrations/ — existing self-host installs would break on update. Add a numbered idempotent SQL migration."
+            exit 1
+          fi
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Bootstrap schema (fresh-install path)
+        run: pnpm db:push
+
+      - name: Apply migrations onto an already-complete schema
+        # Simulates existing installs (production, self-hosters) whose schema
+        # already matches: the first tracked run re-applies every file, so
+        # each migration must be idempotent.
+        run: sh scripts/apply-migrations.sh
+
+      - name: Re-apply from scratch (idempotency)
+        run: |
+          psql "$DATABASE_URL" -c 'DROP TABLE "_kurir_migrations";'
+          sh scripts/apply-migrations.sh

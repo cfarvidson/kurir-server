@@ -75,7 +75,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
-RUN chmod +x scripts/docker-entrypoint.sh scripts/kurir-backup.sh scripts/kurir-restore.sh
+RUN chmod +x scripts/docker-entrypoint.sh scripts/apply-migrations.sh scripts/kurir-backup.sh scripts/kurir-restore.sh
 
 USER nextjs
 EXPOSE 3000

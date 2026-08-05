@@ -128,5 +128,5 @@ kurir-backup-YYYY-MM-DD-HHMMSS.tar.gz
 **Search not working after restore** — The restore script re-applies the search vector migration automatically. If it fails, run manually:
 
 ```bash
-docker compose -f docker-compose.production.yml exec -T postgres psql -U kurir < prisma/migrations/search_vector.sql
+docker compose -f docker-compose.production.yml exec -T postgres psql -U kurir < prisma/migrations/0001_search_vector.sql
 ```

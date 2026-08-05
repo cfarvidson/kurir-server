@@ -1,6 +1,6 @@
 #!/bin/sh
-# Post-deploy: push schema + ensure search vector exists
-echo "Running post-deploy migrations..."
-kamal app exec "npx prisma db push --accept-data-loss" || true
-kamal app exec "npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/search_vector.sql" || true
-echo "Post-deploy migrations complete."
+# Schema changes are applied by the container entrypoint on boot
+# (scripts/apply-migrations.sh — versioned SQL migrations). Never `prisma db
+# push` here: the non-empty production DB shares its instance with the
+# unrelated 'epoch' app, and push would try to drop its tables.
+echo "Post-deploy: nothing to do (migrations ran in the container entrypoint)."
