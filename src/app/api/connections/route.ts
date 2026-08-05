@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getUserEmailConnections, auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { approveOwnPendingSenders } from "@/lib/jobs/maintenance-tasks";
 import { z } from "zod";
 import { rateLimitConnections, tooManyRequests } from "@/lib/rate-limit";
 
@@ -146,6 +148,20 @@ export async function POST(request: NextRequest) {
         isDefault: shouldBeDefault,
       },
     });
+
+    // Sweep ghost PENDING senders if the new connection brings own-address
+    // coverage that could reclassify an already-pending sender.
+    if (aliases.length > 0 || connection.treatDomainAsOwn) {
+      try {
+        const approved = await approveOwnPendingSenders(userId);
+        if (approved > 0) revalidateTag("sidebar-counts", { expire: 0 });
+      } catch (err) {
+        console.error(
+          `[connections] own-sender sweep error for ${userId}:`,
+          err,
+        );
+      }
+    }
 
     const { encryptedPassword: _, ...safe } = connection;
 
