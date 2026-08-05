@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.05] - 2026-08-05
+
+### Added
+
+- Catch-all domains: a per-connection "Treat every address on this domain as mine" setting (`treatDomainAsOwn`) makes every address on the connection's domain count as the user's own — in Screener exclusion, sync-time auto-approve, All Mail classification, follow-up detection, and the mobile sync payload
+- Settings: catch-all toggle on the connection card next to alias management
+- Setup wizard (password flow) now collects aliases and the catch-all setting, so they apply from the very first sync
+
+### Fixed
+
+- Stale `PENDING` "ghost" sender rows for the user's own addresses (created before an alias was configured) are now swept to approved/Imbox — hourly, and immediately when aliases, send-as, or the catch-all setting change. Together with the iOS app persisting connections locally, this removes the old alias mail that flashed in the Screener at cold start
+
 ## [v2026.08.04] - 2026-08-04
 
 ### Fixed

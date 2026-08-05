@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.04",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.04",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.04",
-  "changelog": "Fresh self-host installs now bootstrap the database schema automatically. Fixed the container healthcheck (IPv4) and the installer's health gating, and switched Redis to the noeviction policy BullMQ requires.",
+  "version": "2026.08.05",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.05",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.05",
+  "changelog": "Catch-all domains: treat every address on your own domain as yours — auto-approved at sync, with a sweep that clears stale pending senders for your aliases. Configure in Settings or during setup.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-04T09:03:16Z"
+  "releasedAt": "2026-08-05T07:24:40Z"
 }
