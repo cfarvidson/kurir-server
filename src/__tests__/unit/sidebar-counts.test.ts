@@ -110,7 +110,7 @@ describe("computeSidebarCounts", () => {
     const where = vi.mocked(db.sender.count).mock.calls[0][0]?.where;
     // visiblePendingSenderWhere lowercases + trims and puts excluded emails under NOT.
     expect(where?.NOT).toEqual({
-      email: { in: ["me@example.com", "alias@example.com"] },
+      OR: [{ email: { in: ["me@example.com", "alias@example.com"] } }],
     });
   });
 

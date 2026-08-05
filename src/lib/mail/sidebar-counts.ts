@@ -23,7 +23,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/db";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
-import { getUserEmails } from "@/lib/mail/user-emails";
+import { getOwnAddresses } from "@/lib/mail/user-emails";
 import {
   type BadgePreferences,
   defaultBadgePreferences,
@@ -60,12 +60,9 @@ export async function computeSidebarCounts(
   ] = await Promise.all([
     // The screener count needs the user's own addresses excluded; chain the
     // lookup so the other seven counts still fan out immediately.
-    getUserEmails(userId).then((userEmails) =>
+    getOwnAddresses(userId).then((own) =>
       db.sender.count({
-        where: visiblePendingSenderWhere(
-          userId,
-          userEmails.length > 0 ? userEmails : null,
-        ),
+        where: visiblePendingSenderWhere(userId, own),
       }),
     ),
     db.message.count({

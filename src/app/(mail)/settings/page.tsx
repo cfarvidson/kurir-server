@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ImportButton } from "@/components/mail/import-button";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
+import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
 import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
@@ -55,7 +56,7 @@ async function getStorageStats() {
   return { totalSize: dbSize.size, tables };
 }
 
-async function getUserStats(userId: string, excludedEmails: string[]) {
+async function getUserStats(userId: string, own: OwnAddresses) {
   const [
     senderCount,
     messageCount,
@@ -68,10 +69,7 @@ async function getUserStats(userId: string, excludedEmails: string[]) {
     db.sender.count({ where: { userId } }),
     db.message.count({ where: { userId } }),
     db.sender.count({
-      where: visiblePendingSenderWhere(
-        userId,
-        excludedEmails.length > 0 ? excludedEmails : null,
-      ),
+      where: visiblePendingSenderWhere(userId, own),
     }),
     db.message.count({ where: { userId, isInImbox: true } }),
     db.message.count({ where: { userId, isInFeed: true } }),
@@ -113,7 +111,7 @@ export default async function SettingsPage() {
   const userId = session.user.id;
   const isAdmin = session.user.role === "ADMIN";
 
-  const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs] =
+  const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs, own] =
     await Promise.all([
       db.user.findUnique({
         where: { id: userId },
@@ -162,21 +160,14 @@ export default async function SettingsPage() {
       }),
       db.systemSettings.findUnique({ where: { id: "singleton" } }),
       getBadgePreferences(userId),
+      getOwnAddresses(userId),
     ]);
 
   const canManageConnections =
     isAdmin || (systemSettings?.selfServiceAccountManagement ?? true);
 
-  const excludedEmails = [
-    ...new Set(
-      rawConnections
-        .flatMap((c) => [c.email, c.sendAsEmail, ...c.aliases])
-        .filter(Boolean)
-        .map((e) => e!.trim().toLowerCase()),
-    ),
-  ];
   const [stats, storage] = await Promise.all([
-    getUserStats(userId, excludedEmails),
+    getUserStats(userId, own),
     isAdmin ? getStorageStats() : null,
   ]);
 
