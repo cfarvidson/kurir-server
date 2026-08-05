@@ -18,6 +18,7 @@ const createConnectionSchema = z.object({
   sendAsEmail: z.email().optional(),
   aliases: z.array(z.email()).optional().default([]),
   isDefault: z.boolean().optional().default(false),
+  treatDomainAsOwn: z.boolean().optional().default(false),
 });
 
 // GET /api/connections — list all email connections for the current user
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       sendAsEmail,
       aliases,
       isDefault,
+      treatDomainAsOwn,
     } = parsed.data;
     const userId = session.user.id;
 
@@ -146,6 +148,7 @@ export async function POST(request: NextRequest) {
         sendAsEmail: sendAsEmail ?? null,
         aliases,
         isDefault: shouldBeDefault,
+        treatDomainAsOwn,
       },
     });
 

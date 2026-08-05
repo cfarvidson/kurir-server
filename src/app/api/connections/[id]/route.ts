@@ -32,6 +32,7 @@ const updateConnectionSchema = z.object({
   sendAsEmail: z.email().nullable().optional(),
   aliases: z.array(z.email()).optional(),
   isDefault: z.boolean().optional(),
+  treatDomainAsOwn: z.boolean().optional(),
 });
 
 // PATCH /api/connections/[id] — update an email connection
@@ -80,6 +81,7 @@ export async function PATCH(
     sendAsEmail,
     aliases,
     isDefault,
+    treatDomainAsOwn,
   } = parsed.data;
 
   // Re-verify IMAP when password, host, or port changes (skip for OAuth connections)
@@ -133,6 +135,7 @@ export async function PATCH(
       ...(sendAsEmail !== undefined && { sendAsEmail }),
       ...(aliases !== undefined && { aliases }),
       ...(isDefault !== undefined && { isDefault }),
+      ...(treatDomainAsOwn !== undefined && { treatDomainAsOwn }),
     },
   });
 

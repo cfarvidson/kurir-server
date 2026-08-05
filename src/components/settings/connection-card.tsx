@@ -31,6 +31,7 @@ export interface EmailConnection {
   displayName: string | null;
   sendAsEmail: string | null;
   aliases: string[];
+  treatDomainAsOwn: boolean;
   imapHost: string;
   smtpHost: string;
   isDefault: boolean;
