@@ -21,9 +21,10 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 2. **Update `latest.json`** in the repo root with the new version, image tag, changelog, and release URL
 3. **Update `CHANGELOG.md`** with a section for the new version
 4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
-5. **Commit and push** to main
-6. **Deploy** via `kamal deploy`
-7. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+5. **Commit** to main and **verify** with `./scripts/verify-release.sh v<version>` — it checks that all four files above were bumped. CI runs the same check on the tag build and refuses to publish the Docker image for an incomplete release
+6. **Tag and push** to main
+7. **Deploy** via `kamal deploy`
+8. **Create a GitHub release** with the tag `vYYYY.MM.DD`
 
 ## `latest.json` format
 

@@ -27,6 +27,18 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Tag builds must come from a complete release commit: package.json,
+  # latest.json, changelog.json (admin Updates changelog), and CHANGELOG.md
+  # all bumped together. Publishing is gated on this, so an incomplete
+  # release never ships an image.
+  verify-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release files match the tag
+        run: ./scripts/verify-release.sh "${GITHUB_REF_NAME}"
+
   build-amd64:
     runs-on: ubuntu-latest
     permissions:
@@ -100,8 +112,8 @@ jobs:
           cache-to: type=gha,scope=buildkit-arm64,mode=max
 
   publish:
-    needs: [build-amd64, build-arm64]
-    if: always() && needs.build-amd64.result == 'success' && (needs.build-arm64.result == 'success' || needs.build-arm64.result == 'skipped')
+    needs: [build-amd64, build-arm64, verify-release]
+    if: always() && needs.build-amd64.result == 'success' && (needs.build-arm64.result == 'success' || needs.build-arm64.result == 'skipped') && (needs.verify-release.result == 'success' || needs.verify-release.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
