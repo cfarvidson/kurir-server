@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Fingerprint,
   Mail,
@@ -108,6 +109,8 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
   const [emailVerifying, setEmailVerifying] = useState(false);
+  const [aliases, setAliases] = useState("");
+  const [treatDomainAsOwn, setTreatDomainAsOwn] = useState(false);
 
   // Sync step
   const [syncStatus, setSyncStatus] = useState<
@@ -232,10 +235,19 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         body.smtpPort = String(providerConfig.smtp.port);
       }
 
+      const aliasList = aliases
+        .split(",")
+        .map((a) => a.trim().toLowerCase())
+        .filter((a) => a.includes("@"));
+
       const res = await fetch("/api/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          ...body,
+          aliases: aliasList,
+          treatDomainAsOwn,
+        }),
       });
 
       if (!res.ok) {
@@ -764,6 +776,38 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                             </motion.div>
                           )}
                         </AnimatePresence>
+
+                        {/* Aliases */}
+                        <div className="space-y-2">
+                          <Label htmlFor="aliases">
+                            Aliases (comma-separated, optional)
+                          </Label>
+                          <Input
+                            id="aliases"
+                            placeholder="me@example.com, shopping@example.com"
+                            value={aliases}
+                            onChange={(e) => setAliases(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Catch-all */}
+                        {email.includes("@") && (
+                          <div className="flex items-center justify-between gap-4">
+                            <Label
+                              htmlFor="treatDomainAsOwn"
+                              className="font-normal"
+                            >
+                              Treat every address on {email.split("@")[1]} as
+                              mine (catch-all)
+                            </Label>
+                            <Switch
+                              id="treatDomainAsOwn"
+                              checked={treatDomainAsOwn}
+                              onCheckedChange={setTreatDomainAsOwn}
+                              aria-label={`Treat every address on ${email.split("@")[1]} as mine`}
+                            />
+                          </div>
+                        )}
 
                         {/* Submit */}
                         <Button
