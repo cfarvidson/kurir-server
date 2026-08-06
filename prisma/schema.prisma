@@ -58,6 +58,7 @@ model User {
   contactGroups     ContactGroup[]
   mobileTokens      MobileToken[]
   messageTombstones MessageTombstone[]
+  domainRules       DomainRule[]
 }
 
 // Bearer-token session for native mobile clients (iOS). One row per device
@@ -169,6 +170,7 @@ model EmailConnection {
   folders           Folder[]
   syncState         SyncState?
   scheduledMessages ScheduledMessage[]
+  domainRules       DomainRule[]
 
   @@unique([userId, email])
   @@index([userId])
@@ -217,6 +219,9 @@ model Sender {
   // Decision metadata
   decidedAt    DateTime? // When approved/rejected
   skippedUntil DateTime? // Hidden from Screener until this time
+  // Provenance: set when this sender was auto-decided by a DomainRule.
+  // Nulled (decision kept) when the rule is deleted.
+  decidedByRuleId String?
 
   // Message count for stats
   messageCount Int @default(0)
@@ -250,6 +255,30 @@ model Sender {
   @@index([emailConnectionId, status])
   @@index([emailConnectionId, category])
   @@index([domain])
+  @@index([decidedByRuleId])
+}
+
+// Domain-level screening rule (plan 033): auto-approve or auto-reject every
+// new sender from a domain (optionally including subdomains) at sync time.
+model DomainRule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pattern           String // normalized lowercase domain: "github.com" or "news.github.com"
+  includeSubdomains Boolean @default(false) // true = *.github.com
+
+  status   SenderStatus // APPROVED or REJECTED (never PENDING)
+  category SenderCategory? // required when status = APPROVED
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
+
+  @@unique([emailConnectionId, pattern, includeSubdomains])
+  @@index([emailConnectionId])
 }
 
 // ============================================
