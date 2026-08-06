@@ -13,6 +13,7 @@ import {
   changeDomainRuleCategory,
   deleteDomainRule,
 } from "@/actions/domain-rules";
+import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import {
   X,
   Loader2,
@@ -252,6 +253,10 @@ export function ScreenedSenderList({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
                   <div className="flex items-center gap-0.5">
+                    <ScreenDomainMenu
+                      senderId={sender.id}
+                      domain={sender.domain}
+                    />
                     {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                       const c = CATEGORY_CONFIG[cat];
                       const isActive = sender.category === cat;
@@ -332,6 +337,10 @@ export function ScreenedSenderList({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
                   <div className="flex items-center gap-0.5">
+                    <ScreenDomainMenu
+                      senderId={sender.id}
+                      domain={sender.domain}
+                    />
                     {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
                       const c = CATEGORY_CONFIG[cat];
                       return (
