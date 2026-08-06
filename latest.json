@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.06.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06.2",
-  "changelog": "Screen domains retroactively: a new Screen domain action on messages and screened senders creates a domain rule from an existing address — the sender moves with the rule.",
+  "version": "2026.08.06.3",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06.3",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06.3",
+  "changelog": "The iOS/macOS app now follows your remote-image privacy setting: in block-trackers mode content images load while spy pixels are stripped, with a trackers-blocked badge — matching the web app.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-06T11:45:30Z"
+  "releasedAt": "2026-08-06T12:47:00Z"
 }

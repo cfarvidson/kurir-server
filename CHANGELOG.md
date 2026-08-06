@@ -4,6 +4,12 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.06.3] - 2026-08-06
+
+### Added
+
+- Mobile: the sync payload now carries the user's remote-image policy (`imagePolicy`: block all / block trackers / allow all), so the iOS/macOS app mirrors the web privacy behavior — including the "load images, block trackers" middle ground with its trackers-blocked badge
+
 ## [v2026.08.06.2] - 2026-08-06
 
 ### Added

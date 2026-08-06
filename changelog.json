@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.06.3",
+    "date": "2026-08-06",
+    "changes": [
+      "Mobile sync now includes the user's remote-image policy (imagePolicy) so the iOS/macOS app mirrors the web privacy setting, including the load-images-block-trackers mode with its trackers-blocked badge"
+    ]
+  },
+  {
     "version": "2026.08.06.2",
     "date": "2026-08-06",
     "changes": [
@@ -145,7 +152,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -196,7 +205,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",
