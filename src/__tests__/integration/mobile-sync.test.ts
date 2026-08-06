@@ -158,6 +158,35 @@ describe("GET /api/mobile/sync", () => {
     expect(fallback.role).toBe("USER");
   });
 
+  it("returns the user's resolved image policy, defaulting to BLOCK_ALL", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    await mockEmptyTables();
+    vi.mocked(db.user.findUnique).mockResolvedValue({
+      role: "USER",
+      blockRemoteImages: false,
+      blockTrackers: true,
+    } as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const trackers = await (await GET(makeRequest())).json();
+    expect(trackers.imagePolicy).toBe("BLOCK_TRACKERS");
+
+    vi.mocked(db.user.findUnique).mockResolvedValue({
+      role: "USER",
+      blockRemoteImages: false,
+      blockTrackers: false,
+    } as any);
+    const allowAll = await (await GET(makeRequest())).json();
+    expect(allowAll.imagePolicy).toBe("ALLOW_ALL");
+
+    // Unknown user (or pre-feature row): safest default.
+    vi.mocked(db.user.findUnique).mockResolvedValue(null);
+    const fallback = await (await GET(makeRequest())).json();
+    expect(fallback.imagePolicy).toBe("BLOCK_ALL");
+  });
+
   it("selects and returns each sender's allowRemoteImages flag", async () => {
     await mockAuthed();
     const { db } = await import("@/lib/db");

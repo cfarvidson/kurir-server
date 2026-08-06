@@ -6,6 +6,7 @@ import {
   MESSAGE_SELECT,
   flattenFolderRole,
 } from "@/lib/mobile/message-select";
+import { resolveImagePolicy } from "@/lib/mail/image-policy";
 
 /**
  * GET /api/mobile/sync?cursor=<updatedAtISO>_<id>&limit=500
@@ -125,7 +126,7 @@ export async function GET(req: NextRequest) {
     }),
     db.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, blockRemoteImages: true, blockTrackers: true },
     }),
     // Domain screening rules: always the full set (they are few) — the
     // client does a replace-all, no cursor/tombstone handling.
@@ -166,6 +167,11 @@ export async function GET(req: NextRequest) {
     // Additive: lets the app show admin-only entry points (a web link to
     // /admin). Older apps ignore it.
     role: user?.role ?? "USER",
+    // Additive: the user's remote-image policy so native clients mirror the
+    // web privacy behavior. Missing row → the schema default (block all).
+    imagePolicy: user
+      ? resolveImagePolicy(user)
+      : ("BLOCK_ALL" as const),
     nextCursor,
     hasMore,
   });
