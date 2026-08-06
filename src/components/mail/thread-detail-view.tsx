@@ -13,6 +13,7 @@ import { ContactSidebar } from "@/components/mail/contact-sidebar";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
+import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 
@@ -236,13 +237,21 @@ export async function ThreadDetailView({
           </span>
         )}
         {targetMessage.sender && !isSentView && (
-          <UnthreadToggle
-            senderId={targetMessage.sender.id}
-            senderLabel={
-              targetMessage.sender.displayName || targetMessage.sender.email
-            }
-            unthread={targetMessage.sender.unthread}
-          />
+          <>
+            {targetMessage.sender.email.includes("@") && (
+              <ScreenDomainMenu
+                senderId={targetMessage.sender.id}
+                domain={targetMessage.sender.email.split("@")[1]}
+              />
+            )}
+            <UnthreadToggle
+              senderId={targetMessage.sender.id}
+              senderLabel={
+                targetMessage.sender.displayName || targetMessage.sender.email
+              }
+              unthread={targetMessage.sender.unthread}
+            />
+          </>
         )}
         <div
           className={cn(
