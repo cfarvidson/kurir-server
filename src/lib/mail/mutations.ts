@@ -676,7 +676,8 @@ export interface CreateDomainRuleInput {
 /**
  * Create (or re-point) a domain rule and retroactively sweep all matching
  * PENDING senders on the connection through the existing approve/reject
- * cores. Already-decided senders are never touched. Upsert on
+ * cores. The origin sender always follows the rule (plan 034); other
+ * already-decided senders are never touched. Upsert on
  * (emailConnectionId, pattern, includeSubdomains) makes replay idempotent.
  */
 export async function createDomainRuleForUser(
@@ -696,7 +697,13 @@ export async function createDomainRuleForUser(
 
   const sender = await db.sender.findUnique({
     where: { id: input.senderId },
-    select: { userId: true, domain: true, emailConnectionId: true },
+    select: {
+      userId: true,
+      domain: true,
+      emailConnectionId: true,
+      status: true,
+      category: true,
+    },
   });
   if (!sender || sender.userId !== userId) {
     throw new Error("Sender not found");
@@ -747,6 +754,26 @@ export async function createDomainRuleForUser(
   if (matching.length > 0) {
     await db.sender.updateMany({
       where: { id: { in: matching.map((s) => s.id) } },
+      data: { decidedByRuleId: rule.id },
+    });
+  }
+
+  // Plan 034: the origin sender follows the rule even when already decided,
+  // so "Screen domain" works retroactively from an existing message. Other
+  // decided senders on the domain are still never touched.
+  if (sender.status !== "PENDING") {
+    const needsMove =
+      sender.status !== rule.status ||
+      (rule.status === "APPROVED" && sender.category !== rule.category);
+    if (needsMove) {
+      if (rule.status === "APPROVED") {
+        await approveSenderForUser(userId, input.senderId, rule.category!);
+      } else {
+        await rejectSenderForUser(userId, input.senderId);
+      }
+    }
+    await db.sender.update({
+      where: { id: input.senderId },
       data: { decidedByRuleId: rule.id },
     });
   }

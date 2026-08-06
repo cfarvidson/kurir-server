@@ -39,7 +39,11 @@ beforeEach(() => {
   dbMock.$transaction.mockImplementation(async (ops: unknown) => ops);
 });
 
-function mockSourceSender(domain = "news.github.com") {
+function mockSourceSender(
+  domain = "news.github.com",
+  status: "PENDING" | "APPROVED" | "REJECTED" = "PENDING",
+  category: string | null = null,
+) {
   // First findUnique resolves the source sender; later calls (from the
   // approve/reject cores during the sweep) just need a matching userId.
   dbMock.sender.findUnique.mockResolvedValue({
@@ -48,6 +52,8 @@ function mockSourceSender(domain = "news.github.com") {
     emailConnectionId: "c1",
     email: "a@" + domain,
     displayName: null,
+    status,
+    category,
   });
 }
 
@@ -154,6 +160,104 @@ describe("createDomainRuleForUser", () => {
     expect(dbMock.sender.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["p1"] } },
       data: { decidedByRuleId: "r2" },
+    });
+  });
+
+  it("moves an already-decided origin sender with the rule (plan 034)", async () => {
+    mockSourceSender("news.github.com", "APPROVED", "IMBOX");
+    dbMock.domainRule.upsert.mockResolvedValue({
+      id: "r3",
+      pattern: "github.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+    dbMock.sender.findMany.mockResolvedValue([]);
+    const { createDomainRuleForUser } = await import("@/lib/mail/mutations");
+
+    await createDomainRuleForUser(USER, {
+      senderId: "s1",
+      pattern: "github.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+
+    // Origin re-approved into the rule's category…
+    expect(dbMock.sender.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "s1" },
+        data: expect.objectContaining({
+          status: "APPROVED",
+          category: "PAPER_TRAIL",
+        }),
+      }),
+    );
+    // …and stamped with provenance.
+    expect(dbMock.sender.update).toHaveBeenCalledWith({
+      where: { id: "s1" },
+      data: { decidedByRuleId: "r3" },
+    });
+  });
+
+  it("screens out an already-approved origin sender for REJECTED rules", async () => {
+    mockSourceSender("spam.example", "APPROVED", "IMBOX");
+    dbMock.domainRule.upsert.mockResolvedValue({
+      id: "r4",
+      pattern: "spam.example",
+      includeSubdomains: false,
+      status: "REJECTED",
+      category: null,
+    });
+    dbMock.sender.findMany.mockResolvedValue([]);
+    dbMock.message.findMany.mockResolvedValue([]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+    const { createDomainRuleForUser } = await import("@/lib/mail/mutations");
+
+    await createDomainRuleForUser(USER, {
+      senderId: "s1",
+      pattern: "spam.example",
+      includeSubdomains: false,
+      status: "REJECTED",
+    });
+
+    expect(dbMock.sender.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "s1" },
+        data: expect.objectContaining({ status: "REJECTED" }),
+      }),
+    );
+    expect(dbMock.sender.update).toHaveBeenCalledWith({
+      where: { id: "s1" },
+      data: { decidedByRuleId: "r4" },
+    });
+  });
+
+  it("skips the move when the origin already matches the rule, but still stamps provenance", async () => {
+    mockSourceSender("news.github.com", "APPROVED", "PAPER_TRAIL");
+    dbMock.domainRule.upsert.mockResolvedValue({
+      id: "r5",
+      pattern: "github.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+    dbMock.sender.findMany.mockResolvedValue([]);
+    const { createDomainRuleForUser } = await import("@/lib/mail/mutations");
+
+    await createDomainRuleForUser(USER, {
+      senderId: "s1",
+      pattern: "github.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+
+    // Only the provenance stamp — no status/category rewrite.
+    expect(dbMock.sender.update).toHaveBeenCalledTimes(1);
+    expect(dbMock.sender.update).toHaveBeenCalledWith({
+      where: { id: "s1" },
+      data: { decidedByRuleId: "r5" },
     });
   });
 
