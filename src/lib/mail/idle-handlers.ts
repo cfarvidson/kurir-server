@@ -337,6 +337,12 @@ async function ingestNewMessages(
     },
   });
 
+  // Domain screening rules: IDLE-ingested messages create senders too, so
+  // they must see the same rules as a full sync run (plan 033).
+  const domainRules = await db.domainRule.findMany({
+    where: { emailConnectionId: connectionId },
+  });
+
   try {
     for await (const msg of client.fetch(
       fetchRange,
@@ -379,6 +385,7 @@ async function ingestNewMessages(
         message = await processMessage(msg, userId, connectionId, folderId, {
           isInbox: true,
           own,
+          domainRules,
         });
       } catch (err) {
         // A concurrent sync can insert the same [folderId, uid] between our

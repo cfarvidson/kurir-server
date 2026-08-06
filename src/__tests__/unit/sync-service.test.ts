@@ -34,6 +34,9 @@ vi.mock("@/lib/db", () => ({
     attachment: {
       createMany: vi.fn(),
     },
+    domainRule: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -303,6 +306,214 @@ describe("thread repair gating", () => {
     expect(result.results[0].newMessages).toBe(1);
     expect(result.results[0].remaining).toBe(1);
     expect(db.message.findMany).not.toHaveBeenCalledWith(REPAIR_CALL);
+  });
+});
+
+describe("domain rules at sync (plan 033)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const fakeMsg = (from: string) =>
+    ({
+      uid: 1,
+      envelope: {
+        messageId: "<test@example.com>",
+        from: [{ address: from, name: "Sender" }],
+        to: [{ address: "me@example.com" }],
+        subject: "Test",
+        date: new Date(),
+        inReplyTo: null,
+      },
+      flags: new Set<string>(),
+      internalDate: new Date(),
+      source: Buffer.from("raw email"),
+    }) as any;
+
+  async function mockPersistence(senderState: {
+    status: string;
+    category: string | null;
+  }) {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.sender.upsert).mockResolvedValue({
+      id: "sender-1",
+      ...senderState,
+    } as any);
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.message.create).mockResolvedValue({ id: "msg-1" } as any);
+
+    const { simpleParser } = await import("mailparser");
+    vi.mocked(simpleParser).mockResolvedValue({
+      text: "Hello",
+      html: null,
+      attachments: [],
+      references: [],
+    } as any);
+    return db;
+  }
+
+  const approveRule = {
+    id: "rule-1",
+    pattern: "github.com",
+    includeSubdomains: true,
+    status: "APPROVED",
+    category: "PAPER_TRAIL",
+  } as const;
+
+  it("creates a rule-matched sender decided by the rule (never PENDING)", async () => {
+    const db = await mockPersistence({
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("bot@news.github.com"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      {
+        isInbox: true,
+        own: { emails: ["me@example.com"], domains: [] },
+        domainRules: [approveRule as any],
+      },
+    );
+
+    expect(db.sender.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: "APPROVED",
+          category: "PAPER_TRAIL",
+          decidedByRuleId: "rule-1",
+          decidedAt: expect.any(Date),
+        }),
+      }),
+    );
+    // Message lands in Paper Trail, never in the screener
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInScreener: false,
+          isInPaperTrail: true,
+        }),
+      }),
+    );
+  });
+
+  it("archives inbox mail from a sender created by a REJECTED rule", async () => {
+    const db = await mockPersistence({ status: "REJECTED", category: null });
+
+    const rejectRule = {
+      id: "rule-2",
+      pattern: "spam.example",
+      includeSubdomains: false,
+      status: "REJECTED",
+      category: null,
+    };
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("noreply@spam.example"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      {
+        isInbox: true,
+        own: { emails: ["me@example.com"], domains: [] },
+        domainRules: [rejectRule as any],
+      },
+    );
+
+    expect(db.sender.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: "REJECTED",
+          decidedByRuleId: "rule-2",
+        }),
+      }),
+    );
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInScreener: false,
+          isArchived: true,
+        }),
+      }),
+    );
+  });
+
+  it("own address wins over a matching rule", async () => {
+    const db = await mockPersistence({ status: "APPROVED", category: "IMBOX" });
+
+    const rejectOwnDomain = {
+      id: "rule-3",
+      pattern: "example.com",
+      includeSubdomains: true,
+      status: "REJECTED",
+      category: null,
+    };
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("me@example.com"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      {
+        isInbox: true,
+        own: { emails: ["me@example.com"], domains: [] },
+        domainRules: [rejectOwnDomain as any],
+      },
+    );
+
+    expect(db.sender.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: "APPROVED",
+          category: "IMBOX",
+        }),
+      }),
+    );
+    const createArg = vi.mocked(db.sender.upsert).mock.calls[0][0] as any;
+    expect(createArg.create.decidedByRuleId).toBeUndefined();
+  });
+
+  it("loads the connection's rules once per sync run", async () => {
+    const { getConnectionCredentialsInternal } = await import("@/lib/auth");
+    vi.mocked(getConnectionCredentialsInternal).mockResolvedValue({
+      email: "me@example.com",
+      sendAsEmail: null,
+      aliases: [],
+      treatDomainAsOwn: false,
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.example.com", port: 993 },
+      smtp: { host: "smtp.example.com", port: 587 },
+    });
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findUnique).mockResolvedValue({
+      userId: "user-1",
+    } as any);
+    vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+
+    const { ImapFlow } = await import("imapflow");
+    vi.mocked(ImapFlow).mockImplementation(function () {
+      return {
+        connect: vi.fn().mockResolvedValue(undefined),
+        logout: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue([]),
+      };
+    } as any);
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    await syncEmailConnection("conn-1");
+
+    expect(db.domainRule.findMany).toHaveBeenCalledTimes(1);
+    expect(db.domainRule.findMany).toHaveBeenCalledWith({
+      where: { emailConnectionId: "conn-1" },
+    });
   });
 });
 

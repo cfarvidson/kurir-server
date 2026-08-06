@@ -9,6 +9,17 @@ import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
 import { type ImboxPushMessage } from "@/lib/mail/push-select";
 import { type OwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
+import { matchDomainRule } from "@/lib/mail/domain-rules";
+import type { SenderCategory, SenderStatus } from "@prisma/client";
+
+/** Domain screening rule shape needed at sync time (plan 033). */
+export interface SyncDomainRule {
+  id: string;
+  pattern: string;
+  includeSubdomains: boolean;
+  status: SenderStatus;
+  category: SenderCategory | null;
+}
 
 /**
  * Walk the IMAP bodyStructure tree to extract attachment part IDs.
@@ -121,7 +132,9 @@ export function createSnippet(
 
 /**
  * Get or create a sender record scoped to an email connection.
- * If userEmail is provided and matches, auto-approve as IMBOX.
+ * If userEmail is provided and matches, auto-approve as IMBOX. Otherwise a
+ * matching domain rule decides the sender directly (own address wins over
+ * rules); with neither, the sender lands in the screener as PENDING.
  */
 async function getOrCreateSender(
   userId: string,
@@ -129,9 +142,14 @@ async function getOrCreateSender(
   email: string,
   displayName: string | null,
   own?: OwnAddresses,
+  domainRules?: SyncDomainRule[],
 ) {
   const domain = extractDomain(email);
   const isOwnEmail = !!own && isOwnAddress(email, own);
+  const rule =
+    !isOwnEmail && domainRules?.length
+      ? matchDomainRule(domain, domainRules)
+      : null;
 
   const sender = await db.sender.upsert({
     where: {
@@ -143,10 +161,11 @@ async function getOrCreateSender(
       email,
       displayName,
       domain,
-      status: isOwnEmail ? "APPROVED" : "PENDING",
-      category: "IMBOX",
+      status: isOwnEmail ? "APPROVED" : rule ? rule.status : "PENDING",
+      category: rule?.category ?? "IMBOX",
       messageCount: 1,
-      ...(isOwnEmail ? { decidedAt: new Date() } : {}),
+      ...(isOwnEmail || rule ? { decidedAt: new Date() } : {}),
+      ...(rule ? { decidedByRuleId: rule.id } : {}),
     },
     update: {
       displayName: displayName || undefined,
@@ -205,6 +224,7 @@ async function syncMailbox(
   imapSpecialUse?: string,
   batchSize?: number,
   own?: OwnAddresses,
+  domainRules?: SyncDomainRule[],
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -418,6 +438,7 @@ async function syncMailbox(
                   isInbox,
                   own,
                   isArchived: archived,
+                  domainRules,
                 },
               );
               newMessages++;
@@ -486,6 +507,7 @@ interface ProcessMessageOptions {
   isInbox: boolean;
   own?: OwnAddresses;
   isArchived?: boolean;
+  domainRules?: SyncDomainRule[];
 }
 
 /**
@@ -498,7 +520,7 @@ export async function processMessage(
   folderId: string,
   options: ProcessMessageOptions,
 ) {
-  const { isInbox, own, isArchived = false } = options;
+  const { isInbox, own, isArchived = false, domainRules } = options;
   const envelope = msg.envelope;
   const flags = msg.flags;
 
@@ -526,6 +548,7 @@ export async function processMessage(
     fromAddress,
     fromName,
     own,
+    domainRules,
   );
 
   // Only categorize inbox messages; sent/other folders skip categorization
@@ -985,6 +1008,12 @@ export async function syncEmailConnection(
         : [],
     };
 
+    // Domain screening rules, loaded once per sync run (same pattern as
+    // OwnAddresses) so every new sender in this run sees the same rule set.
+    const domainRules = await db.domainRule.findMany({
+      where: { emailConnectionId },
+    });
+
     for (const { path, specialUse } of toSync) {
       try {
         const result = await syncMailbox(
@@ -995,6 +1024,7 @@ export async function syncEmailConnection(
           specialUse,
           options?.batchSize,
           own,
+          domainRules,
         );
         console.log(
           `[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`,
