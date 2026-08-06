@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.06.2] - 2026-08-06
+
+### Added
+
+- Screen domains retroactively (plan 034): a "Screen domain" action in the thread header and on screened-list rows creates a domain rule from an existing sender. The origin sender always follows the rule (matching pending senders are swept as before); other already-decided senders are never touched
+- Mobile: the `createDomainRule` action now moves the origin sender with the rule, so the iOS/macOS "Screen domain" menus work from the thread view, message list and screened list
+
 ## [v2026.08.06] - 2026-08-06
 
 ### Added

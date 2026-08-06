@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.06",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06",
-  "changelog": "Domain screening rules: approve or screen out every sender from a domain (optionally including subdomains) directly from the screener. Rules apply automatically to new senders and can be managed in the screened list.",
+  "version": "2026.08.06.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06.2",
+  "changelog": "Screen domains retroactively: a new Screen domain action on messages and screened senders creates a domain rule from an existing address — the sender moves with the rule.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-06T10:49:38Z"
+  "releasedAt": "2026-08-06T11:45:30Z"
 }

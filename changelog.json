@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.08.06.2",
+    "date": "2026-08-06",
+    "changes": [
+      "Screen domain retroactively: create a domain rule from an existing message (thread header) or screened sender — the sender moves with the rule",
+      "Mobile: the createDomainRule action moves the origin sender, enabling Screen domain menus in the iOS/macOS app"
+    ]
+  },
+  {
     "version": "2026.08.06",
     "date": "2026-08-06",
     "changes": [
