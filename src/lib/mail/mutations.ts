@@ -5,7 +5,8 @@ import {
   moveToInboxViaImap,
 } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/actions/contacts";
-import { SenderCategory } from "@prisma/client";
+import { patternMatchesDomain } from "@/lib/mail/domain-rules";
+import { SenderCategory, SenderStatus } from "@prisma/client";
 
 /**
  * Shared mutation cores for message/sender operations.
@@ -656,6 +657,182 @@ export async function setSenderAllowImagesForUser(
   await db.sender.update({
     where: { id: senderId },
     data: { allowRemoteImages: allow },
+  });
+}
+
+// ============================================
+// DOMAIN SCREENING RULES (plan 033)
+// ============================================
+
+export interface CreateDomainRuleInput {
+  /** Sender whose domain the rule was created from (scopes the connection). */
+  senderId: string;
+  pattern: string;
+  includeSubdomains: boolean;
+  status: SenderStatus; // APPROVED or REJECTED, never PENDING
+  category?: SenderCategory | null;
+}
+
+/**
+ * Create (or re-point) a domain rule and retroactively sweep all matching
+ * PENDING senders on the connection through the existing approve/reject
+ * cores. Already-decided senders are never touched. Upsert on
+ * (emailConnectionId, pattern, includeSubdomains) makes replay idempotent.
+ */
+export async function createDomainRuleForUser(
+  userId: string,
+  input: CreateDomainRuleInput,
+) {
+  const pattern = input.pattern.trim().toLowerCase();
+  if (input.status !== "APPROVED" && input.status !== "REJECTED") {
+    throw new Error("Rule status must be APPROVED or REJECTED");
+  }
+  if (input.status === "APPROVED" && !input.category) {
+    throw new Error("Category required for approve rules");
+  }
+  if (input.includeSubdomains && pattern.split(".").length < 2) {
+    throw new Error("Invalid wildcard pattern");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: input.senderId },
+    select: { userId: true, domain: true, emailConnectionId: true },
+  });
+  if (!sender || sender.userId !== userId) {
+    throw new Error("Sender not found");
+  }
+  if (
+    !patternMatchesDomain(sender.domain, {
+      pattern,
+      includeSubdomains: input.includeSubdomains,
+    })
+  ) {
+    throw new Error("Pattern does not match sender domain");
+  }
+
+  const category = input.status === "APPROVED" ? input.category! : null;
+  const rule = await db.domainRule.upsert({
+    where: {
+      emailConnectionId_pattern_includeSubdomains: {
+        emailConnectionId: sender.emailConnectionId,
+        pattern,
+        includeSubdomains: input.includeSubdomains,
+      },
+    },
+    create: {
+      userId,
+      emailConnectionId: sender.emailConnectionId,
+      pattern,
+      includeSubdomains: input.includeSubdomains,
+      status: input.status,
+      category,
+    },
+    update: { status: input.status, category },
+  });
+
+  // Retroactive sweep: decide matching PENDING senders via the existing cores
+  // (moves mail, sets flags). APPROVED/REJECTED senders are never touched.
+  const pending = await db.sender.findMany({
+    where: { emailConnectionId: sender.emailConnectionId, status: "PENDING" },
+    select: { id: true, domain: true },
+  });
+  const matching = pending.filter((s) => patternMatchesDomain(s.domain, rule));
+  for (const s of matching) {
+    if (rule.status === "APPROVED") {
+      await approveSenderForUser(userId, s.id, rule.category!);
+    } else {
+      await rejectSenderForUser(userId, s.id);
+    }
+  }
+  if (matching.length > 0) {
+    await db.sender.updateMany({
+      where: { id: { in: matching.map((s) => s.id) } },
+      data: { decidedByRuleId: rule.id },
+    });
+  }
+
+  return rule;
+}
+
+/**
+ * Point a domain rule at a (new) category and move every sender it decided
+ * (decidedByRuleId) along with it, mirroring the per-sender category move.
+ * Also flips a REJECTED rule to APPROVED. Manually decided senders are never
+ * affected.
+ */
+export async function changeDomainRuleCategoryForUser(
+  userId: string,
+  ruleId: string,
+  category: SenderCategory,
+) {
+  const rule = await db.domainRule.findUnique({
+    where: { id: ruleId },
+    select: { id: true, userId: true },
+  });
+  if (!rule || rule.userId !== userId) {
+    throw new Error("Rule not found");
+  }
+
+  await db.$transaction([
+    db.domainRule.update({
+      where: { id: ruleId },
+      data: { status: "APPROVED", category },
+    }),
+    db.sender.updateMany({
+      where: { decidedByRuleId: ruleId },
+      data: { status: "APPROVED", category },
+    }),
+    db.message.updateMany({
+      where: { sender: { decidedByRuleId: ruleId }, isArchived: false },
+      data: {
+        isInScreener: false,
+        isInImbox: category === "IMBOX",
+        isInFeed: category === "FEED",
+        isInPaperTrail: category === "PAPER_TRAIL",
+      },
+    }),
+  ]);
+}
+
+/**
+ * Delete a domain rule. Sender decisions are materialized, so their
+ * status/category are kept — only the provenance link is cleared. New
+ * senders from the domain land in the screener again. No-op when the rule
+ * is already gone (idempotent replay).
+ */
+export async function deleteDomainRuleForUser(userId: string, ruleId: string) {
+  const rule = await db.domainRule.findUnique({
+    where: { id: ruleId },
+    select: { id: true, userId: true },
+  });
+  if (!rule) return;
+  if (rule.userId !== userId) {
+    throw new Error("Rule not found");
+  }
+
+  await db.$transaction([
+    db.sender.updateMany({
+      where: { decidedByRuleId: ruleId },
+      data: { decidedByRuleId: null },
+    }),
+    db.domainRule.delete({ where: { id: ruleId } }),
+  ]);
+}
+
+/** All domain rules for a user, for the screened list. */
+export async function listDomainRulesForUser(userId: string) {
+  return db.domainRule.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      pattern: true,
+      includeSubdomains: true,
+      status: true,
+      category: true,
+      emailConnectionId: true,
+      createdAt: true,
+    },
   });
 }
 
