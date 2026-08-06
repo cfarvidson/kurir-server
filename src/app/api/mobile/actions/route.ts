@@ -19,6 +19,9 @@ import {
   changeSenderCategoryForUser,
   setSenderUnthreadForUser,
   setSenderAllowImagesForUser,
+  createDomainRuleForUser,
+  changeDomainRuleCategoryForUser,
+  deleteDomainRuleForUser,
 } from "@/lib/mail/mutations";
 
 /**
@@ -125,6 +128,26 @@ const actionSchema = z.discriminatedUnion("type", [
     senderId: z.string().min(1),
     allow: z.boolean(),
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("createDomainRule"),
+    senderId: z.string().min(1),
+    pattern: z.string().min(1),
+    includeSubdomains: z.boolean(),
+    status: z.enum(["APPROVED", "REJECTED"]),
+    category: z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]).optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("changeDomainRuleCategory"),
+    ruleId: z.string().min(1),
+    category: z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("deleteDomainRule"),
+    ruleId: z.string().min(1),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -221,6 +244,25 @@ export async function POST(req: NextRequest) {
             action.senderId,
             action.allow,
           );
+          break;
+        case "createDomainRule":
+          await createDomainRuleForUser(userId, {
+            senderId: action.senderId,
+            pattern: action.pattern,
+            includeSubdomains: action.includeSubdomains,
+            status: action.status,
+            category: action.category ?? null,
+          });
+          break;
+        case "changeDomainRuleCategory":
+          await changeDomainRuleCategoryForUser(
+            userId,
+            action.ruleId,
+            action.category,
+          );
+          break;
+        case "deleteDomainRule":
+          await deleteDomainRuleForUser(userId, action.ruleId);
           break;
       }
       results.push({ id: action.id, ok: true });

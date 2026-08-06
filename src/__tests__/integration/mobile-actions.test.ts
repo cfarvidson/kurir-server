@@ -21,6 +21,9 @@ vi.mock("@/lib/mail/mutations", () => ({
   changeSenderCategoryForUser: vi.fn(),
   setSenderUnthreadForUser: vi.fn(),
   setSenderAllowImagesForUser: vi.fn(),
+  createDomainRuleForUser: vi.fn(),
+  changeDomainRuleCategoryForUser: vi.fn(),
+  deleteDomainRuleForUser: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile/auth", () => ({
@@ -279,6 +282,92 @@ describe("POST /api/mobile/actions", () => {
     const res = await POST(
       makeRequest({
         actions: [{ id: "1", type: "setSenderAllowImages", senderId: "s1" }],
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("dispatches the domain-rule actions to their cores", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "createDomainRule",
+            senderId: "s1",
+            pattern: "github.com",
+            includeSubdomains: true,
+            status: "APPROVED",
+            category: "PAPER_TRAIL",
+          },
+          {
+            id: "2",
+            type: "createDomainRule",
+            senderId: "s2",
+            pattern: "spam.example",
+            includeSubdomains: false,
+            status: "REJECTED",
+          },
+          {
+            id: "3",
+            type: "changeDomainRuleCategory",
+            ruleId: "r1",
+            category: "FEED",
+          },
+          { id: "4", type: "deleteDomainRule", ruleId: "r2" },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mutations.createDomainRuleForUser).toHaveBeenCalledWith("user-1", {
+      senderId: "s1",
+      pattern: "github.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+    expect(mutations.createDomainRuleForUser).toHaveBeenCalledWith("user-1", {
+      senderId: "s2",
+      pattern: "spam.example",
+      includeSubdomains: false,
+      status: "REJECTED",
+      category: null,
+    });
+    expect(mutations.changeDomainRuleCategoryForUser).toHaveBeenCalledWith(
+      "user-1",
+      "r1",
+      "FEED",
+    );
+    expect(mutations.deleteDomainRuleForUser).toHaveBeenCalledWith(
+      "user-1",
+      "r2",
+    );
+
+    const body = await res.json();
+    expect(body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+  });
+
+  it("rejects createDomainRule with a PENDING status", async () => {
+    await mockAuthed();
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "createDomainRule",
+            senderId: "s1",
+            pattern: "github.com",
+            includeSubdomains: false,
+            status: "PENDING",
+          },
+        ],
       }),
     );
     expect(res.status).toBe(400);

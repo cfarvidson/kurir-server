@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
     messageTombstone: { findMany: vi.fn() },
     emailConnection: { findMany: vi.fn() },
     user: { findUnique: vi.fn() },
+    domainRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -51,6 +52,7 @@ async function mockEmptyTables() {
   vi.mocked(db.messageTombstone.findMany).mockResolvedValue([]);
   vi.mocked(db.emailConnection.findMany).mockResolvedValue([]);
   vi.mocked(db.user.findUnique).mockResolvedValue(null);
+  vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
 }
 
 describe("GET /api/mobile/sync", () => {
@@ -285,6 +287,43 @@ describe("GET /api/mobile/sync", () => {
     const select = vi.mocked(db.message.findMany).mock.calls[0][0]!
       .select as any;
     expect(select.folder).toEqual({ select: { specialUse: true } });
+  });
+
+  it("returns the full domain-rule set on every sync (replace-all)", async () => {
+    await mockAuthed();
+    await mockEmptyTables();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.domainRule.findMany).mockResolvedValue([
+      {
+        id: "r1",
+        pattern: "github.com",
+        includeSubdomains: true,
+        status: "APPROVED",
+        category: "PAPER_TRAIL",
+        emailConnectionId: "conn-1",
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    // Rules are not cursor-filtered — a caught-up cursor still gets them all.
+    const res = await GET(
+      makeRequest({ cursor: "2026-07-01T10:00:00.000Z_b" }),
+    );
+    const body = await res.json();
+
+    expect(body.domainRules).toEqual([
+      {
+        id: "r1",
+        pattern: "github.com",
+        includeSubdomains: true,
+        status: "APPROVED",
+        category: "PAPER_TRAIL",
+        emailConnectionId: "conn-1",
+      },
+    ]);
+    const arg = vi.mocked(db.domainRule.findMany).mock.calls[0][0] as any;
+    expect(arg.where).toEqual({ userId: "user-1" });
   });
 
   it("never returns message bodies", async () => {

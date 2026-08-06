@@ -24,6 +24,15 @@ import {
 
 const MAX_LIMIT = 500;
 
+const DOMAIN_RULE_SELECT = {
+  id: true,
+  pattern: true,
+  includeSubdomains: true,
+  status: true,
+  category: true,
+  emailConnectionId: true,
+} as const;
+
 const SENDER_SELECT = {
   id: true,
   updatedAt: true,
@@ -85,7 +94,8 @@ export async function GET(req: NextRequest) {
       }
     : {};
 
-  const [messages, senders, tombstones, connections, user] = await Promise.all([
+  const [messages, senders, tombstones, connections, user, domainRules] =
+    await Promise.all([
     db.message.findMany({
       where: { userId, ...afterCursor },
       select: MESSAGE_SELECT,
@@ -117,6 +127,13 @@ export async function GET(req: NextRequest) {
       where: { id: userId },
       select: { role: true },
     }),
+    // Domain screening rules: always the full set (they are few) — the
+    // client does a replace-all, no cursor/tombstone handling.
+    db.domainRule.findMany({
+      where: { userId },
+      select: DOMAIN_RULE_SELECT,
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const hasMore = messages.length > limit;
@@ -143,6 +160,9 @@ export async function GET(req: NextRequest) {
     senders,
     deletedMessageIds: tombstones.map((t) => t.messageId),
     connections,
+    // Additive: full replace-all set of domain screening rules (plan 033).
+    // Older apps ignore it.
+    domainRules,
     // Additive: lets the app show admin-only entry points (a web link to
     // /admin). Older apps ignore it.
     role: user?.role ?? "USER",
