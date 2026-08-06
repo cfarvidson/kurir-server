@@ -5,6 +5,7 @@ import { ScreenerContent } from "@/components/screener/screener-content";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
+import { listDomainRulesForUser } from "@/lib/mail/mutations";
 
 async function getPendingSenders(userId: string, own?: OwnAddresses | null) {
   return db.sender.findMany({
@@ -81,11 +82,13 @@ export default async function ScreenerPage() {
 
   const own = await getOwnAddresses(session.user.id);
 
-  const [pendingSenders, skippedSenders, screenedSenders] = await Promise.all([
-    getPendingSenders(session.user.id, own),
-    getSkippedSenders(session.user.id, own.emails),
-    getScreenedSenders(session.user.id, own.emails),
-  ]);
+  const [pendingSenders, skippedSenders, screenedSenders, domainRules] =
+    await Promise.all([
+      getPendingSenders(session.user.id, own),
+      getSkippedSenders(session.user.id, own.emails),
+      getScreenedSenders(session.user.id, own.emails),
+      listDomainRulesForUser(session.user.id),
+    ]);
 
   return (
     <div className="flex h-full flex-col">
@@ -105,6 +108,7 @@ export default async function ScreenerPage() {
           pendingSenders={pendingSenders}
           skippedSenders={skippedSenders}
           screenedSenders={screenedSenders}
+          domainRules={domainRules}
         />
       </div>
     </div>

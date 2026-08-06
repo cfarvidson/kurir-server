@@ -11,6 +11,12 @@ import {
   skipSender,
   undoScreenAction,
 } from "@/actions/senders";
+import { createDomainRule } from "@/actions/domain-rules";
+import {
+  domainScopeOptions,
+  patternMatchesDomain,
+  type DomainScopeOption,
+} from "@/lib/mail/domain-rules";
 import { badgeUpdate } from "@/components/layout/sidebar";
 import { ScreenerKeyboardHandler } from "@/components/screener/screener-keyboard-handler";
 import { dismissScreenerHint } from "@/components/screener/screener-hint-banner";
@@ -54,6 +60,17 @@ interface ScreenerViewProps {
 }
 
 type Category = "IMBOX" | "FEED" | "PAPER_TRAIL";
+
+const CATEGORY_LABELS: Record<Category, string> = {
+  IMBOX: "Imbox",
+  FEED: "The Feed",
+  PAPER_TRAIL: "Paper Trail",
+};
+
+/** Display form of a scope option: `*.github.com` for wildcard. */
+function scopeLabel(option: DomainScopeOption): string {
+  return option.includeSubdomains ? `*.${option.pattern}` : option.pattern;
+}
 
 interface BodyCache {
   html: string | null;
@@ -146,6 +163,9 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(
     null,
   );
+  // Domain scope for mouse decisions (plan 033). null = just this sender.
+  // The keyboard flow is untouched and always decides per sender.
+  const [scope, setScope] = useState<DomainScopeOption | null>(null);
 
   // Preview state
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -165,13 +185,14 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     ? processingId === currentSender.id
     : false;
 
-  // Reset preview when card changes
+  // Reset preview and scope when card changes
   useEffect(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsPreviewOpen(false);
     setPreviewLoading(false);
     setPreviewError(false);
+    setScope(null);
   }, [currentSender?.id]);
 
   const fetchBody = useCallback(async (messageId: string) => {
@@ -253,10 +274,66 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     [router, queryClient],
   );
 
+  /**
+   * Create a domain rule from the current card's decision. All matching
+   * pending rows are hidden immediately (the retroactive sweep decides them
+   * server-side); the rule itself can be undone from the screened list.
+   */
+  const applyDomainDecision = (
+    senderId: string,
+    status: "APPROVED" | "REJECTED",
+    category: Category | null,
+    option: DomainScopeOption,
+  ) => {
+    setProcessingId(senderId);
+    setShowCategoryPicker(null);
+    const prevSenders = [...senders];
+    const matchCount = senders.filter((s) =>
+      patternMatchesDomain(s.domain, option),
+    ).length;
+    setSenders((prev) =>
+      prev.filter((s) => !patternMatchesDomain(s.domain, option)),
+    );
+    badgeUpdate("screener", -matchCount);
+    setScope(null);
+
+    actionInFlightRef.current = true;
+    createDomainRule(
+      senderId,
+      option.pattern,
+      option.includeSubdomains,
+      status,
+      category ?? undefined,
+    )
+      .then(() => {
+        toast.success(
+          status === "APPROVED"
+            ? `Everyone at ${scopeLabel(option)} → ${CATEGORY_LABELS[category ?? "IMBOX"]}`
+            : `Everyone at ${scopeLabel(option)} screened out`,
+        );
+      })
+      .catch(() => {
+        setSenders(prevSenders);
+        badgeUpdate("screener", matchCount);
+        toast.error("Could not create domain rule");
+      })
+      .finally(() => {
+        actionInFlightRef.current = false;
+        setProcessingId((prev) => (prev === senderId ? null : prev));
+        queryClient.invalidateQueries({ queryKey: ["messages"] });
+        router.refresh();
+      });
+  };
+
   const handleApprove = async (
     senderId: string,
     category: Category = "IMBOX",
+    scopeOption?: DomainScopeOption | null,
   ) => {
+    if (scopeOption) {
+      applyDomainDecision(senderId, "APPROVED", category, scopeOption);
+      return;
+    }
     const sender = senders.find((s) => s.id === senderId);
     const senderName = sender?.displayName || sender?.email || "Unknown sender";
 
@@ -282,7 +359,14 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
       });
   };
 
-  const handleReject = async (senderId: string) => {
+  const handleReject = async (
+    senderId: string,
+    scopeOption?: DomainScopeOption | null,
+  ) => {
+    if (scopeOption) {
+      applyDomainDecision(senderId, "REJECTED", null, scopeOption);
+      return;
+    }
     const sender = senders.find((s) => s.id === senderId);
     const senderName = sender?.displayName || sender?.email || "Unknown sender";
 
@@ -406,6 +490,38 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   </span>
                   <span>&middot;</span>
                   <span>from {currentSender.domain}</span>
+                </div>
+
+                {/* Scope selector (plan 033): apply the decision to just this
+                    sender or a whole domain / subdomain wildcard. */}
+                <div className="mt-3 flex items-center gap-2">
+                  <label
+                    htmlFor="screener-scope"
+                    className="shrink-0 text-xs text-muted-foreground"
+                  >
+                    Apply to
+                  </label>
+                  <select
+                    id="screener-scope"
+                    value={scope ? JSON.stringify(scope) : ""}
+                    onChange={(e) => {
+                      lastInteractionRef.current = "mouse";
+                      setScope(
+                        e.target.value ? JSON.parse(e.target.value) : null,
+                      );
+                    }}
+                    className="h-7 min-w-0 max-w-full truncate rounded-md border border-border bg-muted/20 px-2 text-xs text-foreground focus:border-primary/40 focus:outline-hidden focus:ring-1 focus:ring-primary/20"
+                  >
+                    <option value="">Just this sender</option>
+                    {domainScopeOptions(currentSender.domain).map((option) => (
+                      <option
+                        key={scopeLabel(option)}
+                        value={JSON.stringify(option)}
+                      >
+                        Everyone at {scopeLabel(option)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -587,7 +703,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                             aria-keyshortcuts={key}
                             onClick={() => {
                               lastInteractionRef.current = "mouse";
-                              handleApprove(currentSender.id, cat);
+                              handleApprove(currentSender.id, cat, scope);
                             }}
                             className="-mx-1 flex items-center gap-2.5 rounded-md px-1 py-2 text-left transition-colors hover:bg-muted/50"
                           >
@@ -619,7 +735,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   aria-keyshortcuts="n"
                   onClick={() => {
                     lastInteractionRef.current = "mouse";
-                    handleReject(currentSender.id);
+                    handleReject(currentSender.id, scope);
                   }}
                   disabled={isProcessing}
                   className={cn(
@@ -675,7 +791,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
                   onClick={() => {
                     lastInteractionRef.current = "mouse";
                     if (showCategoryPicker === currentSender.id) {
-                      handleApprove(currentSender.id, "IMBOX");
+                      handleApprove(currentSender.id, "IMBOX", scope);
                     } else {
                       setShowCategoryPicker(currentSender.id);
                     }

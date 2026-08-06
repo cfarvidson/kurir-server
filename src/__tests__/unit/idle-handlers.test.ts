@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({
     syncState: { findUnique: vi.fn() },
     message: { findFirst: vi.fn() },
     emailConnection: { findUnique: vi.fn() },
+    domainRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 

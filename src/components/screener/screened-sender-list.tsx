@@ -10,12 +10,17 @@ import {
   changeSenderCategory,
 } from "@/actions/senders";
 import {
+  changeDomainRuleCategory,
+  deleteDomainRule,
+} from "@/actions/domain-rules";
+import {
   X,
   Loader2,
   Check,
   Inbox,
   Newspaper,
   Receipt,
+  Globe,
 } from "lucide-react";
 
 import type { SenderStatus, SenderCategory } from "@prisma/client";
@@ -31,13 +36,32 @@ interface ScreenedSender {
   _count: { messages: number };
 }
 
+interface DomainRule {
+  id: string;
+  pattern: string;
+  includeSubdomains: boolean;
+  status: SenderStatus;
+  category: SenderCategory | null;
+}
+
+/** Display form of a rule: `*.github.com` for wildcard, bare domain otherwise. */
+function ruleLabel(rule: DomainRule): string {
+  return rule.includeSubdomains ? `*.${rule.pattern}` : rule.pattern;
+}
+
 const CATEGORY_CONFIG = {
   IMBOX: { label: "Imbox", Icon: Inbox, color: "text-imbox" },
   FEED: { label: "The Feed", Icon: Newspaper, color: "text-feed" },
   PAPER_TRAIL: { label: "Paper Trail", Icon: Receipt, color: "text-paper-trail" },
 } as const;
 
-export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
+export function ScreenedSenderList({
+  senders,
+  domainRules = [],
+}: {
+  senders: ScreenedSender[];
+  domainRules?: DomainRule[];
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
@@ -76,6 +100,29 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
     });
   };
 
+  const handleChangeRuleCategory = (
+    ruleId: string,
+    category: SenderCategory,
+  ) => {
+    setProcessingId(ruleId);
+    startTransition(async () => {
+      await changeDomainRuleCategory(ruleId, category);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setProcessingId(null);
+      router.refresh();
+    });
+  };
+
+  const handleDeleteRule = (ruleId: string) => {
+    setProcessingId(ruleId);
+    startTransition(async () => {
+      await deleteDomainRule(ruleId);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setProcessingId(null);
+      router.refresh();
+    });
+  };
+
   const approved = senders.filter((s) => s.status === "APPROVED");
   const rejected = senders.filter((s) => s.status === "REJECTED");
 
@@ -84,6 +131,93 @@ export function ScreenedSenderList({ senders }: { senders: ScreenedSender[] }) {
       <div className="px-4 py-4 md:px-6">
         <h2 className="eyebrow text-muted-foreground">Previously Screened</h2>
       </div>
+
+      {domainRules.length > 0 && (
+        <section>
+          <div className="px-4 py-2 md:px-6">
+            <span className="eyebrow text-muted-foreground/70">
+              Domain rules{" "}
+              <span className="tabular-nums">({domainRules.length})</span>
+            </span>
+          </div>
+          {domainRules.map((rule) => {
+            const isProcessing = processingId === rule.id;
+
+            return (
+              <div
+                key={rule.id}
+                className="flex items-center gap-3 border-b border-border px-4 py-3.5 md:px-6"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <Globe
+                    className="size-4 shrink-0 text-muted-foreground/60"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">
+                      {ruleLabel(rule)}
+                    </div>
+                    <div className="truncate text-sm text-muted-foreground">
+                      {rule.status === "REJECTED"
+                        ? "Screened out"
+                        : `Everyone at ${ruleLabel(rule)}`}
+                    </div>
+                  </div>
+                </div>
+
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="flex items-center gap-0.5">
+                    {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
+                      const c = CATEGORY_CONFIG[cat];
+                      const isActive =
+                        rule.status === "APPROVED" && rule.category === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() =>
+                            handleChangeRuleCategory(rule.id, cat)
+                          }
+                          disabled={isPending}
+                          title={c.label}
+                          aria-pressed={isActive}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors",
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground/50 hover:bg-muted/50 hover:text-foreground",
+                          )}
+                        >
+                          <c.Icon
+                            className={cn("size-4 shrink-0", c.color)}
+                            aria-hidden="true"
+                          />
+                          <span className="hidden sm:inline">{c.label}</span>
+                          {isActive && (
+                            <Check
+                              className="h-3 w-3 text-primary"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => handleDeleteRule(rule.id)}
+                      disabled={isPending}
+                      title="Remove rule"
+                      className="ml-1 rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       {approved.length > 0 && (
         <section>

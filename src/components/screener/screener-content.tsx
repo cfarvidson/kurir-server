@@ -43,10 +43,19 @@ interface ScreenedSender {
   _count: { messages: number };
 }
 
+interface DomainRule {
+  id: string;
+  pattern: string;
+  includeSubdomains: boolean;
+  status: SenderStatus;
+  category: SenderCategory | null;
+}
+
 interface ScreenerContentProps {
   pendingSenders: PendingSender[];
   skippedSenders: SkippedSender[];
   screenedSenders: ScreenedSender[];
+  domainRules: DomainRule[];
 }
 
 function matchesSearch(
@@ -64,6 +73,7 @@ export function ScreenerContent({
   pendingSenders,
   skippedSenders,
   screenedSenders,
+  domainRules,
 }: ScreenerContentProps) {
   const [search, setSearch] = useState("");
   const isSearching = search.trim().length > 0;
@@ -93,8 +103,19 @@ export function ScreenerContent({
     [screenedSenders, isSearching, query],
   );
 
+  const filteredRules = useMemo(
+    () =>
+      isSearching
+        ? domainRules.filter((r) => r.pattern.toLowerCase().includes(query))
+        : domainRules,
+    [domainRules, isSearching, query],
+  );
+
   const totalResults =
-    filteredPending.length + filteredSkipped.length + filteredScreened.length;
+    filteredPending.length +
+    filteredSkipped.length +
+    filteredScreened.length +
+    filteredRules.length;
 
   return (
     <>
@@ -158,8 +179,11 @@ export function ScreenerContent({
             <SkippedSenderList senders={filteredSkipped} />
           )}
 
-          {filteredScreened.length > 0 && (
-            <ScreenedSenderList senders={filteredScreened} />
+          {(filteredScreened.length > 0 || filteredRules.length > 0) && (
+            <ScreenedSenderList
+              senders={filteredScreened}
+              domainRules={filteredRules}
+            />
           )}
         </>
       )}

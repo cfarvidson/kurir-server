@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     emailConnection: { findMany: vi.fn(), findUnique: vi.fn() },
     message: { findFirst: vi.fn() },
+    domainRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
