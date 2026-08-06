@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.05.1",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.05.1",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.05.1",
-  "changelog": "Settings no longer lock up when a connection change fails or stalls — errors show inline and the controls recover. The admin Updates changelog is backfilled with every release since April.",
+  "version": "2026.08.06",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06",
+  "changelog": "Domain screening rules: approve or screen out every sender from a domain (optionally including subdomains) directly from the screener. Rules apply automatically to new senders and can be managed in the screened list.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-05T08:52:33Z"
+  "releasedAt": "2026-08-06T10:49:38Z"
 }

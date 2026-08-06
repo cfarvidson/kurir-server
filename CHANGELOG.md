@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.06] - 2026-08-06
+
+### Added
+
+- Domain screening rules (plan 033): a scope selector in the screener lets a decision apply to just the sender, the whole domain, or a subdomain wildcard (`*.github.com`). Rules approve into a category or screen out, apply automatically to new senders at sync (own addresses always win), and retroactively sweep matching pending senders when created. Rules appear at the top of the screened list with the same category/remove affordances as sender rows
+- Mobile API: `createDomainRule`, `changeDomainRuleCategory` and `deleteDomainRule` actions, plus a `domainRules` field in the sync payload (replace-all) for the iOS/macOS app
+
 ## [v2026.08.05.1] - 2026-08-05
 
 ### Fixed

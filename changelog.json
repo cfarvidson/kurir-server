@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.08.06",
+    "date": "2026-08-06",
+    "changes": [
+      "Domain screening rules: approve or screen out every sender from a domain (or subdomain wildcard) directly from the screener",
+      "New rules retroactively decide matching pending senders and apply automatically to new senders at sync",
+      "Manage rules at the top of the screened list — change category or remove; removing keeps past decisions",
+      "Mobile: domain-rule actions and sync support for the iOS/macOS app"
+    ]
+  },
+  {
     "version": "2026.08.05.1",
     "date": "2026-08-05",
     "changes": [
