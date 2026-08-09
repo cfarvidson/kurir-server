@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.08.09",
+    "date": "2026-08-09",
+    "changes": [
+      "Self-host compose now wires up the APNs push relay (PUSH_RELAY_URL), fixing iOS push notifications that never worked on self-hosted installs; existing installs need the compose line added or a re-run of the installer",
+      "iOS pushes are skipped with a clear warning when no APNs gateway is configured, instead of failing silently as 'relay unreachable'"
+    ]
+  },
+  {
     "version": "2026.08.06.3",
     "date": "2026-08-06",
     "changes": [

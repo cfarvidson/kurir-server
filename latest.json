@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.06.3",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.06.3",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.06.3",
-  "changelog": "The iOS/macOS app now follows your remote-image privacy setting: in block-trackers mode content images load while spy pixels are stripped, with a trackers-blocked badge — matching the web app.",
+  "version": "2026.08.09",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.09",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.09",
+  "changelog": "iOS push notifications now work on self-hosted installs: the compose file wires up the APNs relay (PUSH_RELAY_URL), and the server logs a clear warning instead of failing silently when no iOS push gateway is configured.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-06T12:47:00Z"
+  "releasedAt": "2026-08-09T15:43:00Z"
 }

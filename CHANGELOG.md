@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.09] - 2026-08-09
+
+### Fixed
+
+- Self-host: the generated Docker Compose file (and `docker-compose.production.yml`) now passes `PUSH_RELAY_URL` to the app container, defaulting to the hosted APNs relay - iOS push notifications previously never worked on self-hosted installs. Set `PUSH_RELAY_URL=` (empty) in `.env` to opt out. Existing installations need to add the line to their compose file or re-run the installer; image updates alone do not change the compose file
+- Push: when neither APNs keys nor `PUSH_RELAY_URL` are configured, iOS subscriptions are now skipped with a clear `iOS push not configured` warning instead of attempting a relay send against an undefined URL and logging `relay unreachable` on every push
+
 ## [v2026.08.06.3] - 2026-08-06
 
 ### Added
