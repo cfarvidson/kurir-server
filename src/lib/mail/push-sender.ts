@@ -126,6 +126,14 @@ export async function pushToUser(userId: string, payload: PushPayload) {
     subscriptions.map(async (sub) => {
       // iOS rows store the APNs device token as "apns:<token>"
       if (sub.platform === "ios") {
+        // VAPID alone gets us here - without APNs keys or a relay there is
+        // no iOS gateway, so say so instead of fetching "undefined/api/push".
+        if (!apnsConfigured() && !relayConfigured()) {
+          console.warn(
+            "[push] iOS push not configured - set APNS_* keys or PUSH_RELAY_URL",
+          );
+          return;
+        }
         const deviceToken = sub.endpoint.replace(/^apns:/, "");
         // Direct APNs wins when both are configured — the maintainer's own
         // instance must not loop through the relay.
