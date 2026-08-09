@@ -41,6 +41,9 @@ services:
       WEBAUTHN_RP_ID: ${DOMAIN}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      # APNs relay for iOS push - self-hosted instances have no .p8 key, so
+      # pushes go via a kurir-notify deployment. Set empty in .env to disable.
+      PUSH_RELAY_URL: ${PUSH_RELAY_URL-https://kurir-notify.arvidson.io}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

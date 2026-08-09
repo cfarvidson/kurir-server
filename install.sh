@@ -676,6 +676,7 @@ ${app_ports_block}    environment:
       WEBAUTHN_RP_ID: \${DOMAIN}
       VAPID_PRIVATE_KEY: \${VAPID_PRIVATE_KEY:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: \${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      PUSH_RELAY_URL: \${PUSH_RELAY_URL-https://kurir-notify.arvidson.io}
       UPDATER_URL: http://updater:8080
       UPDATER_TOKEN: \${UPDATER_TOKEN}
     depends_on:
