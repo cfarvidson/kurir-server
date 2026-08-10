@@ -207,7 +207,8 @@ describe("/api/mobile/drafts", () => {
     const keys = vi
       .mocked(db.draft.upsert)
       .mock.calls.map(
-        (c) => c[0].where.userId_type_contextMessageId.contextMessageId,
+        (c: any[]) =>
+          c[0].where.userId_type_contextMessageId.contextMessageId,
       );
     expect(keys).toEqual(["uuid-aaaa", "uuid-bbbb"]);
   });
