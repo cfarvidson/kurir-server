@@ -11,6 +11,7 @@ import {
   BookUser,
   Paperclip,
   Reply,
+  SquarePen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -84,6 +85,7 @@ export const navigation: NavItem[] = [
     icon: CalendarClock,
     badgeKey: "scheduled",
   },
+  { name: "Drafts", href: "/drafts", icon: SquarePen },
   { name: "Sent", href: "/sent", icon: Send },
   { name: "Archive", href: "/archive", icon: Archive },
   { name: "Files", href: "/files", icon: Paperclip },

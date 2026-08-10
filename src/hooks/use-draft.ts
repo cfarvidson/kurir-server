@@ -213,3 +213,14 @@ export function hasDraftInLocalStorage(
     return false;
   }
 }
+
+/** Remove a draft's localStorage copy (catalog delete, plan 037). */
+export function clearDraftInLocalStorage(
+  userId: string,
+  type: DraftType,
+  contextMessageId: string,
+): void {
+  try {
+    localStorage.removeItem(draftKey(userId, type, contextMessageId));
+  } catch {}
+}
