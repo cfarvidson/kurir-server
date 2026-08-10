@@ -6,6 +6,7 @@ import {
   saveDraftForUser,
   getDraftForUser,
   deleteDraftForUser,
+  listDraftsForUser,
   type SaveDraftInput,
 } from "@/lib/mail/drafts";
 
@@ -28,4 +29,11 @@ export async function getDraft(type: DraftType, contextMessageId: string) {
   if (!session?.user?.id) return null;
 
   return getDraftForUser(session.user.id, type, contextMessageId);
+}
+
+export async function listDrafts() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  return listDraftsForUser(session.user.id);
 }
