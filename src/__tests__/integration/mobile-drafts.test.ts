@@ -189,4 +189,26 @@ describe("/api/mobile/drafts", () => {
     const res = await PUT(makeRequest({ type: "NOT_A_TYPE" }));
     expect(res.status).toBe(400);
   });
+
+  it("(f) two NEW drafts with different client UUIDs upsert under distinct keys", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.draft.upsert).mockResolvedValue({ id: "d1" } as never);
+
+    const { PUT } = await import("@/app/api/mobile/drafts/route");
+    await PUT(
+      makeRequest({ type: "NEW", contextMessageId: "uuid-aaaa", body: "first" }),
+    );
+    await PUT(
+      makeRequest({ type: "NEW", contextMessageId: "uuid-bbbb", body: "second" }),
+    );
+
+    // Distinct context ids -> distinct upsert keys -> two coexisting drafts.
+    const keys = vi
+      .mocked(db.draft.upsert)
+      .mock.calls.map(
+        (c) => c[0].where.userId_type_contextMessageId.contextMessageId,
+      );
+    expect(keys).toEqual(["uuid-aaaa", "uuid-bbbb"]);
+  });
 });
