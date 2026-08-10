@@ -43,7 +43,7 @@ import { safeInternalPath } from "@/lib/mail/compose-origin";
 import { toast } from "sonner";
 import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
-import { DraftType } from "@prisma/client";
+import { resolveDraftContext } from "@/lib/mail/draft-context";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -185,8 +185,18 @@ export function ComposeClientPage({
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
 
   // Draft auto-save
-  const draftType = forwardMessageId ? DraftType.FORWARD : DraftType.NEW;
-  const draftContextId = forwardMessageId ?? "__new__";
+  // Plan 037: NEW drafts get a stable per-mount UUID (several new-mail drafts
+  // coexist); ?draft= reopens a catalog draft under its existing key.
+  const [generatedDraftId] = useState(() => crypto.randomUUID());
+  const { type: draftType, contextMessageId: draftContextId } =
+    resolveDraftContext(
+      {
+        forward: forwardMessageId,
+        draft: searchParams.get("draft"),
+        draftType: searchParams.get("draftType"),
+      },
+      () => generatedDraftId,
+    );
   const {
     loadDraft,
     saveDraft,
