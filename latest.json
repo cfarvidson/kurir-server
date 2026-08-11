@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.09",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.09",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.09",
-  "changelog": "iOS push notifications now work on self-hosted installs: the compose file wires up the APNs relay (PUSH_RELAY_URL), and the server logs a clear warning instead of failing silently when no iOS push gateway is configured.",
+  "version": "2026.08.11",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.11",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.11",
+  "changelog": "New Drafts catalog on the web, iOS and macOS: every draft in one list, several parallel new-mail drafts (per-draft keys), and attachments survive reopening a draft.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-09T15:43:00Z"
+  "releasedAt": "2026-08-11T06:54:00Z"
 }

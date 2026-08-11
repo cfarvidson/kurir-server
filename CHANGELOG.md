@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.11] - 2026-08-11
+
+### Added
+
+- Drafts catalog: every draft - new mail, replies, forwards - in one browsable list, at `/drafts` on the web, in the iOS More tab, and in the macOS sidebar (with live count) between Scheduled and Sent
+- Multiple parallel new-mail drafts: each compose autosaves under its own client-generated draft key instead of overwriting a single shared slot
+
+### Fixed
+
+- Reopening a draft restores its attachments instead of silently dropping them on the next autosave
+
 ## [v2026.08.09] - 2026-08-09
 
 ### Fixed
