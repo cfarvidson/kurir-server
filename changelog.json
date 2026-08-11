@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.08.11",
+    "date": "2026-08-11",
+    "changes": [
+      "New Drafts catalog: every draft - new mail, replies, forwards - in one list, at /drafts on the web, in the iOS More tab, and in the macOS sidebar between Scheduled and Sent",
+      "Start several new mails in parallel: each compose now autosaves as its own draft instead of overwriting a single shared slot",
+      "Reopening a draft now restores its attachments instead of silently dropping them on the next autosave"
+    ]
+  },
+  {
     "version": "2026.08.09",
     "date": "2026-08-09",
     "changes": [
@@ -160,9 +169,7 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": [
-      "Fix paragraph breaks in the compose markdown preview"
-    ]
+    "changes": ["Fix paragraph breaks in the compose markdown preview"]
   },
   {
     "version": "2026.04.26.3",
@@ -213,9 +220,7 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": [
-      "Fix updater status callback blocked by auth middleware"
-    ]
+    "changes": ["Fix updater status callback blocked by auth middleware"]
   },
   {
     "version": "2026.04.10",
