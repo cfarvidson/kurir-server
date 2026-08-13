@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { keyboardState } from "@/lib/keyboard-state";
+import { intentionalBack } from "@/lib/navigation";
 
 interface ThreadKeyboardHandlerProps {
   messageId: string;
@@ -86,6 +87,23 @@ export function ThreadKeyboardHandler({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [messageId, returnPath, threadIds, basePath, setFocusedIndex, router]);
+
+  // Mice whose Back button surfaces as button 3 (instead of a browser
+  // chrome gesture) should close the thread the same way Esc does —
+  // previous history entry, or the list if this tab has nowhere to pop.
+  useEffect(() => {
+    const onMouseButton = (e: MouseEvent) => {
+      if (e.button !== 3) return;
+      e.preventDefault();
+      intentionalBack(returnPath);
+    };
+    window.addEventListener("mouseup", onMouseButton);
+    window.addEventListener("auxclick", onMouseButton);
+    return () => {
+      window.removeEventListener("mouseup", onMouseButton);
+      window.removeEventListener("auxclick", onMouseButton);
+    };
+  }, [returnPath]);
 
   return null;
 }
