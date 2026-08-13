@@ -52,7 +52,17 @@ export default async function DraftsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageMasthead eyebrow="Outbound" title="Drafts" />
+      <PageMasthead
+        eyebrow="Outbound"
+        title="Drafts"
+        meta={
+          drafts.length === 0
+            ? undefined
+            : drafts.length === 1
+              ? "1 draft"
+              : `${drafts.length} drafts`
+        }
+      />
       <div className="flex-1 overflow-auto">
         <DraftsList drafts={drafts} userId={session.user.id} />
       </div>

@@ -28,6 +28,10 @@ export default auth((req) => {
   const isLegalPage = ["/privacy", "/terms", "/support"].includes(
     req.nextUrl.pathname,
   );
+  // Local visual fixtures only — the pages themselves also 404 in production.
+  const isDevPreview =
+    process.env.NODE_ENV !== "production" &&
+    req.nextUrl.pathname.startsWith("/dev/");
   const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
   const isSetupApi = req.nextUrl.pathname === "/api/setup/check";
   const isHealthCheck = req.nextUrl.pathname === "/api/up";
@@ -70,7 +74,10 @@ export default auth((req) => {
   if (isLoggedIn && isOnLoginPage) {
     const next = req.nextUrl.searchParams.get("next");
     const dest =
-      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+      next &&
+      next.startsWith("/") &&
+      !next.startsWith("//") &&
+      !next.includes("\\")
         ? next
         : "/imbox";
     return redirect(req, dest);
@@ -88,7 +95,8 @@ export default auth((req) => {
     !isOnLoginPage &&
     !isOnSetupPage &&
     !isOnRegisterPage &&
-    !isLegalPage
+    !isLegalPage &&
+    !isDevPreview
   ) {
     const next = req.nextUrl.pathname + req.nextUrl.search;
     return redirect(req, `/login?next=${encodeURIComponent(next)}`);
