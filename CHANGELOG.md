@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.13] - 2026-08-13
+
+### Changed
+
+- Drafts catalog: every row has a labeled Delete button and asks before removing the draft
+- Drafts rows use the same hierarchy as the mail lists: Reply / Forward / New, a To: line, and relative timestamps
+
+### Added
+
+- Mouse back (and Esc) closes the open mail and returns to the previous conversation, or the list if that was the first one
+
 ## [v2026.08.11] - 2026-08-11
 
 ### Added

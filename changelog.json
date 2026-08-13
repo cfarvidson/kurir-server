@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.08.13",
+    "date": "2026-08-13",
+    "changes": [
+      "Drafts catalog: a labeled Delete button on every row, with a confirmation dialog before the draft is removed",
+      "Drafts rows now show Reply / Forward / New, a To: line, and the same relative timestamps as the rest of the lists",
+      "Mouse back (and Esc) closes the open mail and returns to the previous conversation, or the list if that was the first one"
+    ]
+  },
+  {
     "version": "2026.08.11",
     "date": "2026-08-11",
     "changes": [
