@@ -23,6 +23,65 @@ vi.mock("@/lib/mail/files", () => ({
 
 vi.mock("@/lib/mail/drafts", () => ({
   listDraftsForUser: vi.fn(),
+  saveDraftForUser: vi.fn(),
+  deleteDraftForUser: vi.fn(),
+}));
+
+vi.mock("@/lib/mail/mutations", () => ({
+  archiveThread: vi.fn(),
+  unarchiveThread: vi.fn(),
+  setThreadReadState: vi.fn(),
+  snoozeThread: vi.fn(),
+  unsnoozeThread: vi.fn(),
+  setThreadFollowUp: vi.fn(),
+  dismissThreadFollowUp: vi.fn(),
+  setThreadReplyLater: vi.fn(),
+  approveSenderForUser: vi.fn(),
+  skipSenderForUser: vi.fn(),
+  unskipSenderForUser: vi.fn(),
+  undoScreenActionForUser: vi.fn(),
+  changeSenderCategoryForUser: vi.fn(),
+  setSenderUnthreadForUser: vi.fn(),
+  setSenderAllowImagesForUser: vi.fn(),
+  createDomainRuleForUser: vi.fn(),
+  changeDomainRuleCategoryForUser: vi.fn(),
+  deleteDomainRuleForUser: vi.fn(),
+  listDomainRulesForUser: vi.fn(),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
+}));
+
+vi.mock("@/lib/mail/scheduled-messages", () => ({
+  updateScheduledForUser: vi.fn(),
+  cancelScheduledForUser: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  canManageConnections: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock("@/lib/mcp/confirmations", () => ({
+  createConfirmation: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimitUploads: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 30, retryAfter: 0 }),
+  rateLimitSync: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 1, retryAfter: 0 }),
+}));
+
+vi.mock("@/lib/jobs/queue", () => ({
+  getSyncQueue: vi.fn(() => ({ add: vi.fn() })),
+}));
+
+vi.mock("@/lib/jobs/maintenance-tasks", () => ({
+  approveOwnPendingSenders: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/lib/mail/user-emails", () => ({
@@ -32,10 +91,19 @@ vi.mock("@/lib/mail/user-emails", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     message: { findMany: vi.fn() },
-    sender: { findMany: vi.fn() },
+    sender: { findMany: vi.fn(), findFirst: vi.fn() },
     scheduledMessage: { findMany: vi.fn() },
-    attachment: { findUnique: vi.fn() },
-    emailConnection: { findFirst: vi.fn() },
+    attachment: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      aggregate: vi.fn(),
+    },
+    emailConnection: { findFirst: vi.fn(), findMany: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn() },
+    passkey: { findMany: vi.fn() },
+    mcpConfirmation: { create: vi.fn() },
+    contact: { findMany: vi.fn(), findFirst: vi.fn() },
+    contactGroup: { findMany: vi.fn() },
   },
 }));
 
@@ -45,6 +113,7 @@ import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getFiles } from "@/lib/mail/files";
 import { listDraftsForUser } from "@/lib/mail/drafts";
+import { archiveThread } from "@/lib/mail/mutations";
 import { db } from "@/lib/db";
 import { getTool, listTools } from "@/lib/mcp/tools";
 import type { ToolContext } from "@/lib/mcp/types";
@@ -583,6 +652,54 @@ describe("MCP read tools", () => {
     expect(result).toMatchObject({
       type: "error",
       message: "not found or not yours",
+    });
+  });
+});
+
+describe("MCP write tools — thread", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("update_thread archive calls archiveThread", async () => {
+    vi.mocked(archiveThread).mockResolvedValue(undefined as never);
+    const result = await call("update_thread", {
+      messageId: "m1",
+      action: "archive",
+    });
+    expect(archiveThread).toHaveBeenCalledWith("u1", "m1");
+    expect(result).toMatchObject({ type: "ok" });
+  });
+
+  it("update_thread snooze requires until", async () => {
+    const result = await call("update_thread", {
+      messageId: "m1",
+      action: "snooze",
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/until/i),
+    });
+  });
+});
+
+describe("MCP write tools — screener stub", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("screen_sender reject without elicitation does not mutate", async () => {
+    vi.mocked(db.sender.findFirst).mockResolvedValue({
+      email: "spam@example.com",
+      displayName: "Spam",
+    } as never);
+    const result = await call("screen_sender", {
+      senderId: "s1",
+      action: "reject",
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: "this client cannot confirm this action",
     });
   });
 });

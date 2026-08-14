@@ -1,7 +1,13 @@
-import { Prisma } from "@prisma/client";
+import { DraftType, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { listDraftsForUser } from "@/lib/mail/drafts";
+import { getSyncQueue } from "@/lib/jobs/queue";
+import {
+  deleteDraftForUser,
+  listDraftsForUser,
+  saveDraftForUser,
+  saveDraftSchema,
+} from "@/lib/mail/drafts";
 import { getFiles } from "@/lib/mail/files";
 import {
   encodeChronoCursor,
@@ -9,7 +15,21 @@ import {
   parseChronoCursor,
   type Category,
 } from "@/lib/mail/messages";
+import {
+  archiveThread,
+  dismissThreadFollowUp,
+  setThreadFollowUp,
+  setThreadReadState,
+  setThreadReplyLater,
+  snoozeThread,
+  unarchiveThread,
+  unsnoozeThread,
+} from "@/lib/mail/mutations";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
+import {
+  cancelScheduledForUser,
+  updateScheduledForUser,
+} from "@/lib/mail/scheduled-messages";
 import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getThreadMessages } from "@/lib/mail/threads";
@@ -22,6 +42,14 @@ import {
   serializeThreadMessage,
   type MailRowInput,
 } from "@/lib/mcp/serialize";
+import {
+  bumpSidebarCounts,
+  err,
+  firstZodMessage,
+  ok,
+  wrap,
+} from "@/lib/mcp/tools/helpers";
+import { rateLimitSync, rateLimitUploads } from "@/lib/rate-limit";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
 
 const DEFAULT_LIST_LIMIT = 25;
@@ -76,6 +104,59 @@ const searchMailSchema = z.object({
 const getAttachmentSchema = z.object({
   attachmentId: z.string().min(1),
 });
+
+const THREAD_ACTIONS = [
+  "archive",
+  "unarchive",
+  "read",
+  "unread",
+  "snooze",
+  "unsnooze",
+  "follow_up",
+  "dismiss_follow_up",
+  "reply_later",
+  "clear_reply_later",
+] as const;
+
+const updateThreadSchema = z.object({
+  messageId: z.string().min(1),
+  action: z.enum(THREAD_ACTIONS),
+  until: z.string().optional(),
+});
+
+const draftKeySchema = z.object({
+  type: z.enum(["NEW", "REPLY", "FORWARD"]),
+  contextMessageId: z.string().min(1),
+});
+
+const updateScheduledSchema = z.object({
+  id: z.string().min(1),
+  to: z.string().optional(),
+  cc: z.string().optional(),
+  bcc: z.string().optional(),
+  subject: z.string().optional(),
+  body: z.string().optional(),
+  textBody: z.string().optional(),
+  htmlBody: z.string().optional(),
+  scheduledFor: z.string().optional(),
+});
+
+const cancelScheduledSchema = z.object({
+  id: z.string().min(1),
+});
+
+const uploadAttachmentSchema = z.object({
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+  data: z.string().min(1),
+});
+
+const syncMailSchema = z.object({
+  connectionId: z.string().optional(),
+});
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_PENDING_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
@@ -150,24 +231,130 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
     annotations: { readOnlyHint: true },
     handler: wrap(getAttachment),
   });
-}
 
-function wrap(
-  handler: (
-    ctx: ToolContext,
-    args: Record<string, unknown>,
-  ) => Promise<ToolResult>,
-): ToolDef["handler"] {
-  return async (ctx, args) => {
-    try {
-      return await handler(ctx, args);
-    } catch (error) {
-      return {
-        type: "error",
-        message: error instanceof Error ? error.message : "Tool failed",
-      };
-    }
-  };
+  registerTool({
+    name: "update_thread",
+    description:
+      "Archive, unarchive, mark read/unread, snooze, follow up, or reply-later a thread. until is required for snooze and follow_up.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string" },
+        action: { type: "string", enum: [...THREAD_ACTIONS] },
+        until: { type: "string", description: "ISO-8601 datetime" },
+      },
+      required: ["messageId", "action"],
+    },
+    handler: wrap(updateThread),
+  });
+
+  registerTool({
+    name: "save_draft",
+    description:
+      "Create or update a draft keyed by type and contextMessageId (__new__ for NEW).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["NEW", "REPLY", "FORWARD"] },
+        contextMessageId: { type: "string" },
+        to: { type: "string" },
+        cc: { type: "string" },
+        bcc: { type: "string" },
+        subject: { type: "string" },
+        body: { type: "string" },
+        emailConnectionId: { type: "string" },
+        attachmentIds: { type: "array", items: { type: "string" } },
+      },
+      required: ["type", "contextMessageId"],
+    },
+    handler: wrap(saveDraft),
+  });
+
+  registerTool({
+    name: "delete_draft",
+    description:
+      "Delete a draft by the same type + contextMessageId key the PWA uses.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["NEW", "REPLY", "FORWARD"] },
+        contextMessageId: { type: "string" },
+      },
+      required: ["type", "contextMessageId"],
+    },
+    handler: wrap(deleteDraft),
+  });
+
+  registerTool({
+    name: "update_scheduled",
+    description:
+      "Edit a pending scheduled message (to/cc/bcc, subject, body, scheduledFor).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        to: { type: "string" },
+        cc: { type: "string" },
+        bcc: { type: "string" },
+        subject: { type: "string" },
+        body: { type: "string" },
+        textBody: { type: "string" },
+        htmlBody: { type: "string" },
+        scheduledFor: { type: "string" },
+      },
+      required: ["id"],
+    },
+    handler: wrap(updateScheduled),
+  });
+
+  registerTool({
+    name: "cancel_scheduled",
+    description: "Cancel a pending scheduled message.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+    handler: wrap(cancelScheduled),
+  });
+
+  registerTool({
+    name: "upload_attachment",
+    description:
+      "Upload a file as a pending attachment (base64, max 5 MB). Returns { id } for send_mail.attachmentIds.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filename: { type: "string" },
+        contentType: { type: "string" },
+        data: { type: "string", description: "Base64-encoded file bytes" },
+      },
+      required: ["filename", "contentType", "data"],
+    },
+    handler: wrap(uploadAttachment),
+  });
+
+  registerTool({
+    name: "sync_mail",
+    description:
+      "Start an IMAP sync for one connection or all of the user's connections. Returns immediately with current status.",
+    inputSchema: {
+      type: "object",
+      properties: { connectionId: { type: "string" } },
+    },
+    handler: wrap(syncMail),
+  });
+
+  registerTool({
+    name: "get_sync_status",
+    description: "Current IMAP sync status for one or all connections.",
+    inputSchema: {
+      type: "object",
+      properties: { connectionId: { type: "string" } },
+    },
+    annotations: { readOnlyHint: true },
+    handler: wrap(getSyncStatus),
+  });
 }
 
 async function listMail(
@@ -563,6 +750,265 @@ async function getAttachment(
   };
 }
 
+async function updateThread(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = updateThreadSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const { messageId, action } = parsed.data;
+  const until = parseUntil(parsed.data.until);
+
+  switch (action) {
+    case "archive":
+      await archiveThread(ctx.userId, messageId);
+      break;
+    case "unarchive":
+      await unarchiveThread(ctx.userId, messageId);
+      break;
+    case "read":
+      await setThreadReadState(ctx.userId, messageId, true);
+      break;
+    case "unread":
+      await setThreadReadState(ctx.userId, messageId, false);
+      break;
+    case "snooze":
+      if (!until) return err("until is required for snooze");
+      await snoozeThread(ctx.userId, messageId, until);
+      break;
+    case "unsnooze":
+      await unsnoozeThread(ctx.userId, messageId);
+      break;
+    case "follow_up":
+      if (!until) return err("until is required for follow_up");
+      await setThreadFollowUp(ctx.userId, messageId, until);
+      break;
+    case "dismiss_follow_up":
+      await dismissThreadFollowUp(ctx.userId, messageId);
+      break;
+    case "reply_later":
+      await setThreadReplyLater(ctx.userId, messageId, true);
+      break;
+    case "clear_reply_later":
+      await setThreadReplyLater(ctx.userId, messageId, false);
+      break;
+  }
+
+  bumpSidebarCounts();
+  return ok({ ok: true, messageId, action });
+}
+
+function parseUntil(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid until datetime");
+  return date;
+}
+
+async function saveDraft(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = saveDraftSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const draft = await saveDraftForUser(ctx.userId, parsed.data);
+  return ok({
+    id: draft.id,
+    type: draft.type,
+    contextMessageId: draft.contextMessageId,
+  });
+}
+
+async function deleteDraft(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = draftKeySchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  await deleteDraftForUser(
+    ctx.userId,
+    parsed.data.type as DraftType,
+    parsed.data.contextMessageId,
+  );
+  return ok({ ok: true });
+}
+
+async function updateScheduled(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = updateScheduledSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const { id, body, textBody, ...rest } = parsed.data;
+  const result = await updateScheduledForUser(ctx.userId, id, {
+    ...rest,
+    textBody: textBody ?? body,
+  });
+  bumpSidebarCounts();
+  return ok({
+    id: result.id,
+    scheduledFor: result.scheduledFor.toISOString(),
+  });
+}
+
+async function cancelScheduled(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = cancelScheduledSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const result = await cancelScheduledForUser(ctx.userId, parsed.data.id);
+  if (result === "not_found") return err("not found or not yours");
+  if (result === "not_pending") {
+    return err("Only PENDING messages can be cancelled");
+  }
+  bumpSidebarCounts();
+  return ok({ ok: true });
+}
+
+async function uploadAttachment(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = uploadAttachmentSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+
+  const rl = await rateLimitUploads(ctx.userId);
+  if (!rl.allowed) {
+    return err(`Too many uploads — try again in ${rl.retryAfter} seconds`);
+  }
+
+  let content: Buffer;
+  try {
+    content = Buffer.from(parsed.data.data, "base64");
+  } catch {
+    return err("Invalid base64 data");
+  }
+  if (content.length === 0) return err("Empty file");
+  if (content.length > MAX_UPLOAD_BYTES) {
+    return err("File too large (max 5MB)");
+  }
+
+  const pendingTotal = await db.attachment.aggregate({
+    where: { userId: ctx.userId, messageId: null },
+    _sum: { size: true },
+  });
+  if (
+    (pendingTotal._sum.size || 0) + content.length >
+    MAX_PENDING_UPLOAD_BYTES
+  ) {
+    return err(
+      "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
+    );
+  }
+
+  const attachment = await db.attachment.create({
+    data: {
+      filename: parsed.data.filename,
+      contentType: parsed.data.contentType,
+      size: content.length,
+      content,
+      userId: ctx.userId,
+    },
+    select: { id: true },
+  });
+  return ok({ id: attachment.id });
+}
+
+async function syncMail(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = syncMailSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+
+  const rl = await rateLimitSync(ctx.userId);
+  if (!rl.allowed) {
+    return err(`Too many syncs — try again in ${rl.retryAfter} seconds`);
+  }
+
+  const connections = await loadOwnedConnections(
+    ctx.userId,
+    parsed.data.connectionId,
+  );
+  if (connections.length === 0) {
+    return err(
+      parsed.data.connectionId
+        ? "not found or not yours"
+        : "No email connections found",
+    );
+  }
+
+  const queue = getSyncQueue();
+  for (const conn of connections) {
+    await queue.add(
+      "sync",
+      { emailConnectionId: conn.id, userId: ctx.userId },
+      { jobId: `mcp-sync-${conn.id}-${Date.now()}`, priority: 1 },
+    );
+  }
+
+  return ok(await serializeSyncStatus(connections));
+}
+
+async function getSyncStatus(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = syncMailSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const connections = await loadOwnedConnections(
+    ctx.userId,
+    parsed.data.connectionId,
+  );
+  if (parsed.data.connectionId && connections.length === 0) {
+    return err("not found or not yours");
+  }
+  return ok(await serializeSyncStatus(connections));
+}
+
+async function loadOwnedConnections(userId: string, connectionId?: string) {
+  return db.emailConnection.findMany({
+    where: { userId, ...(connectionId ? { id: connectionId } : {}) },
+    select: {
+      id: true,
+      email: true,
+      syncState: {
+        select: {
+          isSyncing: true,
+          lastFullSync: true,
+          syncError: true,
+          syncStartedAt: true,
+        },
+      },
+    },
+  });
+}
+
+async function serializeSyncStatus(
+  connections: Array<{
+    id: string;
+    email: string;
+    syncState: {
+      isSyncing: boolean;
+      lastFullSync: Date | null;
+      syncError: string | null;
+      syncStartedAt: Date | null;
+    } | null;
+  }>,
+) {
+  return {
+    connections: connections.map((conn) => ({
+      connectionId: conn.id,
+      email: conn.email,
+      isSyncing: conn.syncState?.isSyncing ?? false,
+      lastFullSync: conn.syncState?.lastFullSync?.toISOString() ?? null,
+      syncStartedAt: conn.syncState?.syncStartedAt?.toISOString() ?? null,
+      syncError: conn.syncState?.syncError ?? null,
+    })),
+  };
+}
+
 async function requireOwnedConnection(
   userId: string,
   connectionId?: string,
@@ -606,10 +1052,6 @@ function pageResult(items: unknown[], nextCursor?: string | null): ToolResult {
     type: "ok",
     structuredContent: nextCursor ? { items, nextCursor } : { items },
   };
-}
-
-function firstZodMessage(error: z.ZodError): string {
-  return error.issues[0]?.message ?? "Invalid arguments";
 }
 
 function isCategoryView(view: string): view is CategoryView {

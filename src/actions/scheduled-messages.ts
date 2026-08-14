@@ -3,40 +3,16 @@
 import { updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { encrypt } from "@/lib/crypto";
-import { z } from "zod";
 import {
-  optionalRecipientField,
   createScheduledMessageForUser,
   cancelScheduledForUser,
   sendScheduledNowForUser,
   deferScheduledForUser,
   restoreScheduledTimeForUser,
+  updateScheduledForUser,
   type CreateScheduledInput,
+  type UpdateScheduledInput,
 } from "@/lib/mail/scheduled-messages";
-
-const editSchema = z.object({
-  to: optionalRecipientField,
-  cc: optionalRecipientField,
-  bcc: optionalRecipientField,
-  subject: z.string().optional(),
-  textBody: z.string().optional(),
-  htmlBody: z.string().optional(),
-  scheduledFor: z
-    .string()
-    .transform((s) => {
-      const date = new Date(s);
-      if (isNaN(date.getTime())) throw new Error("Invalid date");
-      if (date <= new Date())
-        throw new Error("scheduledFor must be in the future");
-      return date;
-    })
-    .optional(),
-  emailConnectionId: z.string().optional(),
-  inReplyToMessageId: z.string().optional(),
-  references: z.string().optional(),
-  attachmentIds: z.array(z.string()).optional(),
-});
 
 export async function createScheduledMessage(data: CreateScheduledInput) {
   const session = await auth();
@@ -117,74 +93,12 @@ export async function restoreScheduledMessage(
 
 export async function editScheduledMessage(
   id: string,
-  data: z.input<typeof editSchema>,
+  data: UpdateScheduledInput,
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const userId = session.user.id;
-  const parsed = editSchema.parse(data);
-
-  const msg = await db.scheduledMessage.findFirst({
-    where: { id, userId },
-  });
-  if (!msg) throw new Error("Scheduled message not found");
-  if (msg.status !== "PENDING")
-    throw new Error("Only PENDING messages can be edited");
-
-  // If connection changed, verify the new one belongs to user
-  if (
-    parsed.emailConnectionId &&
-    parsed.emailConnectionId !== msg.emailConnectionId
-  ) {
-    const connection = await db.emailConnection.findFirst({
-      where: { id: parsed.emailConnectionId, userId },
-    });
-    if (!connection) throw new Error("Email connection not found");
-  }
-
-  // The edited row must still reach at least one recipient across To/Cc/Bcc
-  // (undefined = field untouched, so fall back to the stored value).
-  const effectiveTo = parsed.to !== undefined ? parsed.to : msg.to;
-  const effectiveCc = parsed.cc !== undefined ? parsed.cc : msg.cc;
-  const effectiveBcc = parsed.bcc !== undefined ? parsed.bcc : msg.bcc;
-  if (!effectiveTo && !effectiveCc && !effectiveBcc) {
-    throw new Error("No valid recipient address provided");
-  }
-
-  // Build update payload, encrypting body fields if provided
-  const updateData: Record<string, unknown> = {};
-  // For all three recipient fields: null (an explicit empty string) clears
-  // the field; undefined leaves it. `to` is a non-nullable column, so a
-  // cleared To stores "".
-  if (parsed.to !== undefined) updateData.to = parsed.to ?? "";
-  if (parsed.cc !== undefined) updateData.cc = parsed.cc;
-  if (parsed.bcc !== undefined) updateData.bcc = parsed.bcc;
-  if (parsed.subject !== undefined) updateData.subject = parsed.subject;
-  if (parsed.textBody !== undefined)
-    updateData.textBody = encrypt(parsed.textBody);
-  if (parsed.htmlBody !== undefined)
-    updateData.htmlBody = encrypt(parsed.htmlBody);
-  if (parsed.scheduledFor !== undefined) {
-    const jitterMs = (1 + Math.random() * 13) * 60_000;
-    updateData.scheduledFor = new Date(
-      parsed.scheduledFor.getTime() + jitterMs,
-    );
-  }
-  if (parsed.emailConnectionId !== undefined)
-    updateData.emailConnectionId = parsed.emailConnectionId;
-  if (parsed.inReplyToMessageId !== undefined)
-    updateData.inReplyToMessageId = parsed.inReplyToMessageId;
-  if (parsed.references !== undefined)
-    updateData.references = parsed.references;
-  if (parsed.attachmentIds !== undefined)
-    updateData.attachmentIds = parsed.attachmentIds;
-
-  await db.scheduledMessage.update({
-    where: { id },
-    data: updateData,
-  });
-
+  await updateScheduledForUser(session.user.id, id, data);
   updateTag("sidebar-counts");
 }
 
@@ -199,11 +113,7 @@ export async function restoreScheduledTime(id: string, scheduledFor: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
   const date = new Date(scheduledFor);
   if (isNaN(date.getTime())) throw new Error("Invalid date");
-  const restored = await restoreScheduledTimeForUser(
-    session.user.id,
-    id,
-    date,
-  );
+  const restored = await restoreScheduledTimeForUser(session.user.id, id, date);
   return { restored };
 }
 
