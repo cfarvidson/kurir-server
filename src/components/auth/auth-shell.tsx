@@ -17,8 +17,12 @@ export function AuthShell({
   className?: string;
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-[1fr_1px_minmax(0,28rem)]">
+    // Own scroll container: globals.css locks html/body with overflow:hidden
+    // (mail-UI overscroll fix), so document scroll never happens — without
+    // this, content below the fold is unreachable in small viewports like
+    // the ASWebAuthenticationSession sheet.
+    <div className="h-dvh overflow-y-auto bg-background">
+      <div className="mx-auto grid min-h-full w-full max-w-6xl grid-cols-1 lg:grid-cols-[1fr_1px_minmax(0,28rem)]">
         {/* Left rail — type-led masthead. The wordmark block is vertically
             centered so it aligns with the form across the hairline; the tagline
             is pinned to the bottom corner as an editorial footer. */}

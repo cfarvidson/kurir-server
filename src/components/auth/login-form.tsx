@@ -182,7 +182,9 @@ export default function LoginForm({
             Welcome back
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to Kurir with your passkey.
+            {demoLoginEnabled
+              ? "Sign in to Kurir with the demo credentials."
+              : "Sign in to Kurir with your passkey."}
           </p>
         </div>
 
@@ -198,49 +200,12 @@ export default function LoginForm({
         )}
 
         <div className="space-y-4">
-          {/* Passkey sign-in button — the primary action */}
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleSignIn}
-            disabled={isWorking}
-          >
-            {isWorking ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {state === "waiting"
-                  ? "Waiting for passkey..."
-                  : "Signing in..."}
-              </>
-            ) : (
-              <>
-                <Fingerprint className="h-4 w-4" />
-                Sign in with passkey
-              </>
-            )}
-          </Button>
-
-          {/* Hint for conditional UI / autofill */}
-          <p className="text-xs text-muted-foreground">
-            Your browser may also prompt you automatically with a saved passkey.
-          </p>
-
-          {/*
-            Passkey autofill target — hidden input for browsers that support
-            conditional mediation. The browser attaches the autofill UI here.
-          */}
-          <input
-            type="text"
-            autoComplete="username webauthn"
-            className="sr-only"
-            aria-hidden="true"
-            tabIndex={-1}
-            readOnly
-          />
-
-          {/* Demo-instance password sign-in (DEMO_LOGIN_* set on server) */}
+          {/* Demo-instance password sign-in (DEMO_LOGIN_* set on server) —
+              rendered FIRST as the primary action so it is visible without
+              scrolling in small viewports (App Store reviewers open this
+              page inside a narrow ASWebAuthenticationSession sheet). */}
           {demoLoginEnabled && (
-            <form onSubmit={handleDemoLogin} className="space-y-3 border-t border-border pt-4">
+            <form onSubmit={handleDemoLogin} className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Demo instance — sign in with the demo credentials.
               </p>
@@ -264,8 +229,8 @@ export default function LoginForm({
               />
               <Button
                 type="submit"
-                variant="secondary"
                 className="w-full"
+                size="lg"
                 disabled={isWorking}
               >
                 {state === "loading" ? (
@@ -275,6 +240,57 @@ export default function LoginForm({
               </Button>
             </form>
           )}
+
+          {/* Passkey sign-in — the primary action on real instances,
+              secondary below a divider on demo instances */}
+          <div
+            className={
+              demoLoginEnabled
+                ? "space-y-4 border-t border-border pt-4"
+                : "space-y-4"
+            }
+          >
+            <Button
+              variant={demoLoginEnabled ? "secondary" : "default"}
+              className="w-full"
+              size="lg"
+              onClick={handleSignIn}
+              disabled={isWorking}
+            >
+              {isWorking ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {state === "waiting"
+                    ? "Waiting for passkey..."
+                    : "Signing in..."}
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="h-4 w-4" />
+                  Sign in with passkey
+                </>
+              )}
+            </Button>
+
+            {/* Hint for conditional UI / autofill */}
+            <p className="text-xs text-muted-foreground">
+              Your browser may also prompt you automatically with a saved
+              passkey.
+            </p>
+
+            {/*
+              Passkey autofill target — hidden input for browsers that support
+              conditional mediation. The browser attaches the autofill UI here.
+            */}
+            <input
+              type="text"
+              autoComplete="username webauthn"
+              className="sr-only"
+              aria-hidden="true"
+              tabIndex={-1}
+              readOnly
+            />
+          </div>
         </div>
 
         <div className="border-t border-border pt-4">
