@@ -1,5 +1,18 @@
 [
   {
+    "version": "2026.08.14.2",
+    "date": "2026-08-14",
+    "changes": [
+      "Closed a hole where any signed-in user could read or create contacts under another account",
+      "Rejected mail no longer disappears from the app if the IMAP archive move fails",
+      "Undo after screening out a sender now brings the mail back from the archive",
+      "Compose no longer sends twice on a double-click",
+      "Sending a scheduled message now (or undoing it) no longer loses the copy if you refresh during the undo window",
+      "Drafts keep Cc/Bcc and attachments, including files forwarded from IMAP",
+      "Tracker images hidden in CSS comments are blocked; the image proxy no longer follows DNS rebinding to internal addresses"
+    ]
+  },
+  {
     "version": "2026.08.14",
     "date": "2026-08-14",
     "changes": [
@@ -186,9 +199,7 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": [
-      "Fix paragraph breaks in the compose markdown preview"
-    ]
+    "changes": ["Fix paragraph breaks in the compose markdown preview"]
   },
   {
     "version": "2026.04.26.3",
@@ -239,9 +250,7 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": [
-      "Fix updater status callback blocked by auth middleware"
-    ]
+    "changes": ["Fix updater status callback blocked by auth middleware"]
   },
   {
     "version": "2026.04.10",

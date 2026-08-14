@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.14",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.14",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.14",
-  "changelog": "Sign-in and other auth pages scroll again in small viewports, and demo instances show the demo credentials form first on the sign-in page.",
+  "version": "2026.08.14.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.14.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.14.2",
+  "changelog": "Security and mail-loss fixes: contact IDOR, rejected mail vanishing on a failed IMAP move, undo-after-reject, double-send, and scheduled send-now crash-loss.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-14T07:00:00Z"
+  "releasedAt": "2026-08-14T11:00:00Z"
 }

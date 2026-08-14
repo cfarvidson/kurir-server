@@ -4,6 +4,19 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.14.2] - 2026-08-14
+
+### Fixed
+
+- Closed a hole where any signed-in user could read or create contacts under another account
+- Rejected mail no longer disappears from the app if the IMAP archive move fails
+- Undo after screening out a sender now brings the mail back from the archive
+- Compose no longer sends twice on a double-click
+- Sending a scheduled message now (or undoing it) no longer loses the copy if you refresh during the undo window
+- Drafts keep Cc/Bcc and attachments, including files forwarded from IMAP
+- Tracker images hidden in CSS comments are blocked
+- The image proxy pins DNS so it no longer follows rebinding to internal addresses
+
 ## [v2026.08.14] - 2026-08-14
 
 ### Fixed
