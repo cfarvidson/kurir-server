@@ -2,11 +2,13 @@ import { z } from "zod";
 import { canManageConnections } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { approveOwnPendingSenders } from "@/lib/jobs/maintenance-tasks";
+import { bulkApproveOldSendersForUser } from "@/lib/mail/mutations";
 import {
   bumpSidebarCounts,
   err,
   firstZodMessage,
   ok,
+  requireConfirmation,
   wrap,
 } from "@/lib/mcp/tools/helpers";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
@@ -60,6 +62,18 @@ const updateConnectionSchema = z.object({
   sendAsEmail: z.string().email().nullable().optional(),
   aliases: z.array(z.string().email()).optional(),
   treatDomainAsOwn: z.boolean().optional(),
+});
+
+const deleteConnectionSchema = z.object({
+  connectionId: z.string().min(1),
+});
+
+const revokePasskeySchema = z.object({
+  passkeyId: z.string().min(1),
+});
+
+const bulkApproveSchema = z.object({
+  days: z.number().int().min(1).max(365).optional(),
 });
 
 const CONNECTION_SAFE_SELECT = {
@@ -149,6 +163,44 @@ export function registerSettingsTools(
     inputSchema: { type: "object", properties: {} },
     annotations: { readOnlyHint: true },
     handler: wrap(listPasskeys),
+  });
+
+  registerTool({
+    name: "delete_connection",
+    description:
+      "Delete an email connection. Refuses the last connection. Requires client elicitation.",
+    inputSchema: {
+      type: "object",
+      properties: { connectionId: { type: "string" } },
+      required: ["connectionId"],
+    },
+    annotations: { destructiveHint: true },
+    handler: wrap(deleteConnection),
+  });
+
+  registerTool({
+    name: "revoke_passkey",
+    description:
+      "Revoke a passkey. Refuses the last passkey. Requires client elicitation.",
+    inputSchema: {
+      type: "object",
+      properties: { passkeyId: { type: "string" } },
+      required: ["passkeyId"],
+    },
+    annotations: { destructiveHint: true },
+    handler: wrap(revokePasskey),
+  });
+
+  registerTool({
+    name: "bulk_approve_old_senders",
+    description:
+      "Approve PENDING senders whose newest mail is older than days (default 90) into Imbox. Requires client elicitation.",
+    inputSchema: {
+      type: "object",
+      properties: { days: { type: "integer", minimum: 1, maximum: 365 } },
+    },
+    annotations: { destructiveHint: true },
+    handler: wrap(bulkApproveOldSenders),
   });
 }
 
@@ -315,6 +367,138 @@ async function listPasskeys(
       createdAt: row.createdAt.toISOString(),
     })),
   });
+}
+
+async function deleteConnection(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = deleteConnectionSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+
+  if (!(await canManageConnections(ctx.userId))) {
+    return err("Account management is disabled. Contact your admin.");
+  }
+
+  const connection = await db.emailConnection.findFirst({
+    where: { id: parsed.data.connectionId, userId: ctx.userId },
+    select: { id: true, email: true, isDefault: true },
+  });
+  if (!connection) return err("not found or not yours");
+
+  const count = await db.emailConnection.count({
+    where: { userId: ctx.userId },
+  });
+  if (count <= 1) {
+    return err("Cannot remove your only email connection.");
+  }
+
+  return requireConfirmation(
+    ctx,
+    "delete_connection",
+    parsed.data,
+    `Delete connection ${connection.email}`,
+    async () => {
+      await db.$transaction(async (tx) => {
+        const remaining = await tx.emailConnection.count({
+          where: { userId: ctx.userId },
+        });
+        if (remaining <= 1) {
+          throw new Error("Cannot remove your only email connection.");
+        }
+        await tx.emailConnection.delete({ where: { id: connection.id } });
+        if (connection.isDefault) {
+          const next = await tx.emailConnection.findFirst({
+            where: { userId: ctx.userId },
+            orderBy: { createdAt: "asc" },
+          });
+          if (next) {
+            await tx.emailConnection.update({
+              where: { id: next.id },
+              data: { isDefault: true },
+            });
+          }
+        }
+      });
+      return ok({ ok: true, connectionId: connection.id });
+    },
+  );
+}
+
+async function revokePasskey(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = revokePasskeySchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+
+  const passkey = await db.passkey.findFirst({
+    where: { id: parsed.data.passkeyId, userId: ctx.userId },
+    select: { id: true, friendlyName: true },
+  });
+  if (!passkey) return err("not found or not yours");
+
+  const count = await db.passkey.count({ where: { userId: ctx.userId } });
+  if (count <= 1) {
+    return err(
+      "Cannot delete the last passkey. You would lose access to your account.",
+    );
+  }
+
+  const label = passkey.friendlyName?.trim() || passkey.id;
+  return requireConfirmation(
+    ctx,
+    "revoke_passkey",
+    parsed.data,
+    `Revoke passkey ${label}`,
+    async () => {
+      const deleted = await db.$transaction(async (tx) => {
+        const remaining = await tx.passkey.count({
+          where: { userId: ctx.userId },
+        });
+        if (remaining <= 1) return null;
+        return tx.passkey.delete({ where: { id: passkey.id } });
+      });
+      if (!deleted) {
+        return err(
+          "Cannot delete the last passkey. You would lose access to your account.",
+        );
+      }
+      return ok({ ok: true, passkeyId: passkey.id });
+    },
+  );
+}
+
+async function bulkApproveOldSenders(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = bulkApproveSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const days = parsed.data.days ?? 90;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const count = await db.sender.count({
+    where: {
+      userId: ctx.userId,
+      status: "PENDING",
+      messages: {
+        some: {},
+        none: { receivedAt: { gte: cutoff } },
+      },
+    },
+  });
+
+  return requireConfirmation(
+    ctx,
+    "bulk_approve_old_senders",
+    parsed.data,
+    `Approve ${count} old sender${count === 1 ? "" : "s"} (older than ${days} days) into Imbox`,
+    async () => {
+      const approved = await bulkApproveOldSendersForUser(ctx.userId, days);
+      if (approved > 0) bumpSidebarCounts();
+      return ok({ approved, days });
+    },
+  );
 }
 
 function isValidTimeZone(tz: string): boolean {

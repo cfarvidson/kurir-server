@@ -1,9 +1,15 @@
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
-import { createConfirmation } from "@/lib/mcp/confirmations";
+import {
+  consumeConfirmation,
+  createConfirmation,
+} from "@/lib/mcp/confirmations";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
 
-const CANNOT_CONFIRM = "this client cannot confirm this action";
+export const CANNOT_CONFIRM = "this client cannot confirm this action";
+export const CONFIRM_MISMATCH = "confirmation does not match arguments";
+export const CONFIRM_CANCELLED = "cancelled";
+export const DEMO_SEND_DISABLED = "Sending is disabled on this demo instance.";
 
 export function wrap(
   handler: (
@@ -41,30 +47,43 @@ export function bumpSidebarCounts(): void {
 }
 
 /**
- * Task 7 stub for MRTR tools. Task 8 consumes the handle and runs the
- * mutation. Until then: no elicitation -> error; first call -> input_required.
+ * MRTR gate for dangerous tools. No elicitation -> error. First call
+ * creates a confirmation and returns input_required. A retry with
+ * requestState consumes the handle: accept runs `onAccept` once, cancel
+ * and mismatch return errors and do not mutate.
  */
-export async function stubConfirmation(
+export async function requireConfirmation(
   ctx: ToolContext,
   toolName: string,
   args: unknown,
   message: string,
+  onAccept: () => Promise<ToolResult>,
 ): Promise<ToolResult> {
   if (!ctx.hasElicitation) {
     return err(CANNOT_CONFIRM);
   }
-  if (ctx.requestState) {
-    return err(CANNOT_CONFIRM);
+  if (!ctx.requestState) {
+    const created = await createConfirmation({
+      userId: ctx.userId,
+      tokenId: ctx.tokenId,
+      toolName,
+      args,
+    });
+    return {
+      type: "input_required",
+      requestState: created.id,
+      message,
+    };
   }
-  const created = await createConfirmation({
+  const outcome = await consumeConfirmation({
+    id: ctx.requestState,
     userId: ctx.userId,
     tokenId: ctx.tokenId,
     toolName,
     args,
+    action: ctx.inputResponses?.confirm?.action,
   });
-  return {
-    type: "input_required",
-    requestState: created.id,
-    message,
-  };
+  if (outcome === "mismatch") return err(CONFIRM_MISMATCH);
+  if (outcome === "cancel") return err(CONFIRM_CANCELLED);
+  return onAccept();
 }

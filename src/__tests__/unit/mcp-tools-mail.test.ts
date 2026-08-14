@@ -47,6 +47,8 @@ vi.mock("@/lib/mail/mutations", () => ({
   changeDomainRuleCategoryForUser: vi.fn(),
   deleteDomainRuleForUser: vi.fn(),
   listDomainRulesForUser: vi.fn(),
+  rejectSenderForUser: vi.fn(),
+  bulkApproveOldSendersForUser: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -65,6 +67,8 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/mcp/confirmations", () => ({
   createConfirmation: vi.fn(),
+  consumeConfirmation: vi.fn(),
+  consumeConfirmationInTx: vi.fn(),
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -74,6 +78,9 @@ vi.mock("@/lib/rate-limit", () => ({
   rateLimitSync: vi
     .fn()
     .mockResolvedValue({ allowed: true, remaining: 1, retryAfter: 0 }),
+  rateLimitSend: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 30, retryAfter: 0 }),
 }));
 
 vi.mock("@/lib/jobs/queue", () => ({

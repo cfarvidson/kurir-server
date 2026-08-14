@@ -8,6 +8,7 @@ import {
   createDomainRuleForUser,
   deleteDomainRuleForUser,
   listDomainRulesForUser,
+  rejectSenderForUser,
   setSenderAllowImagesForUser,
   setSenderUnthreadForUser,
   skipSenderForUser,
@@ -19,7 +20,7 @@ import {
   err,
   firstZodMessage,
   ok,
-  stubConfirmation,
+  requireConfirmation,
   wrap,
 } from "@/lib/mcp/tools/helpers";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
@@ -170,7 +171,17 @@ async function screenSender(
     const summary = name
       ? `Reject sender ${name} <${sender.email}>`
       : `Reject sender ${sender.email}`;
-    return stubConfirmation(ctx, "screen_sender", args, summary);
+    return requireConfirmation(
+      ctx,
+      "screen_sender",
+      parsed.data,
+      summary,
+      async () => {
+        await rejectSenderForUser(ctx.userId, senderId);
+        bumpSidebarCounts();
+        return ok({ ok: true, senderId, action });
+      },
+    );
   }
 
   if (action === "approve") {
@@ -237,12 +248,33 @@ async function createDomainRule(
   const { includeSubdomains, status, category } = parsed.data;
 
   if (status === "REJECTED") {
-    const pattern = parsed.data.pattern ?? "(sender domain)";
-    return stubConfirmation(
+    const resolved = await resolveDomainRuleSender(
+      ctx.userId,
+      parsed.data.senderId,
+      parsed.data.pattern,
+      includeSubdomains,
+    );
+    return requireConfirmation(
       ctx,
       "create_domain_rule",
-      args,
-      `Reject domain ${includeSubdomains ? "*." : ""}${pattern}`,
+      parsed.data,
+      `Reject domain ${includeSubdomains ? "*." : ""}${resolved.pattern}`,
+      async () => {
+        const rule = await createDomainRuleForUser(ctx.userId, {
+          senderId: resolved.senderId,
+          pattern: resolved.pattern,
+          includeSubdomains,
+          status: "REJECTED",
+        });
+        bumpSidebarCounts();
+        return ok({
+          id: rule.id,
+          pattern: rule.pattern,
+          includeSubdomains: rule.includeSubdomains,
+          status: rule.status,
+          category: rule.category,
+        });
+      },
     );
   }
 

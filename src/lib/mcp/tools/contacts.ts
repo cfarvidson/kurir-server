@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   addGroupMemberForUser,
   createGroupForUser,
+  deleteGroupForUser,
   listGroupsForUser,
   removeGroupMemberForUser,
   renameGroupForUser,
@@ -11,6 +12,7 @@ import {
   addContactEmailForUser,
   createContactForUser,
   createContactSchema,
+  deleteContactForUser,
   getContactForUser,
   listContactsForUser,
   renameContactForUser,
@@ -19,7 +21,7 @@ import {
   err,
   firstZodMessage,
   ok,
-  stubConfirmation,
+  requireConfirmation,
   wrap,
 } from "@/lib/mcp/tools/helpers";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
@@ -386,11 +388,15 @@ async function deleteContact(
   const contact = await getContactForUser(ctx.userId, parsed.data.contactId);
   if (!contact) return err("not found or not yours");
   const emails = contact.emails.map((e) => e.email).join(", ");
-  return stubConfirmation(
+  return requireConfirmation(
     ctx,
     "delete_contact",
-    args,
+    parsed.data,
     `Delete contact ${contact.name}${emails ? ` (${emails})` : ""}`,
+    async () => {
+      await deleteContactForUser(ctx.userId, parsed.data.contactId);
+      return ok({ ok: true, contactId: parsed.data.contactId });
+    },
   );
 }
 
@@ -450,11 +456,15 @@ async function deleteGroup(
   const groups = await listGroupsForUser(ctx.userId);
   const group = groups.find((g) => g.id === parsed.data.groupId);
   if (!group) return err("not found or not yours");
-  return stubConfirmation(
+  return requireConfirmation(
     ctx,
     "delete_contact_group",
-    args,
+    parsed.data,
     `Delete contact group ${group.name}`,
+    async () => {
+      await deleteGroupForUser(ctx.userId, parsed.data.groupId);
+      return ok({ ok: true, groupId: parsed.data.groupId });
+    },
   );
 }
 
