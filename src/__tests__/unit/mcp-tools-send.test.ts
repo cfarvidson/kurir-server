@@ -61,6 +61,8 @@ vi.mock("@/lib/mail/scheduled-messages", () => ({
   cancelScheduledForUser: vi.fn(),
   createScheduledMessageForUser: vi.fn(),
   sendScheduledNowForUser: vi.fn(),
+  insertScheduledMessageForUser: vi.fn(),
+  deliverScheduledNowForUser: vi.fn(),
 }));
 vi.mock("@/lib/mail/contacts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/mail/contacts")>();
@@ -137,6 +139,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { sendMailForUser } from "@/lib/mail/send";
+import { insertScheduledMessageForUser } from "@/lib/mail/scheduled-messages";
 import { isDemoInstance } from "@/lib/demo";
 import { hashArgs } from "@/lib/mcp/canonical-json";
 import { db } from "@/lib/db";
@@ -296,5 +299,32 @@ describe("MCP send tools", () => {
       message: "cancelled",
     });
     expect(sendMailForUser).not.toHaveBeenCalled();
+  });
+
+  it("schedule_mail 429 on accept does not consume the confirmation", async () => {
+    const args = {
+      ...baseArgs,
+      scheduledFor: "2099-01-01T00:00:00.000Z",
+    };
+    mockPendingConfirmation("schedule_mail", args);
+    vi.mocked(rateLimitSend).mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 42,
+    });
+    const result = await call(
+      "schedule_mail",
+      args,
+      ctx({
+        requestState: "conf-1",
+        inputResponses: { confirm: { action: "accept" } },
+      }),
+    );
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/Too many messages/),
+    });
+    expect(db.mcpConfirmation.updateMany).not.toHaveBeenCalled();
+    expect(insertScheduledMessageForUser).not.toHaveBeenCalled();
   });
 });

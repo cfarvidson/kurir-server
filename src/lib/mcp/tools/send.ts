@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { isDemoInstance } from "@/lib/demo";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import {
-  createScheduledMessageForUser,
-  sendScheduledNowForUser,
+  deliverScheduledNowForUser,
+  insertScheduledMessageForUser,
 } from "@/lib/mail/scheduled-messages";
 import { sendMailForUser } from "@/lib/mail/send";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
@@ -120,14 +120,8 @@ async function sendMail(
   if (!parsed.success) return err(firstZodMessage(parsed.error));
 
   const resolved = await resolveOutgoing(ctx.userId, parsed.data);
-  if (ctx.requestState && ctx.inputResponses?.confirm?.action === "accept") {
-    const rl = await rateLimitSend(ctx.userId);
-    if (!rl.allowed) {
-      return err(
-        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-      );
-    }
-  }
+  const limited = await denyIfSendLimited(ctx);
+  if (limited) return limited;
   return requireConfirmation(
     ctx,
     "send_mail",
@@ -159,6 +153,8 @@ async function scheduleMail(
   if (!parsed.success) return err(firstZodMessage(parsed.error));
 
   const resolved = await resolveOutgoing(ctx.userId, parsed.data);
+  const limited = await denyIfSendLimited(ctx);
+  if (limited) return limited;
   return requireConfirmation(
     ctx,
     "schedule_mail",
@@ -172,7 +168,7 @@ async function scheduleMail(
         );
       }
       const converted = convertMarkdownToEmailHtml(parsed.data.body);
-      const created = await createScheduledMessageForUser(ctx.userId, {
+      const created = await insertScheduledMessageForUser(ctx.userId, {
         to: joinAddresses(latest.to) ?? "",
         cc: joinAddresses(latest.cc),
         bcc: joinAddresses(latest.bcc),
@@ -207,16 +203,30 @@ async function sendScheduledNow(
   });
   if (!msg) return err("not found or not yours");
 
+  const limited = await denyIfSendLimited(ctx);
+  if (limited) return limited;
   return requireConfirmation(
     ctx,
     "send_scheduled_now",
     parsed.data,
     `Send scheduled message ${msg.id} now\nTo: ${msg.to}\nSubject: ${msg.subject}`,
     async () => {
-      await sendScheduledNowForUser(ctx.userId, parsed.data.id);
+      await deliverScheduledNowForUser(ctx.userId, parsed.data.id);
       return ok({ ok: true, id: parsed.data.id });
     },
   );
+}
+
+async function denyIfSendLimited(ctx: ToolContext): Promise<ToolResult | null> {
+  if (ctx.requestState && ctx.inputResponses?.confirm?.action === "accept") {
+    const rl = await rateLimitSend(ctx.userId);
+    if (!rl.allowed) {
+      return err(
+        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+      );
+    }
+  }
+  return null;
 }
 
 type ResolvedOutgoing = {

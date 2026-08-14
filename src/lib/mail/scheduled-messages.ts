@@ -107,6 +107,15 @@ export type UpdateScheduledInput = z.input<typeof updateScheduledSchema>;
  * hour. Returns the jittered `scheduledFor` so the client shows the real send
  * time (the server's answer), not its own guess.
  */
+async function assertSendRateLimit(userId: string): Promise<void> {
+  const rl = await rateLimitSend(userId);
+  if (!rl.allowed) {
+    throw new Error(
+      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+    );
+  }
+}
+
 export async function createScheduledMessageForUser(
   userId: string,
   input: CreateScheduledInput,
@@ -114,14 +123,18 @@ export async function createScheduledMessageForUser(
   if (isDemoInstance()) {
     throw new Error("Sending is disabled on this demo instance.");
   }
+  await assertSendRateLimit(userId);
+  return insertScheduledMessageForUser(userId, input);
+}
 
-  const rl = await rateLimitSend(userId);
-  if (!rl.allowed) {
-    throw new Error(
-      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-    );
-  }
-
+/**
+ * Write a scheduled row. Caller must have already applied demo and send
+ * rate-limit gates (HTTP/mobile wrappers do; MCP rate-limits before consume).
+ */
+export async function insertScheduledMessageForUser(
+  userId: string,
+  input: CreateScheduledInput,
+) {
   const parsed = createScheduledSchema.parse(input);
 
   // At least one recipient across To/Cc/Bcc (direct-send parity).
@@ -355,7 +368,21 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
   if (isDemoInstance()) {
     throw new Error("Sending is disabled on this demo instance.");
   }
+  return deliverScheduledNowForUser(userId, id, () =>
+    assertSendRateLimit(userId),
+  );
+}
 
+/**
+ * Claim and deliver a scheduled row. Caller must have already applied the
+ * demo gate. Pass `beforeSend` to enforce the send limiter after the CAS
+ * claim (HTTP/mobile). MCP rate-limits before consume and omits it.
+ */
+export async function deliverScheduledNowForUser(
+  userId: string,
+  id: string,
+  beforeSend?: () => Promise<void>,
+) {
   // Atomic CAS: claim this message for sending
   const claimed = await db.scheduledMessage.updateMany({
     where: { id, userId, status: "PENDING" },
@@ -375,12 +402,7 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
   if (!msg) throw new Error("Scheduled message not found");
 
   try {
-    const rl = await rateLimitSend(userId);
-    if (!rl.allowed) {
-      throw new Error(
-        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-      );
-    }
+    await beforeSend?.();
 
     // Idempotency: if already sent (has smtpMessageId), skip SMTP
     if (msg.smtpMessageId) {
