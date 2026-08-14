@@ -1,10 +1,8 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SectionHeading } from "@/components/ui/editorial";
 import { auth } from "@/lib/auth";
 import { fetchCimd, mcpResourceUri } from "@/lib/mcp/oauth";
-import { rateLimitOAuth } from "@/lib/rate-limit";
 import { ConsentForm } from "./consent-form";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +10,6 @@ export const dynamic = "force-dynamic";
 function first(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
-}
-
-function oauthClientIp(h: Headers): string {
-  const forwarded = h.get("x-forwarded-for");
-  if (forwarded) {
-    const firstHop = forwarded.split(",")[0]?.trim();
-    if (firstHop) return firstHop;
-  }
-  return h.get("x-real-ip")?.trim() || "local";
 }
 
 function AuthorizeError({
@@ -50,18 +39,6 @@ export default async function AuthorizePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const h = await headers();
-  const limit = await rateLimitOAuth(oauthClientIp(h));
-  if (!limit.allowed) {
-    return new Response("Too many requests", {
-      status: 429,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Retry-After": String(limit.retryAfter),
-      },
-    });
-  }
-
   const params = await searchParams;
   const responseType = first(params.response_type);
   const challengeMethod = first(params.code_challenge_method);

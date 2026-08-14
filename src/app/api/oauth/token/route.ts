@@ -6,20 +6,12 @@ import {
   mcpResourceUri,
   verifyPkce,
 } from "@/lib/mcp/oauth";
+import { oauthClientIp } from "@/lib/mcp/oauth-rate-limit";
 import { issueMcpTokens, rotateMcpTokens } from "@/lib/mcp/tokens";
 import { rateLimitOAuth } from "@/lib/rate-limit";
 
 const METHODS = "POST, OPTIONS";
 const ACCESS_EXPIRES_IN = 3600;
-
-function oauthClientIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return headers.get("x-real-ip")?.trim() || "local";
-}
 
 function formField(form: FormData, name: string): string {
   const value = form.get(name);

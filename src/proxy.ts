@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
+import { rateLimitOAuthAuthorize } from "@/lib/mcp/oauth-rate-limit";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -18,7 +19,15 @@ function redirect(
   return NextResponse.redirect(new URL(path, base));
 }
 
-export default auth((req) => {
+export default auth(async (req) => {
+  // Pages cannot emit HTTP 429. Limit CIMD-driven authorize GETs here.
+  const authorizeLimit = await rateLimitOAuthAuthorize(
+    req.nextUrl.pathname,
+    req.method,
+    req.headers,
+  );
+  if (authorizeLimit) return authorizeLimit;
+
   const isLoggedIn = !!req.auth?.user;
   const isOnLoginPage = req.nextUrl.pathname === "/login";
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
