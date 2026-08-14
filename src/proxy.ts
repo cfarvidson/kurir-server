@@ -40,6 +40,14 @@ export default auth((req) => {
 
   // Mobile API routes do their own bearer-token auth (no session cookie).
   const isMobileApi = req.nextUrl.pathname.startsWith("/api/mobile");
+  // MCP Streamable HTTP + OAuth discovery/token are public (no session).
+  // /oauth/authorize stays behind the existing login redirect.
+  const isMcp =
+    req.nextUrl.pathname === "/mcp" || req.nextUrl.pathname.startsWith("/mcp/");
+  const isOAuthMeta =
+    req.nextUrl.pathname === "/.well-known/oauth-protected-resource" ||
+    req.nextUrl.pathname === "/.well-known/oauth-authorization-server";
+  const isOAuthToken = req.nextUrl.pathname === "/api/oauth/token";
   // Existing routes that support dual auth (session OR bearer) validate the
   // token in the handler. Only these exact paths may bypass the session
   // check here — a blanket bearer bypass would expose any handler that
@@ -61,6 +69,9 @@ export default auth((req) => {
     isHealthCheck ||
     isUpdaterCallback ||
     isMobileApi ||
+    isMcp ||
+    isOAuthMeta ||
+    isOAuthToken ||
     isBearerApiRequest
   ) {
     return NextResponse.next();
