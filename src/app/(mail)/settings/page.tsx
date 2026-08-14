@@ -6,7 +6,9 @@ import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
 import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
 import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
+import { McpConnections } from "@/components/settings/mcp-connections";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
+import { listMcpConnections } from "@/actions/mcp-tokens";
 import { ChevronRight, PlusCircle, Shield } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -110,59 +112,67 @@ export default async function SettingsPage() {
 
   const userId = session.user.id;
 
-  const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs, own] =
-    await Promise.all([
-      db.user.findUnique({
-        where: { id: userId },
-        select: {
-          displayName: true,
-          role: true,
-          createdAt: true,
-          blockRemoteImages: true,
-          blockTrackers: true,
-        },
-      }),
-      db.emailConnection.findMany({
-        where: { userId },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          sendAsEmail: true,
-          aliases: true,
-          treatDomainAsOwn: true,
-          imapHost: true,
-          smtpHost: true,
-          isDefault: true,
-          createdAt: true,
-          oauthProvider: true,
-          oauthError: true,
-          syncState: {
-            select: {
-              isSyncing: true,
-              syncError: true,
-              lastFullSync: true,
-              lastSyncLog: true,
-            },
+  const [
+    user,
+    rawConnections,
+    rawPasskeys,
+    systemSettings,
+    badgePrefs,
+    own,
+    mcpConnections,
+  ] = await Promise.all([
+    db.user.findUnique({
+      where: { id: userId },
+      select: {
+        displayName: true,
+        role: true,
+        createdAt: true,
+        blockRemoteImages: true,
+        blockTrackers: true,
+      },
+    }),
+    db.emailConnection.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        sendAsEmail: true,
+        aliases: true,
+        treatDomainAsOwn: true,
+        imapHost: true,
+        smtpHost: true,
+        isDefault: true,
+        createdAt: true,
+        oauthProvider: true,
+        oauthError: true,
+        syncState: {
+          select: {
+            isSyncing: true,
+            syncError: true,
+            lastFullSync: true,
+            lastSyncLog: true,
           },
         },
-      }),
-      db.passkey.findMany({
-        where: { userId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          friendlyName: true,
-          createdAt: true,
-          deviceType: true,
-          backedUp: true,
-        },
-      }),
-      db.systemSettings.findUnique({ where: { id: "singleton" } }),
-      getBadgePreferences(userId),
-      getOwnAddresses(userId),
-    ]);
+      },
+    }),
+    db.passkey.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        friendlyName: true,
+        createdAt: true,
+        deviceType: true,
+        backedUp: true,
+      },
+    }),
+    db.systemSettings.findUnique({ where: { id: "singleton" } }),
+    getBadgePreferences(userId),
+    getOwnAddresses(userId),
+    listMcpConnections(),
+  ]);
 
   const isAdmin = user?.role === "ADMIN";
   const canManageConnections =
@@ -239,6 +249,14 @@ export default async function SettingsPage() {
         />
         <div className="mt-4">
           <PasskeysList passkeys={passkeys} />
+        </div>
+      </section>
+
+      {/* Connected apps */}
+      <section>
+        <SectionHeading eyebrow="Apps" title="Connected apps" />
+        <div className="mt-4">
+          <McpConnections connections={mcpConnections} />
         </div>
       </section>
 
@@ -414,10 +432,7 @@ export default async function SettingsPage() {
             value={stats.paperTrailCount.toLocaleString()}
             label="Paper Trail"
           />
-          <Stat
-            value={stats.archivedCount.toLocaleString()}
-            label="Archived"
-          />
+          <Stat value={stats.archivedCount.toLocaleString()} label="Archived" />
           <Stat
             value={stats.pendingCount.toLocaleString()}
             label="Pending screening"

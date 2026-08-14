@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
+import { rateLimitOAuthAuthorize } from "@/lib/mcp/oauth-rate-limit";
 import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
@@ -18,7 +19,15 @@ function redirect(
   return NextResponse.redirect(new URL(path, base));
 }
 
-export default auth((req) => {
+export default auth(async (req) => {
+  // Pages cannot emit HTTP 429. Limit CIMD-driven authorize GETs here.
+  const authorizeLimit = await rateLimitOAuthAuthorize(
+    req.nextUrl.pathname,
+    req.method,
+    req.headers,
+  );
+  if (authorizeLimit) return authorizeLimit;
+
   const isLoggedIn = !!req.auth?.user;
   const isOnLoginPage = req.nextUrl.pathname === "/login";
   const isOnSetupPage = req.nextUrl.pathname === "/setup";
@@ -40,6 +49,14 @@ export default auth((req) => {
 
   // Mobile API routes do their own bearer-token auth (no session cookie).
   const isMobileApi = req.nextUrl.pathname.startsWith("/api/mobile");
+  // MCP Streamable HTTP + OAuth discovery/token are public (no session).
+  // /oauth/authorize stays behind the existing login redirect.
+  const isMcp =
+    req.nextUrl.pathname === "/mcp" || req.nextUrl.pathname.startsWith("/mcp/");
+  const isOAuthMeta =
+    req.nextUrl.pathname === "/.well-known/oauth-protected-resource" ||
+    req.nextUrl.pathname === "/.well-known/oauth-authorization-server";
+  const isOAuthToken = req.nextUrl.pathname === "/api/oauth/token";
   // Existing routes that support dual auth (session OR bearer) validate the
   // token in the handler. Only these exact paths may bypass the session
   // check here — a blanket bearer bypass would expose any handler that
@@ -61,6 +78,9 @@ export default auth((req) => {
     isHealthCheck ||
     isUpdaterCallback ||
     isMobileApi ||
+    isMcp ||
+    isOAuthMeta ||
+    isOAuthToken ||
     isBearerApiRequest
   ) {
     return NextResponse.next();

@@ -59,6 +59,9 @@ model User {
   mobileTokens      MobileToken[]
   messageTombstones MessageTombstone[]
   domainRules       DomainRule[]
+  mcpTokens             McpToken[]
+  mcpAuthorizationCodes McpAuthorizationCode[]
+  mcpConfirmations      McpConfirmation[]
 }
 
 // Bearer-token session for native mobile clients (iOS). One row per device
@@ -79,6 +82,70 @@ model MobileToken {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// OAuth authorization codes for MCP remote clients (CIMD). Short-lived;
+// exchanged once for an McpToken. Stored hashed (SHA-256).
+model McpAuthorizationCode {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  codeHash      String   @unique
+  clientId      String // CIMD URL
+  redirectUri   String
+  codeChallenge String // S256 challenge
+  resource      String
+  expiresAt     DateTime
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Bearer tokens for MCP remote HTTP clients. Opaque access/refresh pair stored
+// hashed (SHA-256). Audience (`resource`) is checked on every /mcp call.
+// Refresh rotates both hashes in place (race-safe updateMany).
+model McpToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  clientId             String
+  clientName           String?
+  accessTokenHash      String   @unique
+  refreshTokenHash     String   @unique
+  accessTokenExpiresAt DateTime
+  resource             String
+  lastUsedAt           DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  confirmations McpConfirmation[]
+
+  @@index([userId])
+}
+
+// Pending MRTR confirmation handles for dangerous MCP tool writes. Cascades
+// from McpToken so revoke invalidates in-flight confirms.
+model McpConfirmation {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  toolName   String
+  argsHash   String
+  argsJson   Json
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenId String
+  token   McpToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenId])
 }
 
 // Records message deletions so mobile delta-sync clients can remove rows they

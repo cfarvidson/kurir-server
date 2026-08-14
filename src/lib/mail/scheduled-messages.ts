@@ -3,7 +3,10 @@ import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
-import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
+import {
+  createLocalSentMessage,
+  appendToImapSent,
+} from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { rateLimitSend } from "@/lib/rate-limit";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
@@ -73,6 +76,30 @@ export const createScheduledSchema = z.object({
 
 export type CreateScheduledInput = z.input<typeof createScheduledSchema>;
 
+const futureDate = z.string().transform((s) => {
+  const date = new Date(s);
+  if (isNaN(date.getTime())) throw new Error("Invalid date");
+  if (date <= new Date()) throw new Error("scheduledFor must be in the future");
+  return date;
+});
+
+/** Shared edit schema for the web action and MCP `update_scheduled`. */
+export const updateScheduledSchema = z.object({
+  to: optionalRecipientField,
+  cc: optionalRecipientField,
+  bcc: optionalRecipientField,
+  subject: z.string().optional(),
+  textBody: z.string().optional(),
+  htmlBody: z.string().optional(),
+  scheduledFor: futureDate.optional(),
+  emailConnectionId: z.string().optional(),
+  inReplyToMessageId: z.string().optional(),
+  references: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
+});
+
+export type UpdateScheduledInput = z.input<typeof updateScheduledSchema>;
+
 /**
  * Create a PENDING scheduled message for `userId`. Verifies the connection and
  * any referenced attachments belong to the user, encrypts the body at rest,
@@ -80,6 +107,15 @@ export type CreateScheduledInput = z.input<typeof createScheduledSchema>;
  * hour. Returns the jittered `scheduledFor` so the client shows the real send
  * time (the server's answer), not its own guess.
  */
+async function assertSendRateLimit(userId: string): Promise<void> {
+  const rl = await rateLimitSend(userId);
+  if (!rl.allowed) {
+    throw new Error(
+      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+    );
+  }
+}
+
 export async function createScheduledMessageForUser(
   userId: string,
   input: CreateScheduledInput,
@@ -87,14 +123,18 @@ export async function createScheduledMessageForUser(
   if (isDemoInstance()) {
     throw new Error("Sending is disabled on this demo instance.");
   }
+  await assertSendRateLimit(userId);
+  return insertScheduledMessageForUser(userId, input);
+}
 
-  const rl = await rateLimitSend(userId);
-  if (!rl.allowed) {
-    throw new Error(
-      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-    );
-  }
-
+/**
+ * Write a scheduled row. Caller must have already applied demo and send
+ * rate-limit gates (HTTP/mobile wrappers do; MCP rate-limits before consume).
+ */
+export async function insertScheduledMessageForUser(
+  userId: string,
+  input: CreateScheduledInput,
+) {
   const parsed = createScheduledSchema.parse(input);
 
   // At least one recipient across To/Cc/Bcc (direct-send parity).
@@ -169,6 +209,77 @@ export async function listScheduledForUser(userId: string) {
       error: true,
     },
   });
+}
+
+/**
+ * Edit a PENDING scheduled message. Ownership-checked. Only provided fields
+ * change; an explicit empty recipient string clears that field.
+ */
+export async function updateScheduledForUser(
+  userId: string,
+  id: string,
+  data: UpdateScheduledInput,
+) {
+  const parsed = updateScheduledSchema.parse(data);
+
+  const msg = await db.scheduledMessage.findFirst({
+    where: { id, userId },
+  });
+  if (!msg) throw new Error("Scheduled message not found");
+  if (msg.status !== "PENDING") {
+    throw new Error("Only PENDING messages can be edited");
+  }
+
+  if (
+    parsed.emailConnectionId &&
+    parsed.emailConnectionId !== msg.emailConnectionId
+  ) {
+    const connection = await db.emailConnection.findFirst({
+      where: { id: parsed.emailConnectionId, userId },
+    });
+    if (!connection) throw new Error("Email connection not found");
+  }
+
+  const effectiveTo = parsed.to !== undefined ? parsed.to : msg.to;
+  const effectiveCc = parsed.cc !== undefined ? parsed.cc : msg.cc;
+  const effectiveBcc = parsed.bcc !== undefined ? parsed.bcc : msg.bcc;
+  if (!effectiveTo && !effectiveCc && !effectiveBcc) {
+    throw new Error("No valid recipient address provided");
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (parsed.to !== undefined) updateData.to = parsed.to ?? "";
+  if (parsed.cc !== undefined) updateData.cc = parsed.cc;
+  if (parsed.bcc !== undefined) updateData.bcc = parsed.bcc;
+  if (parsed.subject !== undefined) updateData.subject = parsed.subject;
+  if (parsed.textBody !== undefined)
+    updateData.textBody = encrypt(parsed.textBody);
+  if (parsed.htmlBody !== undefined)
+    updateData.htmlBody = encrypt(parsed.htmlBody);
+  if (parsed.scheduledFor !== undefined) {
+    const jitterMs = (1 + Math.random() * 13) * 60_000;
+    updateData.scheduledFor = new Date(
+      parsed.scheduledFor.getTime() + jitterMs,
+    );
+  }
+  if (parsed.emailConnectionId !== undefined)
+    updateData.emailConnectionId = parsed.emailConnectionId;
+  if (parsed.inReplyToMessageId !== undefined)
+    updateData.inReplyToMessageId = parsed.inReplyToMessageId;
+  if (parsed.references !== undefined)
+    updateData.references = parsed.references;
+  if (parsed.attachmentIds !== undefined)
+    updateData.attachmentIds = parsed.attachmentIds;
+
+  await db.scheduledMessage.update({
+    where: { id },
+    data: updateData,
+  });
+
+  return {
+    id,
+    scheduledFor: (updateData.scheduledFor as Date) ?? msg.scheduledFor,
+  };
 }
 
 export type CancelScheduledResult = "cancelled" | "not_found" | "not_pending";
@@ -257,7 +368,21 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
   if (isDemoInstance()) {
     throw new Error("Sending is disabled on this demo instance.");
   }
+  return deliverScheduledNowForUser(userId, id, () =>
+    assertSendRateLimit(userId),
+  );
+}
 
+/**
+ * Claim and deliver a scheduled row. Caller must have already applied the
+ * demo gate. Pass `beforeSend` to enforce the send limiter after the CAS
+ * claim (HTTP/mobile). MCP rate-limits before consume and omits it.
+ */
+export async function deliverScheduledNowForUser(
+  userId: string,
+  id: string,
+  beforeSend?: () => Promise<void>,
+) {
   // Atomic CAS: claim this message for sending
   const claimed = await db.scheduledMessage.updateMany({
     where: { id, userId, status: "PENDING" },
@@ -277,12 +402,7 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
   if (!msg) throw new Error("Scheduled message not found");
 
   try {
-    const rl = await rateLimitSend(userId);
-    if (!rl.allowed) {
-      throw new Error(
-        `Too many messages sent — try again in ${rl.retryAfter} seconds`,
-      );
-    }
+    await beforeSend?.();
 
     // Idempotency: if already sent (has smtpMessageId), skip SMTP
     if (msg.smtpMessageId) {
