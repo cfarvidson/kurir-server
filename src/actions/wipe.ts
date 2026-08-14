@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { auth } from "@/lib/auth";
+import { auth, canManageConnections } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { connectionManager } from "@/lib/mail/connection-manager";
 
@@ -17,6 +17,10 @@ export async function wipeAllData() {
   }
 
   const userId = session.user.id;
+
+  if (!(await canManageConnections(userId))) {
+    throw new Error("Account management is disabled. Contact your admin.");
+  }
 
   // Stop any active IMAP IDLE connections
   await connectionManager.stopAllForUser(userId);
@@ -58,6 +62,8 @@ export async function wipeMailData() {
     db.message.deleteMany({ where: { userId } }),
     db.folder.deleteMany({ where: { userId } }),
     db.sender.deleteMany({ where: { userId } }),
+    db.draft.deleteMany({ where: { userId } }),
+    db.scheduledMessage.deleteMany({ where: { userId } }),
     ...connectionIds.map((id) =>
       db.syncState.updateMany({
         where: { emailConnectionId: id },

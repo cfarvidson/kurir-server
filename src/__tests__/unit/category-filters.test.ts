@@ -27,6 +27,7 @@ describe("getMessages category filters", () => {
       userId: "user-1",
       isFollowUp: true,
       isArchived: false,
+      isDeleted: false,
     });
   });
 
@@ -35,6 +36,7 @@ describe("getMessages category filters", () => {
       userId: "user-1",
       isReplyLater: true,
       isArchived: false,
+      isDeleted: false,
     });
   });
 
@@ -44,6 +46,7 @@ describe("getMessages category filters", () => {
       isInImbox: true,
       isSnoozed: false,
       isReplyLater: false,
+      isDeleted: false,
     });
   });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "SyncState" ADD COLUMN IF NOT EXISTS "lockToken" TEXT;

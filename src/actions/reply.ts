@@ -10,6 +10,7 @@ import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { rateLimitSend } from "@/lib/rate-limit";
+import { isDemoInstance } from "@/lib/demo";
 import { updateTag } from "next/cache";
 import nodemailer from "nodemailer";
 
@@ -36,6 +37,10 @@ export async function replyToMessage(
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
+  }
+
+  if (isDemoInstance()) {
+    throw new Error("Sending is disabled on this demo instance.");
   }
 
   const rl = await rateLimitSend(session.user.id);

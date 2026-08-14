@@ -10,6 +10,8 @@ import {
 
 export interface DraftData {
   to: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   emailConnectionId?: string;
@@ -61,6 +63,8 @@ export function useDraft(
       if (serverDraft) {
         const data: DraftData = {
           to: serverDraft.to,
+          cc: serverDraft.cc,
+          bcc: serverDraft.bcc,
           subject: serverDraft.subject,
           body: serverDraft.body,
           emailConnectionId: serverDraft.emailConnectionId ?? undefined,
@@ -94,6 +98,9 @@ export function useDraft(
       const isEmpty =
         !data.body.trim() &&
         !data.subject.trim() &&
+        !data.to.trim() &&
+        !(data.cc ?? "").trim() &&
+        !(data.bcc ?? "").trim() &&
         data.attachmentIds.length === 0;
 
       timerRef.current = setTimeout(async () => {
@@ -125,6 +132,8 @@ export function useDraft(
             type,
             contextMessageId,
             to: data.to,
+            cc: data.cc,
+            bcc: data.bcc,
             subject: data.subject,
             body: data.body,
             emailConnectionId: data.emailConnectionId,

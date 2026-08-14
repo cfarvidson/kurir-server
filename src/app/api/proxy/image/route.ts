@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import dns from "dns/promises";
+import http from "http";
+import https from "https";
+import net from "net";
 
 const BLOCKED_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 const BLOCKED_SUFFIXES = [".local", ".internal", ".ts.net"];
@@ -39,7 +42,17 @@ function isPrivateIP(ip: string): boolean {
   const normalized = ip.toLowerCase();
   if (normalized === "::1") return true;
   if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true; // fc00::/7 (ULA)
-  if (normalized.startsWith("fe80")) return true; // fe80::/10 (link-local)
+  // fe80::/10 is fe80-febf, not just the fe80 prefix
+  if (/^fe[89ab]/i.test(normalized)) return true;
+  // Hex IPv4-mapped (::ffff:7f00:1 = 127.0.0.1)
+  const v4hex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  if (v4hex) {
+    const hi = parseInt(v4hex[1], 16);
+    const lo = parseInt(v4hex[2], 16);
+    return isPrivateIPv4(
+      `${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`,
+    );
+  }
 
   return false;
 }
@@ -58,20 +71,87 @@ function isPrivateIPv4(ip: string): boolean {
 }
 
 /**
- * Resolve hostname via DNS and check that the resolved IP is not private/loopback.
- * Returns true if the hostname resolves to a blocked IP.
+ * Resolve every A/AAAA record. Returns a pinned public address, or null when
+ * any record is private / lookup fails (block to be safe).
  */
-async function resolvesToPrivateIP(hostname: string): Promise<boolean> {
-  // If it's already an IP literal, check directly
-  if (isPrivateIP(hostname)) return true;
+async function resolvePublicAddress(hostname: string): Promise<string | null> {
+  if (isPrivateIP(hostname)) return null;
 
   try {
-    const { address } = await dns.lookup(hostname);
-    return isPrivateIP(address);
+    const results = await dns.lookup(hostname, { all: true });
+    if (results.length === 0) return null;
+    if (results.some((r) => isPrivateIP(r.address))) return null;
+    return results[0].address;
   } catch {
-    // DNS resolution failed — block to be safe
-    return true;
+    return null;
   }
+}
+
+function fetchPinned(
+  url: URL,
+  ip: string,
+  redirect: "manual" | "error",
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const isHttps = url.protocol === "https:";
+    const lib = isHttps ? https : http;
+    const family = net.isIP(ip) === 6 ? 6 : 4;
+    const req = lib.request(
+      {
+        host: ip,
+        servername: url.hostname,
+        port: Number(url.port) || (isHttps ? 443 : 80),
+        path: `${url.pathname}${url.search}`,
+        method: "GET",
+        headers: {
+          Host: url.host,
+          "User-Agent": "KurirMail/1.0 ImageProxy",
+        },
+        lookup: (_hostname, _options, cb) => {
+          cb(null, ip, family);
+        },
+        timeout: 10_000,
+      },
+      (res) => {
+        if (
+          redirect === "error" &&
+          res.statusCode &&
+          res.statusCode >= 300 &&
+          res.statusCode < 400
+        ) {
+          req.destroy();
+          reject(new Error("redirect"));
+          return;
+        }
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(res.headers)) {
+          if (value === undefined) continue;
+          headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+        }
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            res.on("data", (chunk: Buffer) => {
+              controller.enqueue(new Uint8Array(chunk));
+            });
+            res.on("end", () => controller.close());
+            res.on("error", (err) => controller.error(err));
+          },
+        });
+        resolve(
+          new Response(stream, {
+            status: res.statusCode ?? 502,
+            headers,
+          }),
+        );
+      },
+    );
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("timeout"));
+    });
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -132,16 +212,12 @@ export async function GET(req: NextRequest) {
       return transparentPixelResponse();
     }
 
-    // DNS resolution check to block rebinding/IPv6 bypass
-    if (await resolvesToPrivateIP(parsed.hostname)) {
+    const pinnedIp = await resolvePublicAddress(parsed.hostname);
+    if (!pinnedIp) {
       return transparentPixelResponse();
     }
 
-    const response = await fetch(parsed.href, {
-      signal: AbortSignal.timeout(10_000),
-      headers: { "User-Agent": "KurirMail/1.0 ImageProxy" },
-      redirect: "manual",
-    });
+    const response = await fetchPinned(parsed, pinnedIp, "manual");
 
     // Follow one redirect manually, validating the target
     let finalResponse = response;
@@ -156,15 +232,11 @@ export async function GET(req: NextRequest) {
         if (!/^https?:$/i.test(redirectUrl.protocol)) {
           return transparentPixelResponse();
         }
-        if (await resolvesToPrivateIP(redirectUrl.hostname)) {
+        const redirectIp = await resolvePublicAddress(redirectUrl.hostname);
+        if (!redirectIp) {
           return transparentPixelResponse();
         }
-        // Disallow further redirects after the first validated one
-        finalResponse = await fetch(redirectUrl.href, {
-          signal: AbortSignal.timeout(10_000),
-          headers: { "User-Agent": "KurirMail/1.0 ImageProxy" },
-          redirect: "error",
-        });
+        finalResponse = await fetchPinned(redirectUrl, redirectIp, "error");
       } catch {
         return transparentPixelResponse();
       }

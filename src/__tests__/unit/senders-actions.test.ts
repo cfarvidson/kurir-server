@@ -36,7 +36,7 @@ vi.mock("@/lib/mail/archive-imap", () => ({
   moveToArchiveViaImap: vi.fn(),
 }));
 
-vi.mock("@/actions/contacts", () => ({
+vi.mock("@/lib/mail/contacts", () => ({
   findOrCreateContactForEmail: vi.fn(),
 }));
 
@@ -89,7 +89,7 @@ describe("approveSender", () => {
 
     expect(db.$transaction).toHaveBeenCalled();
 
-    const { findOrCreateContactForEmail } = await import("@/actions/contacts");
+    const { findOrCreateContactForEmail } = await import("@/lib/mail/contacts");
     expect(findOrCreateContactForEmail).toHaveBeenCalledWith(
       "user-1",
       "sender@example.com",

@@ -545,6 +545,7 @@ model SyncState {
   // Sync status
   isSyncing     Boolean   @default(false)
   syncStartedAt DateTime?
+  lockToken     String?
   syncError     String?
   lastSyncLog   String?
 }
@@ -625,6 +626,8 @@ model Draft {
 
   // Email content
   to      String   @default("")
+  cc      String   @default("")
+  bcc     String   @default("")
   subject String   @default("")
   body    String   @default("") @db.Text
 

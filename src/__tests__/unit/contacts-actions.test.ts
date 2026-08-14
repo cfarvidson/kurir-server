@@ -166,6 +166,11 @@ describe("deleteContact", () => {
   });
 });
 
+it("does not export findOrCreateContactForEmail as a server action", async () => {
+  const actions = await import("@/actions/contacts");
+  expect(actions).not.toHaveProperty("findOrCreateContactForEmail");
+});
+
 describe("findOrCreateContactForEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -182,7 +187,7 @@ describe("findOrCreateContactForEmail", () => {
       contact: existingContact,
     } as any);
 
-    const { findOrCreateContactForEmail } = await import("@/actions/contacts");
+    const { findOrCreateContactForEmail } = await import("@/lib/mail/contacts");
     const result = await findOrCreateContactForEmail(
       "user-1",
       "Alice@Example.com",
@@ -210,7 +215,7 @@ describe("findOrCreateContactForEmail", () => {
       return fn(tx);
     });
 
-    const { findOrCreateContactForEmail } = await import("@/actions/contacts");
+    const { findOrCreateContactForEmail } = await import("@/lib/mail/contacts");
     const result = await findOrCreateContactForEmail(
       "user-1",
       "bob@example.com",
@@ -235,7 +240,7 @@ describe("findOrCreateContactForEmail", () => {
       return fn(tx);
     });
 
-    const { findOrCreateContactForEmail } = await import("@/actions/contacts");
+    const { findOrCreateContactForEmail } = await import("@/lib/mail/contacts");
     await findOrCreateContactForEmail("user-1", "BOB@Example.COM");
 
     expect(db.contactEmail.findFirst).toHaveBeenCalledWith(

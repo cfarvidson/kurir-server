@@ -15,6 +15,7 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
   getUserEmailConnections: vi.fn(),
   getEmailConnection: vi.fn(),
+  canManageConnections: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -30,6 +31,9 @@ vi.mock("@/lib/db", () => ({
     },
     systemSettings: {
       findUnique: vi.fn().mockResolvedValue(null),
+    },
+    user: {
+      findUnique: vi.fn().mockResolvedValue({ role: "USER" }),
     },
     $transaction: vi.fn(),
   },

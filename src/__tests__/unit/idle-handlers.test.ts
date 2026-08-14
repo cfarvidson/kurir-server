@@ -87,8 +87,16 @@ describe("idle-handlers — checkForNewMessages (U4)", () => {
     vi.useFakeTimers();
 
     const { db } = await import("@/lib/db");
-    // Default: no stored messages -> lastUid 0; folder lookups resolve null.
-    vi.mocked(db.message.findFirst).mockResolvedValue(null as never);
+    vi.mocked(db.message.findFirst).mockReset();
+    vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+    // Highest-UID lookup (orderBy uid desc) reports cached mail so ingest
+    // is allowed. Per-UID exists checks return null (new mail).
+    vi.mocked(db.message.findFirst).mockImplementation(((args: any) => {
+      if (args?.orderBy?.uid === "desc") {
+        return Promise.resolve({ uid: 1 });
+      }
+      return Promise.resolve(null);
+    }) as never);
     vi.mocked(db.emailConnection.findUnique).mockResolvedValue({
       email: "me@example.com",
       sendAsEmail: null,
@@ -121,9 +129,9 @@ describe("idle-handlers — checkForNewMessages (U4)", () => {
     const { checkForNewMessages } = await loadModule();
     await checkForNewMessages(CONNECTION_ID);
 
-    // Range starts at lastUid(0)+1.
+    // Range starts at lastUid(1)+1.
     expect(conn.client.fetch).toHaveBeenCalledWith(
-      "1:*",
+      "2:*",
       expect.objectContaining({ source: true }),
       { uid: true },
     );
@@ -265,10 +273,13 @@ describe("idle-handlers — checkForNewMessages (U4)", () => {
     const conn = makeConn([{ uid: 21 }]);
     vi.mocked(connectionManager.getConnection).mockReturnValue(conn as never);
 
-    // lastUid lookup -> null (0), then per-UID existence check -> row exists.
-    vi.mocked(db.message.findFirst)
-      .mockResolvedValueOnce(null as never) // highest-uid lookup
-      .mockResolvedValueOnce({ id: "already" } as never); // per-uid exists
+    // lastUid lookup -> cached (so ingest runs), then per-UID exists -> skip.
+    vi.mocked(db.message.findFirst).mockImplementation(((args: any) => {
+      if (args?.orderBy?.uid === "desc") {
+        return Promise.resolve({ uid: 1 });
+      }
+      return Promise.resolve({ id: "already" });
+    }) as never);
 
     const { checkForNewMessages } = await loadModule();
     await checkForNewMessages(CONNECTION_ID);

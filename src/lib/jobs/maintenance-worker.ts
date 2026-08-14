@@ -131,12 +131,22 @@ async function expireOldAttachments(): Promise<void> {
 async function cleanupOrphanUploads(): Promise<void> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  // Get all attachment IDs referenced by pending scheduled messages
-  const scheduled = await db.scheduledMessage.findMany({
-    where: { status: "PENDING", attachmentIds: { isEmpty: false } },
-    select: { attachmentIds: true },
-  });
-  const referencedIds = scheduled.flatMap((s) => s.attachmentIds);
+  const [scheduled, drafts] = await Promise.all([
+    db.scheduledMessage.findMany({
+      where: { status: "PENDING", attachmentIds: { isEmpty: false } },
+      select: { attachmentIds: true },
+    }),
+    db.draft.findMany({
+      where: { attachmentIds: { isEmpty: false } },
+      select: { attachmentIds: true },
+    }),
+  ]);
+  const referencedIds = [
+    ...new Set([
+      ...scheduled.flatMap((s) => s.attachmentIds),
+      ...drafts.flatMap((d) => d.attachmentIds),
+    ]),
+  ];
 
   const result = await db.attachment.deleteMany({
     where: {

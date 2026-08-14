@@ -109,7 +109,6 @@ export default async function SettingsPage() {
   }
 
   const userId = session.user.id;
-  const isAdmin = session.user.role === "ADMIN";
 
   const [user, rawConnections, rawPasskeys, systemSettings, badgePrefs, own] =
     await Promise.all([
@@ -117,6 +116,7 @@ export default async function SettingsPage() {
         where: { id: userId },
         select: {
           displayName: true,
+          role: true,
           createdAt: true,
           blockRemoteImages: true,
           blockTrackers: true,
@@ -164,6 +164,7 @@ export default async function SettingsPage() {
       getOwnAddresses(userId),
     ]);
 
+  const isAdmin = user?.role === "ADMIN";
   const canManageConnections =
     isAdmin || (systemSettings?.selfServiceAccountManagement ?? true);
 
@@ -483,17 +484,19 @@ export default async function SettingsPage() {
               <WipeMailButton />
             </div>
           </div>
-          <div className="py-4">
-            <p className="text-sm font-medium">Wipe everything</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Delete all email connections, messages, senders, and folders. Your
-              account and passkeys are kept. You will be redirected to set up a
-              new connection.
-            </p>
-            <div className="mt-3">
-              <WipeButton />
+          {canManageConnections && (
+            <div className="py-4">
+              <p className="text-sm font-medium">Wipe everything</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Delete all email connections, messages, senders, and folders.
+                Your account and passkeys are kept. You will be redirected to
+                set up a new connection.
+              </p>
+              <div className="mt-3">
+                <WipeButton />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
     </div>

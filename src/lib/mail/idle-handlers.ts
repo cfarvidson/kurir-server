@@ -315,6 +315,10 @@ async function ingestNewMessages(
   });
   const lastUid = lastMsg?.uid ?? 0;
 
+  if (!shouldRunBootCatchUp({ lastUid, newUidCount: 1 })) {
+    return;
+  }
+
   // Fetch new messages (uid > lastUid)
   const fetchRange = `${lastUid + 1}:*`;
   let count = 0;
@@ -514,18 +518,15 @@ async function handleFlagChange(
     data: newFlags,
   });
 
-  // Update highestModSeq if modseq is present and higher
+  // Monotonic bump — concurrent flag handlers must not clobber a higher value.
   if (modseq) {
-    const folder = await db.folder.findUnique({
-      where: { id: folderId },
-      select: { highestModSeq: true },
+    await db.folder.updateMany({
+      where: {
+        id: folderId,
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: modseq } }],
+      },
+      data: { highestModSeq: modseq },
     });
-    if (!folder?.highestModSeq || modseq > folder.highestModSeq) {
-      await db.folder.update({
-        where: { id: folderId },
-        data: { highestModSeq: modseq },
-      });
-    }
   }
 
   console.log(`[idle] Flags changed: uid=${uid} flags=${[...flags].join(",")}`);
@@ -611,8 +612,11 @@ export async function catchUpAfterReconnect(
   }
 
   if (maxModSeq > folder.highestModSeq) {
-    await db.folder.update({
-      where: { id: folderId },
+    await db.folder.updateMany({
+      where: {
+        id: folderId,
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: maxModSeq } }],
+      },
       data: { highestModSeq: maxModSeq },
     });
   }

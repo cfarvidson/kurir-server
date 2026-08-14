@@ -30,6 +30,7 @@ export async function getImboxUnreadThreadCount(
       isSnoozed: false,
       isReplyLater: false,
       isRead: false,
+      isDeleted: false,
     },
     select: {
       id: true,

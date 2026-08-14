@@ -10,6 +10,8 @@ import {
   createScheduledMessageForUser,
   cancelScheduledForUser,
   sendScheduledNowForUser,
+  deferScheduledForUser,
+  restoreScheduledTimeForUser,
   type CreateScheduledInput,
 } from "@/lib/mail/scheduled-messages";
 
@@ -184,6 +186,25 @@ export async function editScheduledMessage(
   });
 
   updateTag("sidebar-counts");
+}
+
+export async function deferScheduledMessage(id: string, deferMs: number) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return deferScheduledForUser(session.user.id, id, deferMs);
+}
+
+export async function restoreScheduledTime(id: string, scheduledFor: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const date = new Date(scheduledFor);
+  if (isNaN(date.getTime())) throw new Error("Invalid date");
+  const restored = await restoreScheduledTimeForUser(
+    session.user.id,
+    id,
+    date,
+  );
+  return { restored };
 }
 
 export async function sendScheduledMessageNow(id: string) {

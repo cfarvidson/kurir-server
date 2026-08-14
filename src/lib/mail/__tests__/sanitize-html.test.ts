@@ -356,6 +356,15 @@ describe("sanitizeEmailHtml", () => {
       expect(result).not.toContain("url(");
       expect(result).toContain("Content");
     });
+
+    it("strips url() hidden behind a CSS comment", () => {
+      const result = sanitizeEmailHtml(
+        '<p style="background-image: url/**/(https://tracker.evil.com/pixel.gif);">Text</p>',
+      );
+      expect(result).not.toContain("tracker.evil.com");
+      expect(result).not.toContain("url(");
+      expect(result).toContain("Text");
+    });
   });
 
   describe("collapseQuotes option", () => {

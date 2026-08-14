@@ -11,9 +11,9 @@ import { db } from "@/lib/db";
  * Like the cores in `scheduled-messages.ts`, these do NOT touch the cache
  * layer — the web wrappers own revalidatePath/updateTag.
  *
- * Out of scope here (web-only for now): linkContacts, unlinkContactEmail and
- * findOrCreateContactForEmail (shared with the sync path) stay in
- * `@/actions/contacts`.
+ * Out of scope here (web-only for now): linkContacts and unlinkContactEmail.
+ * findOrCreateContactForEmail lives in this module so it is never registered
+ * as a server action (it takes a caller-supplied userId).
  */
 
 /** Label vocabulary offered by the clients. The DB column is a free-form
@@ -313,4 +313,75 @@ export async function setContactEmailPrimaryForUser(
       data: { isPrimary: true },
     }),
   ]);
+}
+
+/**
+ * Auto-create or return the contact for an address. Callers must already have
+ * resolved and authorized `userId` — this is not a server action.
+ */
+export async function findOrCreateContactForEmail(
+  userId: string,
+  email: string,
+  displayName?: string | null,
+) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existing = await db.contactEmail.findFirst({
+    where: {
+      email: normalizedEmail,
+      contact: { userId },
+    },
+    include: {
+      contact: {
+        include: {
+          emails: { orderBy: { createdAt: "asc" } },
+        },
+      },
+    },
+  });
+
+  if (existing) {
+    return existing.contact;
+  }
+
+  const sender = await db.sender.findFirst({
+    where: {
+      userId,
+      email: normalizedEmail,
+      status: "APPROVED",
+    },
+    select: { id: true, displayName: true },
+  });
+
+  const name =
+    displayName?.trim() ||
+    sender?.displayName?.trim() ||
+    normalizedEmail.split("@")[0] ||
+    normalizedEmail;
+
+  return db.$transaction(async (tx) => {
+    const created = await tx.contact.create({
+      data: {
+        name,
+        userId,
+      },
+    });
+
+    await tx.contactEmail.create({
+      data: {
+        email: normalizedEmail,
+        label: "personal",
+        isPrimary: true,
+        contactId: created.id,
+        senderId: sender?.id ?? null,
+      },
+    });
+
+    return tx.contact.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        emails: { orderBy: { createdAt: "asc" } },
+      },
+    });
+  });
 }

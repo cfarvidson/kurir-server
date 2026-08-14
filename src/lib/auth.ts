@@ -30,6 +30,26 @@ export async function requireAdmin() {
   return session;
 }
 
+/**
+ * Whether this user may add/update/delete connections or wipe accounts.
+ * Reads role from the DB so a demotion takes effect immediately (JWT role
+ * is written once at login and can stay stale for the session lifetime).
+ */
+export async function canManageConnections(userId: string): Promise<boolean> {
+  const [settings, user] = await Promise.all([
+    db.systemSettings.findUnique({
+      where: { id: "singleton" },
+      select: { selfServiceAccountManagement: true },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    }),
+  ]);
+  if (user?.role === "ADMIN") return true;
+  return settings?.selfServiceAccountManagement ?? true;
+}
+
 // Helper to get current user with DB data
 export async function getCurrentUser() {
   const session = await auth();
