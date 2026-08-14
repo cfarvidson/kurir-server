@@ -23,11 +23,29 @@ export async function generateSecrets(): Promise<void> {
   }
 
   // ENCRYPTION_KEY
-  if (!process.env.ENCRYPTION_KEY) {
+  const hadEncryptionKey = Boolean(process.env.ENCRYPTION_KEY);
+  if (!hadEncryptionKey) {
     const key = randomBytes(32).toString("base64");
     process.env.ENCRYPTION_KEY = key;
     generated["ENCRYPTION_KEY"] = key;
     console.log("[generate-secrets] Generated ENCRYPTION_KEY");
+  }
+
+  // ENCRYPTION_SALT: new installs get a unique salt. Existing installs that
+  // already derived keys with the compiled default must keep that value.
+  if (!process.env.ENCRYPTION_SALT) {
+    if (hadEncryptionKey) {
+      process.env.ENCRYPTION_SALT = "kurir-salt";
+      generated["ENCRYPTION_SALT"] = "kurir-salt";
+      console.log(
+        "[generate-secrets] Persisting historical ENCRYPTION_SALT default",
+      );
+    } else {
+      const salt = randomBytes(16).toString("base64");
+      process.env.ENCRYPTION_SALT = salt;
+      generated["ENCRYPTION_SALT"] = salt;
+      console.log("[generate-secrets] Generated ENCRYPTION_SALT");
+    }
   }
 
   // VAPID keys

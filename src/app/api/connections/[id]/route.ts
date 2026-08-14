@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { auth, getEmailConnection } from "@/lib/auth";
+import { auth, canManageConnections, getEmailConnection } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { approveOwnPendingSenders } from "@/lib/jobs/maintenance-tasks";
 import { z } from "zod";
 
-async function checkSelfService(
-  userRole: string,
-): Promise<NextResponse | null> {
-  const settings = await db.systemSettings.findUnique({
-    where: { id: "singleton" },
-  });
-  const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
-  if (!selfServiceEnabled && userRole !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Account management is disabled. Contact your admin." },
-      { status: 403 },
-    );
-  }
-  return null;
+async function checkSelfService(userId: string): Promise<NextResponse | null> {
+  if (await canManageConnections(userId)) return null;
+  return NextResponse.json(
+    { error: "Account management is disabled. Contact your admin." },
+    { status: 403 },
+  );
 }
 
 const updateConnectionSchema = z.object({
@@ -45,7 +37,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const blocked = await checkSelfService(session.user.role ?? "USER");
+  const blocked = await checkSelfService(session.user.id);
   if (blocked) return blocked;
 
   const { id } = await params;
@@ -172,7 +164,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const blockedDel = await checkSelfService(session.user.role ?? "USER");
+  const blockedDel = await checkSelfService(session.user.id);
   if (blockedDel) return blockedDel;
 
   const { id } = await params;

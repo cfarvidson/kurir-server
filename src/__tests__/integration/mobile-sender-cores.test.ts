@@ -13,7 +13,7 @@ const dbMock = {
     updateMany: vi.fn(),
   },
   folder: { findFirst: vi.fn() },
-  message: { updateMany: vi.fn() },
+  message: { updateMany: vi.fn(), findMany: vi.fn() },
   $transaction: vi.fn(async (ops: unknown) => ops),
 };
 
@@ -23,7 +23,7 @@ vi.mock("@/lib/mail/archive-imap", () => ({
   moveToArchiveViaImap: vi.fn(),
   moveToInboxViaImap: vi.fn(),
 }));
-vi.mock("@/actions/contacts", () => ({ findOrCreateContactForEmail: vi.fn() }));
+vi.mock("@/lib/mail/contacts", () => ({ findOrCreateContactForEmail: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 const USER = "user-1";
@@ -81,6 +81,7 @@ describe("undoScreenActionForUser", () => {
       emailConnectionId: "c1",
     });
     dbMock.folder.findFirst.mockResolvedValue({ id: "inbox-1" });
+    dbMock.message.findMany.mockResolvedValue([]);
     const { undoScreenActionForUser } = await import("@/lib/mail/mutations");
 
     await undoScreenActionForUser(USER, "s1");
@@ -91,7 +92,7 @@ describe("undoScreenActionForUser", () => {
       data: { status: "PENDING", category: null, decidedAt: null },
     });
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { senderId: "s1", folderId: "inbox-1" },
+      where: { senderId: "s1" },
       data: {
         isArchived: false,
         isInScreener: true,

@@ -37,6 +37,8 @@ import {
   editScheduledMessage,
   holdScheduledMessage,
   restoreScheduledMessage,
+  deferScheduledMessage,
+  restoreScheduledTime,
 } from "@/actions/scheduled-messages";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { safeInternalPath } from "@/lib/mail/compose-origin";
@@ -174,6 +176,8 @@ export function ComposeClientPage({
       "",
   );
   const [error, setError] = useState<string | null>(null);
+  const sendingRef = useRef(false);
+  const [isSending, setIsSending] = useState(false);
   const {
     attachments,
     upload,
@@ -241,6 +245,14 @@ export function ComposeClientPage({
       }
 
       if (draft.to) setTo(draft.to);
+      if (draft.cc) {
+        setCc(draft.cc);
+        setShowCc(true);
+      }
+      if (draft.bcc) {
+        setBcc(draft.bcc);
+        setShowBcc(true);
+      }
       if (draft.subject) setSubject(draft.subject);
       if (draft.body) setBody(draft.body);
       if (draft.emailConnectionId) setFromConnectionId(draft.emailConnectionId);
@@ -270,12 +282,14 @@ export function ComposeClientPage({
       .map((a) => a.id);
     saveDraft({
       to,
+      cc,
+      bcc,
       subject,
       body,
       emailConnectionId: fromConnectionId,
       attachmentIds,
     });
-  }, [to, subject, body, fromConnectionId, attachments, saveDraft]);
+  }, [to, cc, bcc, subject, body, fromConnectionId, attachments, saveDraft]);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -519,6 +533,7 @@ export function ComposeClientPage({
   };
 
   const handleSend = async () => {
+    if (sendingRef.current) return;
     const built = buildRecipients();
     if (!built) return;
     if (isUploading) {
@@ -528,21 +543,30 @@ export function ComposeClientPage({
 
     setError(null);
     cancelPendingSave();
+    sendingRef.current = true;
+    setIsSending(true);
 
-    // When sending now from an edit of a scheduled message, cancel the pending
-    // scheduled copy *synchronously* before starting the undo timer. This is an
-    // atomic gate: if the hold fails, the background scheduler already claimed
-    // the copy and is delivering it on schedule — so we must NOT also send,
-    // which would deliver the email twice (issue #52). Undo re-instates it.
+    // Keep the scheduled row PENDING during the undo window so a refresh or
+    // crash cannot leave it CANCELLED-and-lost. Bump scheduledFor far enough
+    // that the worker cannot deliver it while the toast is up (issue #52).
+    let previousScheduledFor: string | null = null;
     if (editScheduled) {
       try {
-        const { held } = await holdScheduledMessage(editScheduled.id);
-        if (!held) {
+        const deferred = await deferScheduledMessage(
+          editScheduled.id,
+          UNDO_DELAY_MS + 60_000,
+        );
+        if (!deferred.deferred) {
+          sendingRef.current = false;
+          setIsSending(false);
           toast.error("This message already went out on its schedule.");
           router.push("/scheduled");
           return;
         }
+        previousScheduledFor = deferred.previousScheduledFor;
       } catch (err) {
+        sendingRef.current = false;
+        setIsSending(false);
         toast.error(err instanceof Error ? err.message : "Couldn't send");
         return;
       }
@@ -573,11 +597,6 @@ export function ComposeClientPage({
     };
 
     const onExpire = async () => {
-      // We held (CANCELLED) the scheduled copy synchronously on Send. If the
-      // send-now delivery fails here, the email went out neither now nor on
-      // schedule, so re-instate the held copy (CANCELLED -> PENDING) and let
-      // the scheduler deliver it later. Best-effort: a restore failure must not
-      // mask the underlying send error surfaced to the user.
       const restoreHeldOnFailure = async () => {
         if (editScheduled) {
           await restoreScheduledMessage(editScheduled.id).catch((restoreErr) =>
@@ -586,8 +605,21 @@ export function ComposeClientPage({
               restoreErr,
             ),
           );
+          if (previousScheduledFor) {
+            await restoreScheduledTime(
+              editScheduled.id,
+              previousScheduledFor,
+            ).catch(() => {});
+          }
         }
       };
+
+      if (editScheduled) {
+        const { held } = await holdScheduledMessage(editScheduled.id);
+        if (!held) {
+          throw new Error("This message already went out on its schedule.");
+        }
+      }
 
       let response: Response;
       try {
@@ -615,20 +647,20 @@ export function ComposeClientPage({
         throw new Error(data.error || "Failed to send email");
       }
 
-      // The scheduled copy (if any) was already held synchronously on Send, so
-      // there's nothing to cancel here. For ordinary compose, delete the draft
-      // now that the undo window has expired; drafts are disabled while editing
-      // a scheduled message.
       if (!editScheduled) {
         await removeDraft();
       }
     };
 
     const onSuccess = () => {
+      sendingRef.current = false;
+      setIsSending(false);
       toast.success("Message sent");
     };
 
     const onError = (errorMsg: string) => {
+      sendingRef.current = false;
+      setIsSending(false);
       toast.error(errorMsg);
     };
 
@@ -640,14 +672,13 @@ export function ComposeClientPage({
       UNDO_DELAY_MS,
       async () => {
         cancel(sendId);
-        // Re-instate the scheduled copy we held on Send so the original
-        // schedule still fires (issue #52). Restore brings back the row with
-        // its original content — in-progress compose edits aren't persisted on
-        // the send-now path, only via "Update schedule".
-        if (editScheduled) {
+        sendingRef.current = false;
+        setIsSending(false);
+        if (editScheduled && previousScheduledFor) {
           try {
-            const { restored } = await restoreScheduledMessage(
+            const { restored } = await restoreScheduledTime(
               editScheduled.id,
+              previousScheduledFor,
             );
             if (!restored) {
               toast.error("Couldn't restore the schedule — check Scheduled.");
@@ -710,7 +741,11 @@ export function ComposeClientPage({
               <span className="hidden sm:inline">Cancel</span>
             </Button>
             <div className="flex items-center gap-1">
-              <Button size="sm" onClick={handleSend}>
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={scheduling || isSending}
+              >
                 <Send className="h-4 w-4" />
                 Send
               </Button>

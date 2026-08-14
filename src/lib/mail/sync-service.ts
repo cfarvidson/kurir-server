@@ -169,7 +169,6 @@ async function getOrCreateSender(
     },
     update: {
       displayName: displayName || undefined,
-      messageCount: { increment: 1 },
     },
   });
 
@@ -760,6 +759,11 @@ export async function processMessage(
     });
   }
 
+  await db.sender.update({
+    where: { id: sender.id },
+    data: { messageCount: { increment: 1 } },
+  });
+
   // Auto-cancel/clear follow-up reminders when an incoming reply arrives
   if (isInbox && threadId && own && !isOwnAddress(fromAddress, own)) {
     await db.message.updateMany({
@@ -869,6 +873,7 @@ async function moveRejectedToArchive(
     `[sync] Moving ${stale.length} rejected-sender message(s) from INBOX → ${archiveBox.path}`,
   );
 
+  const movedIds: string[] = [];
   const lock = await client.getMailboxLock("INBOX");
   try {
     const uids = stale.map((m) => m.uid);
@@ -881,6 +886,9 @@ async function moveRejectedToArchive(
       }
       try {
         await client.messageMove(chunk, archiveBox.path, { uid: true });
+        movedIds.push(
+          ...stale.filter((m) => chunk.includes(m.uid)).map((m) => m.id),
+        );
       } catch (err) {
         console.error(`[sync] Failed to move UIDs ${chunk.join(",")}:`, err);
       }
@@ -889,14 +897,15 @@ async function moveRejectedToArchive(
     lock.release();
   }
 
-  // Delete moved messages — the archive-folder sync will recreate them
-  // with the correct folderId and UID via the messageId dedup path.
-  // (Previously set uid=-1, but updateMany with a fixed uid violated
-  // the @@unique([folderId, uid]) constraint when multiple messages moved.)
-  await deleteMessagesWithTombstones({
-    id: { in: stale.map((m) => m.id) },
-    isArchived: true,
-  });
+  // Delete only the rows whose IMAP move succeeded. A failed batch stays
+  // local (still archived) so lastExaminedUid cannot hide mail that never
+  // left INBOX.
+  if (movedIds.length > 0) {
+    await deleteMessagesWithTombstones({
+      id: { in: movedIds },
+      isArchived: true,
+    });
+  }
 }
 
 /**
@@ -1014,7 +1023,10 @@ export async function syncEmailConnection(
       where: { emailConnectionId },
     });
 
+    const { heartbeatSyncLock } = await import("@/lib/mail/sync-lock");
+
     for (const { path, specialUse } of toSync) {
+      await heartbeatSyncLock(emailConnectionId);
       try {
         const result = await syncMailbox(
           client,

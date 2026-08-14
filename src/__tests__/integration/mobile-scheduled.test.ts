@@ -54,6 +54,15 @@ vi.mock("@/lib/mail/scheduled-send", () => ({
 
 vi.mock("@/lib/mail/persist-sent", () => ({
   createLocalSentMessage: vi.fn(),
+  appendToImapSent: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/mail/attachment-helpers", () => ({
+  loadAttachmentsForSend: vi.fn().mockResolvedValue({
+    nodemailerAttachments: [],
+    sentAttachments: [],
+    ids: [],
+  }),
 }));
 
 vi.mock("@/lib/rate-limit", async (importOriginal) => {

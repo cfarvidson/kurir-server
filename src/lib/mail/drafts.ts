@@ -19,6 +19,8 @@ export const saveDraftSchema = z.object({
   type: z.nativeEnum(DraftType),
   contextMessageId: z.string().min(1).default("__new__"),
   to: z.string().optional(),
+  cc: z.string().optional(),
+  bcc: z.string().optional(),
   subject: z.string().optional(),
   body: z.string().optional(),
   emailConnectionId: z.string().optional(),
@@ -33,10 +35,13 @@ export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
  * unique key — the same contract the web composer autosave relies on.
  */
 export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
-  // Validate attachmentIds belong to this user
+  // Validate attachmentIds belong to this user (uploads or IMAP-synced).
   if (input.attachmentIds?.length) {
     const owned = await db.attachment.count({
-      where: { id: { in: input.attachmentIds }, userId },
+      where: {
+        id: { in: input.attachmentIds },
+        OR: [{ userId }, { message: { userId } }],
+      },
     });
     if (owned !== input.attachmentIds.length) {
       throw new Error("Invalid attachment references");
@@ -53,6 +58,8 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
     },
     update: {
       to: input.to ?? "",
+      cc: input.cc ?? "",
+      bcc: input.bcc ?? "",
       subject: input.subject ?? "",
       body: input.body ?? "",
       emailConnectionId: input.emailConnectionId ?? null,
@@ -63,6 +70,8 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
       type: input.type,
       contextMessageId: input.contextMessageId,
       to: input.to ?? "",
+      cc: input.cc ?? "",
+      bcc: input.bcc ?? "",
       subject: input.subject ?? "",
       body: input.body ?? "",
       emailConnectionId: input.emailConnectionId ?? null,

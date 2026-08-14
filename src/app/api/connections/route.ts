@@ -54,7 +54,11 @@ export async function POST(request: NextRequest) {
       db.emailConnection.count({ where: { userId: session.user.id } }),
     ]);
     const selfServiceEnabled = settings?.selfServiceAccountManagement ?? true;
-    const isAdmin = session.user.role === "ADMIN";
+    const dbUser = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = dbUser?.role === "ADMIN";
     if (!selfServiceEnabled && !isAdmin && existingConnCount > 0) {
       return NextResponse.json(
         { error: "Account management is disabled. Contact your admin." },

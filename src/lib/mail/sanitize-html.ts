@@ -257,13 +257,17 @@ export function sanitizeEmailHtmlWithMeta(
     }
   });
 
-  // 4. Strip CSS url() from inline style attributes to prevent tracking pixels
-  //    and SSRF via background-image, list-style-image, content, cursor, etc.
+  // 4. Strip CSS resource loads from inline styles (tracking pixels / SSRF).
+  //    Comments are removed first so `url/**/(...)` cannot hide a fetch.
   doc.querySelectorAll("[style]").forEach((el) => {
     const style = el.getAttribute("style") ?? "";
-    const cleaned = style.replace(/url\s*\([^)]*\)/gi, "none");
+    const cleaned = stripCssResourceLoads(style);
     if (cleaned !== style) {
-      el.setAttribute("style", cleaned);
+      if (cleaned.trim()) {
+        el.setAttribute("style", cleaned);
+      } else {
+        el.removeAttribute("style");
+      }
     }
   });
 
@@ -286,4 +290,20 @@ export function sanitizeEmailHtmlWithMeta(
   }
 
   return { html: doc.body.innerHTML, blockedRemoteImages, blockedTrackers };
+}
+
+/** Exported for tests. Removes CSS comments, then drops url()/image-set(). */
+export function stripCssResourceLoads(style: string): string {
+  const withoutComments = style.replace(/\/\*[\s\S]*?\*\//g, "");
+  const withoutFunctions = withoutComments
+    .replace(/url\s*\([^)]*\)/gi, "none")
+    .replace(/image-set\s*\([^)]*\)/gi, "none")
+    .replace(/image\s*\([^)]*\)/gi, "none");
+  // Hex-escaped `url(` (e.g. \75\72\6c(...)) — drop the whole declaration
+  // rather than trying to decode CSS escapes.
+  return withoutFunctions
+    .split(";")
+    .map((decl) => decl.trim())
+    .filter((decl) => decl && !/\\[0-9a-f]{1,6}/i.test(decl))
+    .join("; ");
 }

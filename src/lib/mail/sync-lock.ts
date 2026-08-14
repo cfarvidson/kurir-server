@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 
 /**
@@ -34,10 +35,29 @@ export async function claimSyncLock(
         { syncStartedAt: { lt: new Date(Date.now() - STALE_LOCK_MS) } },
       ],
     },
-    data: { isSyncing: true, syncStartedAt: new Date(), syncError: null },
+    data: {
+      isSyncing: true,
+      syncStartedAt: new Date(),
+      syncError: null,
+      lockToken: randomUUID(),
+    },
   });
 
   return claimed.count > 0;
+}
+
+/** Refresh the stale window while a long sync is still running. */
+export async function heartbeatSyncLock(
+  emailConnectionId: string,
+): Promise<void> {
+  try {
+    await db.syncState.updateMany({
+      where: { emailConnectionId, isSyncing: true },
+      data: { syncStartedAt: new Date() },
+    });
+  } catch {
+    // Best-effort — a heartbeat failure must not abort an in-flight sync.
+  }
 }
 
 /**

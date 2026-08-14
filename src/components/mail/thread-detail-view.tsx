@@ -16,9 +16,10 @@ import { UnthreadToggle } from "@/components/mail/unthread-toggle";
 import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
+import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 
 async function getUserInfo(userId: string, connectionId: string) {
-  const [conn, user] = await Promise.all([
+  const [conn, user, own] = await Promise.all([
     db.emailConnection.findFirst({
       where: { id: connectionId, userId },
       select: { email: true, sendAsEmail: true, aliases: true },
@@ -27,15 +28,13 @@ async function getUserInfo(userId: string, connectionId: string) {
       where: { id: userId },
       select: { timezone: true, blockRemoteImages: true, blockTrackers: true },
     }),
+    getOwnAddresses(userId),
   ]);
-  const allEmails = new Set(
-    [conn?.email, conn?.sendAsEmail, ...(conn?.aliases ?? [])]
-      .filter(Boolean)
-      .map((e) => e!.trim().toLowerCase()),
-  );
+  const allEmails = new Set(own.emails);
   return {
     email: conn?.email || "",
     allEmails,
+    own,
     timezone: user?.timezone || "UTC",
     remoteImagePolicy: resolveImagePolicy({
       blockRemoteImages: user?.blockRemoteImages ?? true,
@@ -105,6 +104,9 @@ export async function ThreadDetailView({
   );
   const currentUserEmail = userInfo.email;
   const userEmails = userInfo.allEmails;
+  const isOwn = (addr: string) =>
+    userEmails.has(addr.trim().toLowerCase()) ||
+    isOwnAddress(addr, userInfo.own);
 
   // Push \Seen to IMAP for messages just marked read (fire-and-forget)
   if (markedRead.length > 0) {
@@ -147,7 +149,7 @@ export async function ThreadDetailView({
   // Check all user emails (email, sendAsEmail, aliases) to avoid replying to self
   const lastIncoming = [...messages]
     .reverse()
-    .find((m) => !userEmails.has(m.fromAddress.toLowerCase()));
+    .find((m) => !isOwn(m.fromAddress));
 
   let replyToAddress: string;
   let replyToName: string;
@@ -162,23 +164,17 @@ export async function ThreadDetailView({
       lastIncoming.fromAddress;
 
     const primary = replyToAddress.toLowerCase();
-    const exclude = new Set(userEmails);
-    exclude.add(primary);
     const seen = new Set<string>();
-    replyAllExtraTo = lastIncoming.toAddresses.filter((addr) => {
+    const skip = (addr: string) => {
       const key = addr.trim().toLowerCase();
-      if (!key || exclude.has(key) || seen.has(key)) return false;
+      if (!key || key === primary || isOwn(addr) || seen.has(key)) {
+        return true;
+      }
       seen.add(key);
-      return true;
-    });
-    const ccSeen = new Set<string>();
-    replyAllCc = lastIncoming.ccAddresses.filter((addr) => {
-      const key = addr.trim().toLowerCase();
-      if (!key || exclude.has(key) || seen.has(key) || ccSeen.has(key))
-        return false;
-      ccSeen.add(key);
-      return true;
-    });
+      return false;
+    };
+    replyAllExtraTo = lastIncoming.toAddresses.filter((addr) => !skip(addr));
+    replyAllCc = lastIncoming.ccAddresses.filter((addr) => !skip(addr));
   } else if (isSentView) {
     // Sent-only thread: reply to the recipient, not yourself
     const recipientEmail =

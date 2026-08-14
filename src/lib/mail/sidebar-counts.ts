@@ -72,16 +72,27 @@ export async function computeSidebarCounts(
         isRead: false,
         isSnoozed: false,
         isReplyLater: false,
+        isDeleted: false,
       },
     }),
     db.scheduledMessage.count({
       where: { userId, status: "PENDING" },
     }),
     db.message.count({
-      where: { userId, isFollowUp: true, isArchived: false },
+      where: {
+        userId,
+        isFollowUp: true,
+        isArchived: false,
+        isDeleted: false,
+      },
     }),
     db.message.count({
-      where: { userId, isReplyLater: true, isArchived: false },
+      where: {
+        userId,
+        isReplyLater: true,
+        isArchived: false,
+        isDeleted: false,
+      },
     }),
     db.message.count({
       where: {
@@ -90,6 +101,7 @@ export async function computeSidebarCounts(
         isRead: false,
         isSnoozed: false,
         isReplyLater: false,
+        isDeleted: false,
       },
     }),
     db.message.count({
@@ -99,6 +111,7 @@ export async function computeSidebarCounts(
         isRead: false,
         isSnoozed: false,
         isReplyLater: false,
+        isDeleted: false,
       },
     }),
     db.user.findUnique({

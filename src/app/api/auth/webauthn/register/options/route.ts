@@ -7,6 +7,7 @@ import { setChallenge } from "@/lib/webauthn-challenge-store";
 import { randomBytes } from "crypto";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 import { rateLimitRegistration, tooManyRequests } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 /**
  * POST /api/auth/webauthn/register/options
@@ -50,8 +51,7 @@ export async function POST(req: NextRequest) {
     userDisplayName = "";
   } else {
     // Rate limit registration: 3 per 10 minutes per IP
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getClientIp(req.headers);
     const rl = await rateLimitRegistration(ip);
     if (!rl.allowed) return tooManyRequests(rl.retryAfter);
 

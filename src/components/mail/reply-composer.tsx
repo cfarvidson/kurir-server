@@ -129,6 +129,26 @@ export function ReplyComposer({
         setTo(draft.to);
         restoredFromDraftRef.current = true;
       }
+      if (draft.cc) {
+        setCc(draft.cc);
+        setShowCc(true);
+      }
+      if (draft.bcc) {
+        setBcc(draft.bcc);
+        setShowBcc(true);
+      }
+      if (draft.attachmentIds.length) {
+        setAttachments(
+          draft.attachmentIds.map((id) => ({
+            id,
+            filename: "Attachment",
+            contentType: "",
+            size: 0,
+            url: `/api/attachments/${id}`,
+            status: "done" as const,
+          })),
+        );
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,8 +172,8 @@ export function ReplyComposer({
     const attachmentIds = attachments
       .filter((a) => a.status === "done")
       .map((a) => a.id);
-    saveDraft({ to, subject: "", body, attachmentIds });
-  }, [to, body, attachments, isOpen, saveDraft]);
+    saveDraft({ to, cc, bcc, subject: "", body, attachmentIds });
+  }, [to, cc, bcc, body, attachments, isOpen, saveDraft]);
 
   const openReplyAll = useCallback(() => {
     setTo(replyAllToString);

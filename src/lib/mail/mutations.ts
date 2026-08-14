@@ -4,7 +4,7 @@ import {
   moveToArchiveViaImap,
   moveToInboxViaImap,
 } from "@/lib/mail/archive-imap";
-import { findOrCreateContactForEmail } from "@/actions/contacts";
+import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
 import { SenderCategory, SenderStatus } from "@prisma/client";
 
@@ -543,10 +543,19 @@ export async function undoScreenActionForUser(
     return; // Already pending, nothing to undo
   }
 
-  // Only restore inbox messages back to the screener (not sent/all-mail mail).
   const inboxFolder = await db.folder.findFirst({
     where: { emailConnectionId: sender.emailConnectionId, specialUse: "inbox" },
     select: { id: true },
+  });
+
+  const archivedElsewhere = await db.message.findMany({
+    where: {
+      senderId,
+      isArchived: true,
+      uid: { gt: 0 },
+      ...(inboxFolder ? { NOT: { folderId: inboxFolder.id } } : {}),
+    },
+    select: { uid: true, folderId: true },
   });
 
   await db.$transaction([
@@ -559,10 +568,7 @@ export async function undoScreenActionForUser(
       },
     }),
     db.message.updateMany({
-      where: {
-        senderId,
-        ...(inboxFolder ? { folderId: inboxFolder.id } : {}),
-      },
+      where: { senderId },
       data: {
         isArchived: false,
         isInScreener: true,
@@ -572,6 +578,27 @@ export async function undoScreenActionForUser(
       },
     }),
   ]);
+
+  if (archivedElsewhere.length > 0) {
+    const byFolder = new Map<string, number[]>();
+    for (const row of archivedElsewhere) {
+      const list = byFolder.get(row.folderId) ?? [];
+      list.push(row.uid);
+      byFolder.set(row.folderId, list);
+    }
+    after(() => {
+      for (const [folderId, uids] of byFolder) {
+        moveToInboxViaImap(
+          userId,
+          sender.emailConnectionId,
+          folderId,
+          uids,
+        ).catch((err) =>
+          console.error("IMAP undo-reject move failed:", err),
+        );
+      }
+    });
+  }
 }
 
 /**

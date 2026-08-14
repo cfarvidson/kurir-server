@@ -3,9 +3,11 @@ import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
-import { createLocalSentMessage } from "@/lib/mail/persist-sent";
+import { createLocalSentMessage, appendToImapSent } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { rateLimitSend } from "@/lib/rate-limit";
+import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
+import { isDemoInstance } from "@/lib/demo";
 
 /**
  * Scheduled-message cores, shared by the web server actions
@@ -82,6 +84,17 @@ export async function createScheduledMessageForUser(
   userId: string,
   input: CreateScheduledInput,
 ) {
+  if (isDemoInstance()) {
+    throw new Error("Sending is disabled on this demo instance.");
+  }
+
+  const rl = await rateLimitSend(userId);
+  if (!rl.allowed) {
+    throw new Error(
+      `Too many messages sent — try again in ${rl.retryAfter} seconds`,
+    );
+  }
+
   const parsed = createScheduledSchema.parse(input);
 
   // At least one recipient across To/Cc/Bcc (direct-send parity).
@@ -98,7 +111,10 @@ export async function createScheduledMessageForUser(
   // Verify any referenced attachments belong to user
   if (parsed.attachmentIds?.length) {
     const owned = await db.attachment.count({
-      where: { id: { in: parsed.attachmentIds }, userId },
+      where: {
+        id: { in: parsed.attachmentIds },
+        OR: [{ userId }, { message: { userId } }],
+      },
     });
     if (owned !== parsed.attachmentIds.length) {
       throw new Error("Invalid attachment references");
@@ -190,7 +206,58 @@ export async function cancelScheduledForUser(
  * persists the sent copy — identical to the web "send now" path. Rolls the row
  * back to PENDING (recording the error) on any failure.
  */
+/**
+ * Push `scheduledFor` into the future so the worker cannot deliver during an
+ * undo-send window, while leaving the row PENDING (a crash then still sends).
+ */
+export async function deferScheduledForUser(
+  userId: string,
+  id: string,
+  deferMs: number,
+): Promise<
+  | { deferred: false; previousScheduledFor: null }
+  | { deferred: true; previousScheduledFor: string }
+> {
+  const msg = await db.scheduledMessage.findFirst({
+    where: { id, userId, status: "PENDING" },
+    select: { scheduledFor: true },
+  });
+  if (!msg) return { deferred: false, previousScheduledFor: null };
+
+  const floor = new Date(Date.now() + deferMs);
+  const next =
+    msg.scheduledFor.getTime() > floor.getTime() ? msg.scheduledFor : floor;
+
+  const result = await db.scheduledMessage.updateMany({
+    where: { id, userId, status: "PENDING" },
+    data: { scheduledFor: next },
+  });
+  if (result.count === 0) {
+    return { deferred: false, previousScheduledFor: null };
+  }
+  return {
+    deferred: true,
+    previousScheduledFor: msg.scheduledFor.toISOString(),
+  };
+}
+
+export async function restoreScheduledTimeForUser(
+  userId: string,
+  id: string,
+  scheduledFor: Date,
+): Promise<boolean> {
+  const result = await db.scheduledMessage.updateMany({
+    where: { id, userId, status: "PENDING" },
+    data: { scheduledFor },
+  });
+  return result.count === 1;
+}
+
 export async function sendScheduledNowForUser(userId: string, id: string) {
+  if (isDemoInstance()) {
+    throw new Error("Sending is disabled on this demo instance.");
+  }
+
   // Atomic CAS: claim this message for sending
   const claimed = await db.scheduledMessage.updateMany({
     where: { id, userId, status: "PENDING" },
@@ -277,6 +344,11 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
     const fromAddress =
       msg.emailConnection.sendAsEmail || msg.emailConnection.email;
 
+    const sentLoaded = await loadAttachmentsForSend(
+      msg.attachmentIds || [],
+      userId,
+    );
+
     await createLocalSentMessage({
       userId,
       emailConnectionId: msg.emailConnectionId,
@@ -291,7 +363,23 @@ export async function sendScheduledNowForUser(userId: string, id: string) {
       bccAddresses: parseRecipients(msg.bcc ?? "").recipients,
       text: textBody,
       html: htmlBody,
+      attachmentIds: sentLoaded.ids,
     });
+
+    appendToImapSent({
+      emailConnectionId: msg.emailConnectionId,
+      messageId: result.messageId || null,
+      inReplyTo: msg.inReplyToMessageId || null,
+      references: refList,
+      subject: msg.subject,
+      fromAddress,
+      toAddresses: parseRecipients(msg.to).recipients,
+      ccAddresses: parseRecipients(msg.cc ?? "").recipients,
+      bccAddresses: parseRecipients(msg.bcc ?? "").recipients,
+      text: textBody,
+      html: htmlBody,
+      attachments: sentLoaded.sentAttachments,
+    }).catch(console.error);
   } catch (err) {
     // Roll back to PENDING so user can retry
     await db.scheduledMessage.update({

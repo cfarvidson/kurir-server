@@ -19,7 +19,17 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/crypto", () => ({ encrypt: vi.fn(), decrypt: vi.fn() }));
 vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
 vi.mock("@/lib/mail/scheduled-send", () => ({ sendScheduledEmail: vi.fn() }));
-vi.mock("@/lib/mail/persist-sent", () => ({ createLocalSentMessage: vi.fn() }));
+vi.mock("@/lib/mail/persist-sent", () => ({
+  createLocalSentMessage: vi.fn(),
+  appendToImapSent: vi.fn(),
+}));
+vi.mock("@/lib/mail/attachment-helpers", () => ({
+  loadAttachmentsForSend: vi.fn().mockResolvedValue({
+    nodemailerAttachments: [],
+    sentAttachments: [],
+    ids: [],
+  }),
+}));
 
 vi.mock("@/lib/rate-limit", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
@@ -145,6 +155,50 @@ describe("hold/restore scheduled message actions", () => {
 
       expect(result).toEqual({ restored: false });
       expect(updateTag).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("deferScheduledMessage", () => {
+    it("bumps scheduledFor when the send is imminent and stays PENDING", async () => {
+      await authedUser("user-1");
+      const { db } = await import("@/lib/db");
+      const original = new Date(Date.now() + 2_000);
+      vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue({
+        scheduledFor: original,
+      } as never);
+      vi.mocked(db.scheduledMessage.updateMany).mockResolvedValue({
+        count: 1,
+      } as never);
+
+      const { deferScheduledMessage } = await import(
+        "@/actions/scheduled-messages"
+      );
+      const result = await deferScheduledMessage("sched-1", 65_000);
+
+      expect(result.deferred).toBe(true);
+      expect(result.previousScheduledFor).toBe(original.toISOString());
+      const args = vi.mocked(db.scheduledMessage.updateMany).mock.calls[0][0];
+      expect(args.where).toEqual({
+        id: "sched-1",
+        userId: "user-1",
+        status: "PENDING",
+      });
+      const next = args.data?.scheduledFor as Date;
+      expect(next.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it("returns deferred:false when the row is no longer PENDING", async () => {
+      await authedUser();
+      const { db } = await import("@/lib/db");
+      vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue(null);
+
+      const { deferScheduledMessage } = await import(
+        "@/actions/scheduled-messages"
+      );
+      expect(await deferScheduledMessage("sched-1", 65_000)).toEqual({
+        deferred: false,
+        previousScheduledFor: null,
+      });
     });
 
     it("throws Unauthorized and never touches the DB when unauthenticated", async () => {

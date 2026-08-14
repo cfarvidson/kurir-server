@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rotateTokens } from "@/lib/mobile/tokens";
 import { rateLimitMobileLogin, tooManyRequests } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 /**
  * POST /api/mobile/auth/refresh
@@ -11,7 +12,7 @@ import { rateLimitMobileLogin, tooManyRequests } from "@/lib/rate-limit";
  * session is gone (revoked or rotated away) — the client must log in again.
  */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(req.headers);
   const limit = await rateLimitMobileLogin(ip);
   if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 

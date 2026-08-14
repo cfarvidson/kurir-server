@@ -13,7 +13,7 @@ import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { parseRecipients } from "@/lib/mail/recipients";
-import { findOrCreateContactForEmail } from "@/actions/contacts";
+import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { rateLimitSend, tooManyRequests } from "@/lib/rate-limit";
 import nodemailer from "nodemailer";
 import { z } from "zod";

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 import { encode } from "next-auth/jwt";
 import { rateLimitMobileLogin, tooManyRequests } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 /**
  * POST /api/auth/demo-login
@@ -23,8 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(req.headers);
   const limit = await rateLimitMobileLogin(ip);
   if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 

@@ -27,6 +27,10 @@ vi.mock("@/lib/mail/persist-sent", () => ({
   appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/mail/contacts", () => ({
+  findOrCreateContactForEmail: vi.fn().mockResolvedValue({ id: "c1" }),
+}));
+
 vi.mock("@/lib/rate-limit", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
   return {

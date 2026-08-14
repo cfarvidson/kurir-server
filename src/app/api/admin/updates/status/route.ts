@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { tokensEqual } from "@/lib/mobile/tokens";
 
 /**
  * Internal callback used by the kurir-updater sidecar to report update
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   const presented = request.headers.get("x-updater-token");
-  if (presented !== expected) {
+  if (!presented || !tokensEqual(presented, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { consumeAuthCode } from "@/lib/mobile/auth-code-store";
 import { issueTokens, tokensEqual } from "@/lib/mobile/tokens";
 import { rateLimitMobileLogin, tooManyRequests } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 
 /**
  * POST /api/mobile/auth/code/exchange
@@ -18,8 +19,7 @@ import { rateLimitMobileLogin, tooManyRequests } from "@/lib/rate-limit";
  * Responds with the same payload shape as passkey/verify.
  */
 export async function POST(req: NextRequest) {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(req.headers);
   const limit = await rateLimitMobileLogin(ip);
   if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 

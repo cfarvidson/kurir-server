@@ -29,7 +29,7 @@ vi.mock("@/lib/mail/archive-imap", () => ({
   moveToArchiveViaImap: vi.fn(),
   moveToInboxViaImap: vi.fn(),
 }));
-vi.mock("@/actions/contacts", () => ({ findOrCreateContactForEmail: vi.fn() }));
+vi.mock("@/lib/mail/contacts", () => ({ findOrCreateContactForEmail: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 const USER = "user-1";
