@@ -22,10 +22,19 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 - **Archive** — Archive with undo, swipe gestures on mobile.
 - **Contacts** — Create, edit and group contacts, linked to your senders.
 - **Mobile API** — Bearer-token API with delta sync, offline-queued actions, drafts, scheduled send, contacts and files — powers a native iOS companion app. Device sign-in runs through your server's own login page (PKCE-bound), so it works against any self-hosted domain.
+- **MCP** - Connect Claude to your instance at `/mcp`.
 - **Admin dashboard** — System health, sync status, user management.
 - **One-command install** — Single `curl` command provisions a fresh server.
 - **Auto-updates** — Checks for new versions, one-click update from admin.
 - **Backup & restore** — Full database + config backup and restore.
+
+## Claude / MCP
+
+Point Claude at `https://<your-domain>/mcp` as a custom connector. Sign in
+with your Kurir passkey and approve access. The agent can read and search
+mail, triage, screen senders, and change your own settings. Sending and
+other destructive actions ask for a confirmation in Claude first. Revoke
+access under Settings → Connected apps.
 
 ## Quick Start
 
