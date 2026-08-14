@@ -21,7 +21,7 @@ function getRedis(): Redis | null {
   return redis;
 }
 
-interface RateLimitResult {
+export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfter: number; // seconds
@@ -136,6 +136,14 @@ export async function rateLimitMobileLogin(
   ip: string,
 ): Promise<RateLimitResult> {
   return checkRateLimit(`mlogin:${ip}`, 20, 600);
+}
+
+/**
+ * Rate limit OAuth authorize, token, and CIMD-driven authorize GETs.
+ * 30 per 10 minutes per IP.
+ */
+export async function rateLimitOAuth(ip: string): Promise<RateLimitResult> {
+  return checkRateLimit(`oauth:${ip}`, 30, 600);
 }
 
 /**
