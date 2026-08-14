@@ -1,4 +1,5 @@
 import type { ToolDef } from "@/lib/mcp/types";
+import { registerMailTools } from "@/lib/mcp/tools/mail";
 
 const tools = new Map<string, ToolDef>();
 
@@ -13,3 +14,5 @@ export function listTools(): ToolDef[] {
 export function getTool(name: string): ToolDef | undefined {
   return tools.get(name);
 }
+
+registerMailTools(registerTool);
