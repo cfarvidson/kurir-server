@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.13",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.13",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.13",
-  "changelog": "Drafts catalog: a labeled Delete on every row with confirmation, and clearer type/recipient hierarchy. Mouse back closes the open mail and returns to the previous conversation.",
+  "version": "2026.08.14",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.14",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.14",
+  "changelog": "Sign-in and other auth pages scroll again in small viewports, and demo instances show the demo credentials form first on the sign-in page.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-13T14:30:00Z"
+  "releasedAt": "2026-08-14T07:00:00Z"
 }

@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.14] - 2026-08-14
+
+### Fixed
+
+- Sign-in, register, and other auth pages scroll again when the content is
+  taller than the viewport. The global mail-UI overscroll fix locks document
+  scrolling, which left anything below the fold unreachable on these pages —
+  most visibly the demo credentials form inside the iOS app's narrow sign-in
+  sheet.
+- Demo instances now show the demo credentials form first on the sign-in
+  page, above the passkey button, so it is visible without scrolling.
+
 ## [v2026.08.13] - 2026-08-13
 
 ### Changed
