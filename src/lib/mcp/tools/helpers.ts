@@ -15,9 +15,10 @@ export function wrap(
     try {
       return await handler(ctx, args);
     } catch (error) {
+      const raw = error instanceof Error ? error.message : "Tool failed";
       return {
         type: "error",
-        message: error instanceof Error ? error.message : "Tool failed",
+        message: /not found/i.test(raw) ? "not found or not yours" : raw,
       };
     }
   };

@@ -314,11 +314,17 @@ async function resolveDomainRuleSender(
   if (!pattern) throw new Error("senderId or pattern is required");
   const senders = await db.sender.findMany({
     where: { userId },
-    select: { id: true, domain: true },
+    select: { id: true, domain: true, emailConnectionId: true },
   });
-  const match = senders.find((s) =>
+  const matches = senders.filter((s) =>
     patternMatchesDomain(s.domain, { pattern, includeSubdomains }),
   );
-  if (!match) throw new Error("not found or not yours");
-  return { senderId: match.id, pattern };
+  if (matches.length === 0) {
+    throw new Error("No sender on that domain");
+  }
+  const connectionIds = new Set(matches.map((s) => s.emailConnectionId));
+  if (connectionIds.size > 1) {
+    throw new Error("Multiple connections match this domain; provide senderId");
+  }
+  return { senderId: matches[0].id, pattern };
 }

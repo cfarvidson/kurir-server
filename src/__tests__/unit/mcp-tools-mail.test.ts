@@ -113,7 +113,7 @@ import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getFiles } from "@/lib/mail/files";
 import { listDraftsForUser } from "@/lib/mail/drafts";
-import { archiveThread } from "@/lib/mail/mutations";
+import { archiveThread, createDomainRuleForUser } from "@/lib/mail/mutations";
 import { db } from "@/lib/db";
 import { getTool, listTools } from "@/lib/mcp/tools";
 import type { ToolContext } from "@/lib/mcp/types";
@@ -681,6 +681,32 @@ describe("MCP write tools — thread", () => {
       message: expect.stringMatching(/until/i),
     });
   });
+
+  it("maps mutation not-found errors to not found or not yours", async () => {
+    vi.mocked(archiveThread).mockRejectedValue(new Error("Message not found"));
+    const result = await call("update_thread", {
+      messageId: "missing",
+      action: "archive",
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: "not found or not yours",
+    });
+  });
+
+  it("leaves non-not-found mutation errors unchanged", async () => {
+    vi.mocked(archiveThread).mockRejectedValue(
+      new Error("Snooze date must be in the future"),
+    );
+    const result = await call("update_thread", {
+      messageId: "m1",
+      action: "archive",
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: "Snooze date must be in the future",
+    });
+  });
 });
 
 describe("MCP write tools — screener stub", () => {
@@ -701,5 +727,74 @@ describe("MCP write tools — screener stub", () => {
       type: "error",
       message: "this client cannot confirm this action",
     });
+  });
+
+  it("create_domain_rule with only pattern rejects a cross-connection match", async () => {
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      { id: "s1", domain: "acme.com", emailConnectionId: "c1" },
+      { id: "s2", domain: "acme.com", emailConnectionId: "c2" },
+    ] as never);
+    const result = await call("create_domain_rule", {
+      pattern: "acme.com",
+      includeSubdomains: false,
+      status: "APPROVED",
+      category: "IMBOX",
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/senderId/i),
+    });
+    expect(createDomainRuleForUser).not.toHaveBeenCalled();
+  });
+
+  it("create_domain_rule with only pattern uses a sender when all matches share a connection", async () => {
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      { id: "s1", domain: "acme.com", emailConnectionId: "c1" },
+      { id: "s2", domain: "mail.acme.com", emailConnectionId: "c1" },
+    ] as never);
+    vi.mocked(createDomainRuleForUser).mockResolvedValue({
+      id: "r1",
+      pattern: "acme.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "IMBOX",
+    } as never);
+    const result = await call("create_domain_rule", {
+      pattern: "acme.com",
+      includeSubdomains: true,
+      status: "APPROVED",
+      category: "IMBOX",
+    });
+    expect(createDomainRuleForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        senderId: expect.stringMatching(/^s[12]$/),
+        pattern: "acme.com",
+        includeSubdomains: true,
+        status: "APPROVED",
+        category: "IMBOX",
+      }),
+    );
+    expect(result.type).toBe("ok");
+  });
+
+  it("create_domain_rule with only pattern says there is no sender on that domain", async () => {
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      { id: "s1", domain: "other.com", emailConnectionId: "c1" },
+    ] as never);
+    const result = await call("create_domain_rule", {
+      pattern: "acme.com",
+      includeSubdomains: false,
+      status: "APPROVED",
+      category: "IMBOX",
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/no sender on that domain/i),
+    });
+    expect(result).not.toMatchObject({
+      message: "not found or not yours",
+    });
+    expect(createDomainRuleForUser).not.toHaveBeenCalled();
   });
 });
