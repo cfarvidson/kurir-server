@@ -149,6 +149,27 @@ describe("MCP read tools", () => {
       ],
       nextCursor: "cur1",
     });
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "m1",
+        threadId: "th1",
+        fromAddress: "ada@example.com",
+        fromName: "Ada",
+        toAddresses: ["bob@example.com"],
+        subject: "Hello",
+        receivedAt: new Date("2026-08-14T12:00:00.000Z"),
+        snippet: "Hi",
+        isRead: false,
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isArchived: false,
+        isInScreener: false,
+        snoozedUntil: null,
+        followUpAt: null,
+        isReplyLater: false,
+      },
+    ] as never);
     const result = await call("list_mail", { view: "imbox" });
     expect(result.type).toBe("ok");
     if (result.type !== "ok") return;
@@ -159,12 +180,23 @@ describe("MCP read tools", () => {
     expect(content.items[0]).toMatchObject({
       id: "m1",
       from: "Ada <ada@example.com>",
+      to: ["bob@example.com"],
       subject: "Hello",
       snippet: "Hi",
       isRead: false,
+      isInImbox: true,
+      isInFeed: false,
+      isInPaperTrail: false,
+      isArchived: false,
+      isInScreener: false,
     });
     expect(content.items[0]).not.toHaveProperty("htmlBody");
     expect(content.nextCursor).toBe("cur1");
+    expect(db.message.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "u1", id: { in: ["m1"] } },
+      }),
+    );
   });
 
   it("list_mail clamps the page size to 50", async () => {
@@ -214,6 +246,114 @@ describe("MCP read tools", () => {
       expect.objectContaining({ where: { userId: "u1" } }),
     );
     expect(result.type).toBe("ok");
+  });
+
+  it("list_mail scheduled honors cursor and emits a keyset nextCursor", async () => {
+    const id1 = "cm1234567890abcdefghij";
+    const id2 = "cm1234567890abcdefghik";
+    const t1 = new Date("2026-08-14T10:00:00.000Z");
+    const t2 = new Date("2026-08-14T11:00:00.000Z");
+    vi.mocked(db.scheduledMessage.findMany).mockResolvedValue([
+      {
+        id: id1,
+        to: "a@b.c",
+        cc: null,
+        subject: "one",
+        scheduledFor: t1,
+        status: "PENDING",
+      },
+      {
+        id: id2,
+        to: "c@d.e",
+        cc: null,
+        subject: "two",
+        scheduledFor: t2,
+        status: "PENDING",
+      },
+    ] as never);
+
+    const first = await call("list_mail", { view: "scheduled", limit: 2 });
+    expect(first.type).toBe("ok");
+    if (first.type !== "ok") return;
+    const nextCursor = (first.structuredContent as { nextCursor?: string })
+      .nextCursor;
+    expect(nextCursor).toBe(`${t2.toISOString()}_${id2}`);
+
+    vi.mocked(db.scheduledMessage.findMany).mockResolvedValue([]);
+    await call("list_mail", { view: "scheduled", cursor: nextCursor });
+    expect(db.scheduledMessage.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "u1",
+          OR: [
+            { scheduledFor: { gt: t2 } },
+            { scheduledFor: t2, id: { gt: id2 } },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("list_mail screener honors cursor and emits a keyset nextCursor", async () => {
+    const id1 = "cm1234567890abcdefghij";
+    const id2 = "cm1234567890abcdefghik";
+    const t1 = new Date("2026-08-14T12:00:00.000Z");
+    const t2 = new Date("2026-08-13T12:00:00.000Z");
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      {
+        id: id1,
+        createdAt: t1,
+        email: "a@b.c",
+        displayName: "A",
+        messages: [],
+      },
+      {
+        id: id2,
+        createdAt: t2,
+        email: "c@d.e",
+        displayName: "B",
+        messages: [],
+      },
+    ] as never);
+
+    const first = await call("list_mail", { view: "screener", limit: 2 });
+    expect(first.type).toBe("ok");
+    if (first.type !== "ok") return;
+    const nextCursor = (first.structuredContent as { nextCursor?: string })
+      .nextCursor;
+    expect(nextCursor).toBe(`${t2.toISOString()}_${id2}`);
+
+    vi.mocked(db.sender.findMany).mockResolvedValue([]);
+    await call("list_mail", { view: "screener", cursor: nextCursor });
+    expect(db.sender.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdAt: { lt: t2 } }, { createdAt: t2, id: { lt: id2 } }],
+        }),
+      }),
+    );
+  });
+
+  it("list_mail rejects a malformed cursor on screener and scheduled", async () => {
+    const screener = await call("list_mail", {
+      view: "screener",
+      cursor: "not-a-cursor",
+    });
+    expect(screener).toMatchObject({
+      type: "error",
+      message: "Invalid cursor",
+    });
+    expect(db.sender.findMany).not.toHaveBeenCalled();
+
+    const scheduled = await call("list_mail", {
+      view: "scheduled",
+      cursor: "not-a-cursor",
+    });
+    expect(scheduled).toMatchObject({
+      type: "error",
+      message: "Invalid cursor",
+    });
+    expect(db.scheduledMessage.findMany).not.toHaveBeenCalled();
   });
 
   it("list_mail rejects a connectionId that is not the user's", async () => {

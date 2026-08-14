@@ -197,20 +197,26 @@ async function listMail(
     if (unreadOnly) {
       messages = messages.filter((m) => !m.isRead);
     }
-    if (ownedConnectionId && messages.length > 0) {
-      const owned = await db.message.findMany({
-        where: {
-          userId: ctx.userId,
-          emailConnectionId: ownedConnectionId,
-          id: { in: messages.map((m) => m.id) },
-        },
-        select: { id: true },
-      });
-      const allowed = new Set(owned.map((row) => row.id));
-      messages = messages.filter((m) => allowed.has(m.id));
+    if (messages.length === 0) {
+      return pageResult([], result.nextCursor);
     }
+    // getMessages omits toAddresses and category flags; merge a compact select
+    // so list rows match the spec without changing the PWA MESSAGE_SELECT.
+    const extras = await db.message.findMany({
+      where: {
+        userId: ctx.userId,
+        id: { in: messages.map((m) => m.id) },
+        ...(ownedConnectionId ? { emailConnectionId: ownedConnectionId } : {}),
+      },
+      select: compactSelect,
+    });
+    const byId = new Map(extras.map((row) => [row.id, row]));
+    const rows = messages.flatMap((m) => {
+      const extra = byId.get(m.id);
+      return extra ? [extra] : [];
+    });
     return pageResult(
-      messages.map((m) => serializeMailRow(m)),
+      rows.map((m) => serializeMailRow(m)),
       result.nextCursor,
     );
   }
@@ -230,6 +236,7 @@ async function listMail(
     case "screener":
       return listScreener(ctx.userId, {
         limit,
+        cursor,
         connectionId: ownedConnectionId,
       });
     case "drafts":
@@ -237,6 +244,7 @@ async function listMail(
     case "scheduled":
       return listScheduled(ctx.userId, {
         limit,
+        cursor,
         connectionId: ownedConnectionId,
       });
     case "files":
@@ -282,15 +290,22 @@ async function listSent(
 
 async function listScreener(
   userId: string,
-  opts: { limit: number; connectionId?: string },
+  opts: { limit: number; cursor?: string; connectionId?: string },
 ): Promise<ToolResult> {
+  const cursorCondition = opts.cursor
+    ? parseDescIsoIdCursor(opts.cursor, "createdAt")
+    : undefined;
+  if (opts.cursor && !cursorCondition) {
+    return { type: "error", message: "Invalid cursor" };
+  }
   const own = await getOwnAddresses(userId);
   const senders = await db.sender.findMany({
     where: {
       ...visiblePendingSenderWhere(userId, own),
       ...(opts.connectionId ? { emailConnectionId: opts.connectionId } : {}),
+      ...cursorCondition,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: opts.limit,
     include: {
       messages: {
@@ -317,7 +332,10 @@ async function listScreener(
     },
   });
   const last = senders[senders.length - 1];
-  const nextCursor = senders.length === opts.limit && last ? last.id : null;
+  const nextCursor =
+    senders.length === opts.limit && last
+      ? encodeIsoIdCursor(last.createdAt, last.id)
+      : null;
   const items = senders.map((sender) => {
     const latest = sender.messages[0];
     if (latest) {
@@ -371,14 +389,21 @@ async function listDrafts(
 
 async function listScheduled(
   userId: string,
-  opts: { limit: number; connectionId?: string },
+  opts: { limit: number; cursor?: string; connectionId?: string },
 ): Promise<ToolResult> {
+  const cursorCondition = opts.cursor
+    ? parseAscIsoIdCursor(opts.cursor, "scheduledFor")
+    : undefined;
+  if (opts.cursor && !cursorCondition) {
+    return { type: "error", message: "Invalid cursor" };
+  }
   const rows = await db.scheduledMessage.findMany({
     where: {
       userId,
       ...(opts.connectionId ? { emailConnectionId: opts.connectionId } : {}),
+      ...cursorCondition,
     },
-    orderBy: { scheduledFor: "asc" },
+    orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
     take: opts.limit,
     select: {
       id: true,
@@ -390,7 +415,10 @@ async function listScheduled(
     },
   });
   const last = rows[rows.length - 1];
-  const nextCursor = rows.length === opts.limit && last ? last.id : null;
+  const nextCursor =
+    rows.length === opts.limit && last
+      ? encodeIsoIdCursor(last.scheduledFor, last.id)
+      : null;
   return pageResult(
     rows.map((row) => ({
       id: row.id,
@@ -590,6 +618,48 @@ function isCategoryView(view: string): view is CategoryView {
 
 function isSpecialView(view: string): view is SpecialView {
   return (SPECIAL_VIEWS as readonly string[]).includes(view);
+}
+
+function encodeIsoIdCursor(date: Date, id: string): string {
+  return `${date.toISOString()}_${id}`;
+}
+
+function parseIsoIdCursor(cursor: string): { date: Date; id: string } | null {
+  const lastUnderscore = cursor.lastIndexOf("_");
+  if (lastUnderscore === -1) return null;
+  const date = new Date(cursor.substring(0, lastUnderscore));
+  const id = cursor.substring(lastUnderscore + 1);
+  if (Number.isNaN(date.getTime())) return null;
+  if (!/^c[a-z0-9]{20,}$/.test(id)) return null;
+  return { date, id };
+}
+
+function parseDescIsoIdCursor(
+  cursor: string,
+  field: "createdAt",
+): { OR: Array<Record<string, unknown>> } | null {
+  const parsed = parseIsoIdCursor(cursor);
+  if (!parsed) return null;
+  return {
+    OR: [
+      { [field]: { lt: parsed.date } },
+      { [field]: parsed.date, id: { lt: parsed.id } },
+    ],
+  };
+}
+
+function parseAscIsoIdCursor(
+  cursor: string,
+  field: "scheduledFor",
+): { OR: Array<Record<string, unknown>> } | null {
+  const parsed = parseIsoIdCursor(cursor);
+  if (!parsed) return null;
+  return {
+    OR: [
+      { [field]: { gt: parsed.date } },
+      { [field]: parsed.date, id: { gt: parsed.id } },
+    ],
+  };
 }
 
 const compactSelect = {
