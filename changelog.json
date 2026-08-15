@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.08.15",
+    "date": "2026-08-15",
+    "changes": [
+      "Connect Claude to your Kurir instance at /mcp with passkey consent",
+      "Agents can read, search, triage, screen senders, and change your own settings",
+      "Sending mail and other destructive actions ask for a confirmation in Claude first",
+      "Revoke connected apps under Settings → Connected apps"
+    ]
+  },
+  {
     "version": "2026.08.14.2",
     "date": "2026-08-14",
     "changes": [

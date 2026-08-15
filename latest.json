@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.14.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.14.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.14.2",
-  "changelog": "Security and mail-loss fixes: contact IDOR, rejected mail vanishing on a failed IMAP move, undo-after-reject, double-send, and scheduled send-now crash-loss.",
+  "version": "2026.08.15",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.15",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.15",
+  "changelog": "Connect Claude to your instance at /mcp. Agents can read, search, triage, screen, and send mail (with confirmation).",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-14T11:00:00Z"
+  "releasedAt": "2026-08-15T04:19:34Z"
 }
