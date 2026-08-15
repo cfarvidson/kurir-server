@@ -907,7 +907,7 @@ async function uploadAttachment(
       filename: parsed.data.filename,
       contentType: parsed.data.contentType,
       size: content.length,
-      content,
+      content: new Uint8Array(content),
       userId: ctx.userId,
     },
     select: { id: true },

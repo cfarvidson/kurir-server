@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.15.2] - 2026-08-15
+
+### Added
+
+- Remote MCP server (spec 2026-07-28) at `POST /mcp` so Claude and other
+  clients can use Kurir over HTTP
+- Passkey OAuth consent for MCP connectors (CIMD, PKCE). Revoke under
+  Settings → Connected apps
+- MCP tools for mail (list, search, thread, archive, snooze, follow-up,
+  reply-later), screener, contacts, drafts, scheduled send, files, and
+  own-account settings
+- Extra confirmation (MRTR) before send, reject, and other destructive
+  actions
+
+### Fixed
+
+- Production TypeScript build no longer fails when creating an MCP
+  attachment upload
+
 ## [v2026.08.15] - 2026-08-15
 
 ### Added

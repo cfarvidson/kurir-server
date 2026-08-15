@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.15",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.15",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.15",
+  "version": "2026.08.15.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.15.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.15.2",
   "changelog": "Connect Claude to your instance at /mcp. Agents can read, search, triage, screen, and send mail (with confirmation).",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-15T04:19:34Z"
+  "releasedAt": "2026-08-15T04:22:00Z"
 }
