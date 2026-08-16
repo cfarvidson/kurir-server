@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SectionHeading } from "@/components/ui/editorial";
 import { auth } from "@/lib/auth";
-import { fetchCimd, mcpResourceUri } from "@/lib/mcp/oauth";
+import { fetchCimd, mcpResourceUri, redirectUriAllowed } from "@/lib/mcp/oauth";
 import { ConsentForm } from "./consent-form";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +83,7 @@ export default async function AuthorizePage({
     );
   }
 
-  if (!doc.redirect_uris.includes(redirectUri)) {
+  if (!redirectUriAllowed(doc, redirectUri)) {
     return (
       <AuthorizeError
         title="Invalid redirect"

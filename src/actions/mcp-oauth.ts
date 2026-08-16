@@ -7,6 +7,7 @@ import {
   fetchCimd,
   mcpIssuer,
   mcpResourceUri,
+  redirectUriAllowed,
 } from "@/lib/mcp/oauth";
 
 function oauthRedirect(redirectUri: string, params: URLSearchParams): never {
@@ -47,7 +48,7 @@ export async function submitMcpConsent(
   if (!doc) {
     return "This app could not be verified. The client metadata document is missing or invalid.";
   }
-  if (!doc.redirect_uris.includes(redirectUri)) {
+  if (!redirectUriAllowed(doc, redirectUri)) {
     return "This app requested a redirect that is not allowed.";
   }
 

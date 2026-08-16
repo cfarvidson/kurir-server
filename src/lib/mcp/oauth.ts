@@ -61,6 +61,45 @@ export interface CimdDocument {
   redirect_uris: string[];
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+/**
+ * Exact match against the CIMD redirect_uris, except that loopback redirects
+ * (http://localhost or http://127.0.0.1) may use any port - native clients
+ * such as Claude Code bind an ephemeral port per RFC 8252 §7.3.
+ */
+export function redirectUriAllowed(
+  doc: CimdDocument,
+  redirectUri: string,
+): boolean {
+  if (doc.redirect_uris.includes(redirectUri)) return true;
+  let requested: URL;
+  try {
+    requested = new URL(redirectUri);
+  } catch {
+    return false;
+  }
+  if (requested.protocol !== "http:" || !isLoopbackHost(requested.hostname)) {
+    return false;
+  }
+  return doc.redirect_uris.some((allowed) => {
+    let u: URL;
+    try {
+      u = new URL(allowed);
+    } catch {
+      return false;
+    }
+    return (
+      u.protocol === "http:" &&
+      u.hostname === requested.hostname &&
+      u.pathname === requested.pathname &&
+      u.search === requested.search
+    );
+  });
+}
+
 function parseCimdUrl(clientIdUrl: string): URL | null {
   let url: URL;
   try {

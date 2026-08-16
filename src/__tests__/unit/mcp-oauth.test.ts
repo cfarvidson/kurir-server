@@ -62,6 +62,28 @@ describe("CIMD", () => {
     const doc = await fetchCimd("https://ok.example/c.json");
     expect(doc?.client_name).toBe("Claude");
   });
+
+  it("redirectUriAllowed matches loopback redirects on any port (RFC 8252 §7.3)", async () => {
+    const { redirectUriAllowed } = await import("@/lib/mcp/oauth");
+    const doc = {
+      client_id: "https://claude.ai/oauth/claude-code-client-metadata",
+      redirect_uris: [
+        "http://localhost/callback",
+        "http://127.0.0.1/callback",
+        "https://app.example/cb",
+      ],
+    };
+    expect(redirectUriAllowed(doc, "http://localhost:3118/callback")).toBe(true);
+    expect(redirectUriAllowed(doc, "http://127.0.0.1:51234/callback")).toBe(true);
+    expect(redirectUriAllowed(doc, "http://localhost/callback")).toBe(true);
+    expect(redirectUriAllowed(doc, "https://app.example/cb")).toBe(true);
+    // Different path, host, scheme, or a non-loopback port change are rejected.
+    expect(redirectUriAllowed(doc, "http://localhost:3118/other")).toBe(false);
+    expect(redirectUriAllowed(doc, "http://evil.example/callback")).toBe(false);
+    expect(redirectUriAllowed(doc, "https://localhost:3118/callback")).toBe(false);
+    expect(redirectUriAllowed(doc, "https://app.example:8443/cb")).toBe(false);
+    expect(redirectUriAllowed(doc, "not a url")).toBe(false);
+  });
 });
 
 describe("authorization codes", () => {

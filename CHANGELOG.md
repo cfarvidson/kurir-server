@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.16] - 2026-08-16
+
+### Fixed
+
+- Connecting Claude Code via `/mcp` no longer fails with "Invalid redirect".
+  OAuth consent now accepts loopback redirect URIs (`http://localhost`,
+  `http://127.0.0.1`) on any port, as required by RFC 8252 §7.3, since native
+  clients bind an ephemeral port
+
 ## [v2026.08.15.2] - 2026-08-15
 
 ### Added
