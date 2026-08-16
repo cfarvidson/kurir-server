@@ -74,7 +74,8 @@ Bind mount `.:/app` with anonymous volumes for `node_modules`/`.next`. Needs `co
 **Always invoke Kamal via `bin/deploy`, never bare `kamal`.** The wrapper sources the per-user secrets file (`~/.kamal/kurir-secrets.env`, mode `0600`) before exec'ing kamal. Using bare `kamal` from a shell that doesn't have every `KAMAL_*` env var set silently injects empty secrets into the container and wipes production config (broken Redis, missing OAuth, IMAP password decryption failures).
 
 ```bash
-bin/deploy                          # Subsequent deploys (= kamal deploy)
+bin/deploy deploy --skip-push --version vX   # Roll out the CI-built ghcr.io image for tag vX (normal release deploy)
+bin/deploy                          # Build locally + push + deploy (needs write:packages on ghcr.io)
 bin/deploy app logs -f              # Tail production logs
 bin/deploy app exec -i node         # Node REPL in production container
 bin/deploy app exec --reuse "psql \"\$DATABASE_URL\" -c '...'"  # Apply schema changes
@@ -82,7 +83,7 @@ bin/deploy accessory details db     # Check postgres status
 bin/deploy accessory logs db -f     # Tail postgres logs
 ```
 
-Config: `config/deploy.yml`. Secret refs: `.kamal/secrets` (only `$KAMAL_*` references, safe for git). Actual values: `~/.kamal/kurir-secrets.env` (per-user, gitignored by being outside the repo).
+Registry is `ghcr.io` (public package `cfarvidson/kurir-server`, published by CI on tag builds); `bin/deploy` needs `KAMAL_REGISTRY_PASSWORD` — for pull-only deploys `KAMAL_REGISTRY_PASSWORD="$(gh auth token)"` works, no PAT required. Config: `config/deploy.yml`. Secret refs: `.kamal/secrets` (only `$KAMAL_*` references, safe for git). Actual values: `~/.kamal/kurir-secrets.env` (per-user, gitignored by being outside the repo).
 
 If `~/.kamal/kurir-secrets.env` is missing, recover by inspecting the previously-running container:
 

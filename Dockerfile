@@ -42,6 +42,10 @@ FROM base AS runner
 LABEL org.opencontainers.image.source="https://github.com/cfarvidson/kurir-server"
 LABEL org.opencontainers.image.description="Kurir — Hey.com-inspired email client"
 LABEL org.opencontainers.image.licenses="LicenseRef-OSaasy"
+# Kamal refuses to run an image without its service label when deploying a
+# pre-built image (`bin/deploy deploy --skip-push --version vX`); Kamal-built
+# images get it automatically, CI-built ones need it here.
+LABEL service="kurir"
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs

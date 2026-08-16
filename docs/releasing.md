@@ -23,7 +23,7 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
 5. **Commit** to main and **verify** with `./scripts/verify-release.sh v<version>` — it checks that all four files above were bumped. CI runs the same check on the tag build and refuses to publish the Docker image for an incomplete release
 6. **Tag and push** to main
-7. **Deploy** via `kamal deploy`
+7. **Deploy** the CI-built image once the `Publish Docker image` workflow for the tag is green: `bin/deploy deploy --skip-push --version v<version>` (pulls `ghcr.io/cfarvidson/kurir-server:v<version>`; never bare `kamal`, see CLAUDE.md)
 8. **Create a GitHub release** with the tag `vYYYY.MM.DD`
 
 ## `latest.json` format
@@ -50,4 +50,4 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 
 ## Automation
 
-Use the `/bump` slash command to automate the full release process. It handles version bumping, `latest.json`, committing, tagging, deploying, and creating the GitHub release.
+Use the `/bump` slash command to automate the full release process. It handles version bumping, `latest.json`, committing, tagging, creating the GitHub release, and deploying the CI-built image.

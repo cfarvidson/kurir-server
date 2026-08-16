@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.16.5",
+    "date": "2026-08-16",
+    "changes": [
+      "Docker image carries the Kamal `service` label so the CI-built ghcr.io image can be deployed directly (no local build); release docs updated"
+    ]
+  },
+  {
     "version": "2026.08.16.4",
     "date": "2026-08-16",
     "changes": [

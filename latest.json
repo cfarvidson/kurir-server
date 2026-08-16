@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.16.4",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.4",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.4",
-  "changelog": "Sent mail now deletes its originating draft server-side, so drafts no longer linger after a successful send from web or MCP.",
+  "version": "2026.08.16.5",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.5",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.5",
+  "changelog": "Docker image now carries the Kamal service label so CI-built images can be deployed directly; includes the server-side draft cleanup after send from v2026.08.16.4.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-16T12:51:45Z"
+  "releasedAt": "2026-08-16T17:11:01Z"
 }

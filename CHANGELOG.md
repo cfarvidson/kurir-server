@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.16.5] - 2026-08-16
+
+### Changed
+
+- The Docker image now carries the Kamal `service=kurir` label, so the
+  CI-built `ghcr.io/cfarvidson/kurir-server:vX` image can be rolled out with
+  `bin/deploy deploy --skip-push --version vX` instead of a local build and
+  push. Release docs and CLAUDE.md describe the ghcr.io registry and the new
+  deploy command
+
 ## [v2026.08.16.4] - 2026-08-16
 
 ### Fixed
