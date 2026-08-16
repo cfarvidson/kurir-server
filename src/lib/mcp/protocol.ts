@@ -85,7 +85,9 @@ export async function dispatchMcp(input: {
       return rpcResult(request.id, {
         tools: listTools().map(serializeTool),
         ttlMs: 300000,
-        cacheScope: "server",
+        // Tool list is the same for every user but requires a token, so
+        // it must not be shared across identities.
+        cacheScope: "private",
       });
     case "tools/call":
       return callTool(request, input.userId, input.tokenId, meta);
@@ -241,8 +243,20 @@ function parseInputResponses(
   return out;
 }
 
-function rpcResult(id: string | number | null, result: unknown) {
-  return { status: 200, json: { jsonrpc: "2.0" as const, id, result } };
+function rpcResult(
+  id: string | number | null,
+  result: Record<string, unknown>,
+) {
+  // Every 2026-07-28 result carries resultType; clients reject results
+  // without it. Handlers that need input_required set it themselves.
+  const withType =
+    typeof result.resultType === "string"
+      ? result
+      : { resultType: "complete", ...result };
+  return {
+    status: 200,
+    json: { jsonrpc: "2.0" as const, id, result: withType },
+  };
 }
 
 function rpcError(id: string | number | null, code: number, message: string) {

@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.16.3",
+    "date": "2026-08-16",
+    "changes": [
+      "Claude Code now loads Kurir's MCP tools: results include resultType (required by the 2026-07-28 revision) and tools/list uses cacheScope \"private\" instead of the invalid \"server\""
+    ]
+  },
+  {
     "version": "2026.08.16.2",
     "date": "2026-08-16",
     "changes": [

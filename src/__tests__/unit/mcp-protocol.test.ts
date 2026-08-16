@@ -157,7 +157,7 @@ describe("dispatchMcp", () => {
       tokenId: "t1",
     });
     expect(res.json).toMatchObject({
-      result: { ttlMs: 300000, cacheScope: "server" },
+      result: { resultType: "complete", ttlMs: 300000, cacheScope: "private" },
     });
     expect(
       Array.isArray(
@@ -216,6 +216,7 @@ describe("dispatchMcp", () => {
     });
     expect(ok.json).toMatchObject({
       result: {
+        resultType: "complete",
         content: [{ type: "text", text: "done" }],
         structuredContent: { q: "hi" },
         isError: false,
@@ -238,7 +239,7 @@ describe("dispatchMcp", () => {
       tokenId: "t1",
     });
     expect(err.json).toMatchObject({
-      result: { isError: true },
+      result: { resultType: "complete", isError: true },
     });
 
     const confirm = await dispatchMcp({

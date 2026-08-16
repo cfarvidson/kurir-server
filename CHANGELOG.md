@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.16.3] - 2026-08-16
+
+### Fixed
+
+- Claude Code now loads Kurir's MCP tools after connecting. Every JSON-RPC
+  result carries `resultType` (`complete` unless a tool asks for
+  confirmation), which the 2026-07-28 revision requires, and `tools/list`
+  uses `cacheScope: "private"` instead of the invalid `"server"`
+
 ## [v2026.08.16.2] - 2026-08-16
 
 ### Fixed

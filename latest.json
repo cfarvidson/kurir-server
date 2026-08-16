@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.16.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.2",
-  "changelog": "Fix Claude Code MCP connect: server/discover now returns supportedVersions so the client no longer falls back to legacy initialize (-32600).",
+  "version": "2026.08.16.3",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.3",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.3",
+  "changelog": "Fix Claude Code MCP tool loading: every result now carries resultType and tools/list uses a valid cacheScope.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-16T12:10:00Z"
+  "releasedAt": "2026-08-16T12:30:00Z"
 }
