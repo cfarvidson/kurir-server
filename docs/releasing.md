@@ -23,8 +23,38 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
 5. **Commit** to main and **verify** with `./scripts/verify-release.sh v<version>` — it checks that all four files above were bumped. CI runs the same check on the tag build and refuses to publish the Docker image for an incomplete release
 6. **Tag and push** to main
-7. **Deploy** the CI-built image once the `Publish Docker image` workflow for the tag is green: `bin/deploy deploy --skip-push --version v<version>` (pulls `ghcr.io/cfarvidson/kurir-server:v<version>`; never bare `kamal`, see CLAUDE.md)
-8. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+7. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+8. **Deploy** the CI-built image — see [Deploying a release](#deploying-a-release) below
+
+## Deploying a release
+
+Production runs the image that CI publishes to `ghcr.io/cfarvidson/kurir-server:v<version>` on every tag build. Kamal does **not** build locally: it pulls that image on the host and swaps containers.
+
+1. **Wait for the image.** The `Publish Docker image` workflow for the tag must be green (multi-arch build, typically 5–10 min):
+
+   ```bash
+   gh run list --workflow docker-publish.yml --limit 3     # find the run for the tag
+   gh run watch <run-id> --exit-status
+   ```
+
+2. **Deploy with the wrapper, never bare `kamal`** (bare `kamal` from a shell without the `KAMAL_*` env deploys empty secrets — see CLAUDE.md):
+
+   ```bash
+   KAMAL_REGISTRY_PASSWORD="$(gh auth token)" bin/deploy deploy --skip-push --version v<version>
+   ```
+
+   - `--skip-push` = no local build/push; Kamal pulls `image:version` from ghcr.io on the host.
+   - `KAMAL_REGISTRY_PASSWORD` is the ghcr.io login. The package is public, so the `gh` CLI token (`gh auth token`) is enough for pull-only deploys — no PAT needed. To build and push locally instead (`bin/deploy` without `--skip-push`) you need a PAT with `write:packages` in `~/.kamal/kurir-secrets.env`.
+   - Kamal refuses a pre-built image without the `service=kurir` label; the runner stage of the `Dockerfile` sets it (v2026.08.16.5+).
+
+3. **Verify:**
+
+   ```bash
+   bin/deploy app containers          # only kurir-web-v<version> should be Up
+   curl -s https://kurir-app-1.banded-beta.ts.net/api/up   # {"status":"ok"}
+   ```
+
+If the deploy fails with `target failed to become healthy` and the container log shows the app was ready, check the proxy: `bin/deploy server exec "docker inspect kamal-proxy --format '{{json .NetworkSettings.Networks}} {{json .NetworkSettings.Ports}}'"` — empty networks/ports means kamal-proxy lost the `:443` bind race against tailscaled after a host reboot. Recovery: `docker rm -f kamal-proxy` on the host, then `bin/deploy proxy boot` (the config binds the proxy to `127.0.0.1`, see CLAUDE.md), then deploy again.
 
 ## `latest.json` format
 
@@ -50,4 +80,4 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 
 ## Automation
 
-Use the `/bump` slash command to automate the full release process. It handles version bumping, `latest.json`, committing, tagging, creating the GitHub release, and deploying the CI-built image.
+Use the `/bump` slash command to automate the full release process. It handles version bumping, `latest.json`/`changelog.json`/`CHANGELOG.md`, committing, verifying, tagging, creating the GitHub release, waiting for the CI image, and deploying it with `bin/deploy deploy --skip-push`.
