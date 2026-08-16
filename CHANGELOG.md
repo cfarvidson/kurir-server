@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.16.2] - 2026-08-16
+
+### Fixed
+
+- Claude Code can now connect to `/mcp`. `server/discover` returns
+  `supportedVersions` (and `serverInfo` in `_meta`) as the 2026-07-28
+  DiscoverResult requires; without it clients treated Kurir as a legacy
+  server, fell back to `initialize`, and got "Unsupported protocol version"
+  (-32600)
+
 ## [v2026.08.16] - 2026-08-16
 
 ### Fixed

@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.16.2",
+    "date": "2026-08-16",
+    "changes": [
+      "Claude Code can now connect to /mcp: server/discover returns supportedVersions and serverInfo in _meta per the 2026-07-28 revision, so clients no longer fall back to legacy initialize and fail with -32600"
+    ]
+  },
+  {
     "version": "2026.08.16",
     "date": "2026-08-16",
     "changes": [

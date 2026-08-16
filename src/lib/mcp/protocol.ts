@@ -68,10 +68,18 @@ export async function dispatchMcp(input: {
 
   switch (request.method) {
     case "server/discover":
+      // DiscoverResult per the 2026-07-28 revision: supportedVersions is
+      // what clients use as evidence of a modern server; serverInfo travels
+      // in the _meta envelope.
       return rpcResult(request.id, {
-        protocolVersion: MCP_PROTOCOL_VERSION,
-        serverInfo: { name: "kurir", version: pkg.version },
+        supportedVersions: [MCP_PROTOCOL_VERSION],
         capabilities: { tools: {} },
+        _meta: {
+          "io.modelcontextprotocol/serverInfo": {
+            name: "kurir",
+            version: pkg.version,
+          },
+        },
       });
     case "tools/list":
       return rpcResult(request.id, {

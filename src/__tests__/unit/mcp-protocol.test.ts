@@ -72,17 +72,20 @@ describe("dispatchMcp", () => {
       tokenId: "t1",
     });
     expect(res.status).toBe(200);
+    // Shape required by the 2026-07-28 DiscoverResult schema: clients
+    // (e.g. Claude Code) treat a reply without supportedVersions as a
+    // legacy server and fall back to initialize.
     expect(res.json).toMatchObject({
-      result: { capabilities: { tools: {} } },
+      result: {
+        supportedVersions: ["2026-07-28"],
+        capabilities: { tools: {} },
+        _meta: { "io.modelcontextprotocol/serverInfo": { name: "kurir" } },
+      },
     });
     expect(
       (res.json as { result: { capabilities: Record<string, unknown> } }).result
         .capabilities.resources,
     ).toBeUndefined();
-    expect(
-      (res.json as { result: { serverInfo: { name: string } } }).result
-        .serverInfo.name,
-    ).toBe("kurir");
   });
 
   it("rejects Mcp-Name mismatch on tools/call", async () => {

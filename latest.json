@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.16",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16",
-  "changelog": "Fix Claude Code MCP connect: allow loopback OAuth redirects on any port (RFC 8252).",
+  "version": "2026.08.16.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.2",
+  "changelog": "Fix Claude Code MCP connect: server/discover now returns supportedVersions so the client no longer falls back to legacy initialize (-32600).",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-16T11:50:00Z"
+  "releasedAt": "2026-08-16T12:10:00Z"
 }
