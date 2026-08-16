@@ -83,7 +83,7 @@ bin/deploy accessory details db     # Check postgres status
 bin/deploy accessory logs db -f     # Tail postgres logs
 ```
 
-Registry is `ghcr.io` (public package `cfarvidson/kurir-server`, published by CI on tag builds); `bin/deploy` needs `KAMAL_REGISTRY_PASSWORD` — for pull-only deploys `KAMAL_REGISTRY_PASSWORD="$(gh auth token)"` works, no PAT required. Config: `config/deploy.yml`. Secret refs: `.kamal/secrets` (only `$KAMAL_*` references, safe for git). Actual values: `~/.kamal/kurir-secrets.env` (per-user, gitignored by being outside the repo).
+The proxy is bound to `127.0.0.1` (`proxy.run.bind_ips` in `config/deploy.yml`) because Tailscale Serve terminates TLS and forwards to `127.0.0.1:80`; after a host reboot tailscaled owns `:443`, and a `0.0.0.0:443` publish makes kamal-proxy start without ports or network (silent outage, 2026-08-16). If `curl localhost/api/up` on the host gives no response, check `docker inspect kamal-proxy` networks/ports and run `bin/deploy proxy reboot`. Registry is `ghcr.io` (public package `cfarvidson/kurir-server`, published by CI on tag builds); `bin/deploy` needs `KAMAL_REGISTRY_PASSWORD` — for pull-only deploys `KAMAL_REGISTRY_PASSWORD="$(gh auth token)"` works, no PAT required. Config: `config/deploy.yml`. Secret refs: `.kamal/secrets` (only `$KAMAL_*` references, safe for git). Actual values: `~/.kamal/kurir-secrets.env` (per-user, gitignored by being outside the repo).
 
 If `~/.kamal/kurir-secrets.env` is missing, recover by inspecting the previously-running container:
 

@@ -15,6 +15,11 @@ servers:
 proxy:
   ssl: false
   app_port: 3000
+  # If a tailnet/other TLS terminator forwards to 127.0.0.1:80, bind the proxy
+  # to loopback so a reboot race on :443 cannot leave it portless.
+  # run:
+  #   bind_ips:
+  #     - 127.0.0.1
   response_timeout: 120
   healthcheck:
     path: /api/up
