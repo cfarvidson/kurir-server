@@ -585,6 +585,9 @@ export function ComposeClientPage({
       body,
       fromConnectionId: connections.length > 1 ? fromConnectionId : undefined,
       attachmentIds,
+      draft: isEditingScheduled
+        ? undefined
+        : { type: draftType, contextMessageId: draftContextId },
     };
 
     // Save state for undo
@@ -634,6 +637,10 @@ export function ComposeClientPage({
             text: payload.body,
             fromConnectionId: payload.fromConnectionId,
             attachmentIds: payload.attachmentIds,
+            // Server-side draft cleanup: the send core deletes this draft once
+            // SMTP accepts the mail, so the row goes even if removeDraft()
+            // below never runs (navigation, swallowed error, closed tab).
+            draft: payload.draft,
           }),
         });
       } catch (sendErr) {

@@ -3,9 +3,11 @@ import {
   getDefaultConnectionCredentials,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DraftType } from "@prisma/client";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
+import { deleteDraftForUser } from "@/lib/mail/drafts";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import {
   appendToImapSent,
@@ -31,6 +33,17 @@ export const sendMailSchema = z.object({
   references: z.array(z.string()).optional(),
   fromConnectionId: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
+  /**
+   * The composer draft this send came from. Deleted server-side once SMTP
+   * has accepted the mail, so cleanup no longer depends on the client
+   * (web/iOS/MCP) remembering to call delete after a successful send.
+   */
+  draft: z
+    .object({
+      type: z.nativeEnum(DraftType),
+      contextMessageId: z.string().min(1),
+    })
+    .optional(),
 });
 
 export type SendMailInput = z.infer<typeof sendMailSchema>;
@@ -60,6 +73,7 @@ export async function sendMailForUser(
     references,
     fromConnectionId,
     attachmentIds,
+    draft,
   } = input;
 
   // Support multiple recipients (comma/semicolon separated) across To/Cc/Bcc.
@@ -202,6 +216,17 @@ export async function sendMailForUser(
     html: displayHtml,
     attachmentIds: loaded.ids,
   });
+
+  // The mail is out and persisted; drop the originating draft. A failure here
+  // must not turn a successful send into an error response — the client's own
+  // delete (if any) or a manual delete can still clean up.
+  if (draft) {
+    try {
+      await deleteDraftForUser(userId, draft.type, draft.contextMessageId);
+    } catch (err) {
+      console.error("Draft cleanup after send failed:", err);
+    }
+  }
 
   // Auto-create contacts for every recipient across To/Cc/Bcc (fire-and-forget)
   for (const recipient of [...recipients, ...ccRecipients, ...bccRecipients]) {

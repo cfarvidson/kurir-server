@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.16.3",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.3",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.3",
-  "changelog": "Fix Claude Code MCP tool loading: every result now carries resultType and tools/list uses a valid cacheScope.",
+  "version": "2026.08.16.4",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.16.4",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.16.4",
+  "changelog": "Sent mail now deletes its originating draft server-side, so drafts no longer linger after a successful send from web or MCP.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-16T12:30:00Z"
+  "releasedAt": "2026-08-16T12:51:45Z"
 }

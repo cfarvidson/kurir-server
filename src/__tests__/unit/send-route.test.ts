@@ -31,6 +31,10 @@ vi.mock("@/lib/mail/contacts", () => ({
   findOrCreateContactForEmail: vi.fn().mockResolvedValue({ id: "c1" }),
 }));
 
+vi.mock("@/lib/mail/drafts", () => ({
+  deleteDraftForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@/lib/rate-limit", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
   return {
@@ -436,5 +440,121 @@ describe("POST /api/mail/send", () => {
     expect(response.headers.get("Retry-After")).toBe("42");
     expect(mockSendMail).not.toHaveBeenCalled();
     expect(rateLimitSend).toHaveBeenCalledWith("user-1");
+  });
+
+  describe("draft cleanup", () => {
+    async function authedDefault() {
+      const { auth, getDefaultConnectionCredentials } =
+        await import("@/lib/auth");
+      vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+      vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
+        connectionId: "conn-default",
+        email: "me@gmail.com",
+        sendAsEmail: null,
+        aliases: [],
+        treatDomainAsOwn: false,
+        password: "pass",
+        accessToken: null,
+        oauthProvider: null,
+        imap: { host: "imap.gmail.com", port: 993 },
+        smtp: { host: "smtp.gmail.com", port: 587 },
+      });
+      const { db } = await import("@/lib/db");
+      vi.mocked(db.message.findFirst).mockResolvedValue(null);
+      const { rateLimitSend } = await import("@/lib/rate-limit");
+      vi.mocked(rateLimitSend).mockResolvedValue({
+        allowed: true,
+        remaining: 30,
+        retryAfter: 0,
+      });
+    }
+
+    it("deletes the referenced draft after a successful send", async () => {
+      await authedDefault();
+      const { deleteDraftForUser } = await import("@/lib/mail/drafts");
+
+      const { POST } = await import("@/app/api/mail/send/route");
+      const response = await POST(
+        makeRequest({
+          to: "someone@example.com",
+          subject: "Hi",
+          text: "Hello",
+          draft: { type: "NEW", contextMessageId: "new-abc-123" },
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(deleteDraftForUser).toHaveBeenCalledWith(
+        "user-1",
+        "NEW",
+        "new-abc-123",
+      );
+    });
+
+    it("leaves drafts alone when no draft key is sent", async () => {
+      await authedDefault();
+      const { deleteDraftForUser } = await import("@/lib/mail/drafts");
+
+      const { POST } = await import("@/app/api/mail/send/route");
+      const response = await POST(
+        makeRequest({ to: "someone@example.com", subject: "Hi", text: "x" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(deleteDraftForUser).not.toHaveBeenCalled();
+    });
+
+    it("does not delete the draft when SMTP send fails", async () => {
+      await authedDefault();
+      const { deleteDraftForUser } = await import("@/lib/mail/drafts");
+      mockSendMail.mockRejectedValueOnce(new Error("smtp down"));
+
+      const { POST } = await import("@/app/api/mail/send/route");
+      const response = await POST(
+        makeRequest({
+          to: "someone@example.com",
+          subject: "Hi",
+          text: "x",
+          draft: { type: "REPLY", contextMessageId: "msg-1" },
+        }),
+      );
+
+      expect(response.status).not.toBe(200);
+      expect(deleteDraftForUser).not.toHaveBeenCalled();
+    });
+
+    it("still reports success when draft deletion fails after send", async () => {
+      await authedDefault();
+      const { deleteDraftForUser } = await import("@/lib/mail/drafts");
+      vi.mocked(deleteDraftForUser).mockRejectedValueOnce(new Error("db"));
+
+      const { POST } = await import("@/app/api/mail/send/route");
+      const response = await POST(
+        makeRequest({
+          to: "someone@example.com",
+          subject: "Hi",
+          text: "x",
+          draft: { type: "NEW", contextMessageId: "new-abc-123" },
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects an unknown draft type", async () => {
+      await authedDefault();
+
+      const { POST } = await import("@/app/api/mail/send/route");
+      const response = await POST(
+        makeRequest({
+          to: "someone@example.com",
+          draft: { type: "BOGUS", contextMessageId: "x" },
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
   });
 });

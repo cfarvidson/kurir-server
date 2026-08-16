@@ -256,6 +256,29 @@ describe("MCP send tools", () => {
     expect(rateLimitSend).toHaveBeenCalledWith("u1");
   });
 
+  it("send_mail passes the originating draft key through to the send core", async () => {
+    const args = {
+      ...baseArgs,
+      draft: { type: "NEW", contextMessageId: "new-agent-draft-1" },
+    };
+    mockPendingConfirmation("send_mail", args);
+    const result = await call(
+      "send_mail",
+      args,
+      ctx({
+        requestState: "conf-1",
+        inputResponses: { confirm: { action: "accept" } },
+      }),
+    );
+    expect(result.type).toBe("ok");
+    expect(sendMailForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        draft: { type: "NEW", contextMessageId: "new-agent-draft-1" },
+      }),
+    );
+  });
+
   it("send_mail accept with swapped to does not send", async () => {
     mockPendingConfirmation("send_mail", baseArgs);
     const result = await call(

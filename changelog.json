@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.16.4",
+    "date": "2026-08-16",
+    "changes": [
+      "Sending a mail now deletes the draft it came from on the server (web composer and MCP send_mail pass the draft key), so drafts no longer linger in the Drafts list after a successful send"
+    ]
+  },
+  {
     "version": "2026.08.16.3",
     "date": "2026-08-16",
     "changes": [

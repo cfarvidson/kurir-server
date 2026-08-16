@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.16.4] - 2026-08-16
+
+### Fixed
+
+- Sending a mail now deletes its originating draft server-side.
+  `POST /api/mail/send` and the MCP `send_mail` tool accept an optional
+  `draft` (`type` + `contextMessageId`, the same key as `save_draft`); once
+  SMTP has accepted the mail the draft row is removed, so cleanup no longer
+  depends on the client's own delete call succeeding. The web composer passes
+  the key; a failed cleanup is logged and never turns a successful send into
+  an error
+
 ## [v2026.08.16.3] - 2026-08-16
 
 ### Fixed

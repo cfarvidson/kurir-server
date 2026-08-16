@@ -1,3 +1,4 @@
+import { DraftType } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { isDemoInstance } from "@/lib/demo";
@@ -34,6 +35,12 @@ const sendMailSchema = z
     subject: z.string().optional(),
     body: z.string(),
     attachmentIds: z.array(z.string()).optional(),
+    draft: z
+      .object({
+        type: z.nativeEnum(DraftType),
+        contextMessageId: z.string().min(1),
+      })
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (value.mode !== "compose" && !value.messageId) {
@@ -101,6 +108,16 @@ function sendInputSchemaJson(includeSchedule: boolean) {
       subject: { type: "string" },
       body: { type: "string" },
       attachmentIds: { type: "array", items: { type: "string" } },
+      draft: {
+        type: "object",
+        description:
+          "Draft this send came from (same key as save_draft); deleted after a successful send",
+        properties: {
+          type: { type: "string", enum: ["NEW", "REPLY", "FORWARD"] },
+          contextMessageId: { type: "string" },
+        },
+        required: ["type", "contextMessageId"],
+      },
       ...(includeSchedule
         ? { scheduledFor: { type: "string", description: "ISO-8601 datetime" } }
         : {}),
@@ -243,6 +260,7 @@ type ResolvedOutgoing = {
   references?: string[];
   contextMessageId?: string;
   attachmentIds?: string[];
+  draft?: { type: DraftType; contextMessageId: string };
 };
 
 async function resolveOutgoing(
@@ -325,6 +343,7 @@ async function resolveOutgoing(
     references,
     contextMessageId,
     attachmentIds: data.attachmentIds,
+    draft: data.draft,
   };
 }
 
@@ -374,6 +393,7 @@ function toSendInput(resolved: ResolvedOutgoing) {
     inReplyTo: resolved.inReplyTo,
     references: resolved.references,
     attachmentIds: resolved.attachmentIds,
+    draft: resolved.draft,
   };
 }
 
