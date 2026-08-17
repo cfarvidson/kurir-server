@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,10 +19,11 @@ const CADENCES: { value: SettingsBackupCadence; label: string; hint: string }[] 
     { value: "weekly", label: "Weekly", hint: "Same weekday, 03:00" },
   ];
 
-function formatWhen(iso: string) {
+function formatWhen(iso: string, timeZone: string) {
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone,
   });
 }
 
@@ -32,93 +33,104 @@ export function SettingsBackupPanel({
   initial: SettingsBackupState;
 }) {
   const [state, setState] = useState(initial);
-  const [isPending, startTransition] = useTransition();
+  const [busy, setBusy] = useState<"cadence" | "backup" | "restore" | null>(
+    null,
+  );
 
-  const handleCadence = (cadence: SettingsBackupCadence) => {
-    const previous = state.cadence;
-    setState((s) => ({ ...s, cadence }));
-    startTransition(async () => {
-      try {
-        const result = await setSettingsBackupCadence(cadence);
-        setState((s) => ({ ...s, cadence, nextRunAt: result.nextRunAt }));
-      } catch {
-        setState((s) => ({ ...s, cadence: previous }));
-        toast.error("Could not update backup schedule");
-      }
-    });
+  const handleCadence = async (cadence: SettingsBackupCadence) => {
+    if (cadence === state.cadence || busy) return;
+    const previous = state;
+    setState((s) => ({
+      ...s,
+      cadence,
+      nextRunAt: cadence === "off" ? null : s.nextRunAt,
+    }));
+    setBusy("cadence");
+    try {
+      const result = await setSettingsBackupCadence(cadence);
+      setState((s) => ({ ...s, cadence, nextRunAt: result.nextRunAt }));
+    } catch {
+      setState(previous);
+      toast.error("Could not update backup schedule");
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleBackupNow = () => {
-    startTransition(async () => {
-      try {
-        const result = await backupSettingsNow();
-        if (result.warning) {
-          toast.warning(result.warning);
-        } else {
-          toast.success("Settings backup saved to Sent");
-        }
-        const next = await getSettingsBackupState();
-        setState(next);
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Could not write backup",
-        );
+  const handleBackupNow = async () => {
+    if (busy) return;
+    setBusy("backup");
+    try {
+      const result = await backupSettingsNow();
+      if (result.warning) {
+        toast.warning(result.warning);
+      } else {
+        toast.success("Settings backup saved to Sent");
       }
-    });
+      const next = await getSettingsBackupState();
+      setState(next);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not write backup",
+      );
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleRestore = (messageId: string) => {
-    startTransition(async () => {
-      try {
-        const result = await restoreSettingsBackup(messageId);
-        if (result.skippedConnections.length > 0) {
-          toast.success(
-            `Restored. Skipped ${result.skippedConnections.join(", ")}`,
-          );
-        } else {
-          toast.success("Settings restored");
-        }
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Could not restore backup",
+  const handleRestore = async (messageId: string) => {
+    if (busy) return;
+    setBusy("restore");
+    try {
+      const result = await restoreSettingsBackup(messageId);
+      if (result.skippedConnections.length > 0) {
+        toast.success(
+          `Restored. Skipped ${result.skippedConnections.join(", ")}`,
         );
+      } else {
+        toast.success("Settings restored");
       }
-    });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not restore backup",
+      );
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Save contacts, screening, and preferences as a dummy Sent email. After
-        a fresh install, reconnect the same mailbox and restore from this list.
-        Email messages are not included.
-      </p>
-
       <div>
         <p className="text-sm font-medium">Schedule</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {CADENCES.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              disabled={isPending}
-              onClick={() => handleCadence(c.value)}
-              className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
-                state.cadence === c.value
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
-              } disabled:opacity-50`}
-            >
-              {c.label}
-              <span className="text-xs font-normal text-muted-foreground">
-                {c.hint}
-              </span>
-            </button>
-          ))}
+          {CADENCES.map((c) => {
+            const selected = state.cadence === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={selected}
+                disabled={busy === "cadence"}
+                onClick={() => void handleCadence(c.value)}
+                className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
+                  selected
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+                }`}
+              >
+                {c.label}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {c.hint}
+                </span>
+              </button>
+            );
+          })}
         </div>
         {state.cadence !== "off" && state.nextRunAt && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Next automatic backup {formatWhen(state.nextRunAt)}
+            Next automatic backup{" "}
+            {formatWhen(state.nextRunAt, state.timezone)}
           </p>
         )}
       </div>
@@ -127,10 +139,10 @@ export function SettingsBackupPanel({
         <Button
           type="button"
           variant="outline"
-          disabled={isPending}
-          onClick={handleBackupNow}
+          disabled={busy === "backup"}
+          onClick={() => void handleBackupNow()}
         >
-          Backup now
+          {busy === "backup" ? "Saving…" : "Backup now"}
         </Button>
       </div>
 
@@ -149,7 +161,7 @@ export function SettingsBackupPanel({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {formatWhen(backup.sentAt)}
+                    {formatWhen(backup.sentAt, state.timezone)}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {backup.source === "scheduled" ? "Scheduled" : "Manual"}
@@ -161,8 +173,8 @@ export function SettingsBackupPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={isPending}
-                  onClick={() => handleRestore(backup.messageId)}
+                  disabled={busy === "restore"}
+                  onClick={() => void handleRestore(backup.messageId)}
                 >
                   Restore
                 </Button>
