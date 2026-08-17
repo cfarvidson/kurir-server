@@ -434,7 +434,12 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         setStep("done");
       }
     } catch {
-      setBackupState({ cadence: "off", nextRunAt: null, backups: [] });
+      setBackupState({
+        cadence: "off",
+        nextRunAt: null,
+        timezone: "UTC",
+        backups: [],
+      });
     } finally {
       setBackupLoading(false);
     }

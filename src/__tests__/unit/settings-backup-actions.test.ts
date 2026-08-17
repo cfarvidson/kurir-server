@@ -39,4 +39,25 @@ describe("settings-backup actions", () => {
       "Invalid cadence",
     );
   });
+
+  it("does not revalidate Settings when cadence changes", async () => {
+    const { requireAuth } = await import("@/lib/auth");
+    vi.mocked(requireAuth).mockResolvedValue({
+      user: { id: "user-1" },
+    } as never);
+
+    const { setSettingsBackupCadenceForUser } = await import(
+      "@/lib/mail/settings-backup"
+    );
+    vi.mocked(setSettingsBackupCadenceForUser).mockResolvedValue(
+      new Date("2026-08-18T01:00:00.000Z"),
+    );
+
+    const { revalidatePath } = await import("next/cache");
+    const { setSettingsBackupCadence } = await import(
+      "@/actions/settings-backup"
+    );
+    await setSettingsBackupCadence("daily");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });

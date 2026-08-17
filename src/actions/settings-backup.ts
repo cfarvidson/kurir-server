@@ -18,6 +18,7 @@ import {
 export type SettingsBackupState = {
   cadence: SettingsBackupCadence;
   nextRunAt: string | null;
+  timezone: string;
   backups: Array<{
     messageId: string;
     sentAt: string;
@@ -35,6 +36,7 @@ export async function getSettingsBackupState(): Promise<SettingsBackupState> {
       select: {
         settingsBackupCadence: true,
         settingsBackupNextRunAt: true,
+        timezone: true,
       },
     }),
     listSettingsBackupsForUser(userId),
@@ -48,6 +50,7 @@ export async function getSettingsBackupState(): Promise<SettingsBackupState> {
   return {
     cadence,
     nextRunAt: user?.settingsBackupNextRunAt?.toISOString() ?? null,
+    timezone: user?.timezone || "UTC",
     backups: backups.map((b) => ({
       messageId: b.messageId,
       sentAt: b.sentAt.toISOString(),
@@ -80,7 +83,6 @@ export async function setSettingsBackupCadence(cadence: string): Promise<{
     throw new Error("Invalid cadence");
   }
   const next = await setSettingsBackupCadenceForUser(session.user.id, cadence);
-  revalidatePath("/settings");
   return { nextRunAt: next?.toISOString() ?? null };
 }
 
