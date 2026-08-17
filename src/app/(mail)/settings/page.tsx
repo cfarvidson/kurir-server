@@ -22,6 +22,8 @@ import { BadgePreferencesSettings } from "@/components/settings/badge-preference
 import { ThemeSettings } from "@/components/settings/theme-settings";
 import { ImagePrivacySettings } from "@/components/settings/image-privacy-settings";
 import { getBadgePreferences } from "@/actions/badge-preferences";
+import { getSettingsBackupState } from "@/actions/settings-backup";
+import { SettingsBackupPanel } from "@/components/settings/settings-backup";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import {
@@ -120,6 +122,7 @@ export default async function SettingsPage() {
     badgePrefs,
     own,
     mcpConnections,
+    settingsBackup,
   ] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
@@ -172,6 +175,7 @@ export default async function SettingsPage() {
     getBadgePreferences(userId),
     getOwnAddresses(userId),
     listMcpConnections(),
+    getSettingsBackupState(),
   ]);
 
   const isAdmin = user?.role === "ADMIN";
@@ -389,6 +393,17 @@ export default async function SettingsPage() {
         />
         <div className="mt-4">
           <ScreenRecentButton />
+        </div>
+      </section>
+
+      <section>
+        <SectionHeading
+          eyebrow="Mail"
+          title="Settings backup"
+          description="A takeout of contacts, screening, and preferences, stored as a dummy Sent email. Email messages are not included."
+        />
+        <div className="mt-4">
+          <SettingsBackupPanel initial={settingsBackup} />
         </div>
       </section>
     </div>

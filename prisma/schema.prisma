@@ -42,6 +42,10 @@ model User {
   showReplyLaterBadge Boolean @default(true)
   showScheduledBadge  Boolean @default(true)
 
+  // Settings takeout (dummy Sent backups). "off" | "daily" | "weekly".
+  settingsBackupCadence    String    @default("off")
+  settingsBackupNextRunAt  DateTime?
+
   // Relations
   passkeys          Passkey[]
   emailConnections  EmailConnection[]
