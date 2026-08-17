@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.17] - 2026-08-17
+
+### Added
+
+- Settings takeout stored as a dummy Sent email (no SMTP). The attached
+  JSON holds contacts, groups, screener decisions, domain rules, per-sender
+  flags, and mail preferences - never message bodies. Backup now, or
+  schedule daily/weekly at 03:00 local. The last 4 copies are kept.
+  After a fresh install, pick a backup from Sent in setup or restore later
+  from Settings. Scheduled success requires IMAP APPEND so the copy
+  survives a wipe.
+
 ## [v2026.08.16.5] - 2026-08-16
 
 ### Changed

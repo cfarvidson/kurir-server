@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.17",
+    "date": "2026-08-17",
+    "changes": [
+      "Settings takeout: contacts, screening, and preferences as a dummy Sent email. Daily or weekly cadence, last 4 copies, restore after a wipe from the same mailbox"
+    ]
+  },
+  {
     "version": "2026.08.16.5",
     "date": "2026-08-16",
     "changes": [
