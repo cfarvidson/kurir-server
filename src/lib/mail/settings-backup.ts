@@ -167,6 +167,14 @@ export async function writeSettingsBackupForUser(
     throw new Error("No email connection");
   }
 
+  const sentFolder = await db.folder.findFirst({
+    where: { emailConnectionId: connection.id, specialUse: "sent" },
+    select: { id: true },
+  });
+  if (!sentFolder) {
+    throw new Error("No Sent folder");
+  }
+
   const snapshot = await snapshotSettingsForUser(userId, source);
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -209,28 +217,34 @@ export async function writeSettingsBackupForUser(
     throw new Error("No Sent folder");
   }
 
-  let appendOk = true;
+  let appendOk = false;
   try {
-    await appendToImapSent({
-      emailConnectionId: connection.id,
-      messageId: message.messageId,
-      inReplyTo: null,
-      references: [],
-      subject,
-      fromAddress,
-      toAddresses: [fromAddress],
-      text: BACKUP_BODY,
-      attachments: [
-        {
-          filename,
-          content,
-          contentType: "application/json",
-        },
-      ],
-    });
+    appendOk =
+      (await appendToImapSent({
+        emailConnectionId: connection.id,
+        messageId: message.messageId,
+        inReplyTo: null,
+        references: [],
+        subject,
+        fromAddress,
+        toAddresses: [fromAddress],
+        text: BACKUP_BODY,
+        attachments: [
+          {
+            filename,
+            content,
+            contentType: "application/json",
+          },
+        ],
+      })) === true;
   } catch (err) {
     appendOk = false;
     console.error("[settings-backup] IMAP APPEND failed:", err);
+  }
+  if (!appendOk) {
+    console.error(
+      "[settings-backup] IMAP APPEND did not land; backup will not survive a wipe",
+    );
   }
 
   await pruneOldBackups(userId);

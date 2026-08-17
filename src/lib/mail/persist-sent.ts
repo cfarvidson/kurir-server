@@ -25,7 +25,9 @@ export async function getSentFolder(emailConnectionId: string) {
 /**
  * Append a sent message to the IMAP Sent folder.
  * Builds an RFC822 message from the provided fields and uses IMAP APPEND.
- * Should be called fire-and-forget (.catch(console.error)).
+ * Returns true only when IMAP APPEND actually ran. Missing Sent folder
+ * or a swallowed IMAP error is false, not a throw. Fire-and-forget
+ * callers may ignore the boolean.
  */
 export interface SentAttachment {
   filename: string;
@@ -47,12 +49,12 @@ export async function appendToImapSent(opts: {
   text: string;
   html?: string | null;
   attachments?: SentAttachment[];
-}): Promise<void> {
+}): Promise<boolean> {
   const folder = await db.folder.findFirst({
     where: { emailConnectionId: opts.emailConnectionId, specialUse: "sent" },
     select: { path: true },
   });
-  if (!folder) return;
+  if (!folder) return false;
 
   const mail = new MailComposer({
     from: opts.fromAddress,
@@ -75,9 +77,14 @@ export async function appendToImapSent(opts: {
 
   const raw = await mail.compile().build();
 
-  await withImapConnection(opts.emailConnectionId, async (client) => {
-    await client.append(folder.path, raw, ["\\Seen"]);
-  });
+  const appended = await withImapConnection(
+    opts.emailConnectionId,
+    async (client) => {
+      await client.append(folder.path, raw, ["\\Seen"]);
+      return true;
+    },
+  );
+  return appended === true;
 }
 
 /** Create a snippet from message text. */

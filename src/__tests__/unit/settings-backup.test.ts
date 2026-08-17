@@ -252,6 +252,22 @@ describe("writeSettingsBackupForUser", () => {
     expect(createLocalSentMessage).not.toHaveBeenCalled();
   });
 
+  it("throws when the connection has no Sent folder", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      { id: "conn-1", email: "you@gmail.com", sendAsEmail: null, isDefault: true },
+    ] as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue(null);
+
+    const { writeSettingsBackupForUser } = await import(
+      "@/lib/mail/settings-backup"
+    );
+    await expect(
+      writeSettingsBackupForUser("user-1", "manual"),
+    ).rejects.toThrow(/sent folder/i);
+    expect(createLocalSentMessage).not.toHaveBeenCalled();
+  });
+
   it("persists a dummy Sent row and APPENDs to IMAP", async () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.user.findUnique).mockResolvedValue({
@@ -276,8 +292,13 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "fold-sent",
+      path: "Sent",
+      specialUse: "sent",
+    } as never);
     createLocalSentMessage.mockResolvedValue({ id: "msg-1" });
-    appendToImapSent.mockResolvedValue(undefined);
+    appendToImapSent.mockResolvedValue(true);
 
     const { writeSettingsBackupForUser } = await import(
       "@/lib/mail/settings-backup"
@@ -313,8 +334,13 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "fold-sent",
+      path: "Sent",
+      specialUse: "sent",
+    } as never);
     createLocalSentMessage.mockResolvedValue({ id: "msg-1" });
-    appendToImapSent.mockRejectedValue(new Error("imap down"));
+    appendToImapSent.mockResolvedValue(false);
 
     const { writeSettingsBackupForUser } = await import(
       "@/lib/mail/settings-backup"
@@ -362,8 +388,13 @@ describe("processDueSettingsBackups", () => {
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "fold-sent",
+      path: "Sent",
+      specialUse: "sent",
+    } as never);
     createLocalSentMessage.mockResolvedValue({ id: "msg-1" });
-    appendToImapSent.mockRejectedValue(new Error("imap down"));
+    appendToImapSent.mockResolvedValue(false);
 
     const { processDueSettingsBackups } = await import(
       "@/lib/mail/settings-backup"

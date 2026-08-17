@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const SETTINGS_BACKUP_KIND = "kurir-settings-backup";
 export const SETTINGS_BACKUP_VERSION = 1;
 export const SETTINGS_BACKUP_SUBJECT_PREFIX = "Kurir settings backup - ";
@@ -74,6 +76,91 @@ export function serializeSettingsBackup(payload: SettingsBackupPayload): string 
   return JSON.stringify(payload);
 }
 
+const emailSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .transform((value) => value.toLowerCase());
+
+const categorySchema = z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]).nullable();
+
+const decidedSchema = z
+  .object({
+    status: z.enum(["APPROVED", "REJECTED"]),
+    category: categorySchema,
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "APPROVED" && !value.category) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["category"],
+        message: "Category required when status is APPROVED",
+      });
+    }
+  });
+
+const payloadSchema = z.object({
+  kind: z.literal(SETTINGS_BACKUP_KIND),
+  version: z.literal(SETTINGS_BACKUP_VERSION),
+  exportedAt: z.string().min(1),
+  source: z.enum(["manual", "scheduled"]),
+  preferences: z.object({
+    theme: z.enum(["light", "dark", "system"]),
+    timezone: z.string().min(1),
+    blockRemoteImages: z.boolean(),
+    blockTrackers: z.boolean(),
+    showImboxBadge: z.boolean(),
+    showScreenerBadge: z.boolean(),
+    showFeedBadge: z.boolean(),
+    showPaperTrailBadge: z.boolean(),
+    showFollowUpBadge: z.boolean(),
+    showReplyLaterBadge: z.boolean(),
+    showScheduledBadge: z.boolean(),
+  }),
+  contacts: z.array(
+    z.object({
+      name: z.string().min(1),
+      notes: z.string(),
+      emails: z
+        .array(
+          z.object({
+            email: emailSchema,
+            label: z.string().min(1),
+            isPrimary: z.boolean(),
+          }),
+        )
+        .min(1),
+    }),
+  ),
+  contactGroups: z.array(
+    z.object({
+      name: z.string().min(1),
+      defaultTarget: z.enum(["TO", "BCC"]),
+      members: z.array(emailSchema),
+    }),
+  ),
+  senders: z.array(
+    decidedSchema.and(
+      z.object({
+        connectionEmail: emailSchema,
+        email: emailSchema,
+        domain: z.string().min(1),
+        unthread: z.boolean(),
+        allowRemoteImages: z.boolean(),
+      }),
+    ),
+  ),
+  domainRules: z.array(
+    decidedSchema.and(
+      z.object({
+        connectionEmail: emailSchema,
+        pattern: z.string().min(1),
+        includeSubdomains: z.boolean(),
+      }),
+    ),
+  ),
+});
+
 export function parseSettingsBackup(input: unknown): SettingsBackupPayload {
   const value = typeof input === "string" ? JSON.parse(input) : input;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -94,20 +181,15 @@ export function parseSettingsBackup(input: unknown): SettingsBackupPayload {
     throw new Error("Unsupported settings backup version");
   }
 
-  if (
-    typeof record.exportedAt !== "string" ||
-    (record.source !== "manual" && record.source !== "scheduled") ||
-    !record.preferences ||
-    typeof record.preferences !== "object" ||
-    !Array.isArray(record.contacts) ||
-    !Array.isArray(record.contactGroups) ||
-    !Array.isArray(record.senders) ||
-    !Array.isArray(record.domainRules)
-  ) {
-    throw new Error("Invalid settings backup");
+  const parsed = payloadSchema.safeParse(record);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const path = issue?.path.join(".") || "payload";
+    throw new Error(
+      `Invalid settings backup: ${path} ${issue?.message ?? ""}`.trim(),
+    );
   }
-
-  return value as SettingsBackupPayload;
+  return parsed.data;
 }
 
 /** Oldest-first victims once we keep the newest `keep` backups. */

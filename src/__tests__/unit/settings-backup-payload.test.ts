@@ -113,6 +113,72 @@ describe("parseSettingsBackup", () => {
     const payload = validPayload();
     expect(parseSettingsBackup(JSON.stringify(payload))).toEqual(payload);
   });
+
+  it("rejects missing preference fields", () => {
+    const base = validPayload();
+    expect(() =>
+      parseSettingsBackup({
+        ...base,
+        preferences: { theme: "dark" },
+      }),
+    ).toThrow(/invalid settings backup/i);
+  });
+
+  it("rejects an unknown theme", () => {
+    expect(() =>
+      parseSettingsBackup({
+        ...validPayload(),
+        preferences: {
+          ...validPayload().preferences,
+          theme: "solarized",
+        },
+      }),
+    ).toThrow(/theme/i);
+  });
+
+  it("rejects a PENDING sender status", () => {
+    expect(() =>
+      parseSettingsBackup({
+        ...validPayload(),
+        senders: [
+          {
+            ...validPayload().senders[0],
+            status: "PENDING",
+          },
+        ],
+      }),
+    ).toThrow(/status/i);
+  });
+
+  it("rejects an approved sender without a category", () => {
+    expect(() =>
+      parseSettingsBackup({
+        ...validPayload(),
+        senders: [
+          {
+            ...validPayload().senders[0],
+            status: "APPROVED",
+            category: null,
+          },
+        ],
+      }),
+    ).toThrow(/category/i);
+  });
+
+  it("normalizes emails to lowercase", () => {
+    const parsed = parseSettingsBackup({
+      ...validPayload(),
+      senders: [
+        {
+          ...validPayload().senders[0],
+          connectionEmail: "You@Gmail.com",
+          email: "News@GitHub.com",
+        },
+      ],
+    });
+    expect(parsed.senders[0].connectionEmail).toBe("you@gmail.com");
+    expect(parsed.senders[0].email).toBe("news@github.com");
+  });
 });
 
 describe("isSettingsBackupMessage", () => {
