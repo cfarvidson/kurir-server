@@ -10,20 +10,56 @@ const base = import.meta.env.BASE_URL;
         <h2
           class="text-3xl font-bold leading-[1.15] tracking-tight text-ink md:text-[2.75rem]"
         >
-          In your pocket, two ways.
+          On your Mac. In your pocket.
         </h2>
       </div>
       <div class="md:col-span-5">
         <p class="text-lg leading-relaxed text-ink-light">
           The server, the web app, and the PWA are free and open source.
-          <strong class="text-ink">The native iPhone app is the one thing
-          that costs money</strong> — buying it is what funds the rest.
+          <strong class="text-ink">The native Mac and iPhone apps are the
+          one thing that costs money</strong> - buying them is what funds
+          the rest.
         </p>
       </div>
     </div>
 
-    <!-- Two products, staggered -->
-    <div class="mt-16 grid gap-16 md:grid-cols-2 md:gap-12">
+    <!-- Mac desktop app -->
+    <article class="reveal reveal-delay-1 mt-16">
+      <figure>
+        <img
+          src={`${base}screenshots/native-mac-imbox.png`}
+          alt="The native Kurir Mac app showing the Imbox with personal mail in a sidebar layout"
+          class="rounded-2xl border border-surface-200 shadow-2xl shadow-accent/5"
+          width="2560"
+          height="1676"
+          loading="lazy"
+        />
+      </figure>
+      <div class="mt-10 grid gap-6 md:grid-cols-12 md:gap-16">
+        <div class="md:col-span-5">
+          <span
+            class="text-xs font-semibold uppercase tracking-[0.15em] text-accent"
+          >
+            Paid &middot; coming to the Mac App Store
+          </span>
+          <h3 class="mt-3 text-2xl font-bold text-ink">The Mac app</h3>
+        </div>
+        <div class="md:col-span-7">
+          <p class="leading-relaxed text-ink-light">
+            A real Mac app. Same Swift as the iPhone, built for a keyboard
+            and a wide window. Offline-first. Lists and threads read from a
+            local store, and actions queue when you're offline.
+          </p>
+          <p class="mt-3 leading-relaxed text-ink-light">
+            Search, shortcuts, and the sidebar you already know. Paid, like
+            the iPhone app, and what funds the rest of Kurir.
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Two phone products, staggered -->
+    <div class="mt-20 grid gap-16 md:grid-cols-2 md:gap-12">
       <!-- Native iPhone app -->
       <div class="reveal reveal-delay-1">
         <figure class="mx-auto max-w-[300px]">
@@ -52,9 +88,9 @@ const base = import.meta.env.BASE_URL;
             lands in your Imbox.
           </p>
           <p class="mt-3 leading-relaxed text-ink-light">
-            It's the only part of Kurir you can pay for, and you never have
-            to. Think of it as the project's tip jar — with a really nice
-            app attached.
+            The native apps are the only part of Kurir you can pay for, and
+            you never have to. Think of them as the project's tip jar -
+            with a really nice app attached.
           </p>
         </div>
       </div>
@@ -81,13 +117,15 @@ const base = import.meta.env.BASE_URL;
             The PWA
           </h3>
           <p class="mt-3 leading-relaxed text-ink-light">
-            Install Kurir straight from your own server — no app store, no
-            account, no middleman. Full-screen, home-screen icon, push
-            notifications on iOS 16.4+ and Android.
+            Every feature is here. Screener, Imbox, Feed, Paper Trail,
+            search, compose - the same Kurir, installed from your own
+            server. No App Store, no extra account. Full-screen, with
+            push on iOS 16.4+ and Android.
           </p>
           <p class="mt-3 leading-relaxed text-ink-light">
-            Free and open source, like everything else that runs on your
-            server.
+            It's just not as smooth as the native iPhone app. The Swift
+            client is offline-first and faster. The PWA is free, like
+            everything else on your server.
             <a
               href="docs/mobile-app"
               class="font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:text-accent-dark hover:decoration-accent"
