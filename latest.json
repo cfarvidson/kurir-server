@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.17",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.17",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.17",
-  "changelog": "Settings takeout: contacts, screening, and preferences as a dummy Sent email. Daily or weekly cadence, restore after a wipe from the same mailbox.",
+  "version": "2026.08.17.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.17.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.17.2",
+  "changelog": "Settings backup schedule buttons stay clickable after choosing Daily or Weekly.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-17T12:45:00Z"
+  "releasedAt": "2026-08-17T13:27:00Z"
 }

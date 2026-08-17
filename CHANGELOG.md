@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.17.2] - 2026-08-17
+
+### Fixed
+
+- Settings backup Off / Daily / Weekly stay clickable after you pick one.
+  Changing cadence no longer refetches the whole Settings page.
+
 ## [v2026.08.17] - 2026-08-17
 
 ### Added

@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.17.2",
+    "date": "2026-08-17",
+    "changes": [
+      "Settings backup Off / Daily / Weekly stay clickable after you pick a schedule"
+    ]
+  },
+  {
     "version": "2026.08.17",
     "date": "2026-08-17",
     "changes": [
