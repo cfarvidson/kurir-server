@@ -22,12 +22,23 @@ import {
 import { cn } from "@/lib/utils";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
+import {
+  getSettingsBackupState,
+  restoreSettingsBackup,
+  type SettingsBackupState,
+} from "@/actions/settings-backup";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type WizardStep = "welcome" | "passkey" | "email" | "syncing" | "done";
+type WizardStep =
+  | "welcome"
+  | "passkey"
+  | "email"
+  | "syncing"
+  | "backup"
+  | "done";
 
 interface SetupWizardProps {
   oauthEnabled?: { microsoft: boolean; google: boolean };
@@ -48,6 +59,7 @@ const STEPS: { key: WizardStep; label: string }[] = [
   { key: "welcome", label: "Account" },
   { key: "email", label: "Email" },
   { key: "syncing", label: "Sync" },
+  { key: "backup", label: "Backup" },
   { key: "done", label: "Done" },
 ];
 
@@ -119,6 +131,13 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const [syncMessage, setSyncMessage] = useState("");
   const syncCancelledRef = useRef(false);
 
+  // Backup restore step (after first sync)
+  const [backupState, setBackupState] = useState<SettingsBackupState | null>(
+    null,
+  );
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupRestoring, setBackupRestoring] = useState(false);
+
   const selectedProvider = EMAIL_PROVIDERS.find((p) => p.id === provider);
   const useOAuth =
     selectedProvider?.oauthKey && oauthEnabled?.[selectedProvider.oauthKey];
@@ -128,12 +147,6 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     return () => {
       syncCancelledRef.current = true;
     };
-  }, []);
-
-  // Cancel sync polling when leaving the syncing step
-  const leaveSync = useCallback((nextStep: WizardStep) => {
-    syncCancelledRef.current = true;
-    setStep(nextStep);
   }, []);
 
   // ----- Step: Welcome → Passkey -----
@@ -408,6 +421,43 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
   const handleFinish = () => {
     router.push("/imbox");
     router.refresh();
+  };
+
+  const goToBackupStep = useCallback(async () => {
+    setStep("backup");
+    setError(null);
+    setBackupLoading(true);
+    try {
+      const state = await getSettingsBackupState();
+      setBackupState(state);
+      if (state.backups.length === 0) {
+        setStep("done");
+      }
+    } catch {
+      setBackupState({ cadence: "off", nextRunAt: null, backups: [] });
+    } finally {
+      setBackupLoading(false);
+    }
+  }, []);
+
+  const handleRestoreBackup = async (messageId: string) => {
+    setBackupRestoring(true);
+    setError(null);
+    try {
+      const result = await restoreSettingsBackup(messageId);
+      if (result.skippedConnections.length > 0) {
+        setError(
+          `Restored. No account for ${result.skippedConnections.join(", ")}.`,
+        );
+      }
+      setStep("done");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not restore backup",
+      );
+    } finally {
+      setBackupRestoring(false);
+    }
   };
 
   // ----- Render -----
@@ -893,7 +943,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                 )}
 
                 {syncStatus === "done" && (
-                  <Button className="w-full" onClick={() => leaveSync("done")}>
+                  <Button className="w-full" onClick={() => void goToBackupStep()}>
                     Continue
                     <ChevronRight className="h-4 w-4" />
                   </Button>
@@ -902,13 +952,80 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
                 {(syncStatus === "starting" || syncStatus === "syncing") && (
                   <button
                     type="button"
-                    onClick={() => leaveSync("done")}
+                    onClick={() => {
+                      syncCancelledRef.current = true;
+                      void goToBackupStep();
+                    }}
                     className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Skip — sync in background
                   </button>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* ============ Restore backup ============ */}
+          {step === "backup" && (
+            <motion.div
+              key="backup"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-6"
+            >
+              <div>
+                <p className="eyebrow text-muted-foreground">Settings backup</p>
+                <h2 className="mt-2 text-headline font-semibold tracking-tight text-foreground">
+                  Restore your settings?
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  These dummy Sent emails are settings snapshots from this
+                  mailbox. Pick one, or start clean.
+                </p>
+              </div>
+              {backupLoading && (
+                <p className="text-sm text-muted-foreground">
+                  Looking for backups in Sent…
+                </p>
+              )}
+              {!backupLoading && backupState && backupState.backups.length > 0 && (
+                <ul className="divide-y divide-border">
+                  {backupState.backups.map((backup) => (
+                    <li key={backup.messageId} className="py-3">
+                      <button
+                        type="button"
+                        disabled={backupRestoring}
+                        onClick={() => void handleRestoreBackup(backup.messageId)}
+                        className="flex w-full items-center justify-between gap-3 text-left disabled:opacity-50"
+                      >
+                        <span>
+                          <span className="block text-sm font-medium">
+                            {new Date(backup.sentAt).toLocaleString()}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {backup.source === "scheduled"
+                              ? "Scheduled"
+                              : "Manual"}
+                            {" · "}
+                            {backup.filename}
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                disabled={backupRestoring}
+                onClick={() => setStep("done")}
+                className="flex w-full justify-center text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                Skip — start clean
+              </button>
             </motion.div>
           )}
 

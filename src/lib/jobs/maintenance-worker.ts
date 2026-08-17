@@ -17,7 +17,8 @@ type MaintenanceJobType =
   | "expire-attachments"
   | "cleanup-orphan-uploads"
   | "prune-tombstones"
-  | "approve-own-senders";
+  | "approve-own-senders"
+  | "settings-backup";
 
 interface MaintenanceJobData {
   task: MaintenanceJobType;
@@ -61,6 +62,13 @@ async function processMaintenanceJob(
     case "approve-own-senders":
       await processAllUsersOwnSenderSweep();
       break;
+    case "settings-backup": {
+      const { processDueSettingsBackups } = await import(
+        "@/lib/mail/settings-backup"
+      );
+      await processDueSettingsBackups();
+      break;
+    }
   }
 }
 
@@ -255,6 +263,16 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
     {
       jobId: "approve-own-senders",
       repeat: { every: 60 * 60_000 },
+    },
+  );
+
+  // Settings takeout: write due daily/weekly dummy Sent backups
+  await queue.add(
+    "settings-backup",
+    { task: "settings-backup" as const },
+    {
+      jobId: "settings-backup",
+      repeat: { every: 60_000 },
     },
   );
 
