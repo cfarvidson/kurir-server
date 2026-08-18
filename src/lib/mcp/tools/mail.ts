@@ -35,6 +35,7 @@ import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
 import {
+  asBodyBytes,
   decodeUploadedAttachmentData,
   EmptyAttachmentDataError,
   storedContentToBuffer,
@@ -740,15 +741,16 @@ async function getAttachment(
 
   let content = storedContentToBuffer(attachment.content);
   if (!content) {
-    content = await downloadAttachmentContent({
+    const fetched = await downloadAttachmentContent({
       partId: attachment.partId,
       message: attachment.message,
     });
-    if (content) {
+    if (fetched) {
+      content = asBodyBytes(fetched);
       db.attachment
         .update({
           where: { id: attachment.id },
-          data: { content, size: content.length },
+          data: { content: asBodyBytes(fetched), size: fetched.length },
         })
         .catch(() => {});
     }
@@ -770,15 +772,16 @@ async function getAttachment(
   }
 
   const ct = normalizeContentType(attachment.contentType);
+  const encoded = Buffer.from(content);
   if (ct.startsWith("text/")) {
     return {
       type: "ok",
-      structuredContent: { ...meta, text: content.toString("utf8") },
+      structuredContent: { ...meta, text: encoded.toString("utf8") },
     };
   }
   return {
     type: "ok",
-    structuredContent: { ...meta, data: content.toString("base64") },
+    structuredContent: { ...meta, data: encoded.toString("base64") },
   };
 }
 
@@ -939,7 +942,7 @@ async function uploadAttachment(
       filename: parsed.data.filename,
       contentType: parsed.data.contentType,
       size: content.length,
-      content,
+      content: asBodyBytes(content),
       userId: ctx.userId,
     },
     select: { id: true },

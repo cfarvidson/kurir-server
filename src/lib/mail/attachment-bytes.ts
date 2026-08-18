@@ -30,14 +30,18 @@ export function decodeUploadedAttachmentData(data: string): Buffer {
   return bytes;
 }
 
-/** Convert a Prisma Bytes value to a Buffer. Empty / missing → null. */
-export function storedContentToBuffer(content: unknown): Buffer | null {
+/** Convert a Prisma Bytes value to bytes. Empty / missing → null. */
+export function storedContentToBuffer(content: unknown): Uint8Array | null {
   if (!content) return null;
-  if (Buffer.isBuffer(content)) {
-    return content.length > 0 ? content : null;
-  }
   if (content instanceof Uint8Array) {
-    return content.byteLength > 0 ? Buffer.from(content) : null;
+    return content.byteLength > 0 ? content : null;
   }
   return null;
+}
+
+/** Copy into a standalone ArrayBuffer so Prisma / NextResponse accept it. */
+export function asBodyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }

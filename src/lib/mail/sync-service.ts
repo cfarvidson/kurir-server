@@ -9,7 +9,10 @@ import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
 import { type ImboxPushMessage } from "@/lib/mail/push-select";
 import { type OwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
-import { storedContentToBuffer } from "@/lib/mail/attachment-bytes";
+import {
+  asBodyBytes,
+  storedContentToBuffer,
+} from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
 import type { SenderCategory, SenderStatus } from "@prisma/client";
 
@@ -752,7 +755,8 @@ export async function processMessage(
             .contentTransferEncoding || null,
         // Skip empty bodies and attachments > 10MB (lazy-download on demand).
         // An empty Buffer is truthy — storing it made download/send serve 0 bytes.
-        content: bytes && size <= 10 * 1024 * 1024 ? bytes : null,
+        content:
+          bytes && size <= 10 * 1024 * 1024 ? asBodyBytes(bytes) : null,
       };
     });
 

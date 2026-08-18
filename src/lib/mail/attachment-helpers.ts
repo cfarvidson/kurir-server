@@ -112,7 +112,7 @@ export async function loadAttachmentsForSend(
   for (const attachment of attachments) {
     const stored = storedContentToBuffer(attachment.content);
     if (stored) {
-      contents.set(attachment.id, stored);
+      contents.set(attachment.id, Buffer.from(stored));
       continue;
     }
     const fetched = await downloadAttachmentContent(attachment);

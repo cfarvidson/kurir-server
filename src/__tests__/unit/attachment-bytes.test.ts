@@ -55,9 +55,9 @@ describe("storedContentToBuffer", () => {
 
   it("returns a Buffer for non-empty stored bytes", () => {
     const fromBuf = storedContentToBuffer(Buffer.from("%PDF"));
-    expect(fromBuf?.toString("utf8")).toBe("%PDF");
+    expect(Buffer.from(fromBuf!).toString("utf8")).toBe("%PDF");
 
     const fromArr = storedContentToBuffer(Uint8Array.from([1, 2, 3]));
-    expect(fromArr?.equals(Buffer.from([1, 2, 3]))).toBe(true);
+    expect(Buffer.from(fromArr!).equals(Buffer.from([1, 2, 3]))).toBe(true);
   });
 });
