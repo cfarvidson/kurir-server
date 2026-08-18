@@ -256,14 +256,10 @@ export function ComposeClientPage({
       if (draft.subject) setSubject(draft.subject);
       if (draft.body) setBody(draft.body);
       if (draft.emailConnectionId) setFromConnectionId(draft.emailConnectionId);
-      if (draft.attachmentIds.length) {
+      if (draft.attachments?.length) {
         setAttachments(
-          draft.attachmentIds.map((id) => ({
-            id,
-            filename: "Attachment",
-            contentType: "",
-            size: 0,
-            url: `/api/attachments/${id}`,
+          draft.attachments.map((attachment) => ({
+            ...attachment,
             status: "done" as const,
           })),
         );

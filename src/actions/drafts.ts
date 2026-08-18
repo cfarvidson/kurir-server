@@ -7,6 +7,7 @@ import {
   getDraftForUser,
   deleteDraftForUser,
   listDraftsForUser,
+  loadAttachmentMeta,
   type SaveDraftInput,
 } from "@/lib/mail/drafts";
 
@@ -28,7 +29,19 @@ export async function getDraft(type: DraftType, contextMessageId: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  return getDraftForUser(session.user.id, type, contextMessageId);
+  const draft = await getDraftForUser(session.user.id, type, contextMessageId);
+  if (!draft) return null;
+  const attachments = await loadAttachmentMeta(
+    session.user.id,
+    draft.attachmentIds,
+  );
+  return { ...draft, attachments };
+}
+
+export async function getAttachmentMeta(ids: string[]) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  return loadAttachmentMeta(session.user.id, ids);
 }
 
 export async function listDrafts() {

@@ -8,6 +8,7 @@ import {
   saveDraftForUser,
   deleteDraftForUser,
   listDraftsForUser,
+  loadAttachmentMeta,
 } from "@/lib/mail/drafts";
 
 /**
@@ -36,6 +37,11 @@ export async function GET(req: NextRequest) {
   if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 
   const drafts = await listDraftsForUser(userId);
+  const attachmentIds = [
+    ...new Set(drafts.flatMap((draft) => draft.attachmentIds)),
+  ];
+  const meta = await loadAttachmentMeta(userId, attachmentIds);
+  const metaById = new Map(meta.map((row) => [row.id, row]));
   return NextResponse.json({
     drafts: drafts.map((d) => ({
       type: d.type,
@@ -45,6 +51,10 @@ export async function GET(req: NextRequest) {
       body: d.body,
       emailConnectionId: d.emailConnectionId,
       attachmentIds: d.attachmentIds,
+      attachments: d.attachmentIds.flatMap((id) => {
+        const row = metaById.get(id);
+        return row ? [row] : [];
+      }),
       updatedAt: d.updatedAt,
     })),
   });
