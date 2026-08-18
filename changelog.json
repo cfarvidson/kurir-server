@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.18.4",
+    "date": "2026-08-18",
+    "changes": [
+      "Large attachments upload in chunks via MCP and the native app. A 1.5 MB PDF no longer has to travel as one base64 payload"
+    ]
+  },
+  {
     "version": "2026.08.18.3",
     "date": "2026-08-18",
     "changes": [

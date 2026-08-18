@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.18.4] - 2026-08-18
+
+### Added
+
+- Large attachments can be uploaded in chunks via MCP `upload_attachment`
+  and JSON `POST /api/attachments/upload`. Slice raw file bytes (not a
+  base64 string), about 250 KB per call. A 1.5 MB PDF no longer has to
+  travel as one tool argument.
+
 ## [v2026.08.18.3] - 2026-08-18
 
 ### Fixed
