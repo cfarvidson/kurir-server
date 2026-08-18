@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.18.2] - 2026-08-18
+
+### Fixed
+
+- MCP attachments no longer land as empty 0-byte files. Small PDFs are
+  inlined as base64, uploads accept data URLs and base64url, and empty
+  stored bytes are treated as missing so IMAP can fetch the real part.
+
 ## [v2026.08.18] - 2026-08-18
 
 ### Fixed

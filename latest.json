@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.18",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.18",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.18",
+  "version": "2026.08.18.2",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.18.2",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.18.2",
   "changelog": "MCP attachments: PDFs come through as real bytes instead of empty 0-byte files.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-18T08:46:32Z"
+  "releasedAt": "2026-08-18T08:51:00Z"
 }

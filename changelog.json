@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.18.2",
+    "date": "2026-08-18",
+    "changes": [
+      "MCP attachments: PDFs come through as real bytes instead of empty 0-byte files"
+    ]
+  },
+  {
     "version": "2026.08.18",
     "date": "2026-08-18",
     "changes": [
