@@ -1,9 +1,10 @@
 ---
+import { APP_STORE_IOS } from "../lib/store";
+
 const base = import.meta.env.BASE_URL;
 ---
 
-<section class="relative overflow-hidden px-6 pb-16 pt-20 md:pb-24 md:pt-28">
-  <!-- Subtle gradient background -->
+<section class="relative overflow-hidden px-6 pb-16 pt-14 md:pb-24 md:pt-20">
   <div
     class="pointer-events-none absolute inset-0 -z-10"
     style="background: radial-gradient(ellipse 80% 60% at 50% 0%, #fed7aa40 0%, transparent 70%)"
@@ -11,8 +12,55 @@ const base = import.meta.env.BASE_URL;
   ></div>
 
   <div class="mx-auto max-w-landing">
-    <!-- Hero screenshot first, like Fizzy -->
-    <figure class="reveal mx-auto max-w-4xl">
+    <div class="reveal mx-auto max-w-3xl text-center">
+      <h1
+        class="text-balance text-4xl font-bold leading-[1.1] tracking-tight text-ink md:text-[3.5rem]"
+        id="intro"
+      >
+        <strong class="text-accent">HEY's workflow.</strong>
+        Your server.
+      </h1>
+      <p
+        class="mx-auto mt-6 max-w-xl text-[1.0625rem] leading-[1.8] text-ink-light"
+      >
+        New senders are screened. Your Imbox is only people you've approved.
+        Newsletters live in The Feed. Receipts go to Paper Trail. You host it.
+      </p>
+      <div
+        class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-3"
+      >
+        <a
+          href={APP_STORE_IOS}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
+            ></path>
+          </svg>
+          Get the iPhone app
+        </a>
+        <a
+          href={`${base}docs/getting-started`}
+          class="inline-flex items-center gap-2 rounded-full border border-surface-200 bg-white px-6 py-3 text-sm font-medium text-ink transition-colors hover:border-ink hover:bg-surface-50"
+        >
+          Self-host it
+        </a>
+      </div>
+      <p class="mt-4 text-sm text-ink-muted">
+        The app talks to your Kurir server. Buying it funds the rest.
+      </p>
+    </div>
+
+    <figure class="reveal reveal-delay-1 mx-auto mt-14 max-w-4xl md:mt-16">
       <img
         src={`${base}screenshots/app.png`}
         alt="Kurir email client showing the sidebar with Imbox, Screener, Feed, and Paper Trail"
@@ -22,54 +70,5 @@ const base = import.meta.env.BASE_URL;
         loading="eager"
       />
     </figure>
-
-    <!-- Bold serif headline -->
-    <div class="reveal reveal-delay-1 mx-auto mt-16 max-w-3xl text-center md:mt-20">
-      <h1
-        class="text-4xl font-bold leading-[1.1] tracking-tight text-ink md:text-[3.5rem]"
-        id="intro"
-      >
-        <strong class="text-accent">Email as it should be.</strong>
-        Not as Big Tech left it.
-      </h1>
-    </div>
-
-    <!-- Two-column editorial text, like Fizzy -->
-    <div
-      class="reveal reveal-delay-2 mx-auto mt-14 grid max-w-4xl gap-10 md:mt-16 md:grid-cols-2 md:gap-16"
-    >
-      <div class="text-[1.0625rem] leading-[1.8] text-ink-light">
-        <p>
-          Let's be honest: your email is held hostage. Gmail reads everything
-          to sell ads. Outlook buries what matters under "Focused" guesswork.
-          Every free provider trades your privacy for profit.
-        </p>
-        <p class="mt-4">
-          And the self-hosted alternatives? They look like they were built in
-          2003 and never quite recovered.
-        </p>
-        <p class="mt-4">
-          <strong class="text-ink">It's time to take email back.</strong>
-        </p>
-      </div>
-      <div class="text-[1.0625rem] leading-[1.8] text-ink-light">
-        <p>
-          <strong class="text-ink">Kurir is a modern, self-hosted email client
-          inspired by HEY.</strong> New senders are screened. Your Imbox is only
-          people you've approved. Newsletters live in The Feed. Receipts
-          go to Paper Trail. You host it, you own it.
-        </p>
-        <p class="mt-4">
-          One command installs everything. Your data never leaves your
-          server. And it's 100% open source.
-        </p>
-        <dl class="mt-6 border-t border-surface-200 pt-4">
-          <dt class="text-sm font-medium text-ink">
-            Carl-Fredrik Arvidson
-          </dt>
-          <dd class="text-sm text-ink-muted">Creator of Kurir</dd>
-        </dl>
-      </div>
-    </div>
   </div>
 </section>

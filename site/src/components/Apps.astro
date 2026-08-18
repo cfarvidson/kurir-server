@@ -1,4 +1,6 @@
 ---
+import { APP_STORE_IOS } from "../lib/store";
+
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -76,7 +78,7 @@ const base = import.meta.env.BASE_URL;
           <span
             class="text-xs font-semibold uppercase tracking-[0.15em] text-accent"
           >
-            Paid &middot; coming to the App Store
+            Paid &middot; on the App Store
           </span>
           <h3 class="mt-3 text-2xl font-bold text-ink">
             The native iPhone app
@@ -91,6 +93,16 @@ const base = import.meta.env.BASE_URL;
             The native apps are the only part of Kurir you can pay for, and
             you never have to. Think of them as the project's tip jar -
             with a really nice app attached.
+          </p>
+          <p class="mt-5">
+            <a
+              href={APP_STORE_IOS}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent"
+            >
+              Get the iPhone app
+            </a>
           </p>
         </div>
       </div>
