@@ -2,11 +2,12 @@ import { db } from "@/lib/db";
 import { ImapFlow } from "imapflow";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { buildImapAuth } from "@/lib/mail/auth-helpers";
+import { storedContentToBuffer } from "@/lib/mail/attachment-bytes";
 import type { SentAttachment } from "./persist-sent";
 
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB
 
-async function downloadAttachmentContent(attachment: {
+export async function downloadAttachmentContent(attachment: {
   partId: string | null;
   message: {
     uid: number;
@@ -109,8 +110,9 @@ export async function loadAttachmentsForSend(
 
   const contents = new Map<string, Buffer>();
   for (const attachment of attachments) {
-    if (attachment.content) {
-      contents.set(attachment.id, Buffer.from(attachment.content));
+    const stored = storedContentToBuffer(attachment.content);
+    if (stored) {
+      contents.set(attachment.id, stored);
       continue;
     }
     const fetched = await downloadAttachmentContent(attachment);

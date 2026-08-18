@@ -34,7 +34,13 @@ import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
-import { normalizeContentType } from "@/lib/mail/attachment-types";
+import {
+  decodeUploadedAttachmentData,
+  EmptyAttachmentDataError,
+  storedContentToBuffer,
+} from "@/lib/mail/attachment-bytes";
+import { downloadAttachmentContent } from "@/lib/mail/attachment-helpers";
+import { isPdf, normalizeContentType } from "@/lib/mail/attachment-types";
 import { MESSAGE_SELECT } from "@/lib/mobile/message-select";
 import {
   formatFrom,
@@ -222,7 +228,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "get_attachment",
     description:
-      "Load one attachment the user owns. Small text and jpeg/png/gif/webp files are inlined; everything else returns openInApp.",
+      "Load one attachment the user owns. Small text, jpeg/png/gif/webp, and PDF files (under 1 MB) are inlined as text or base64; larger files return openInApp.",
     inputSchema: {
       type: "object",
       properties: { attachmentId: { type: "string" } },
@@ -321,7 +327,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "upload_attachment",
     description:
-      "Upload a file as a pending attachment (base64, max 5 MB). Returns { id } for send_mail.attachmentIds.",
+      "Upload a file as a pending attachment (raw base64, base64url, or a data: URL, max 5 MB decoded). Returns { id } for send_mail.attachmentIds.",
     inputSchema: {
       type: "object",
       properties: {
@@ -717,20 +723,46 @@ async function getAttachment(
   }
   const attachment = await db.attachment.findUnique({
     where: { id: parsed.data.attachmentId },
-    include: { message: { select: { userId: true } } },
+    include: {
+      message: {
+        select: {
+          userId: true,
+          uid: true,
+          emailConnectionId: true,
+          folder: { select: { path: true } },
+        },
+      },
+    },
   });
   if (!attachment || !isAttachmentOwner(attachment, ctx.userId)) {
     return { type: "error", message: "not found or not yours" };
   }
 
+  let content = storedContentToBuffer(attachment.content);
+  if (!content) {
+    content = await downloadAttachmentContent({
+      partId: attachment.partId,
+      message: attachment.message,
+    });
+    if (content) {
+      db.attachment
+        .update({
+          where: { id: attachment.id },
+          data: { content, size: content.length },
+        })
+        .catch(() => {});
+    }
+  }
+  if (!content) {
+    return err("Attachment content not available");
+  }
+  const size = Math.max(attachment.size, content.length);
   const meta = {
     filename: attachment.filename,
     contentType: attachment.contentType,
-    size: attachment.size,
+    size,
   };
-  const inlineable = canInline(attachment.contentType, attachment.size);
-  const content = toBuffer(attachment.content);
-  if (!inlineable || !content) {
+  if (!canInline(attachment.contentType, size)) {
     return {
       type: "ok",
       structuredContent: { openInApp: true, ...meta },
@@ -880,11 +912,11 @@ async function uploadAttachment(
 
   let content: Buffer;
   try {
-    content = Buffer.from(parsed.data.data, "base64");
-  } catch {
+    content = decodeUploadedAttachmentData(parsed.data.data);
+  } catch (error) {
+    if (error instanceof EmptyAttachmentDataError) return err("Empty file");
     return err("Invalid base64 data");
   }
-  if (content.length === 0) return err("Empty file");
   if (content.length > MAX_UPLOAD_BYTES) {
     return err("File too large (max 5MB)");
   }
@@ -907,7 +939,7 @@ async function uploadAttachment(
       filename: parsed.data.filename,
       contentType: parsed.data.contentType,
       size: content.length,
-      content: new Uint8Array(content),
+      content,
       userId: ctx.userId,
     },
     select: { id: true },
@@ -1032,14 +1064,7 @@ function isAttachmentOwner(
 function canInline(contentType: string, size: number): boolean {
   if (size > INLINE_MAX_BYTES) return false;
   const ct = normalizeContentType(contentType);
-  return ct.startsWith("text/") || INLINE_IMAGES.has(ct);
-}
-
-function toBuffer(content: unknown): Buffer | null {
-  if (!content) return null;
-  if (Buffer.isBuffer(content)) return content;
-  if (content instanceof Uint8Array) return Buffer.from(content);
-  return null;
+  return ct.startsWith("text/") || INLINE_IMAGES.has(ct) || isPdf(ct);
 }
 
 function clampLimit(value: number | undefined, fallback: number): number {
