@@ -9,6 +9,7 @@ import { buildImapAuth } from "@/lib/mail/auth-helpers";
 import { deleteMessagesWithTombstones } from "@/lib/mail/tombstones";
 import { type ImboxPushMessage } from "@/lib/mail/push-select";
 import { type OwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
+import { storedContentToBuffer } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
 import type { SenderCategory, SenderStatus } from "@prisma/client";
 
@@ -729,30 +730,31 @@ export async function processMessage(
       ? extractAttachmentParts(msg.bodyStructure)
       : [];
 
-    const attachmentData = parsed.attachments.map((att, index) => ({
-      messageId: message.id,
-      filename: att.filename || `attachment-${index}`,
-      contentType: att.contentType || "application/octet-stream",
-      size: att.size || 0,
-      contentId: att.cid || null,
-      partId:
+    const attachmentData = parsed.attachments.map((att, index) => {
+      const matched =
         structureParts.find(
           (sp) =>
             sp.type ===
               (att.contentType || "application/octet-stream").toLowerCase() &&
             sp.filename === (att.filename || ""),
-        )?.partId ??
-        structureParts[index]?.partId ??
-        String(index + 1),
-      encoding:
-        (att as unknown as { contentTransferEncoding?: string })
-          .contentTransferEncoding || null,
-      // Skip storing content for attachments > 10MB (lazy-download on demand)
-      content:
-        att.content && att.size <= 10 * 1024 * 1024
-          ? Buffer.from(att.content)
-          : null,
-    }));
+        ) ?? structureParts[index];
+      const bytes = storedContentToBuffer(att.content);
+      const size = att.size || bytes?.length || matched?.size || 0;
+      return {
+        messageId: message.id,
+        filename: att.filename || `attachment-${index}`,
+        contentType: att.contentType || "application/octet-stream",
+        size,
+        contentId: att.cid || null,
+        partId: matched?.partId ?? String(index + 1),
+        encoding:
+          (att as unknown as { contentTransferEncoding?: string })
+            .contentTransferEncoding || null,
+        // Skip empty bodies and attachments > 10MB (lazy-download on demand).
+        // An empty Buffer is truthy — storing it made download/send serve 0 bytes.
+        content: bytes && size <= 10 * 1024 * 1024 ? bytes : null,
+      };
+    });
 
     await db.attachment.createMany({
       data: attachmentData,

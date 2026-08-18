@@ -103,6 +103,7 @@ vi.mock("@/lib/db", () => ({
     attachment: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       aggregate: vi.fn(),
     },
     emailConnection: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -645,6 +646,49 @@ describe("MCP read tools", () => {
     });
   });
 
+  it("get_attachment inlines a small PDF as base64 so MCP clients do not write a 0-byte file", async () => {
+    const pdfBytes = Buffer.from("%PDF-1.4 small");
+    vi.mocked(db.attachment.findUnique).mockResolvedValue({
+      id: "a4",
+      filename: "invoice.pdf",
+      contentType: "application/pdf",
+      size: pdfBytes.length,
+      content: pdfBytes,
+      userId: "u1",
+      message: null,
+    } as never);
+    const result = await call("get_attachment", { attachmentId: "a4" });
+    expect(result).toMatchObject({
+      type: "ok",
+      structuredContent: {
+        filename: "invoice.pdf",
+        contentType: "application/pdf",
+        size: pdfBytes.length,
+        data: pdfBytes.toString("base64"),
+      },
+    });
+    expect(result).not.toMatchObject({
+      structuredContent: { openInApp: true },
+    });
+  });
+
+  it("get_attachment does not treat empty stored bytes as file content", async () => {
+    vi.mocked(db.attachment.findUnique).mockResolvedValue({
+      id: "a5",
+      filename: "ghost.pdf",
+      contentType: "application/pdf",
+      size: 0,
+      content: Buffer.alloc(0),
+      userId: "u1",
+      message: null,
+    } as never);
+    const result = await call("get_attachment", { attachmentId: "a5" });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/not available/i),
+    });
+  });
+
   it("get_attachment hides attachments that are not the user's", async () => {
     vi.mocked(db.attachment.findUnique).mockResolvedValue({
       id: "a9",
@@ -660,6 +704,75 @@ describe("MCP read tools", () => {
       type: "error",
       message: "not found or not yours",
     });
+  });
+});
+
+describe("MCP write tools — upload_attachment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.attachment.aggregate).mockResolvedValue({
+      _sum: { size: 0 },
+    } as never);
+    vi.mocked(db.attachment.create).mockResolvedValue({
+      id: "up-1",
+    } as never);
+  });
+
+  it("stores plain base64 bytes and returns the new attachment id", async () => {
+    const pdfBytes = Buffer.from("%PDF-1.4 plain");
+    const result = await call("upload_attachment", {
+      filename: "plain.pdf",
+      contentType: "application/pdf",
+      data: pdfBytes.toString("base64"),
+    });
+    expect(result).toMatchObject({
+      type: "ok",
+      structuredContent: { id: "up-1" },
+    });
+    const stored = vi.mocked(db.attachment.create).mock.calls[0][0].data
+      .content as Buffer;
+    expect(Buffer.from(stored).equals(pdfBytes)).toBe(true);
+    expect(vi.mocked(db.attachment.create).mock.calls[0][0].data.size).toBe(
+      pdfBytes.length,
+    );
+  });
+
+  it("decodes a data: URL and stores the real bytes, not an empty file", async () => {
+    const pdfBytes = Buffer.from("%PDF-1.4 from data url");
+    const result = await call("upload_attachment", {
+      filename: "doc.pdf",
+      contentType: "application/pdf",
+      data: `data:application/pdf;base64,${pdfBytes.toString("base64")}`,
+    });
+    expect(result).toMatchObject({
+      type: "ok",
+      structuredContent: { id: "up-1" },
+    });
+    expect(db.attachment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          filename: "doc.pdf",
+          contentType: "application/pdf",
+          size: pdfBytes.length,
+        }),
+      }),
+    );
+    const stored = vi.mocked(db.attachment.create).mock.calls[0][0].data
+      .content as Uint8Array;
+    expect(Buffer.from(stored).equals(pdfBytes)).toBe(true);
+  });
+
+  it("rejects a data: URL with no payload instead of creating a 0-byte row", async () => {
+    const result = await call("upload_attachment", {
+      filename: "doc.pdf",
+      contentType: "application/pdf",
+      data: "data:application/pdf;base64,",
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/empty/i),
+    });
+    expect(db.attachment.create).not.toHaveBeenCalled();
   });
 });
 

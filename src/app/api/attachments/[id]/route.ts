@@ -10,6 +10,7 @@ import {
   isInlineViewable,
   isPdf,
 } from "@/lib/mail/attachment-types";
+import { storedContentToBuffer } from "@/lib/mail/attachment-bytes";
 
 /**
  * Walk bodyStructure tree to find all non-text MIME parts.
@@ -116,9 +117,11 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Serve from cache/upload if content is available
-  if (attachment.content) {
-    return new NextResponse(attachment.content, {
+  // Serve from cache/upload if content is available. Empty stored bytes
+  // are missing (a 0-length Uint8Array is truthy) — fall through to IMAP.
+  const cached = storedContentToBuffer(attachment.content);
+  if (cached) {
+    return new NextResponse(cached, {
       headers: responseHeaders(attachment, forceInline),
     });
   }
