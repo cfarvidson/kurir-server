@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.18.3",
+    "date": "2026-08-18",
+    "changes": [
+      "Web drafts stay in sync with MCP and Mac. Restored attachments show their real filename and size instead of Attachment 0 B"
+    ]
+  },
+  {
     "version": "2026.08.18.2",
     "date": "2026-08-18",
     "changes": [

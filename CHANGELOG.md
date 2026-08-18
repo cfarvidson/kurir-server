@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.18.3] - 2026-08-18
+
+### Fixed
+
+- Opening a draft no longer shows a fake Attachment 0 B chip. Filename and
+  size come from the stored attachment row.
+- Saving or deleting a draft (including via MCP) invalidates the web Drafts
+  page so it matches the Mac app instead of a stale cache.
+
 ## [v2026.08.18.2] - 2026-08-18
 
 ### Fixed
