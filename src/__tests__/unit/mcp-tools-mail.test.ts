@@ -123,6 +123,7 @@ import { getFiles } from "@/lib/mail/files";
 import { listDraftsForUser } from "@/lib/mail/drafts";
 import { archiveThread, createDomainRuleForUser } from "@/lib/mail/mutations";
 import { db } from "@/lib/db";
+import { defaultAttachmentUploadStore } from "@/lib/mail/attachment-upload-session";
 import { getTool, listTools } from "@/lib/mcp/tools";
 import type { ToolContext } from "@/lib/mcp/types";
 
@@ -710,6 +711,7 @@ describe("MCP read tools", () => {
 describe("MCP write tools — upload_attachment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    defaultAttachmentUploadStore.clear();
     vi.mocked(db.attachment.aggregate).mockResolvedValue({
       _sum: { size: 0 },
     } as never);
@@ -771,6 +773,91 @@ describe("MCP write tools — upload_attachment", () => {
     expect(result).toMatchObject({
       type: "error",
       message: expect.stringMatching(/empty/i),
+    });
+    expect(db.attachment.create).not.toHaveBeenCalled();
+  });
+
+  it("starts a chunked upload without persisting until the last chunk", async () => {
+    const result = await call("upload_attachment", {
+      filename: "felix-cv.pdf",
+      contentType: "application/pdf",
+      data: Buffer.from("%PDF-1.4 a").toString("base64"),
+      done: false,
+    });
+    expect(result).toMatchObject({
+      type: "ok",
+      structuredContent: {
+        complete: false,
+        receivedBytes: Buffer.byteLength("%PDF-1.4 a"),
+        uploadId: expect.any(String),
+      },
+    });
+    expect(db.attachment.create).not.toHaveBeenCalled();
+  });
+
+  it("assembles chunks and stores the full file on done=true", async () => {
+    const start = await call("upload_attachment", {
+      filename: "felix-cv.pdf",
+      contentType: "application/pdf",
+      data: Buffer.from("%PDF-1.4 part-a").toString("base64"),
+      done: false,
+    });
+    expect(start).toMatchObject({ type: "ok" });
+    const uploadId = (start as { structuredContent: { uploadId: string } })
+      .structuredContent.uploadId;
+
+    const middle = await call("upload_attachment", {
+      uploadId,
+      data: Buffer.from("-part-b").toString("base64"),
+      done: false,
+    });
+    expect(middle).toMatchObject({
+      type: "ok",
+      structuredContent: { complete: false, uploadId },
+    });
+    expect(db.attachment.create).not.toHaveBeenCalled();
+
+    const done = await call("upload_attachment", {
+      uploadId,
+      data: Buffer.from("-end").toString("base64"),
+      done: true,
+    });
+    expect(done).toMatchObject({
+      type: "ok",
+      structuredContent: { id: "up-1", complete: true },
+    });
+
+    const stored = vi.mocked(db.attachment.create).mock.calls[0][0].data
+      .content as Buffer;
+    expect(Buffer.from(stored).toString("utf8")).toBe(
+      "%PDF-1.4 part-a-part-b-end",
+    );
+    expect(vi.mocked(db.attachment.create).mock.calls[0][0].data).toMatchObject({
+      filename: "felix-cv.pdf",
+      contentType: "application/pdf",
+      size: Buffer.byteLength("%PDF-1.4 part-a-part-b-end"),
+    });
+  });
+
+  it("does not let another user finish a chunked upload session", async () => {
+    const start = await call("upload_attachment", {
+      filename: "secret.bin",
+      contentType: "application/octet-stream",
+      data: Buffer.from("mine").toString("base64"),
+      done: false,
+    });
+    const uploadId = (start as { structuredContent: { uploadId: string } })
+      .structuredContent.uploadId;
+
+    const other = getTool("upload_attachment");
+    if (!other) throw new Error("tool not registered");
+    const result = await other.handler(
+      { userId: "u2", tokenId: "t2", hasElicitation: false },
+      { uploadId, data: Buffer.from("x").toString("base64"), done: true },
+    );
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/not found/i),
     });
     expect(db.attachment.create).not.toHaveBeenCalled();
   });
