@@ -34,12 +34,8 @@ import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getThreadMessages } from "@/lib/mail/threads";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
-import {
-  asBodyBytes,
-  decodeUploadedAttachmentData,
-  EmptyAttachmentDataError,
-  storedContentToBuffer,
-} from "@/lib/mail/attachment-bytes";
+import { asBodyBytes, storedContentToBuffer } from "@/lib/mail/attachment-bytes";
+import { uploadPendingAttachment } from "@/lib/mail/attachment-upload";
 import { downloadAttachmentContent } from "@/lib/mail/attachment-helpers";
 import { isPdf, normalizeContentType } from "@/lib/mail/attachment-types";
 import { MESSAGE_SELECT } from "@/lib/mobile/message-select";
@@ -56,7 +52,7 @@ import {
   ok,
   wrap,
 } from "@/lib/mcp/tools/helpers";
-import { rateLimitSync, rateLimitUploads } from "@/lib/rate-limit";
+import { rateLimitSync } from "@/lib/rate-limit";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
 
 const DEFAULT_LIST_LIMIT = 25;
@@ -153,17 +149,16 @@ const cancelScheduledSchema = z.object({
 });
 
 const uploadAttachmentSchema = z.object({
-  filename: z.string().min(1),
-  contentType: z.string().min(1),
-  data: z.string().min(1),
+  filename: z.string().min(1).optional(),
+  contentType: z.string().min(1).optional(),
+  data: z.string().min(1).optional(),
+  uploadId: z.string().min(1).optional(),
+  done: z.boolean().optional(),
 });
 
 const syncMailSchema = z.object({
   connectionId: z.string().optional(),
 });
-
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_PENDING_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
@@ -328,15 +323,33 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "upload_attachment",
     description:
-      "Upload a file as a pending attachment (raw base64, base64url, or a data: URL, max 5 MB decoded). Returns { id } for send_mail.attachmentIds.",
+      "Upload a file as a pending attachment. Returns { id } for send_mail.attachmentIds. Never send more than ~250000 raw file bytes (~350000 base64 chars) in one call - a 1.5 MB PDF cannot travel as a single tool argument. For larger files, slice the raw bytes (not the base64 string) and upload each slice: first call filename+contentType+data+done=false (returns uploadId); next calls uploadId+data+done=false; last call uploadId+data+done=true (returns id). Each data value is base64 of that slice. Accepts raw base64, base64url, or a data: URL. Max 5 MB decoded.",
     inputSchema: {
       type: "object",
       properties: {
-        filename: { type: "string" },
-        contentType: { type: "string" },
-        data: { type: "string", description: "Base64-encoded file bytes" },
+        filename: {
+          type: "string",
+          description: "Required on the first chunk",
+        },
+        contentType: {
+          type: "string",
+          description: "Required on the first chunk",
+        },
+        data: {
+          type: "string",
+          description:
+            "Base64-encoded chunk. Omit only on a final done=true call that just closes the session.",
+        },
+        uploadId: {
+          type: "string",
+          description: "From the first done=false response; required to continue",
+        },
+        done: {
+          type: "boolean",
+          description:
+            "Default true (single-shot). false keeps the session open for more chunks.",
+        },
       },
-      required: ["filename", "contentType", "data"],
     },
     handler: wrap(uploadAttachment),
   });
@@ -908,46 +921,16 @@ async function uploadAttachment(
   const parsed = uploadAttachmentSchema.safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
 
-  const rl = await rateLimitUploads(ctx.userId);
-  if (!rl.allowed) {
-    return err(`Too many uploads — try again in ${rl.retryAfter} seconds`);
+  const result = await uploadPendingAttachment(ctx.userId, parsed.data);
+  if (!result.ok) return err(result.error);
+  if (!result.complete) {
+    return ok({
+      uploadId: result.uploadId,
+      receivedBytes: result.receivedBytes,
+      complete: false,
+    });
   }
-
-  let content: Buffer;
-  try {
-    content = decodeUploadedAttachmentData(parsed.data.data);
-  } catch (error) {
-    if (error instanceof EmptyAttachmentDataError) return err("Empty file");
-    return err("Invalid base64 data");
-  }
-  if (content.length > MAX_UPLOAD_BYTES) {
-    return err("File too large (max 5MB)");
-  }
-
-  const pendingTotal = await db.attachment.aggregate({
-    where: { userId: ctx.userId, messageId: null },
-    _sum: { size: true },
-  });
-  if (
-    (pendingTotal._sum.size || 0) + content.length >
-    MAX_PENDING_UPLOAD_BYTES
-  ) {
-    return err(
-      "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
-    );
-  }
-
-  const attachment = await db.attachment.create({
-    data: {
-      filename: parsed.data.filename,
-      contentType: parsed.data.contentType,
-      size: content.length,
-      content: asBodyBytes(content),
-      userId: ctx.userId,
-    },
-    select: { id: true },
-  });
-  return ok({ id: attachment.id });
+  return ok({ id: result.id, complete: true });
 }
 
 async function syncMail(
