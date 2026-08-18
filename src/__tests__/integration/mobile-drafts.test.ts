@@ -15,8 +15,13 @@ vi.mock("@/lib/db", () => ({
     },
     attachment: {
       count: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
   },
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile/auth", () => ({
@@ -137,6 +142,7 @@ describe("/api/mobile/drafts", () => {
     const body = await res.json();
     expect(body.drafts).toHaveLength(1);
     expect(body.drafts[0].contextMessageId).toBe("__new__");
+    expect(body.drafts[0].attachments).toEqual([]);
   });
 
   it("(d) DELETE removes by key and is idempotent (second DELETE still 200)", async () => {

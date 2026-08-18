@@ -137,14 +137,10 @@ export function ReplyComposer({
         setBcc(draft.bcc);
         setShowBcc(true);
       }
-      if (draft.attachmentIds.length) {
+      if (draft.attachments?.length) {
         setAttachments(
-          draft.attachmentIds.map((id) => ({
-            id,
-            filename: "Attachment",
-            contentType: "",
-            size: 0,
-            url: `/api/attachments/${id}`,
+          draft.attachments.map((attachment) => ({
+            ...attachment,
             status: "done" as const,
           })),
         );

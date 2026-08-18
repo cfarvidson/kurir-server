@@ -5,8 +5,10 @@ import { DraftType } from "@prisma/client";
 import {
   saveDraft as saveDraftAction,
   getDraft,
+  getAttachmentMeta,
   deleteDraft as deleteDraftAction,
 } from "@/actions/drafts";
+import type { DraftAttachmentMeta } from "@/lib/mail/drafts";
 
 export interface DraftData {
   to: string;
@@ -16,6 +18,7 @@ export interface DraftData {
   body: string;
   emailConnectionId?: string;
   attachmentIds: string[];
+  attachments?: DraftAttachmentMeta[];
 }
 
 export type DraftStatus = "idle" | "saving" | "saved" | "error";
@@ -48,7 +51,7 @@ export function useDraft(
         const parsed = JSON.parse(raw);
         const { updatedAt: _, ...data } = parsed;
         if (typeof data.body === "string" && typeof data.to === "string") {
-          return data as DraftData;
+          return hydrateAttachments(data as DraftData);
         }
         // Corrupt data — remove it
         localStorage.removeItem(key);
@@ -69,6 +72,7 @@ export function useDraft(
           body: serverDraft.body,
           emailConnectionId: serverDraft.emailConnectionId ?? undefined,
           attachmentIds: serverDraft.attachmentIds,
+          attachments: serverDraft.attachments,
         };
         // Backfill localStorage for next load
         try {
@@ -224,6 +228,21 @@ export function hasDraftInLocalStorage(
 }
 
 /** Remove a draft's localStorage copy (catalog delete, plan 037). */
+async function hydrateAttachments(data: DraftData): Promise<DraftData> {
+  if (
+    data.attachmentIds.length === 0 ||
+    (data.attachments && data.attachments.length > 0)
+  ) {
+    return data;
+  }
+  try {
+    const attachments = await getAttachmentMeta(data.attachmentIds);
+    return { ...data, attachments };
+  } catch {
+    return data;
+  }
+}
+
 export function clearDraftInLocalStorage(
   userId: string,
   type: DraftType,

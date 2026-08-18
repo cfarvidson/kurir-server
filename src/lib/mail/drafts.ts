@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { DraftType } from "@prisma/client";
 
@@ -29,6 +30,55 @@ export const saveDraftSchema = z.object({
 
 export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
 
+export type DraftAttachmentMeta = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  url: string;
+};
+
+/**
+ * Resolve uploaded/IMAP attachments for a draft in the order of `ids`.
+ * Missing or unowned ids are dropped — never turned into a 0-byte chip.
+ */
+export async function loadAttachmentMeta(
+  userId: string,
+  ids: string[],
+): Promise<DraftAttachmentMeta[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.attachment.findMany({
+    where: {
+      id: { in: ids },
+      OR: [{ userId }, { message: { userId } }],
+    },
+    select: {
+      id: true,
+      filename: true,
+      contentType: true,
+      size: true,
+    },
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    return [
+      {
+        id: row.id,
+        filename: row.filename,
+        contentType: row.contentType,
+        size: row.size,
+        url: `/api/attachments/${row.id}`,
+      },
+    ];
+  });
+}
+
+function bumpDraftsPage() {
+  revalidatePath("/drafts");
+}
+
 /**
  * Upsert a draft for `userId`. Validates that any referenced attachments belong
  * to the user, then last-write-wins on the `(userId, type, contextMessageId)`
@@ -48,7 +98,7 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
     }
   }
 
-  return db.draft.upsert({
+  const draft = await db.draft.upsert({
     where: {
       userId_type_contextMessageId: {
         userId,
@@ -78,6 +128,8 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
       attachmentIds: input.attachmentIds ?? [],
     },
   });
+  bumpDraftsPage();
+  return draft;
 }
 
 /** Fetch a single draft by its `(userId, type, contextMessageId)` key. */
@@ -102,6 +154,7 @@ export async function deleteDraftForUser(
   await db.draft.deleteMany({
     where: { userId, type, contextMessageId },
   });
+  bumpDraftsPage();
 }
 
 /** All of the user's drafts, newest first. */
