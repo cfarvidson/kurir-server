@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
       count: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    message: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -143,6 +146,49 @@ describe("/api/mobile/drafts", () => {
     expect(body.drafts).toHaveLength(1);
     expect(body.drafts[0].contextMessageId).toBe("__new__");
     expect(body.drafts[0].attachments).toEqual([]);
+    expect(body.drafts[0]).toMatchObject({
+      displaySubject: "S",
+      displayFrom: null,
+      folder: null,
+    });
+  });
+
+  it("(g) GET enriches a REPLY draft from the context message", async () => {
+    await mockAuthed("user-1");
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.draft.findMany).mockResolvedValue([
+      {
+        type: "REPLY",
+        contextMessageId: "m1",
+        to: "ada@x.y",
+        subject: "",
+        body: "hello",
+        emailConnectionId: null,
+        attachmentIds: [],
+        updatedAt: new Date("2026-08-02T00:00:00.000Z"),
+      },
+    ] as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "m1",
+        subject: "Q3 budget",
+        fromName: "Ada Lovelace",
+        fromAddress: "ada@x.y",
+        isInImbox: false,
+        isInFeed: true,
+        isInPaperTrail: false,
+        isArchived: false,
+      },
+    ] as never);
+
+    const { GET } = await import("@/app/api/mobile/drafts/route");
+    const res = await GET({ headers: { get: () => null } } as any);
+    const body = await res.json();
+    expect(body.drafts[0]).toMatchObject({
+      displaySubject: "Q3 budget",
+      displayFrom: "Ada Lovelace",
+      folder: "feed",
+    });
   });
 
   it("(d) DELETE removes by key and is idempotent (second DELETE still 200)", async () => {

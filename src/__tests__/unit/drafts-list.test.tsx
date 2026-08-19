@@ -12,6 +12,7 @@ import {
   draftTypeLabel,
   draftRecipientLine,
   draftSubjectLine,
+  draftPrimaryLine,
   type DraftListItem,
 } from "@/components/mail/drafts-list";
 
@@ -54,6 +55,22 @@ describe("draft row helpers", () => {
     expect(draftRecipientLine(" ada@x.y ")).toBe("To: ada@x.y");
     expect(draftSubjectLine("")).toBe("(no subject)");
     expect(draftSubjectLine(" Hi ")).toBe("Hi");
+  });
+
+  it("uses displayFrom as the primary line for a reply", () => {
+    expect(
+      draftPrimaryLine({
+        type: "REPLY",
+        to: "ada@x.y",
+        displayFrom: "Ada Lovelace",
+      }),
+    ).toBe("Ada Lovelace");
+  });
+
+  it("falls back to To: when displayFrom is missing", () => {
+    expect(
+      draftPrimaryLine({ type: "REPLY", to: "ada@x.y", displayFrom: null }),
+    ).toBe("To: ada@x.y");
   });
 });
 

@@ -28,6 +28,7 @@ export interface DraftListItem {
   snippet: string;
   updatedAt: string; // ISO string
   href: string;
+  displayFrom?: string | null;
 }
 
 export function draftTypeLabel(type: DraftType | string): string {
@@ -39,6 +40,17 @@ export function draftTypeLabel(type: DraftType | string): string {
 export function draftRecipientLine(to: string): string {
   const trimmed = to.trim();
   return trimmed ? `To: ${trimmed}` : "No recipient";
+}
+
+export function draftPrimaryLine(draft: {
+  type: string;
+  to: string;
+  displayFrom?: string | null;
+}): string {
+  if (draft.type === "REPLY" && draft.displayFrom?.trim()) {
+    return draft.displayFrom.trim();
+  }
+  return draftRecipientLine(draft.to);
 }
 
 export function draftSubjectLine(subject: string): string {
@@ -115,7 +127,7 @@ function DraftRow({ draft, userId }: { draft: DraftListItem; userId: string }) {
           </span>
         </div>
         <div className="mt-1 truncate text-sm font-medium text-foreground">
-          {draftRecipientLine(draft.to)}
+          {draftPrimaryLine(draft)}
         </div>
         <div className="truncate text-[0.9375rem] text-muted-foreground">
           {subject}

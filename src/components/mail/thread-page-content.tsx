@@ -52,6 +52,7 @@ interface ThreadPageContentProps {
   userTimezone: string;
   remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: Record<string, string>;
+  hasDraft?: boolean;
 }
 
 export function ThreadPageContent({
@@ -71,6 +72,7 @@ export function ThreadPageContent({
   userTimezone,
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
+  hasDraft = false,
 }: ThreadPageContentProps) {
   const userEmailSet = useMemo(
     () => new Set(userEmails.map((e) => e.toLowerCase())),
@@ -156,6 +158,7 @@ export function ThreadPageContent({
           rfcMessageId={rfcMessageId}
           references={references}
           userTimezone={userTimezone}
+          hasDraft={hasDraft}
         />
       </div>
     </>

@@ -17,6 +17,7 @@ import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
+import { findReplyDraftForThread } from "@/lib/mail/draft-presentation-db";
 
 async function getUserInfo(userId: string, connectionId: string) {
   const [conn, user, own] = await Promise.all([
@@ -151,17 +152,29 @@ export async function ThreadDetailView({
     .reverse()
     .find((m) => !isOwn(m.fromAddress));
 
+  const replyDraft = await findReplyDraftForThread(
+    session.user.id,
+    messages.map((m) => m.id),
+  );
+  const pinned =
+    (replyDraft &&
+      messages.find((m) => m.id === replyDraft.contextMessageId)) ||
+    lastIncoming ||
+    lastMessage;
+  const headerMessage = replyDraft ? pinned : lastIncoming;
+  const threadAnchor = replyDraft ? pinned : lastMessage;
+
   let replyToAddress: string;
   let replyToName: string;
   let replyAllExtraTo: string[] = [];
   let replyAllCc: string[] = [];
 
-  if (lastIncoming) {
-    replyToAddress = lastIncoming.replyTo || lastIncoming.fromAddress;
+  if (headerMessage) {
+    replyToAddress = headerMessage.replyTo || headerMessage.fromAddress;
     replyToName =
-      lastIncoming.sender?.displayName ||
-      lastIncoming.fromName ||
-      lastIncoming.fromAddress;
+      headerMessage.sender?.displayName ||
+      headerMessage.fromName ||
+      headerMessage.fromAddress;
 
     const primary = replyToAddress.toLowerCase();
     const seen = new Set<string>();
@@ -173,8 +186,8 @@ export async function ThreadDetailView({
       seen.add(key);
       return false;
     };
-    replyAllExtraTo = lastIncoming.toAddresses.filter((addr) => !skip(addr));
-    replyAllCc = lastIncoming.ccAddresses.filter((addr) => !skip(addr));
+    replyAllExtraTo = headerMessage.toAddresses.filter((addr) => !skip(addr));
+    replyAllCc = headerMessage.ccAddresses.filter((addr) => !skip(addr));
   } else if (isSentView) {
     // Sent-only thread: reply to the recipient, not yourself
     const recipientEmail =
@@ -281,18 +294,19 @@ export async function ThreadDetailView({
                 initialMessages={messages}
                 currentUserEmail={currentUserEmail}
                 userEmails={[...userEmails]}
-                replyToMessageId={lastMessage.id}
+                replyToMessageId={pinned.id}
                 replyToAddress={replyToAddress}
                 replyToName={replyToName}
                 replyAllExtraTo={replyAllExtraTo}
                 replyAllCc={replyAllCc}
-                subject={subject}
+                subject={pinned.subject || "(no subject)"}
                 emailConnectionId={targetMessage.emailConnectionId}
-                rfcMessageId={lastMessage.messageId ?? undefined}
-                references={lastMessage.references}
+                rfcMessageId={threadAnchor.messageId ?? undefined}
+                references={threadAnchor.references}
                 userTimezone={userInfo.timezone}
                 remoteImagePolicy={userInfo.remoteImagePolicy}
                 recipientNames={recipientNames}
+                hasDraft={Boolean(replyDraft)}
               />
             </div>
           </div>

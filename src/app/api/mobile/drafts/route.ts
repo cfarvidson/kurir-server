@@ -7,9 +7,9 @@ import {
   saveDraftSchema,
   saveDraftForUser,
   deleteDraftForUser,
-  listDraftsForUser,
   loadAttachmentMeta,
 } from "@/lib/mail/drafts";
+import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
 
 /**
  * Mobile CRUD for the Draft model, sharing the `(userId, type,
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const limit = await rateLimitUser(userId);
   if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 
-  const drafts = await listDraftsForUser(userId);
+  const drafts = await presentDraftsForUser(userId);
   const attachmentIds = [
     ...new Set(drafts.flatMap((draft) => draft.attachmentIds)),
   ];
@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
         return row ? [row] : [];
       }),
       updatedAt: d.updatedAt,
+      displaySubject: d.displaySubject,
+      displayFrom: d.displayFrom,
+      folder: d.folder,
     })),
   });
 }

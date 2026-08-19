@@ -4,10 +4,16 @@ import { db } from "@/lib/db";
 import { getSyncQueue } from "@/lib/jobs/queue";
 import {
   deleteDraftForUser,
-  listDraftsForUser,
   saveDraftForUser,
   saveDraftSchema,
 } from "@/lib/mail/drafts";
+import { presentDraft } from "@/lib/mail/draft-presentation";
+import {
+  findReplyDraftForThread,
+  loadDraftContextMessage,
+  prepareDraftSave,
+  presentDraftsForUser,
+} from "@/lib/mail/draft-presentation-db";
 import { getFiles } from "@/lib/mail/files";
 import {
   encodeChronoCursor,
@@ -253,7 +259,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "save_draft",
     description:
-      "Create or update a draft keyed by type and contextMessageId (__new__ for NEW).",
+      "Save a draft. It appears in the user's Drafts folder and on the thread. For a reply use type REPLY and contextMessageId = the message id from get_thread (the id field, not threadId). For new mail use type NEW and a client UUID. Do not write the email only in chat.",
     inputSchema: {
       type: "object",
       properties: {
@@ -570,7 +576,7 @@ async function listDrafts(
   userId: string,
   connectionId?: string,
 ): Promise<ToolResult> {
-  const drafts = await listDraftsForUser(userId);
+  const drafts = await presentDraftsForUser(userId);
   const filtered = connectionId
     ? drafts.filter((d) => d.emailConnectionId === connectionId)
     : drafts;
@@ -590,6 +596,9 @@ async function listDrafts(
       isInPaperTrail: false,
       isArchived: false,
       isInScreener: false,
+      displaySubject: draft.displaySubject,
+      displayFrom: draft.displayFrom,
+      folder: draft.folder,
     })),
   );
 }
@@ -683,12 +692,36 @@ async function getThread(
   if (!result) {
     return { type: "error", message: "not found or not yours" };
   }
+  const draftRow = await findReplyDraftForThread(
+    ctx.userId,
+    result.messages.map((m) => m.id),
+  );
+  let draft = null;
+  if (draftRow) {
+    const context = await loadDraftContextMessage(
+      ctx.userId,
+      draftRow.contextMessageId,
+    );
+    const presented = presentDraft(draftRow, context);
+    draft = {
+      type: draftRow.type,
+      contextMessageId: draftRow.contextMessageId,
+      to: draftRow.to,
+      cc: draftRow.cc,
+      bcc: draftRow.bcc,
+      subject: draftRow.subject,
+      body: draftRow.body,
+      updatedAt: draftRow.updatedAt.toISOString(),
+      ...presented,
+    };
+  }
   return {
     type: "ok",
     structuredContent: {
       messages: result.messages.map((m) =>
         serializeThreadMessage(m as MailRowInput),
       ),
+      draft,
     },
   };
 }
@@ -859,11 +892,14 @@ async function saveDraft(
 ): Promise<ToolResult> {
   const parsed = saveDraftSchema.safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
-  const draft = await saveDraftForUser(ctx.userId, parsed.data);
+  const prepared = await prepareDraftSave(ctx.userId, parsed.data);
+  if (!prepared.ok) return err(prepared.message);
+  const draft = await saveDraftForUser(ctx.userId, prepared.input);
   return ok({
     id: draft.id,
     type: draft.type,
     contextMessageId: draft.contextMessageId,
+    ...presentDraft(draft, prepared.message),
   });
 }
 

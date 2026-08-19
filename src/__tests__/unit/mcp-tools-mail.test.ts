@@ -21,11 +21,15 @@ vi.mock("@/lib/mail/files", () => ({
   getFiles: vi.fn(),
 }));
 
-vi.mock("@/lib/mail/drafts", () => ({
-  listDraftsForUser: vi.fn(),
-  saveDraftForUser: vi.fn(),
-  deleteDraftForUser: vi.fn(),
-}));
+vi.mock("@/lib/mail/drafts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/mail/drafts")>();
+  return {
+    ...actual,
+    listDraftsForUser: vi.fn(),
+    saveDraftForUser: vi.fn(),
+    deleteDraftForUser: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/mail/mutations", () => ({
   archiveThread: vi.fn(),
@@ -97,7 +101,8 @@ vi.mock("@/lib/mail/user-emails", () => ({
 
 vi.mock("@/lib/db", () => ({
   db: {
-    message: { findMany: vi.fn() },
+    message: { findMany: vi.fn(), findFirst: vi.fn() },
+    draft: { findMany: vi.fn() },
     sender: { findMany: vi.fn(), findFirst: vi.fn() },
     scheduledMessage: { findMany: vi.fn() },
     attachment: {
@@ -120,7 +125,8 @@ import { getThreadMessages } from "@/lib/mail/threads";
 import { searchMessages } from "@/lib/mail/search";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
 import { getFiles } from "@/lib/mail/files";
-import { listDraftsForUser } from "@/lib/mail/drafts";
+import { listDraftsForUser, saveDraftForUser } from "@/lib/mail/drafts";
+import { CONTEXT_MESSAGE_ID_ERROR } from "@/lib/mail/draft-presentation";
 import { archiveThread, createDomainRuleForUser } from "@/lib/mail/mutations";
 import { db } from "@/lib/db";
 import { defaultAttachmentUploadStore } from "@/lib/mail/attachment-upload-session";
@@ -300,11 +306,43 @@ describe("MCP read tools", () => {
     );
   });
 
-  it("list_mail drafts uses listDraftsForUser", async () => {
-    vi.mocked(listDraftsForUser).mockResolvedValue([]);
+  it("list_mail drafts uses listDraftsForUser and includes display fields", async () => {
+    vi.mocked(listDraftsForUser).mockResolvedValue([
+      {
+        id: "d1",
+        type: "REPLY",
+        contextMessageId: "m1",
+        to: "ada@x.y",
+        subject: "",
+        body: "hello",
+        updatedAt: new Date("2026-08-02T00:00:00Z"),
+      },
+    ] as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "m1",
+        subject: "Q3 budget",
+        fromName: "Ada Lovelace",
+        fromAddress: "ada@x.y",
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isArchived: false,
+      },
+    ] as never);
+
     const result = await call("list_mail", { view: "drafts" });
     expect(listDraftsForUser).toHaveBeenCalledWith("u1");
     expect(result.type).toBe("ok");
+    if (result.type !== "ok") return;
+    const content = result.structuredContent as {
+      items: Array<Record<string, unknown>>;
+    };
+    expect(content.items[0]).toMatchObject({
+      displaySubject: "Q3 budget",
+      displayFrom: "Ada Lovelace",
+      folder: "imbox",
+    });
   });
 
   it("list_mail files uses getFiles", async () => {
@@ -481,17 +519,112 @@ describe("MCP read tools", () => {
       ],
       markedRead: [],
     } as never);
+    vi.mocked(db.draft.findMany).mockResolvedValue([
+      {
+        type: "REPLY",
+        contextMessageId: "m1",
+        to: "ada@x.y",
+        cc: "",
+        bcc: "",
+        subject: "",
+        body: "draft body",
+        updatedAt: new Date("2026-08-02T00:00:00Z"),
+      },
+    ] as never);
+    vi.mocked(db.message.findFirst).mockResolvedValue({
+      id: "m1",
+      subject: "Hello",
+      fromName: "Ada",
+      fromAddress: "ada@example.com",
+      isInImbox: true,
+      isInFeed: false,
+      isInPaperTrail: false,
+      isArchived: false,
+      emailConnectionId: "ec1",
+    } as never);
     const found = await call("get_thread", { messageId: "m1" });
     expect(found.type).toBe("ok");
     if (found.type !== "ok") return;
     const content = found.structuredContent as {
       messages: Array<Record<string, unknown>>;
+      draft: Record<string, unknown> | null;
     };
     expect(content.messages[0]).toMatchObject({
       id: "m1",
       text: "plain",
     });
     expect(content.messages[0]).not.toHaveProperty("htmlBody");
+    expect(content.draft).toMatchObject({
+      type: "REPLY",
+      contextMessageId: "m1",
+      body: "draft body",
+      displaySubject: "Hello",
+      displayFrom: "Ada",
+    });
+  });
+
+  it("save_draft description tells the agent to use a message id and the Drafts folder", () => {
+    const tool = getTool("save_draft");
+    expect(tool?.description).toMatch(/message id from get_thread/i);
+    expect(tool?.description).toMatch(/Drafts/i);
+    expect(tool?.description).not.toMatch(/__new__/);
+  });
+
+  it("save_draft REPLY with an unknown id returns the message-id error", async () => {
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    const result = await call("save_draft", {
+      type: "REPLY",
+      contextMessageId: "th-1",
+      body: "hi",
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: CONTEXT_MESSAGE_ID_ERROR,
+    });
+    expect(saveDraftForUser).not.toHaveBeenCalled();
+  });
+
+  it("save_draft REPLY against an owned message returns display fields", async () => {
+    vi.mocked(db.message.findFirst).mockResolvedValue({
+      id: "m1",
+      subject: "Q3 budget",
+      fromName: "Ada Lovelace",
+      fromAddress: "ada@x.y",
+      isInImbox: false,
+      isInFeed: true,
+      isInPaperTrail: false,
+      isArchived: false,
+      emailConnectionId: "conn-1",
+    } as never);
+    vi.mocked(saveDraftForUser).mockResolvedValue({
+      id: "d1",
+      type: "REPLY",
+      contextMessageId: "m1",
+      subject: "Q3 budget",
+      to: "",
+      body: "hello",
+    } as never);
+
+    const result = await call("save_draft", {
+      type: "REPLY",
+      contextMessageId: "m1",
+      body: "hello",
+    });
+    expect(saveDraftForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        subject: "Q3 budget",
+        emailConnectionId: "conn-1",
+      }),
+    );
+    expect(result.type).toBe("ok");
+    if (result.type !== "ok") return;
+    expect(result.structuredContent).toMatchObject({
+      id: "d1",
+      displaySubject: "Q3 budget",
+      displayFrom: "Ada Lovelace",
+      folder: "feed",
+    });
   });
 
   it("search_mail re-fetches hits in FTS rank order", async () => {
