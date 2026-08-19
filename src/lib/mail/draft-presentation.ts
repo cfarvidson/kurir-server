@@ -1,6 +1,6 @@
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { db } from "@/lib/db";
-import { listDraftsForUser } from "@/lib/mail/drafts";
+import { listDraftsForUser, type SaveDraftInput } from "@/lib/mail/drafts";
 
 export const CONTEXT_MESSAGE_ID_ERROR =
   "contextMessageId must be a message id from get_thread, not a threadId";
@@ -153,4 +153,31 @@ export async function loadDraftContextMessage(
     where: { userId, id: messageId },
     select: contextSelect,
   });
+}
+
+export async function prepareDraftSave(
+  userId: string,
+  input: SaveDraftInput,
+): Promise<
+  | {
+      ok: true;
+      input: SaveDraftInput;
+      message: Awaited<ReturnType<typeof loadDraftContextMessage>>;
+    }
+  | { ok: false; message: string }
+> {
+  if (input.type === "NEW") return { ok: true, input, message: null };
+  const message = await loadDraftContextMessage(userId, input.contextMessageId);
+  if (!message) {
+    return { ok: false, message: CONTEXT_MESSAGE_ID_ERROR };
+  }
+  return {
+    ok: true,
+    input: {
+      ...input,
+      subject: replyDraftSubject(input.subject, message.subject ?? ""),
+      emailConnectionId: input.emailConnectionId ?? message.emailConnectionId,
+    },
+    message,
+  };
 }

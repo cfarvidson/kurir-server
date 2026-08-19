@@ -22,6 +22,8 @@ import {
   presentDraftsForUser,
   findReplyDraftForThread,
   loadDraftContextMessage,
+  prepareDraftSave,
+  CONTEXT_MESSAGE_ID_ERROR,
 } from "@/lib/mail/draft-presentation";
 
 const feedMsg = {
@@ -265,5 +267,52 @@ describe("loadDraftContextMessage", () => {
   it("returns null when the message is not the user's", async () => {
     vi.mocked(db.message.findFirst).mockResolvedValue(null);
     expect(await loadDraftContextMessage("u1", "th-not-a-message")).toBeNull();
+  });
+});
+
+describe("prepareDraftSave", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("rejects REPLY when the context is not an owned message", async () => {
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    const result = await prepareDraftSave("u1", {
+      type: "REPLY",
+      contextMessageId: "th-thread-id",
+    });
+    expect(result).toEqual({
+      ok: false,
+      message: CONTEXT_MESSAGE_ID_ERROR,
+    });
+  });
+
+  it("fills subject and connection from the original message", async () => {
+    const message = {
+      id: "m1",
+      subject: "Q3 budget",
+      fromName: "Ada",
+      fromAddress: "ada@x.y",
+      isInImbox: true,
+      isInFeed: false,
+      isInPaperTrail: false,
+      isArchived: false,
+      emailConnectionId: "conn-1",
+    };
+    vi.mocked(db.message.findFirst).mockResolvedValue(message as never);
+    const result = await prepareDraftSave("u1", {
+      type: "REPLY",
+      contextMessageId: "m1",
+      body: "hello",
+    });
+    expect(result).toEqual({
+      ok: true,
+      input: {
+        type: "REPLY",
+        contextMessageId: "m1",
+        body: "hello",
+        subject: "Q3 budget",
+        emailConnectionId: "conn-1",
+      },
+      message,
+    });
   });
 });

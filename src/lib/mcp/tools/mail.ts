@@ -10,6 +10,7 @@ import {
 import {
   findReplyDraftForThread,
   loadDraftContextMessage,
+  prepareDraftSave,
   presentDraft,
   presentDraftsForUser,
 } from "@/lib/mail/draft-presentation";
@@ -891,11 +892,14 @@ async function saveDraft(
 ): Promise<ToolResult> {
   const parsed = saveDraftSchema.safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
-  const draft = await saveDraftForUser(ctx.userId, parsed.data);
+  const prepared = await prepareDraftSave(ctx.userId, parsed.data);
+  if (!prepared.ok) return err(prepared.message);
+  const draft = await saveDraftForUser(ctx.userId, prepared.input);
   return ok({
     id: draft.id,
     type: draft.type,
     contextMessageId: draft.contextMessageId,
+    ...presentDraft(draft, prepared.message),
   });
 }
 
