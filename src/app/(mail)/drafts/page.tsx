@@ -2,10 +2,8 @@ import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
-import {
-  presentDraftsForUser,
-  draftCatalogHref,
-} from "@/lib/mail/draft-presentation";
+import { draftCatalogHref } from "@/lib/mail/draft-presentation";
+import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { DraftsList, type DraftListItem } from "@/components/mail/drafts-list";
 

@@ -19,12 +19,14 @@ import {
   draftCatalogHref,
   pickReplyDraftForThread,
   replyDraftSubject,
+  CONTEXT_MESSAGE_ID_ERROR,
+} from "@/lib/mail/draft-presentation";
+import {
   presentDraftsForUser,
   findReplyDraftForThread,
   loadDraftContextMessage,
   prepareDraftSave,
-  CONTEXT_MESSAGE_ID_ERROR,
-} from "@/lib/mail/draft-presentation";
+} from "@/lib/mail/draft-presentation-db";
 
 const feedMsg = {
   subject: "Q3 budget",

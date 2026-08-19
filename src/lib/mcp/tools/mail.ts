@@ -7,13 +7,13 @@ import {
   saveDraftForUser,
   saveDraftSchema,
 } from "@/lib/mail/drafts";
+import { presentDraft } from "@/lib/mail/draft-presentation";
 import {
   findReplyDraftForThread,
   loadDraftContextMessage,
   prepareDraftSave,
-  presentDraft,
   presentDraftsForUser,
-} from "@/lib/mail/draft-presentation";
+} from "@/lib/mail/draft-presentation-db";
 import { getFiles } from "@/lib/mail/files";
 import {
   encodeChronoCursor,

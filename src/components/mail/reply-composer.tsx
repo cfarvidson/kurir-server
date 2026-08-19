@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
 import { DraftType } from "@prisma/client";
+import { replyDraftSubject } from "@/lib/mail/draft-presentation";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -59,6 +60,7 @@ export function ReplyComposer({
 
   const [isOpen, setIsOpen] = useState(hasDraftProp);
   const [body, setBody] = useState("");
+  const [savedSubject, setSavedSubject] = useState("");
   const [to, setTo] = useState(replyToAddress);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -93,6 +95,7 @@ export function ReplyComposer({
     setIsEditingCc(false);
     setIsEditingBcc(false);
     restoredFromDraftRef.current = false;
+    setSavedSubject("");
   }, [replyToAddress]);
 
   const {
@@ -137,6 +140,7 @@ export function ReplyComposer({
         setBcc(draft.bcc);
         setShowBcc(true);
       }
+      if (draft.subject) setSavedSubject(draft.subject);
       if (draft.attachments?.length) {
         setAttachments(
           draft.attachments.map((attachment) => ({
@@ -168,8 +172,15 @@ export function ReplyComposer({
     const attachmentIds = attachments
       .filter((a) => a.status === "done")
       .map((a) => a.id);
-    saveDraft({ to, cc, bcc, subject: "", body, attachmentIds });
-  }, [to, cc, bcc, body, attachments, isOpen, saveDraft]);
+    saveDraft({
+      to,
+      cc,
+      bcc,
+      subject: replyDraftSubject(savedSubject, subject),
+      body,
+      attachmentIds,
+    });
+  }, [to, cc, bcc, savedSubject, subject, body, attachments, isOpen, saveDraft]);
 
   const openReplyAll = useCallback(() => {
     setTo(replyAllToString);

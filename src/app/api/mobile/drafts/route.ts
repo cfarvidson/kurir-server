@@ -9,7 +9,7 @@ import {
   deleteDraftForUser,
   loadAttachmentMeta,
 } from "@/lib/mail/drafts";
-import { presentDraftsForUser } from "@/lib/mail/draft-presentation";
+import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
 
 /**
  * Mobile CRUD for the Draft model, sharing the `(userId, type,
