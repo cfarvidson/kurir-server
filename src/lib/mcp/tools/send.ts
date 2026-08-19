@@ -66,7 +66,7 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "send_mail",
     description:
-      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation.",
+      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
     inputSchema: sendInputSchemaJson(false),
     annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(sendMail),
