@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.08.19",
+    "date": "2026-08-19",
+    "changes": [
+      "Reply drafts show the thread sender and subject in Drafts",
+      "Opening a reply draft lands on the thread with the composer already open",
+      "MCP save_draft requires a real message id and get_thread returns the draft"
+    ]
+  },
+  {
     "version": "2026.08.18.4",
     "date": "2026-08-18",
     "changes": [

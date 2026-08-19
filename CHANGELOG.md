@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.19] - 2026-08-19
+
+### Added
+
+- Reply drafts (including those saved via MCP) show the original sender
+  and subject in Drafts instead of an empty "(no subject)" row.
+- Opening a reply draft lands on the thread in the right folder with the
+  reply composer already open on the saved text.
+- MCP `get_thread` returns the in-progress reply draft. `save_draft` for
+  a reply requires a real message id, not a thread id.
+
 ## [v2026.08.18.4] - 2026-08-18
 
 ### Added

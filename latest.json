@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.18.4",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.18.4",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.18.4",
-  "changelog": "Large attachments can be uploaded in chunks via MCP and the native app, so a 1.5 MB PDF no longer has to travel as one base64 payload.",
+  "version": "2026.08.19",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.19",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.19",
+  "changelog": "Reply drafts from Claude and the thread composer show the original sender and subject in Drafts, and open on the thread with the composer already filled in.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-18T20:42:23Z"
+  "releasedAt": "2026-08-19T09:11:08Z"
 }
