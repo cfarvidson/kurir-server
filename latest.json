@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.19.2",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.19.2",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.19.2",
-  "changelog": "APNs alerts now include content-available so the iOS and Mac apps can sync new mail without focusing the window.",
+  "version": "2026.08.19.3",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.19.3",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.19.3",
+  "changelog": "Inbox hover actions now spell out Follow up, Snooze and Archive instead of anonymous F/S/E glyphs.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-19T14:16:26Z"
+  "releasedAt": "2026-08-19T15:57:09Z"
 }

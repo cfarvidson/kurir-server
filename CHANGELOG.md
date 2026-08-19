@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.19.3] - 2026-08-19
+
+### Changed
+
+- Inbox hover actions now spell out Follow up, Snooze and Archive instead of
+  anonymous F/S/E glyphs. Hidden until hover.
+
 ## [v2026.08.19.2] - 2026-08-19
 
 ### Fixed

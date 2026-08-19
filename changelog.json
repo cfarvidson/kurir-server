@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.19.3",
+    "date": "2026-08-19",
+    "changes": [
+      "Inbox hover actions now spell out Follow up, Snooze and Archive instead of anonymous F/S/E glyphs"
+    ]
+  },
+  {
     "version": "2026.08.19.2",
     "date": "2026-08-19",
     "changes": [
