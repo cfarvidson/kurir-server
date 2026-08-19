@@ -119,6 +119,9 @@ export async function sendApnsNotification(
     aps: {
       alert: { title: payload.title, body: payload.body },
       sound: "default",
+      // Wake a running native app so it can sync without the user
+      // focusing the window. Keeps apns-push-type: alert.
+      "content-available": 1,
       "thread-id": payload.tag ?? "kurir",
       ...(payload.badge !== undefined ? { badge: payload.badge } : {}),
     },

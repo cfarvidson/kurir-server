@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.19.2",
+    "date": "2026-08-19",
+    "changes": [
+      "APNs alerts include content-available so the native apps can sync new mail without focusing the window"
+    ]
+  },
+  {
     "version": "2026.08.19",
     "date": "2026-08-19",
     "changes": [

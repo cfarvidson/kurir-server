@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.19.2] - 2026-08-19
+
+### Fixed
+
+- APNs alert payloads now set `content-available` so a running iOS or
+  Mac app can sync incoming mail without the user focusing the window.
+
 ## [v2026.08.19] - 2026-08-19
 
 ### Added
