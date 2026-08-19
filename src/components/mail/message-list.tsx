@@ -382,14 +382,16 @@ export function MessageRow({
         )}
       </div>
 
-      {/* Hover action buttons — hidden on mobile (swipe replaces them), hover-reveal on desktop */}
+      {/* Hover action buttons — hidden on mobile (swipe replaces them),
+          hover-reveal on desktop. Words first: icon-only + kbd was
+          unreadable, same as the Mac row chip. */}
       {(showArchiveAction ||
         showUnarchiveAction ||
         showSnoozeAction ||
         showFollowUpAction) &&
         !isSelectionMode && (
           <div
-            className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 md:flex md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-data-keyboard-focused:opacity-100 md:right-5"
+            className="absolute top-3 right-3 z-10 hidden items-center rounded-lg border border-border bg-background md:flex md:right-5 md:pointer-events-none md:opacity-0 md:transition-opacity md:group-hover:pointer-events-auto md:group-hover:opacity-100"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -403,19 +405,15 @@ export function MessageRow({
                 side="bottom"
                 align="end"
                 trigger={
-                  <button
-                    className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Follow up"
-                  >
+                  <button className={rowActionBtnClass} title="Follow up">
                     <Bell
                       className={cn(
-                        "h-4 w-4",
+                        "h-3.5 w-3.5",
                         message.followUpAt && "text-amber-500",
                       )}
                     />
-                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                      F
-                    </kbd>
+                    Follow up
+                    <RowActionKbd>F</RowActionKbd>
                   </button>
                 }
               />
@@ -427,14 +425,10 @@ export function MessageRow({
                 side="bottom"
                 align="end"
                 trigger={
-                  <button
-                    className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Snooze"
-                  >
-                    <Clock className="h-4 w-4" />
-                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                      S
-                    </kbd>
+                  <button className={rowActionBtnClass} title="Snooze">
+                    <Clock className="h-3.5 w-3.5" />
+                    Snooze
+                    <RowActionKbd>S</RowActionKbd>
                   </button>
                 }
               />
@@ -442,17 +436,16 @@ export function MessageRow({
             {showArchiveAction && (
               <button
                 onClick={handleArchive}
-                className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={rowActionBtnClass}
                 title="Archive"
               >
                 {actionPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <>
-                    <Archive className="h-4 w-4" />
-                    <kbd className="hidden h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[9px] text-muted-foreground/50 lg:inline-flex">
-                      E
-                    </kbd>
+                    <Archive className="h-3.5 w-3.5" />
+                    Archive
+                    <RowActionKbd>E</RowActionKbd>
                   </>
                 )}
               </button>
@@ -460,13 +453,17 @@ export function MessageRow({
             {showUnarchiveAction && (
               <button
                 onClick={handleUnarchive}
-                className="flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={rowActionBtnClass}
                 title="Unarchive"
               >
                 {actionPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <ArchiveRestore className="h-4 w-4" />
+                  <>
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                    Unarchive
+                    <RowActionKbd>E</RowActionKbd>
+                  </>
                 )}
               </button>
             )}
@@ -545,5 +542,16 @@ export function MessageRow({
         {rowContent}
       </Link>
     </SwipeableRow>
+  );
+}
+
+const rowActionBtnClass =
+  "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground";
+
+function RowActionKbd({ children }: { children: string }) {
+  return (
+    <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded border border-border/50 bg-muted/30 px-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+      {children}
+    </kbd>
   );
 }
