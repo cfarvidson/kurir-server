@@ -1,10 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/mail/drafts", () => ({
+  listDraftsForUser: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: {
+    message: { findMany: vi.fn(), findFirst: vi.fn() },
+    draft: { findMany: vi.fn() },
+  },
+}));
+
+import { listDraftsForUser } from "@/lib/mail/drafts";
+import { db } from "@/lib/db";
 import {
   presentDraft,
   draftFolderFromMessage,
   draftCatalogHref,
   pickReplyDraftForThread,
   replyDraftSubject,
+  presentDraftsForUser,
+  findReplyDraftForThread,
+  loadDraftContextMessage,
 } from "@/lib/mail/draft-presentation";
 
 const feedMsg = {
@@ -165,5 +182,88 @@ describe("replyDraftSubject", () => {
     expect(replyDraftSubject("My take", "Q3 budget")).toBe("My take");
     expect(replyDraftSubject("  ", "Q3 budget")).toBe("Q3 budget");
     expect(replyDraftSubject(undefined, "Re: Hi")).toBe("Re: Hi");
+  });
+});
+
+describe("presentDraftsForUser", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("joins context messages and attaches display fields", async () => {
+    vi.mocked(listDraftsForUser).mockResolvedValue([
+      {
+        id: "d1",
+        type: "REPLY",
+        contextMessageId: "m1",
+        subject: "",
+        to: "ada@x.y",
+        body: "hi",
+        updatedAt: new Date("2026-08-02T00:00:00Z"),
+      },
+    ] as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "m1",
+        subject: "Q3 budget",
+        fromName: "Ada Lovelace",
+        fromAddress: "ada@x.y",
+        isInImbox: false,
+        isInFeed: true,
+        isInPaperTrail: false,
+        isArchived: false,
+      },
+    ] as never);
+
+    const rows = await presentDraftsForUser("u1");
+    expect(db.message.findMany).toHaveBeenCalledWith({
+      where: { userId: "u1", id: { in: ["m1"] } },
+      select: {
+        id: true,
+        subject: true,
+        fromName: true,
+        fromAddress: true,
+        isInImbox: true,
+        isInFeed: true,
+        isInPaperTrail: true,
+        isArchived: true,
+      },
+    });
+    expect(rows[0]).toMatchObject({
+      displaySubject: "Q3 budget",
+      displayFrom: "Ada Lovelace",
+      folder: "feed",
+    });
+  });
+});
+
+describe("findReplyDraftForThread", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns null for an empty id list without querying", async () => {
+    expect(await findReplyDraftForThread("u1", [])).toBeNull();
+    expect(db.draft.findMany).not.toHaveBeenCalled();
+  });
+
+  it("asks for the newest REPLY in the id set", async () => {
+    vi.mocked(db.draft.findMany).mockResolvedValue([
+      { id: "d2", contextMessageId: "m2" },
+    ] as never);
+    const row = await findReplyDraftForThread("u1", ["m1", "m2"]);
+    expect(db.draft.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: "u1",
+        type: "REPLY",
+        contextMessageId: { in: ["m1", "m2"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 1,
+    });
+    expect(row?.contextMessageId).toBe("m2");
+  });
+});
+
+describe("loadDraftContextMessage", () => {
+  it("returns null when the message is not the user's", async () => {
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    expect(await loadDraftContextMessage("u1", "th-not-a-message")).toBeNull();
   });
 });
