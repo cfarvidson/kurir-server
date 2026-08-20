@@ -32,6 +32,7 @@ export const MESSAGE_SELECT = {
   snippet: true,
   fromAddress: true,
   fromName: true,
+  toAddresses: true,
   receivedAt: true,
   isRead: true,
   isFlagged: true,

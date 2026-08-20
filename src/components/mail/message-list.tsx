@@ -25,6 +25,11 @@ import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
+import {
+  primaryLine,
+  threadCountLabel,
+  type MailListId,
+} from "@/lib/mail/list-contract";
 import { toast } from "sonner";
 
 export interface MessageItem {
@@ -33,6 +38,7 @@ export interface MessageItem {
   snippet: string | null;
   fromAddress: string;
   fromName: string | null;
+  toAddresses?: string[];
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;
@@ -51,6 +57,7 @@ export interface MessageItem {
 interface MessageListProps {
   messages: MessageItem[];
   basePath?: string;
+  list?: MailListId;
   showArchiveAction?: boolean;
   showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
@@ -61,6 +68,7 @@ interface MessageListProps {
 export function MessageList({
   messages,
   basePath = "/imbox",
+  list = "imbox",
   showArchiveAction = false,
   showUnarchiveAction = false,
   showSnoozeAction = false,
@@ -98,6 +106,7 @@ export function MessageList({
             <MessageRow
               message={message}
               basePath={basePath}
+              list={list}
               showArchiveAction={showArchiveAction}
               showUnarchiveAction={showUnarchiveAction}
               showSnoozeAction={showSnoozeAction}
@@ -115,6 +124,7 @@ export function MessageList({
 export function MessageRow({
   message,
   basePath,
+  list = "imbox",
   showArchiveAction,
   showUnarchiveAction,
   showSnoozeAction,
@@ -129,6 +139,7 @@ export function MessageRow({
 }: {
   message: MessageItem;
   basePath: string;
+  list?: MailListId;
   showArchiveAction: boolean;
   showUnarchiveAction?: boolean;
   showSnoozeAction?: boolean;
@@ -152,7 +163,7 @@ export function MessageRow({
   const href = q
     ? `${basePath}/${message.id}?q=${encodeURIComponent(q)}`
     : `${basePath}/${message.id}`;
-  const hasThread = (message.threadCount ?? 0) > 1;
+  const countLabel = threadCountLabel(message.threadCount);
 
   // Listen for keyboard-triggered snooze
   useEffect(() => {
@@ -337,13 +348,17 @@ export function MessageRow({
                 : "font-medium text-foreground",
             )}
           >
-            {message.sender?.displayName ||
-              message.fromName ||
-              message.fromAddress}
+            {primaryLine({
+              list,
+              displayName: message.sender?.displayName,
+              fromName: message.fromName,
+              fromAddress: message.fromAddress,
+              toAddresses: message.toAddresses,
+            })}
           </span>
-          {hasThread && (
+          {countLabel && (
             <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-              ·{message.threadCount}
+              {countLabel}
             </span>
           )}
           {message.hasAttachments && (
@@ -367,8 +382,17 @@ export function MessageRow({
           {message.subject || "(no subject)"}
         </div>
         {message.snippet && (
-          <div className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">
+          <div className="mt-0.5 line-clamp-2 text-[0.8125rem] text-muted-foreground">
             {message.snippet}
+          </div>
+        )}
+        {message.followUpAt && (
+          <div
+            className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
+            suppressHydrationWarning
+          >
+            <Bell className="h-3 w-3" />
+            {formatSnoozeUntil(new Date(message.followUpAt))}
           </div>
         )}
         {showSnoozedUntil && message.snoozedUntil && (

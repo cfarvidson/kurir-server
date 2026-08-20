@@ -269,6 +269,7 @@ export function InfiniteMessageList({
         <MessageRow
           message={message}
           basePath={basePath}
+          list={category}
           showArchiveAction={showArchiveAction}
           showUnarchiveAction={showUnarchiveAction}
           showSnoozeAction={showSnoozeAction}
