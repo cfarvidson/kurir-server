@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@microsoft/microsoft-graph-client':
+        specifier: ^3.0.7
+        version: 3.0.7
       '@prisma/adapter-pg':
         specifier: ^7.7.0
         version: 7.7.0
@@ -775,6 +778,24 @@ packages:
 
   '@levischuck/tiny-cbor@0.2.11':
     resolution: {integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==}
+
+  '@microsoft/microsoft-graph-client@3.0.7':
+    resolution: {integrity: sha512-/AazAV/F+HK4LIywF9C+NYHcJo038zEnWkteilcxC1FM/uK/4NVGDKGrxx7nNq1ybspAroRKT4I1FHfxQzxkUw==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      '@azure/identity': '*'
+      '@azure/msal-browser': '*'
+      buffer: '*'
+      stream-browserify: '*'
+    peerDependenciesMeta:
+      '@azure/identity':
+        optional: true
+      '@azure/msal-browser':
+        optional: true
+      buffer:
+        optional: true
+      stream-browserify:
+        optional: true
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     resolution: {integrity: sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw==}
@@ -4842,6 +4863,11 @@ snapshots:
   '@kurkle/color@0.3.4': {}
 
   '@levischuck/tiny-cbor@0.2.11': {}
+
+  '@microsoft/microsoft-graph-client@3.0.7':
+    dependencies:
+      '@babel/runtime': 7.29.2
+      tslib: 2.8.1
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     optional: true
