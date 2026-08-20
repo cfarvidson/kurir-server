@@ -70,10 +70,28 @@ vi.mock("@/lib/jobs/queue", () => ({
 
 import { isDemoInstance } from "@/lib/demo";
 import { db } from "@/lib/db";
-import { claimCalendarSyncLock } from "@/lib/calendar/sync-lock";
+import {
+  claimCalendarSyncLock,
+  releaseCalendarSyncLock,
+} from "@/lib/calendar/sync-lock";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
+
+function googleAccount() {
+  return {
+    id: "acc-1",
+    userId: "u1",
+    provider: "GOOGLE" as const,
+    oauthAccessToken: "tok-1",
+    oauthRefreshToken: "ref-1",
+    oauthTokenExpiresAt: new Date(Date.now() + 60 * 60_000),
+    caldavUrl: null,
+    caldavUsername: null,
+    encryptedPassword: null,
+    calendars: [],
+  };
+}
 
 describe("processCalendarSyncJob", () => {
   beforeEach(() => {
@@ -109,5 +127,29 @@ describe("processCalendarSyncJob", () => {
     expect(claimCalendarSyncLock).not.toHaveBeenCalled();
     expect(adapter.listCalendars).not.toHaveBeenCalled();
     expect(adapter.pull).not.toHaveBeenCalled();
+  });
+
+  it("does not hide local calendars when listCalendars returns empty", async () => {
+    vi.mocked(isDemoInstance).mockReturnValue(false);
+    vi.mocked(claimCalendarSyncLock).mockResolvedValue(true);
+    vi.mocked(db.calendarAccount.findUnique).mockResolvedValue(
+      googleAccount() as never,
+    );
+    adapter.listCalendars.mockResolvedValue([]);
+
+    const { processCalendarSyncJob } = await import(
+      "@/lib/jobs/calendar-sync-worker"
+    );
+    await processCalendarSyncJob({
+      calendarAccountId: "acc-1",
+      userId: "u1",
+    });
+
+    expect(createGoogleAdapter).toHaveBeenCalled();
+    expect(adapter.listCalendars).toHaveBeenCalledTimes(1);
+    expect(db.calendar.updateMany).not.toHaveBeenCalled();
+    expect(db.calendar.upsert).not.toHaveBeenCalled();
+    expect(adapter.pull).not.toHaveBeenCalled();
+    expect(releaseCalendarSyncLock).toHaveBeenCalledWith("acc-1");
   });
 });

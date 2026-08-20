@@ -158,12 +158,13 @@ async function upsertCalendars(
     });
   }
 
+  // Empty list is a provider glitch, not "every calendar disappeared".
+  if (remoteIds.length === 0) return [];
+
   await db.calendar.updateMany({
     where: {
       accountId: account.id,
-      ...(remoteIds.length > 0
-        ? { providerCalendarId: { notIn: remoteIds } }
-        : {}),
+      providerCalendarId: { notIn: remoteIds },
     },
     data: { isVisible: false },
   });
