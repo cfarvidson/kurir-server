@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   expandEventWindow,
@@ -28,7 +28,10 @@ type ReplicaEvent = {
   status: string;
 };
 
-function asJson(value: unknown): Prisma.InputJsonValue {
+function asJson(
+  value: unknown,
+): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (value === null || value === undefined) return Prisma.DbNull;
   return value as Prisma.InputJsonValue;
 }
 
@@ -164,6 +167,11 @@ function exceptionsForMaster(
   return rows;
 }
 
+type ReplicaTx = Pick<
+  typeof db,
+  "calendarEvent" | "calendarEventInstance" | "calendarTombstone"
+>;
+
 export async function applyPull(input: {
   userId: string;
   accountId: string;
@@ -171,9 +179,22 @@ export async function applyPull(input: {
   pull: PullResult;
   now: Date;
 }): Promise<{ upserted: number; deleted: number }> {
+  return db.$transaction((tx) => applyPullTx(tx, input));
+}
+
+async function applyPullTx(
+  tx: ReplicaTx,
+  input: {
+    userId: string;
+    accountId: string;
+    calendarId: string;
+    pull: PullResult;
+    now: Date;
+  },
+): Promise<{ upserted: number; deleted: number }> {
   const { userId, calendarId, pull, now } = input;
 
-  const existing = await db.calendarEvent.findMany({
+  const existing = await tx.calendarEvent.findMany({
     where: { userId, calendarId },
   });
 
@@ -192,7 +213,7 @@ export async function applyPull(input: {
   for (const event of masters) {
     const data = replicaFields(event, userId, calendarId, null);
     const saved = asReplica(
-      (await db.calendarEvent.upsert({
+      (await tx.calendarEvent.upsert({
         where: {
           calendarId_providerEventId: {
             calendarId,
@@ -213,7 +234,7 @@ export async function applyPull(input: {
     const master = findMaster(byProviderId, mastersByIcalUid, event);
     const data = replicaFields(event, userId, calendarId, master?.id ?? null);
     const saved = asReplica(
-      (await db.calendarEvent.upsert({
+      (await tx.calendarEvent.upsert({
         where: {
           calendarId_providerEventId: {
             calendarId,
@@ -255,7 +276,7 @@ export async function applyPull(input: {
 
   const deletedMasters = deletedRows.filter(isReplicaMaster);
   if (deletedMasters.length > 0) {
-    await db.calendarTombstone.createMany({
+    await tx.calendarTombstone.createMany({
       data: deletedMasters.map((row) => ({
         eventId: row.id,
         providerEventId: row.providerEventId,
@@ -266,7 +287,7 @@ export async function applyPull(input: {
   }
 
   if (deleteIds.length > 0) {
-    await db.calendarEvent.deleteMany({
+    await tx.calendarEvent.deleteMany({
       where: { userId, calendarId, id: { in: deleteIds } },
     });
   }
@@ -280,7 +301,7 @@ export async function applyPull(input: {
 
   const rebuildIds = [...touchedMasterIds].filter((id) => byId.has(id));
   if (rebuildIds.length > 0) {
-    await db.calendarEventInstance.deleteMany({
+    await tx.calendarEventInstance.deleteMany({
       where: { userId, calendarId, eventId: { in: rebuildIds } },
     });
 
@@ -318,7 +339,7 @@ export async function applyPull(input: {
     }
 
     if (instanceRows.length > 0) {
-      await db.calendarEventInstance.createMany({ data: instanceRows });
+      await tx.calendarEventInstance.createMany({ data: instanceRows });
     }
   }
 

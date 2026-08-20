@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   expandEventWindow,
   instanceWindow,
@@ -6,22 +7,30 @@ import {
 } from "@/lib/calendar/expand";
 import type { PullResult, RemoteEvent } from "@/lib/calendar/providers/types";
 
-vi.mock("@/lib/db", () => ({
-  db: {
-    calendarEvent: {
-      findMany: vi.fn(),
-      upsert: vi.fn(),
-      deleteMany: vi.fn(),
+vi.mock("@/lib/db", () => {
+  const calendarEvent = {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+    deleteMany: vi.fn(),
+  };
+  const calendarEventInstance = {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
+  };
+  const calendarTombstone = {
+    createMany: vi.fn(),
+  };
+  return {
+    db: {
+      calendarEvent,
+      calendarEventInstance,
+      calendarTombstone,
+      $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ calendarEvent, calendarEventInstance, calendarTombstone }),
+      ),
     },
-    calendarEventInstance: {
-      deleteMany: vi.fn(),
-      createMany: vi.fn(),
-    },
-    calendarTombstone: {
-      createMany: vi.fn(),
-    },
-  },
-}));
+  };
+});
 
 const now = new Date("2026-08-20T12:00:00.000Z");
 
@@ -157,6 +166,19 @@ describe("applyPull", () => {
     vi.mocked(db.calendarTombstone.createMany).mockResolvedValue({
       count: 0,
     } as never);
+    vi.mocked(db.$transaction).mockImplementation(async (fn) =>
+      (
+        fn as (tx: {
+          calendarEvent: typeof db.calendarEvent;
+          calendarEventInstance: typeof db.calendarEventInstance;
+          calendarTombstone: typeof db.calendarTombstone;
+        }) => unknown
+      )({
+        calendarEvent: db.calendarEvent,
+        calendarEventInstance: db.calendarEventInstance,
+        calendarTombstone: db.calendarTombstone,
+      }),
+    );
     return db;
   }
 
@@ -365,4 +387,86 @@ describe("applyPull", () => {
     );
     expect(moved?.isException).toBe(true);
   });
+
+  it("maps top-level null JSON fields to Prisma.DbNull", async () => {
+    const db = await setupMocks([]);
+    const { applyPull } = await import("@/lib/calendar/apply-pull");
+    await applyPull({
+      userId: "u1",
+      accountId: "acc1",
+      calendarId: "cal1",
+      now,
+      pull: pull({
+        upserts: [remote({ providerEventId: "keep" })],
+      }),
+    });
+
+    const args = vi.mocked(db.calendarEvent.upsert).mock.calls[0][0];
+    for (const payload of [args.create, args.update]) {
+      expect(payload.organizerJson).toBe(Prisma.DbNull);
+      expect(payload.attendeesJson).toBe(Prisma.DbNull);
+      expect(payload.rawJson).toBe(Prisma.DbNull);
+      expect(payload.organizerJson).not.toBeNull();
+      expect(payload.attendeesJson).not.toBeNull();
+      expect(payload.rawJson).not.toBeNull();
+    }
+  });
+
+  it("applies replica writes inside db.$transaction", async () => {
+    const db = await setupMocks([
+      replicaRow({ id: "e-keep", providerEventId: "keep" }),
+      replicaRow({ id: "e-gone", providerEventId: "gone" }),
+    ]);
+    const order: string[] = [];
+    const tx = {
+      calendarEvent: db.calendarEvent,
+      calendarEventInstance: db.calendarEventInstance,
+      calendarTombstone: db.calendarTombstone,
+    };
+    vi.mocked(db.$transaction).mockImplementation(async (fn) => {
+      order.push("tx-start");
+      const result = await (fn as (client: typeof tx) => unknown)(tx);
+      order.push("tx-end");
+      return result;
+    });
+    function wrap(
+      name: string,
+      mock: {
+        getMockImplementation: () => ((...args: never[]) => unknown) | undefined;
+        mockImplementation: (fn: (...args: never[]) => unknown) => unknown;
+      },
+    ) {
+      const inner = mock.getMockImplementation();
+      mock.mockImplementation((...args: never[]) => {
+        order.push(name);
+        return inner ? inner(...args) : undefined;
+      });
+    }
+    wrap("upsert", db.calendarEvent.upsert);
+    wrap("tombstone", db.calendarTombstone.createMany);
+    wrap("delete", db.calendarEvent.deleteMany);
+
+    const { applyPull } = await import("@/lib/calendar/apply-pull");
+    await applyPull({
+      userId: "u1",
+      accountId: "acc1",
+      calendarId: "cal1",
+      now,
+      pull: pull({
+        upserts: [remote({ providerEventId: "keep", title: "Keep" })],
+        deletedProviderIds: ["gone"],
+        complete: false,
+      }),
+    });
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(db.$transaction).mock.calls[0][0]).toBeTypeOf("function");
+    expect(order[0]).toBe("tx-start");
+    expect(order.at(-1)).toBe("tx-end");
+    const inner = order.slice(1, -1);
+    expect(inner).toContain("upsert");
+    expect(inner).toContain("tombstone");
+    expect(inner).toContain("delete");
+  });
 });
+
