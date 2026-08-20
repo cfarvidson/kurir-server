@@ -26,6 +26,15 @@ const CATEGORY_FILTERS = {
   "reply-later": { isReplyLater: true, isArchived: false, isDeleted: false },
 } as const;
 
+export type Category = keyof typeof CATEGORY_FILTERS | "sent";
+
+function categoryWhere(category: Category) {
+  if (category === "sent") {
+    return { isDeleted: false, folder: { specialUse: "sent" } };
+  }
+  return CATEGORY_FILTERS[category];
+}
+
 export const MESSAGE_SELECT = {
   id: true,
   subject: true,
@@ -45,8 +54,6 @@ export const MESSAGE_SELECT = {
     select: { id: true, displayName: true, email: true, unthread: true },
   },
 } as const;
-
-export type Category = keyof typeof CATEGORY_FILTERS;
 
 export function encodeCursor(msg: {
   isRead: boolean;
@@ -132,7 +139,7 @@ export async function getMessages(
   limit: number,
   cursor?: string,
 ) {
-  const chronological = category === "archive";
+  const chronological = category === "archive" || category === "sent";
   const cursorCondition = cursor
     ? chronological
       ? parseChronoCursor(cursor)
@@ -143,7 +150,7 @@ export async function getMessages(
   const messages = await db.message.findMany({
     where: {
       userId,
-      ...CATEGORY_FILTERS[category],
+      ...categoryWhere(category),
       ...cursorCondition,
     },
     orderBy: chronological

@@ -15,6 +15,7 @@ import {
 } from "@/lib/mail/search-contacts";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
+import type { MailListId } from "@/lib/mail/list-contract";
 
 const categoryConfig = {
   IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
@@ -76,6 +77,7 @@ interface SearchResultsProps {
   showSnoozedUntil?: boolean;
   showFollowUpAction?: boolean;
   showUnarchiveAction?: boolean;
+  list?: MailListId;
 }
 
 export async function SearchResults({
@@ -89,6 +91,7 @@ export async function SearchResults({
   showSnoozedUntil,
   showFollowUpAction,
   showUnarchiveAction,
+  list,
 }: SearchResultsProps) {
   const [messages, contacts] = await Promise.all([
     searchMessages(userId, query, categoryFilter),
@@ -130,6 +133,7 @@ export async function SearchResults({
           <MessageList
             messages={messages}
             basePath={basePath}
+            list={list}
             showArchiveAction={showArchiveAction}
             showSnoozeAction={showSnoozeAction}
             showSnoozedUntil={showSnoozedUntil}

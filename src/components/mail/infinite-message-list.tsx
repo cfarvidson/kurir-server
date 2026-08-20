@@ -32,7 +32,8 @@ interface InfiniteMessageListProps {
     | "paper-trail"
     | "archive"
     | "snoozed"
-    | "follow-up";
+    | "follow-up"
+    | "sent";
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;
@@ -434,7 +435,7 @@ export function InfiniteMessageList({
           showSnoozeAction={barActionSet.snooze}
           showUnarchiveAction={showUnarchiveAction}
           showReadAction
-          showBlockAction
+          showBlockAction={category !== "sent"}
           readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
           selectedRows={selectedRows}
           onRead={handleRead}
@@ -464,7 +465,7 @@ export function InfiniteMessageList({
         showSnoozeAction={barActionSet.snooze}
         showUnarchiveAction={showUnarchiveAction}
         showReadAction
-        showBlockAction
+        showBlockAction={category !== "sent"}
         readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
         selectedRows={selectedRows}
         onRead={handleRead}

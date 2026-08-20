@@ -58,4 +58,34 @@ describe("getMessages category filters", () => {
       vi.clearAllMocks();
     }
   });
+
+  it("filters Sent by folder specialUse, not category flags", async () => {
+    const where = await capturedWhere("sent");
+    expect(where).toEqual({
+      userId: "user-1",
+      isDeleted: false,
+      folder: { specialUse: "sent" },
+    });
+  });
+
+  it("orders Sent chronologically like archive", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const { getMessages } = await import("@/lib/mail/messages");
+    await getMessages("user-1", "sent" as never, 50);
+    expect(vi.mocked(db.message.findMany).mock.calls[0][0]?.orderBy).toEqual([
+      { receivedAt: "desc" },
+      { id: "desc" },
+    ]);
+  });
+
+  it("returns an empty Sent page when no folder matches", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const { getMessages } = await import("@/lib/mail/messages");
+    await expect(getMessages("user-1", "sent" as never, 50)).resolves.toEqual({
+      messages: [],
+      nextCursor: null,
+    });
+  });
 });
