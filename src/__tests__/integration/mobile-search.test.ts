@@ -3,6 +3,7 @@
  * FTS delegation, and rank-order preservation.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -152,5 +153,42 @@ describe("GET /api/mobile/search", () => {
 
     const body = await res.json();
     expect(body.messages.map((m: { id: string }) => m.id)).toEqual(["m1"]);
+  });
+
+  it("passes an empty filter when category is omitted", async () => {
+    await mockAuthed();
+    const { searchMessages } = await import("@/lib/mail/search");
+    vi.mocked(searchMessages).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/mobile/search/route");
+    await GET(makeRequest({ q: "invoice" }));
+    expect(searchMessages).toHaveBeenCalledWith(
+      "user-1",
+      "invoice",
+      Prisma.empty,
+      50,
+    );
+  });
+
+  it("applies the list filter when category is a known list", async () => {
+    await mockAuthed();
+    const { searchMessages } = await import("@/lib/mail/search");
+    const { searchCategoryFilter } = await import("@/lib/mail/list-contract");
+    vi.mocked(searchMessages).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/mobile/search/route");
+    await GET(makeRequest({ q: "invoice", category: "feed" }));
+    expect(searchMessages).toHaveBeenCalledWith(
+      "user-1",
+      "invoice",
+      searchCategoryFilter("feed"),
+      50,
+    );
+  });
+
+  it("returns 400 for an unknown category", async () => {
+    await mockAuthed();
+    const { GET } = await import("@/app/api/mobile/search/route");
+    const res = await GET(makeRequest({ q: "invoice", category: "nope" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid category" });
   });
 });

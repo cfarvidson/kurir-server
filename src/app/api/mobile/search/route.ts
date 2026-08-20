@@ -1,23 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
 import { searchMessages } from "@/lib/mail/search";
+import {
+  searchCategoryFilter,
+  type SearchCategory,
+} from "@/lib/mail/list-contract";
 import {
   MESSAGE_SELECT,
   flattenFolderRole,
 } from "@/lib/mobile/message-select";
 
 /**
- * GET /api/mobile/search?q=<query>&limit=50
+ * GET /api/mobile/search?q=<query>&category=<list>&limit=50
  *
- * Full-text search across all of the user's mail, delegating to the same
- * FTS query as the web client. Returns full sync-shaped message metadata
- * so the app can upsert hits that aren't in its local store yet.
+ * Full-text search across the user's mail, optionally scoped to a list
+ * category. Delegates to the same FTS query as the web client. Returns
+ * full sync-shaped message metadata so the app can upsert hits that
+ * aren't in its local store yet.
  */
 
 const MAX_LIMIT = 50;
+
+const SEARCH_CATEGORIES = new Set<SearchCategory>([
+  "imbox",
+  "feed",
+  "paper-trail",
+  "archive",
+  "snoozed",
+  "follow-up",
+  "sent",
+]);
 
 export async function GET(req: NextRequest) {
   const mobileAuth = await requireMobileAuth(req);
@@ -34,13 +48,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
+  const categoryParam = req.nextUrl.searchParams.get("category");
+  if (categoryParam && !SEARCH_CATEGORIES.has(categoryParam as SearchCategory)) {
+    return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+  }
+  const category = (categoryParam as SearchCategory | null) ?? null;
+
   const limitParam = Number(req.nextUrl.searchParams.get("limit") ?? MAX_LIMIT);
   const limit = Math.min(
     Math.max(1, isNaN(limitParam) ? MAX_LIMIT : limitParam),
     MAX_LIMIT,
   );
 
-  const hits = await searchMessages(userId, q, Prisma.empty, limit);
+  const hits = await searchMessages(
+    userId,
+    q,
+    searchCategoryFilter(category),
+    limit,
+  );
   if (hits.length === 0) {
     return NextResponse.json({ messages: [] });
   }
