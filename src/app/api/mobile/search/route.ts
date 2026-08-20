@@ -48,11 +48,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
-  const categoryParam = req.nextUrl.searchParams.get("category");
+  const categoryParam = req.nextUrl.searchParams.get("category") || null;
   if (categoryParam && !SEARCH_CATEGORIES.has(categoryParam as SearchCategory)) {
     return NextResponse.json({ error: "Invalid category" }, { status: 400 });
   }
-  const category = (categoryParam as SearchCategory | null) ?? null;
+  const category = categoryParam as SearchCategory | null;
 
   const limitParam = Number(req.nextUrl.searchParams.get("limit") ?? MAX_LIMIT);
   const limit = Math.min(

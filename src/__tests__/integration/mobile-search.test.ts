@@ -169,6 +169,20 @@ describe("GET /api/mobile/search", () => {
     );
   });
 
+  it("passes an empty filter when category is an empty string", async () => {
+    await mockAuthed();
+    const { searchMessages } = await import("@/lib/mail/search");
+    vi.mocked(searchMessages).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/mobile/search/route");
+    await GET(makeRequest({ q: "invoice", category: "" }));
+    expect(searchMessages).toHaveBeenCalledWith(
+      "user-1",
+      "invoice",
+      Prisma.empty,
+      50,
+    );
+  });
+
   it("applies the list filter when category is a known list", async () => {
     await mockAuthed();
     const { searchMessages } = await import("@/lib/mail/search");
