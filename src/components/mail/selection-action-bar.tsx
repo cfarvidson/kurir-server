@@ -45,6 +45,7 @@ interface SelectionActionBarProps {
   selectedRows?: SelectionRow[];
   isOwn?: (email: string) => boolean;
   onRead?: (messageIds: string[], isRead: boolean) => void;
+  onBlocked?: (senderIds: string[]) => void;
   sourcePath?: string;
 }
 
@@ -60,6 +61,7 @@ export function SelectionActionBar({
   selectedRows,
   isOwn,
   onRead,
+  onBlocked,
   sourcePath,
 }: SelectionActionBarProps) {
   const [isPending, startTransition] = useTransition();
@@ -136,7 +138,7 @@ export function SelectionActionBar({
         });
         return;
       }
-      onQueryInvalidate(selectedMessageIds);
+      onBlocked?.(ids);
       onComplete();
     });
   };

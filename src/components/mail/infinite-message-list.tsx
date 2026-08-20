@@ -10,6 +10,7 @@ import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
+import { filterBlockedSenderRows } from "@/lib/mail/filter-blocked-senders";
 import {
   bulkReadMarksRead,
   listActionSet,
@@ -201,6 +202,27 @@ export function InfiniteMessageList({
       );
     },
     [queryClient, category, data],
+  );
+
+  const handleBlocked = useCallback(
+    (senderIds: string[]) => {
+      if (senderIds.length === 0) return;
+
+      queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
+        ["messages", category],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: filterBlockedSenderRows(page.messages, senderIds),
+            })),
+          };
+        },
+      );
+    },
+    [queryClient, category],
   );
 
   // Opening a thread marks it read server-side, but the query cache never
@@ -412,10 +434,11 @@ export function InfiniteMessageList({
           showSnoozeAction={barActionSet.snooze}
           showUnarchiveAction={showUnarchiveAction}
           showReadAction
-          showBlockAction={category !== "sent"}
+          showBlockAction
           readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
           selectedRows={selectedRows}
           onRead={handleRead}
+          onBlocked={handleBlocked}
           sourcePath={basePath}
         />
       </div>
@@ -441,10 +464,11 @@ export function InfiniteMessageList({
         showSnoozeAction={barActionSet.snooze}
         showUnarchiveAction={showUnarchiveAction}
         showReadAction
-        showBlockAction={category !== "sent"}
+        showBlockAction
         readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
         selectedRows={selectedRows}
         onRead={handleRead}
+        onBlocked={handleBlocked}
         sourcePath={basePath}
       />
     </div>
