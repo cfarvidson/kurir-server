@@ -65,6 +65,7 @@
     "rrule": "^2.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "tsdav": "^2.3.1",
     "web-push": "^3.6.7",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"

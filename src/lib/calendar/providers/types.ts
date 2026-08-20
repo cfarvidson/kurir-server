@@ -87,3 +87,10 @@ export interface CalendarAdapter {
     status: "accepted" | "tentative" | "declined",
   ): Promise<RemoteEvent>;
 }
+
+export class CalendarConflictError extends Error {
+  constructor(readonly providerLabel: string) {
+    super(`This event changed on ${providerLabel}.`);
+    this.name = "CalendarConflictError";
+  }
+}
