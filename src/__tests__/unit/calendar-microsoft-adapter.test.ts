@@ -300,4 +300,142 @@ describe("createMicrosoftAdapter", () => {
     expect(ifMatchAfterAll).toContain("etag-master");
     expect(ifMatchAfterAll).not.toContain("etag-instance");
   });
+
+  it("resolves this via instances around recurrenceId instead of patching the master", async () => {
+    const master = {
+      id: "series1",
+      "@odata.etag": "etag-master",
+      subject: "Standup",
+      type: "seriesMaster",
+      start: { dateTime: "2026-08-13T14:00:00.0000000", timeZone: "UTC" },
+      end: { dateTime: "2026-08-13T15:00:00.0000000", timeZone: "UTC" },
+      recurrence: {
+        pattern: { type: "weekly", interval: 1, daysOfWeek: ["thursday"] },
+        range: { type: "noEnd", startDate: "2026-08-13" },
+      },
+    };
+    const occurrence = {
+      id: "occ1",
+      "@odata.etag": "etag-occurrence",
+      subject: "Standup",
+      type: "occurrence",
+      seriesMasterId: "series1",
+      originalStart: "2026-08-20T14:00:00.0000000",
+      start: { dateTime: "2026-08-20T14:00:00.0000000", timeZone: "UTC" },
+      end: { dateTime: "2026-08-20T15:00:00.0000000", timeZone: "UTC" },
+    };
+    const input = {
+      title: "Call",
+      description: null,
+      location: null,
+      startAt: new Date("2026-08-20T14:00:00.000Z"),
+      endAt: new Date("2026-08-20T15:00:00.000Z"),
+      isAllDay: false,
+      timezone: "UTC",
+      rrule: "FREQ=WEEKLY",
+    };
+    const calendar = { providerCalendarId: "cal1" };
+    const replica = {
+      providerEventId: "series1",
+      etag: "etag-master",
+      recurrenceId: new Date("2026-08-20T14:00:00.000Z"),
+    };
+    const adapter = createMicrosoftAdapter({ accessToken: "tok-1" });
+
+    graphMocks.get.mockImplementation(async () => {
+      const path = String(graphMocks.api.mock.calls.at(-1)?.[0] ?? "");
+      if (path.includes("/instances")) return { value: [occurrence] };
+      if (path.includes("occ1")) return occurrence;
+      if (path.includes("series1")) return master;
+      return master;
+    });
+
+    const patchedPaths: string[] = [];
+    graphMocks.patch.mockImplementation(async () => {
+      patchedPaths.push(String(graphMocks.api.mock.calls.at(-1)?.[0] ?? ""));
+      return { ...occurrence, subject: "Call" };
+    });
+
+    await adapter.updateEvent(calendar, replica, input, "this");
+
+    const instancesPath = apiPaths().find((path) => path.includes("/instances"));
+    expect(instancesPath).toBeDefined();
+    expect(instancesPath).toContain("/events/series1/instances");
+    expect(instancesPath).toContain("startDateTime=");
+    expect(instancesPath).not.toContain("calendarView");
+    expect(patchedPaths.some((path) => path.includes("/events/occ1"))).toBe(
+      true,
+    );
+    expect(
+      patchedPaths.some(
+        (path) => path.includes("/events/series1") && !path.includes("occ1"),
+      ),
+    ).toBe(false);
+    const ifMatch = graphMocks.header.mock.calls
+      .filter((call) => call[0] === "If-Match")
+      .map((call) => call[1]);
+    expect(ifMatch).toContain("etag-occurrence");
+    expect(ifMatch).not.toContain("etag-master");
+
+    const deletedPaths: string[] = [];
+    graphMocks.delete.mockImplementation(async () => {
+      deletedPaths.push(String(graphMocks.api.mock.calls.at(-1)?.[0] ?? ""));
+    });
+
+    await adapter.deleteEvent(calendar, replica, "this");
+
+    expect(deletedPaths.some((path) => path.includes("/events/occ1"))).toBe(
+      true,
+    );
+    expect(
+      deletedPaths.some(
+        (path) => path.includes("/events/series1") && !path.includes("occ1"),
+      ),
+    ).toBe(false);
+  });
+
+  it("posts timed events as wall clock in the event timezone", async () => {
+    graphMocks.post.mockResolvedValue({
+      id: "new1",
+      subject: "Lunch",
+      start: { dateTime: "2026-08-20T08:00:00.0000000", timeZone: "UTC" },
+      end: { dateTime: "2026-08-20T09:00:00.0000000", timeZone: "UTC" },
+    });
+
+    const adapter = createMicrosoftAdapter({ accessToken: "tok-1" });
+    await adapter.createEvent(
+      { providerCalendarId: "cal1" },
+      {
+        title: "Lunch",
+        description: null,
+        location: null,
+        startAt: new Date("2026-08-20T08:00:00.000Z"),
+        endAt: new Date("2026-08-20T09:00:00.000Z"),
+        isAllDay: false,
+        timezone: "Europe/Stockholm",
+        rrule: null,
+      },
+    );
+
+    expect(graphMocks.post).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Lunch",
+        start: {
+          dateTime: expect.stringContaining("2026-08-20T10:00:00"),
+          timeZone: "Europe/Stockholm",
+        },
+        end: {
+          dateTime: expect.stringContaining("2026-08-20T11:00:00"),
+          timeZone: "Europe/Stockholm",
+        },
+      }),
+    );
+    expect(graphMocks.post.mock.calls[0]?.[0]).not.toEqual(
+      expect.objectContaining({
+        start: expect.objectContaining({
+          dateTime: expect.stringContaining("2026-08-20T08:00:00"),
+        }),
+      }),
+    );
+  });
 });
