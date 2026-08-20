@@ -442,4 +442,102 @@ describe("/api/mobile/scheduled", () => {
 
     expect(res.status).toBe(409);
   });
+
+  it("(i) PATCH without bearer auth returns 401", async () => {
+    await mockUnauthed();
+    const { PATCH } = await import("@/app/api/mobile/scheduled/[id]/route");
+    const res = await PATCH(makeRequest({}), {
+      params: Promise.resolve({ id: "s1" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("(j) PATCH updates a PENDING row through the shared edit core", async () => {
+    await mockAuthed("user-1");
+    const { db } = await import("@/lib/db");
+    const existingScheduledFor = new Date("2026-08-21T10:00:00.000Z");
+    vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue({
+      id: "s1",
+      userId: "user-1",
+      status: "PENDING",
+      emailConnectionId: "conn-1",
+      to: "old@example.com",
+      cc: null,
+      bcc: null,
+      scheduledFor: existingScheduledFor,
+    } as never);
+    vi.mocked(db.scheduledMessage.update).mockResolvedValue({} as never);
+
+    const { PATCH } = await import("@/app/api/mobile/scheduled/[id]/route");
+    const res = await PATCH(
+      makeRequest({
+        subject: "Updated",
+        textBody: "new body",
+      }),
+      { params: Promise.resolve({ id: "s1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(db.scheduledMessage.findFirst).toHaveBeenCalledWith({
+      where: { id: "s1", userId: "user-1" },
+    });
+    const updateArgs = vi.mocked(db.scheduledMessage.update).mock.calls[0][0] as {
+      where: { id: string };
+      data: { subject: string; textBody: string };
+    };
+    expect(updateArgs.where).toEqual({ id: "s1" });
+    expect(updateArgs.data.subject).toBe("Updated");
+    expect(updateArgs.data.textBody).toBe("enc:new body");
+    const json = await res.json();
+    expect(json.id).toBe("s1");
+    expect(new Date(json.scheduledFor).getTime()).toBe(
+      existingScheduledFor.getTime(),
+    );
+  });
+
+  it("(k) PATCH of another user's (or missing) id returns 404", async () => {
+    await mockAuthed("user-1");
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue(null as never);
+
+    const { PATCH } = await import("@/app/api/mobile/scheduled/[id]/route");
+    const res = await PATCH(makeRequest({ subject: "X" }), {
+      params: Promise.resolve({ id: "not-mine" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(db.scheduledMessage.update).not.toHaveBeenCalled();
+  });
+
+  it("(l) PATCH on an already-SENT message returns 409 and never writes", async () => {
+    await mockAuthed("user-1");
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.scheduledMessage.findFirst).mockResolvedValue({
+      status: "SENT",
+    } as never);
+
+    const { PATCH } = await import("@/app/api/mobile/scheduled/[id]/route");
+    const res = await PATCH(makeRequest({ subject: "X" }), {
+      params: Promise.resolve({ id: "s1" }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(db.scheduledMessage.update).not.toHaveBeenCalled();
+  });
+
+  it("(m) PATCH with a past scheduledFor returns 400 and never writes", async () => {
+    await mockAuthed("user-1");
+    const { db } = await import("@/lib/db");
+    const { PATCH } = await import("@/app/api/mobile/scheduled/[id]/route");
+    const res = await PATCH(
+      makeRequest({
+        scheduledFor: new Date(Date.now() - 60_000).toISOString(),
+      }),
+      { params: Promise.resolve({ id: "s1" }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(db.scheduledMessage.findFirst).not.toHaveBeenCalled();
+    expect(db.scheduledMessage.update).not.toHaveBeenCalled();
+  });
 });
