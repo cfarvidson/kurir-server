@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { formatSnoozeUntil } from "@/lib/date";
+import { formatDistanceToNow, formatSnoozeUntil } from "@/lib/date";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
@@ -112,5 +112,23 @@ describe("MessageRow chrome", () => {
       />,
     );
     expect(screen.getByText("To: ada@x.y")).toBeDefined();
+  });
+
+  it("shows a past follow-up time, not snooze waking-up copy", () => {
+    const overdue = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const { container } = render(
+      <MessageRow
+        message={{
+          ...base,
+          followUpAt: overdue,
+          hasAttachments: false,
+          threadCount: 1,
+        }}
+        basePath="/follow-up"
+        showArchiveAction={false}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/waking up/i);
+    expect(screen.getByText(formatDistanceToNow(overdue))).toBeDefined();
   });
 });

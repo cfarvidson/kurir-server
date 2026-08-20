@@ -392,7 +392,7 @@ export function MessageRow({
             suppressHydrationWarning
           >
             <Bell className="h-3 w-3" />
-            {formatSnoozeUntil(new Date(message.followUpAt))}
+            {formatFollowUpAt(new Date(message.followUpAt))}
           </div>
         )}
         {showSnoozedUntil && message.snoozedUntil && (
@@ -567,6 +567,12 @@ export function MessageRow({
       </Link>
     </SwipeableRow>
   );
+}
+
+function formatFollowUpAt(date: Date): string {
+  return date.getTime() > Date.now()
+    ? formatSnoozeUntil(date)
+    : formatDistanceToNow(date);
 }
 
 const rowActionBtnClass =
