@@ -42,7 +42,33 @@ function propString(
   return null;
 }
 
-function multiPropString(
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Compact UTC stamp matching expand.ts parseUtcStamps (YYYYMMDDTHHMMSSZ). */
+function toCompactUtcStamp(time: ICAL.Time): string {
+  if (time.isDate) {
+    return `${time.year}${pad2(time.month)}${pad2(time.day)}T000000Z`;
+  }
+  const utc = time.convertToZone(ICAL.Timezone.utcTimezone);
+  return `${utc.year}${pad2(utc.month)}${pad2(utc.day)}T${pad2(utc.hour)}${pad2(utc.minute)}${pad2(utc.second)}Z`;
+}
+
+function asIcalTime(value: unknown): ICAL.Time | null {
+  if (!value || typeof value !== "object") return null;
+  if ("year" in value && "month" in value && "day" in value) {
+    return value as ICAL.Time;
+  }
+  // RDATE;VALUE=PERIOD → use period start
+  if ("start" in value && (value as { start?: unknown }).start) {
+    return asIcalTime((value as { start: unknown }).start);
+  }
+  return null;
+}
+
+/** Normalize EXDATE/RDATE to comma-joined compact UTC stamps for expand.ts. */
+function stampProps(
   vevent: ICAL.Component,
   name: string,
 ): string | null {
@@ -50,15 +76,12 @@ function multiPropString(
   if (!props.length) return null;
   const parts: string[] = [];
   for (const prop of props) {
-    const v = prop.getFirstValue();
-    if (v == null) continue;
-    parts.push(
-      typeof v === "string"
-        ? v
-        : typeof (v as { toString?: () => string }).toString === "function"
-          ? (v as { toString: () => string }).toString()
-          : String(v),
-    );
+    const values =
+      typeof prop.getValues === "function" ? prop.getValues() : [prop.getFirstValue()];
+    for (const v of values) {
+      const time = asIcalTime(v);
+      if (time) parts.push(toCompactUtcStamp(time));
+    }
   }
   return parts.length ? parts.join(",") : null;
 }
@@ -161,8 +184,8 @@ export function mapCalDavEvent(raw: unknown): RemoteEvent {
     status: mapStatus(propString(vevent, "status")),
     transparency: mapTransparency(propString(vevent, "transp")),
     rrule: propString(vevent, "rrule"),
-    rdate: multiPropString(vevent, "rdate"),
-    exdate: multiPropString(vevent, "exdate"),
+    rdate: stampProps(vevent, "rdate"),
+    exdate: stampProps(vevent, "exdate"),
     masterProviderEventId: null,
     recurrenceId: timeToDate(event.recurrenceId),
     organizerJson: organizerJson(vevent),

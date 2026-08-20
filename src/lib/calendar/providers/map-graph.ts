@@ -57,6 +57,15 @@ const WEEKDAY: Record<string, string> = {
   saturday: "SA",
 };
 
+/** Graph weekIndex → RRULE BYDAY ordinal (1TH … -1TH). */
+const INDEX_ORDINAL: Record<string, string> = {
+  first: "1",
+  second: "2",
+  third: "3",
+  fourth: "4",
+  last: "-1",
+};
+
 function asRecord(raw: unknown): GraphEvent {
   if (!raw || typeof raw !== "object") {
     throw new Error("mapGraphEvent: expected an event object");
@@ -113,6 +122,9 @@ function graphRecurrenceToRrule(
   const range = recurrence?.range;
   if (!pattern?.type) return null;
 
+  const isRelative =
+    pattern.type === "relativeMonthly" || pattern.type === "relativeYearly";
+
   const parts: string[] = [];
   switch (pattern.type) {
     case "daily":
@@ -137,7 +149,18 @@ function graphRecurrenceToRrule(
     parts.push(`INTERVAL=${pattern.interval}`);
   }
 
-  if (pattern.daysOfWeek?.length) {
+  if (isRelative) {
+    const ordinal = pattern.index
+      ? INDEX_ORDINAL[pattern.index.toLowerCase()]
+      : undefined;
+    if (!ordinal) return null;
+    const days = (pattern.daysOfWeek ?? [])
+      .map((d) => WEEKDAY[d.toLowerCase()] ?? null)
+      .filter((d): d is string => Boolean(d))
+      .map((d) => `${ordinal}${d}`);
+    if (!days.length) return null;
+    parts.push(`BYDAY=${days.join(",")}`);
+  } else if (pattern.daysOfWeek?.length) {
     const days = pattern.daysOfWeek
       .map((d) => WEEKDAY[d.toLowerCase()] ?? null)
       .filter((d): d is string => Boolean(d));
