@@ -1,6 +1,20 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
+export const SEARCH_SELECT_COLUMNS = [
+  "id",
+  "subject",
+  "snippet",
+  "fromAddress",
+  "fromName",
+  "toAddresses",
+  "receivedAt",
+  "isRead",
+  "hasAttachments",
+  "snoozedUntil",
+  "followUpAt",
+] as const;
+
 export interface MessageSearchResult {
   id: string;
   subject: string | null;
@@ -11,6 +25,16 @@ export interface MessageSearchResult {
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;
+  snoozedUntil: Date | null;
+  followUpAt: Date | null;
+}
+
+function searchSelectSql(): Prisma.Sql {
+  // Quote camelCase identifiers for PostgreSQL; leave lowercase unquoted.
+  const list = SEARCH_SELECT_COLUMNS.map((col) =>
+    /[A-Z]/.test(col) ? `"${col}"` : col,
+  ).join(", ");
+  return Prisma.raw(list);
 }
 
 /**
@@ -39,9 +63,7 @@ export async function searchMessages(
   if (!prefixQuery) return [];
 
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
-    SELECT
-      id, subject, snippet, "fromAddress", "fromName", "toAddresses",
-      "receivedAt", "isRead", "hasAttachments"
+    SELECT ${searchSelectSql()}
     FROM "Message"
     WHERE "userId" = ${userId}
       AND "search_vector" @@ to_tsquery('english', ${prefixQuery})
