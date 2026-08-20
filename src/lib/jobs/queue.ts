@@ -22,10 +22,12 @@ export function getRedisConnection(): ConnectionOptions {
 // Queue names
 export const SYNC_QUEUE = "sync-connection";
 export const MAINTENANCE_QUEUE = "maintenance";
+export const CALENDAR_SYNC_QUEUE = "sync-calendar";
 
 // Shared queue instances (created lazily)
 let syncQueue: Queue | null = null;
 let maintenanceQueue: Queue | null = null;
+let calendarSyncQueue: Queue | null = null;
 
 export function getSyncQueue(): Queue {
   if (!syncQueue) {
@@ -43,10 +45,24 @@ export function getMaintenanceQueue(): Queue {
   return maintenanceQueue;
 }
 
+export function getCalendarSyncQueue(): Queue {
+  if (!calendarSyncQueue) {
+    calendarSyncQueue = new Queue(CALENDAR_SYNC_QUEUE, {
+      connection: getRedisConnection(),
+    });
+  }
+  return calendarSyncQueue;
+}
+
 export async function closeQueues(): Promise<void> {
-  await Promise.allSettled([syncQueue?.close(), maintenanceQueue?.close()]);
+  await Promise.allSettled([
+    syncQueue?.close(),
+    maintenanceQueue?.close(),
+    calendarSyncQueue?.close(),
+  ]);
   syncQueue = null;
   maintenanceQueue = null;
+  calendarSyncQueue = null;
 }
 
 export { Worker };

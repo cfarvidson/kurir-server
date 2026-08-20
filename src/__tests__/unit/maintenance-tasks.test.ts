@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
     message: { updateMany: vi.fn() },
     emailConnection: { findMany: vi.fn() },
     sender: { findMany: vi.fn(), updateMany: vi.fn() },
+    calendarTombstone: { deleteMany: vi.fn() },
     $executeRawUnsafe: vi.fn(),
     $transaction: vi.fn(),
   },
@@ -137,5 +138,30 @@ describe("approveOwnPendingSenders", () => {
         isInPaperTrail: false,
       },
     });
+  });
+});
+
+describe("pruneCalendarTombstones", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("deletes calendar tombstones older than 30 days", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.calendarTombstone.deleteMany).mockResolvedValue({
+      count: 4,
+    } as never);
+
+    const before = Date.now();
+    const { pruneCalendarTombstones } = await import(
+      "@/lib/jobs/maintenance-tasks"
+    );
+    const count = await pruneCalendarTombstones();
+    const after = Date.now();
+
+    expect(count).toBe(4);
+    const call = vi.mocked(db.calendarTombstone.deleteMany).mock.calls[0][0];
+    const cutoff = (call.where as { deletedAt: { lt: Date } }).deletedAt.lt;
+    const day = 24 * 60 * 60_000;
+    expect(cutoff.getTime()).toBeGreaterThanOrEqual(before - 30 * day);
+    expect(cutoff.getTime()).toBeLessThanOrEqual(after - 30 * day);
   });
 });

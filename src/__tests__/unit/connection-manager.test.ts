@@ -31,6 +31,11 @@ vi.mock("@/lib/jobs/sync-worker", () => ({
   stopSyncWorker: vi.fn(),
   refreshSyncPriorities: vi.fn(),
 }));
+vi.mock("@/lib/jobs/calendar-sync-worker", () => ({
+  startCalendarSyncWorker: vi.fn(),
+  scheduleCalendarSyncJobs: vi.fn(),
+  stopCalendarSyncWorker: vi.fn(),
+}));
 vi.mock("@/lib/jobs/maintenance-worker", () => ({
   startMaintenanceWorker: vi.fn(),
   scheduleMaintenanceJobs: vi.fn(),
