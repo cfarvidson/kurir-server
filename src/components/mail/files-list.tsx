@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   File as FileIcon,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { fileGroup, type FileGroup } from "@/lib/mail/file-types";
+import { fileOpenHref } from "@/lib/mail/route-helpers";
 import { loadMoreFiles } from "@/actions/files";
 import type { FileRow } from "@/lib/mail/files";
 import {
@@ -36,7 +37,7 @@ function formatSize(bytes: number): string {
 interface FilesListProps {
   initialFiles: FileRow[];
   initialCursor: string | null;
-  /** Current filters, echoed back to the server action for "Load more". */
+  /** Current filters, echoed back to the server action for the next page. */
   group: FileGroup | null;
   query: string | null;
 }
@@ -51,15 +52,34 @@ export function FilesList({
   const [cursor, setCursor] = useState(initialCursor);
   const [isPending, startTransition] = useTransition();
   const [viewing, setViewing] = useState<ViewerAttachment | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
 
-  function handleLoadMore() {
-    if (!cursor) return;
+  const handleLoadMore = useCallback(() => {
+    if (!cursor || loadingRef.current) return;
+    loadingRef.current = true;
     startTransition(async () => {
-      const result = await loadMoreFiles({ group, q: query, cursor });
-      setFiles((prev) => [...prev, ...result.files]);
-      setCursor(result.nextCursor);
+      try {
+        const result = await loadMoreFiles({ group, q: query, cursor });
+        setFiles((prev) => [...prev, ...result.files]);
+        setCursor(result.nextCursor);
+      } finally {
+        loadingRef.current = false;
+      }
     });
-  }
+  }, [cursor, group, query]);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !cursor || isPending) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) handleLoadMore();
+      },
+      { rootMargin: "0px 0px 200px 0px" },
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [cursor, handleLoadMore, isPending]);
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-6">
@@ -69,6 +89,7 @@ export function FilesList({
           const sender =
             file.message?.fromName || file.message?.fromAddress || "Unknown";
           const previewable = canPreview(file.contentType);
+          const openHref = fileOpenHref(file.message);
           const rowClass =
             "flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-muted/50";
           const rowContent = (
@@ -116,10 +137,9 @@ export function FilesList({
                   {rowContent}
                 </a>
               )}
-              {/* Quick link to open the containing thread */}
-              {file.message?.id && (
+              {openHref && (
                 <Link
-                  href={`/imbox/${file.message.id}`}
+                  href={openHref}
                   className="ml-[3.25rem] inline-block pb-2 text-[11px] text-primary/70 hover:text-primary hover:underline"
                 >
                   Open message
@@ -130,19 +150,15 @@ export function FilesList({
         })}
       </ul>
 
-      {cursor && (
-        <div className="mt-4 flex justify-center">
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={isPending}
-            className="inline-flex items-center gap-2 rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Load more
-          </button>
-        </div>
-      )}
+      <div ref={sentinelRef} className="py-6 text-center">
+        {isPending ? (
+          <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+        ) : !cursor ? (
+          <p className="text-sm text-muted-foreground">
+            You&apos;re all caught up
+          </p>
+        ) : null}
+      </div>
 
       <AttachmentViewer
         attachment={viewing}

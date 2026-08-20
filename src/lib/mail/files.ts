@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { GROUP_PREFIXES, type FileGroup } from "@/lib/mail/file-types";
 
+export { fileOpenHref } from "@/lib/mail/route-helpers";
+
 export interface FileRow {
   id: string;
   filename: string;
@@ -14,6 +16,10 @@ export interface FileRow {
     receivedAt: Date;
     fromName: string | null;
     fromAddress: string;
+    isInImbox: boolean;
+    isInFeed: boolean;
+    isInPaperTrail: boolean;
+    isArchived: boolean;
   } | null;
 }
 
@@ -116,6 +122,10 @@ export async function getFiles(userId: string, options: GetFilesOptions = {}) {
           receivedAt: true,
           fromName: true,
           fromAddress: true,
+          isInImbox: true,
+          isInFeed: true,
+          isInPaperTrail: true,
+          isArchived: true,
         },
       },
     },

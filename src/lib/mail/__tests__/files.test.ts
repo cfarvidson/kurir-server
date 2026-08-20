@@ -38,6 +38,20 @@ describe("getFiles", () => {
     expect(arg?.where).toMatchObject({ message: { is: { userId: "user-1" } } });
   });
 
+  it("selects folder flags so open links can use getThreadRoute", async () => {
+    vi.mocked(db.attachment.findMany).mockResolvedValue([] as never);
+    await getFiles("user-1");
+    const arg = vi.mocked(db.attachment.findMany).mock.calls[0][0];
+    expect(arg?.select?.message).toMatchObject({
+      select: {
+        isInImbox: true,
+        isInFeed: true,
+        isInPaperTrail: true,
+        isArchived: true,
+      },
+    });
+  });
+
   it("adds a content-type filter when a group is given", async () => {
     vi.mocked(db.attachment.findMany).mockResolvedValue([] as never);
     await getFiles("user-1", { group: "image" });
