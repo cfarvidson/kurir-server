@@ -67,6 +67,13 @@ docs/superpowers/
 
 !CLAUDE.md
 
+# .claude/ is ignored globally; track /bump so release versioning stays in git
+!.claude/
+.claude/*
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/bump.md
+
 # Compound Engineering local config
 .compound-engineering/*.local.yaml
 

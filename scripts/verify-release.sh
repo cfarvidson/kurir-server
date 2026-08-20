@@ -1,7 +1,7 @@
 #!/bin/sh
 # Verify that a release commit is complete before it is tagged or published.
 #
-# A CalVer release must bump ALL of these in the same commit:
+# A CalVer (YYYY.MM.N) release must bump ALL of these in the same commit:
 #   package.json   — version read by the app and updater
 #   latest.json    — update manifest polled by self-hosted instances
 #   changelog.json — feeds the Changelog list in the admin Updates page

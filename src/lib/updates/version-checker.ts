@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
 import { DEFAULT_MANIFEST_URL } from "./constants";
+import { compareVersions } from "./compare-versions";
 
 export interface VersionManifest {
   version: string;
@@ -32,24 +33,6 @@ function isValidManifestUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Compare two semver strings (e.g. "1.2.3" vs "1.3.0").
- * Returns -1 if a < b, 0 if equal, 1 if a > b.
- */
-function compareSemver(a: string, b: string): -1 | 0 | 1 {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const numA = partsA[i] ?? 0;
-    const numB = partsB[i] ?? 0;
-    if (numA < numB) return -1;
-    if (numA > numB) return 1;
-  }
-
-  return 0;
 }
 
 /**
@@ -95,7 +78,7 @@ export async function checkForUpdates(): Promise<{
     const raw = await response.json();
     const manifest = manifestSchema.parse(raw);
     const latestVersion = manifest.version;
-    const updateAvailable = compareSemver(currentVersion, latestVersion) < 0;
+    const updateAvailable = compareVersions(currentVersion, latestVersion) < 0;
 
     // Persist the result in SystemSettings
     await db.systemSettings.upsert({
