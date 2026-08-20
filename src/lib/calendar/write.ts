@@ -338,6 +338,23 @@ function targetCalendarId(input: EventInput): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function sameInstant(a: Date, b: Date): boolean {
+  return a.getTime() === b.getTime();
+}
+
+function isPureMove(event: EventRow, input: EventInput): boolean {
+  return (
+    event.title === input.title &&
+    event.description === input.description &&
+    event.location === input.location &&
+    sameInstant(event.startAt, input.startAt) &&
+    sameInstant(event.endAt, input.endAt) &&
+    event.isAllDay === input.isAllDay &&
+    event.timezone === input.timezone &&
+    event.rrule === input.rrule
+  );
+}
+
 function isSeries(event: EventRow): boolean {
   return Boolean(
     event.rrule || event.rdate || event.masterEventId || event.recurrenceId,
@@ -702,6 +719,18 @@ export async function updateEventForUser(
         { providerCalendarId: dest.providerCalendarId },
         { providerEventId: event.providerEventId, etag: event.etag },
       );
+      if (!isPureMove(event, input)) {
+        remote = await adapter.updateEvent(
+          { providerCalendarId: dest.providerCalendarId },
+          {
+            providerEventId: remote.providerEventId,
+            etag: remote.etag,
+            recurrenceId: ref.recurrenceId,
+          },
+          input,
+          range,
+        );
+      }
     } else {
       remote = await adapter.updateEvent(
         { providerCalendarId: calendar.providerCalendarId },

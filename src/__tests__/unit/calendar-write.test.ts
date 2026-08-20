@@ -588,7 +588,17 @@ describe("calendar write-through", () => {
     await updateEventForUser(
       "u1",
       "evt-1",
-      { ...input({ title: "Standup" }), calendarId: "cal-2" },
+      {
+        title: "Standup",
+        description: null,
+        location: null,
+        startAt: new Date("2026-08-20T10:00:00.000Z"),
+        endAt: new Date("2026-08-20T11:00:00.000Z"),
+        isAllDay: false,
+        timezone: "UTC",
+        rrule: null,
+        calendarId: "cal-2",
+      },
       "all",
     );
 
@@ -597,6 +607,7 @@ describe("calendar write-through", () => {
       { providerCalendarId: "work" },
       expect.objectContaining({ providerEventId: "g-1", etag: "etag-old" }),
     );
+    expect(adapter.updateEvent).not.toHaveBeenCalled();
     expect(adapter.createEvent).not.toHaveBeenCalled();
     expect(adapter.deleteEvent).not.toHaveBeenCalled();
     expect(store.events[0]?.calendarId).toBe("cal-2");
@@ -608,6 +619,56 @@ describe("calendar write-through", () => {
     expect(
       store.instances.some((i) => i.eventId === "evt-1" && i.calendarId === "cal-1"),
     ).toBe(false);
+  });
+
+  it("patches EventInput on the destination after a same-account move", async () => {
+    const acc = account();
+    store.calendars.push(calendar({ account: acc }));
+    store.calendars.push(
+      calendar({
+        id: "cal-2",
+        providerCalendarId: "work",
+        name: "Work",
+        accountId: acc.id,
+        account: acc,
+      }),
+    );
+    store.events.push(eventRow({ title: "Standup" }));
+    adapter.moveEvent.mockResolvedValue(
+      remote({ providerEventId: "g-1", title: "Standup", etag: "etag-moved" }),
+    );
+    adapter.updateEvent.mockResolvedValue(
+      remote({ providerEventId: "g-1", title: "Lunch", etag: "etag-patched" }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser(
+      "u1",
+      "evt-1",
+      { ...input({ title: "Lunch" }), calendarId: "cal-2" },
+      "all",
+    );
+
+    expect(adapter.moveEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      { providerCalendarId: "work" },
+      expect.objectContaining({ providerEventId: "g-1", etag: "etag-old" }),
+    );
+    expect(adapter.updateEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "work" },
+      expect.objectContaining({
+        providerEventId: "g-1",
+        etag: "etag-moved",
+      }),
+      expect.objectContaining({ title: "Lunch" }),
+      "all",
+    );
+    expect(adapter.moveEvent.mock.invocationCallOrder[0]!).toBeLessThan(
+      adapter.updateEvent.mock.invocationCallOrder[0]!,
+    );
+    expect(store.events[0]?.calendarId).toBe("cal-2");
+    expect(store.events[0]?.title).toBe("Lunch");
+    expect(store.events[0]?.etag).toBe("etag-patched");
   });
 
   it("throws 400 on a cross-account calendar move", async () => {
