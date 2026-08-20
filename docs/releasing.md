@@ -1,6 +1,12 @@
 # Releasing a New Version
 
-Kurir uses **calendar versioning** (CalVer) in the format `YYYY.MM.DD` (e.g., `2026.04.01`). If multiple releases ship on the same day, append a build number: `2026.04.01.2`, `2026.04.01.3`, etc.
+Kurir uses **calendar versioning** (CalVer) in the format `YYYY.MM.N` (year, zero-padded month, monthly serial). Examples: `2026.08.20`, `2026.08.21`, `2026.09.1`.
+
+- `N` is the release count for that year-month. It starts at `1` each month and increments for every release, including several on the same day.
+- Compute `N` as one greater than the highest third component among existing git tags matching `vYYYY.MM.*`, plus `package.json` / `latest.json` so an untagged bump still counts. Historical four-part tags such as `v2026.08.19.3` still count via their third component, so the first `YYYY.MM.N` release after that is `2026.08.20`.
+- Never add a fourth component. Auto-update compares dotted numbers left to right (`2026.08.19.3` < `2026.08.20` < `2026.09.1`), and App Store marketing versions must stay three-part.
+
+Older `YYYY.MM.DD` and `YYYY.MM.DD.N` tags stay as-is.
 
 ## How the auto-update system works
 
@@ -23,7 +29,7 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
 5. **Commit** to main and **verify** with `./scripts/verify-release.sh v<version>` — it checks that all four files above were bumped. CI runs the same check on the tag build and refuses to publish the Docker image for an incomplete release
 6. **Tag and push** to main
-7. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+7. **Create a GitHub release** with the tag `vYYYY.MM.N`
 8. **Deploy** the CI-built image — see [Deploying a release](#deploying-a-release) below
 
 ## Deploying a release
@@ -60,18 +66,18 @@ If the deploy fails with `target failed to become healthy` and the container log
 
 ```json
 {
-  "version": "2026.04.01",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.01",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.01",
+  "version": "2026.08.20",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.20",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.20",
   "changelog": "Short description of what changed",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-01T00:00:00Z"
+  "releasedAt": "2026-08-20T00:00:00Z"
 }
 ```
 
 | Field        | Description                                                |
 | ------------ | ---------------------------------------------------------- |
-| `version`    | The new version string (CalVer)                            |
+| `version`    | The new version string (CalVer `YYYY.MM.N`)                |
 | `image`      | Docker image tag for this release                          |
 | `releaseUrl` | GitHub release URL                                         |
 | `changelog`  | One-liner shown in the admin UI                            |

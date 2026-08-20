@@ -100,7 +100,7 @@ Registry and Postgres host are configured per-environment in `config/deploy.yml`
 
 ## Releasing
 
-CalVer `YYYY.MM.DD` (e.g., `2026.04.01`). Use `/bump` to create a release. See `docs/releasing.md` for details.
+CalVer `YYYY.MM.N` (e.g., `2026.08.20`, `2026.09.1`). Use `/bump` to create a release. See `docs/releasing.md` for details.
 
 **Always update `CHANGELOG.md` when bumping the version.** Add a new section at the top with the new tag, dated, grouped into `Added` / `Changed` / `Fixed` / `Removed` as applicable. Do this before the release commit so the tagged commit contains the updated changelog.
 

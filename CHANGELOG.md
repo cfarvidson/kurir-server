@@ -1,8 +1,13 @@
 # Changelog
 
-All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
+All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.N`).
 
 ## [Unreleased]
+
+### Changed
+
+- Releases use CalVer `YYYY.MM.N` (year, month, monthly serial) instead of
+  `YYYY.MM.DD`. Same-day releases increment the serial; it resets each month.
 
 ## [v2026.08.19.3] - 2026-08-19
 
