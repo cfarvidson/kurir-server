@@ -115,6 +115,28 @@ describe("MessageRow chrome", () => {
     expect(screen.getByText("To: ada@x.y")).toBeDefined();
   });
 
+  it("shows Cc: when Sent has no To recipients", () => {
+    render(
+      <MessageRow
+        message={{
+          ...base,
+          fromName: "Me",
+          fromAddress: "me@x.y",
+          toAddresses: [],
+          ccAddresses: ["cc@x.y"],
+          sender: null,
+          followUpAt: null,
+          hasAttachments: false,
+          threadCount: 1,
+        }}
+        list="sent"
+        basePath="/sent"
+        showArchiveAction={false}
+      />,
+    );
+    expect(screen.getByText("Cc: cc@x.y")).toBeDefined();
+  });
+
   it("shows a past follow-up time, not snooze waking-up copy", () => {
     const overdue = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const { container } = render(

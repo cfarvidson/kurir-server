@@ -16,7 +16,10 @@ vi.mock("@/components/mail/undo-toast", () => ({
   showUndoToast: vi.fn(),
 }));
 
-import { archiveConversation } from "@/actions/archive";
+import {
+  archiveConversation,
+  unarchiveConversation,
+} from "@/actions/archive";
 import { ListKeyboardHandler } from "../list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 
@@ -48,5 +51,23 @@ describe("ListKeyboardHandler archive key", () => {
     );
     fireEvent.keyDown(window, { key: "e" });
     expect(archiveConversation).not.toHaveBeenCalled();
+    expect(unarchiveConversation).not.toHaveBeenCalled();
+  });
+
+  it("unarchives on e from Archive and still drops the row", () => {
+    const onArchived = vi.fn();
+    render(
+      <ListKeyboardHandler
+        threads={[thread]}
+        basePath="/archive"
+        onArchived={onArchived}
+        showArchiveAction={false}
+        showUnarchiveAction
+      />,
+    );
+    fireEvent.keyDown(window, { key: "e" });
+    expect(unarchiveConversation).toHaveBeenCalledWith("m1");
+    expect(archiveConversation).not.toHaveBeenCalled();
+    expect(onArchived).toHaveBeenCalledWith("m1");
   });
 });

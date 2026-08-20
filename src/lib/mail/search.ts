@@ -8,6 +8,7 @@ export const SEARCH_SELECT_COLUMNS = [
   "fromAddress",
   "fromName",
   "toAddresses",
+  "ccAddresses",
   "receivedAt",
   "isRead",
   "hasAttachments",
@@ -22,6 +23,7 @@ export interface MessageSearchResult {
   fromAddress: string;
   fromName: string | null;
   toAddresses: string[];
+  ccAddresses: string[];
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;

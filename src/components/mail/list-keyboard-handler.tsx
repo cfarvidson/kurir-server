@@ -95,20 +95,29 @@ export function ListKeyboardHandler({
           e.preventDefault();
           onArchived?.(msg.id);
 
-          const subject =
-            msg.subject || msg.sender?.displayName || msg.fromName || "email";
-          showUndoToast({
-            id: `archive-${msg.id}`,
-            label: "Archived",
-            description: subject,
-            onUndo: () => {
-              unarchiveConversation(msg.id).then(() => router.refresh());
-            },
-          });
+          if (showUnarchiveAction) {
+            unarchiveConversation(msg.id).then(() => {
+              router.refresh();
+            });
+          } else {
+            const subject =
+              msg.subject ||
+              msg.sender?.displayName ||
+              msg.fromName ||
+              "email";
+            showUndoToast({
+              id: `archive-${msg.id}`,
+              label: "Archived",
+              description: subject,
+              onUndo: () => {
+                unarchiveConversation(msg.id).then(() => router.refresh());
+              },
+            });
 
-          archiveConversation(msg.id, basePath).then(() => {
-            router.refresh();
-          });
+            archiveConversation(msg.id, basePath).then(() => {
+              router.refresh();
+            });
+          }
           // Move focus to next row (or previous if at end)
           if (focusedIndex >= threads.length - 1 && focusedIndex > 0) {
             setFocusedIndex(focusedIndex - 1);

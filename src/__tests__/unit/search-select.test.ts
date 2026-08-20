@@ -5,6 +5,7 @@ describe("SEARCH_SELECT_COLUMNS", () => {
   it("selects snooze and follow-up times for list chrome", () => {
     expect(SEARCH_SELECT_COLUMNS).toContain("snoozedUntil");
     expect(SEARCH_SELECT_COLUMNS).toContain("followUpAt");
+    expect(SEARCH_SELECT_COLUMNS).toContain("ccAddresses");
     expect(SEARCH_SELECT_COLUMNS).not.toContain("threadId");
   });
 });

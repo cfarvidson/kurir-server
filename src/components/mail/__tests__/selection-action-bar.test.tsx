@@ -52,7 +52,7 @@ describe("SelectionActionBar", () => {
   });
 
   it("notifies onBlocked with sender ids, not selected message ids", async () => {
-    vi.mocked(rejectSenders).mockResolvedValue(undefined);
+    vi.mocked(rejectSenders).mockResolvedValue({ rejectedIds: ["s1"] });
     const onQueryInvalidate = vi.fn();
     const onBlocked = vi.fn();
 
@@ -78,5 +78,34 @@ describe("SelectionActionBar", () => {
 
     await waitFor(() => expect(onBlocked).toHaveBeenCalledWith(["s1"]));
     expect(onQueryInvalidate).not.toHaveBeenCalled();
+  });
+
+  it("does not drop rows when rejectSenders rejects nobody", async () => {
+    vi.mocked(rejectSenders).mockResolvedValue({ rejectedIds: [] });
+    const onBlocked = vi.fn();
+    const onComplete = vi.fn();
+
+    render(
+      <SelectionActionBar
+        selectedMessageIds={["m1"]}
+        selectedRows={[
+          {
+            isRead: false,
+            senderId: "s1",
+            fromAddress: "me@x.y",
+            senderName: "Me",
+          },
+        ]}
+        onComplete={onComplete}
+        onQueryInvalidate={() => {}}
+        onBlocked={onBlocked}
+        showBlockAction
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Block sender"));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
+    expect(onBlocked).not.toHaveBeenCalled();
   });
 });

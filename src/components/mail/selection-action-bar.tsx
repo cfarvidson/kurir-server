@@ -128,7 +128,7 @@ export function SelectionActionBar({
         ids,
         confirmed ? { confirmed: true } : undefined,
       );
-      if (result?.needsConfirm) {
+      if (result && "needsConfirm" in result && result.needsConfirm) {
         const row = selectedRows?.find((r) => r.senderId === ids[0]);
         const name =
           row?.senderName?.trim() || row?.fromAddress || "this sender";
@@ -140,7 +140,11 @@ export function SelectionActionBar({
         });
         return;
       }
-      onBlocked?.(ids);
+      const rejectedIds =
+        result && "rejectedIds" in result ? result.rejectedIds : [];
+      if (rejectedIds.length > 0) {
+        onBlocked?.(rejectedIds);
+      }
       onComplete();
     });
   };

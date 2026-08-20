@@ -59,12 +59,15 @@ describe("getMessages category filters", () => {
     }
   });
 
-  it("filters Sent by folder specialUse, not category flags", async () => {
+  it("filters Sent by specialUse or a path that contains sent", async () => {
     const where = await capturedWhere("sent");
     expect(where).toEqual({
       userId: "user-1",
       isDeleted: false,
-      folder: { specialUse: "sent" },
+      OR: [
+        { folder: { specialUse: "sent" } },
+        { folder: { path: { contains: "sent", mode: "insensitive" } } },
+      ],
     });
   });
 

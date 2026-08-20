@@ -193,7 +193,9 @@ export function searchCategoryFilter(
     case "sent":
       return Prisma.sql`AND EXISTS (
   SELECT 1 FROM "Folder" f
-  WHERE f.id = "Message"."folderId" AND f."specialUse" = 'sent'
+  WHERE f.id = "Message"."folderId" AND (
+    f."specialUse" = 'sent' OR f.path ILIKE '%sent%'
+  )
 )`;
   }
 }

@@ -43,6 +43,7 @@ export default async function ArchivePage({
             query={q!}
             categoryFilter={searchCategoryFilter("archive")}
             basePath="/archive"
+            list="archive"
             emptyIcon={<Archive />}
             {...searchActionProps("archive")}
           />

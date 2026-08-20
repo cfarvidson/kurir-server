@@ -16,7 +16,9 @@ import {
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 import { SenderCategory } from "@prisma/client";
 
-export type RejectSendersResult = { needsConfirm: true; count: number };
+export type RejectSendersResult =
+  | { needsConfirm: true; count: number }
+  | { rejectedIds: string[] };
 
 export async function approveSender(
   senderId: string,
@@ -56,7 +58,7 @@ export async function rejectSender(senderId: string) {
 export async function rejectSenders(
   senderIds: string[],
   options?: { confirmed?: boolean },
-): Promise<RejectSendersResult | void> {
+): Promise<RejectSendersResult> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
@@ -70,7 +72,7 @@ export async function rejectSenders(
     seen.add(id);
     uniqueIds.push(id);
   }
-  if (uniqueIds.length === 0) return;
+  if (uniqueIds.length === 0) return { rejectedIds: [] };
 
   const [own, senders] = await Promise.all([
     getOwnAddresses(userId),
@@ -91,7 +93,7 @@ export async function rejectSenders(
       (sender): sender is NonNullable<typeof sender> =>
         !!sender && !isOwnAddress(sender.email, own),
     );
-  if (blockable.length === 0) return;
+  if (blockable.length === 0) return { rejectedIds: [] };
 
   if (
     blockable.length === 1 &&
@@ -101,8 +103,10 @@ export async function rejectSenders(
     return { needsConfirm: true, count: blockable[0]._count.messages };
   }
 
+  const rejectedIds: string[] = [];
   for (const sender of blockable) {
     await rejectSenderForUser(userId, sender.id);
+    rejectedIds.push(sender.id);
   }
 
   updateTag("sidebar-counts");
@@ -111,6 +115,7 @@ export async function rejectSenders(
   revalidatePath("/imbox");
   revalidatePath("/feed");
   revalidatePath("/paper-trail");
+  return { rejectedIds };
 }
 
 export async function skipSender(senderId: string) {

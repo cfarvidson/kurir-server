@@ -43,6 +43,7 @@ export default async function FollowUpPage({
             query={q!}
             categoryFilter={searchCategoryFilter("follow-up")}
             basePath="/follow-up"
+            list="follow-up"
             emptyIcon={<Bell />}
             {...searchActionProps("follow-up")}
           />

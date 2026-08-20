@@ -179,7 +179,9 @@ describe("rejectSenders", () => {
     vi.mocked(rejectSenderForUser).mockResolvedValue(undefined as never);
 
     const { rejectSenders } = await import("@/actions/senders");
-    await rejectSenders(["s1", "s1", "s2"], { confirmed: true });
+    await expect(
+      rejectSenders(["s1", "s1", "s2"], { confirmed: true }),
+    ).resolves.toEqual({ rejectedIds: ["s1", "s2"] });
 
     expect(rejectSenderForUser).toHaveBeenCalledTimes(2);
     expect(rejectSenderForUser).toHaveBeenCalledWith("user-1", "s1");
@@ -241,9 +243,44 @@ describe("rejectSenders", () => {
     vi.mocked(rejectSenderForUser).mockResolvedValue(undefined as never);
 
     const { rejectSenders } = await import("@/actions/senders");
-    await rejectSenders(["s1"], { confirmed: true });
+    await expect(rejectSenders(["s1"], { confirmed: true })).resolves.toEqual({
+      rejectedIds: ["s1"],
+    });
 
     expect(rejectSenderForUser).toHaveBeenCalledTimes(1);
     expect(rejectSenderForUser).toHaveBeenCalledWith("user-1", "s1");
+  });
+
+  it("returns no rejected ids when every sender is own", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
+
+    const { getOwnAddresses, isOwnAddress } = await import(
+      "@/lib/mail/user-emails"
+    );
+    vi.mocked(getOwnAddresses).mockResolvedValue({
+      emails: ["me@x.y"],
+      domains: [],
+    });
+    vi.mocked(isOwnAddress).mockReturnValue(true);
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.sender.findMany).mockResolvedValue([
+      {
+        id: "s1",
+        email: "me@x.y",
+        displayName: "Me",
+        _count: { messages: 2 },
+      },
+    ] as never);
+
+    const { rejectSenderForUser } = await import("@/lib/mail/mutations");
+    vi.mocked(rejectSenderForUser).mockResolvedValue(undefined as never);
+
+    const { rejectSenders } = await import("@/actions/senders");
+    await expect(rejectSenders(["s1"], { confirmed: true })).resolves.toEqual({
+      rejectedIds: [],
+    });
+    expect(rejectSenderForUser).not.toHaveBeenCalled();
   });
 });

@@ -42,6 +42,7 @@ export default async function PaperTrailPage({
             query={q!}
             categoryFilter={searchCategoryFilter("paper-trail")}
             basePath="/paper-trail"
+            list="paper-trail"
             emptyIcon={<Receipt />}
             {...searchActionProps("paper-trail")}
           />

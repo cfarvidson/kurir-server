@@ -181,10 +181,12 @@ describe("searchCategoryFilter", () => {
     expect(sql).toContain('"isReplyLater" = false');
   });
 
-  it("filters Sent via the sent folder specialUse", () => {
+  it("filters Sent via specialUse or a path that contains sent", () => {
     const sql = searchCategoryFilter("sent").strings.join("");
     expect(sql).toContain('"specialUse"');
     expect(sql).toContain("sent");
+    expect(sql.toLowerCase()).toContain("ilike");
+    expect(sql).toContain("path");
   });
 });
 

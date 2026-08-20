@@ -30,7 +30,13 @@ export type Category = keyof typeof CATEGORY_FILTERS | "sent";
 
 function categoryWhere(category: Category) {
   if (category === "sent") {
-    return { isDeleted: false, folder: { specialUse: "sent" } };
+    return {
+      isDeleted: false,
+      OR: [
+        { folder: { specialUse: "sent" } },
+        { folder: { path: { contains: "sent", mode: "insensitive" as const } } },
+      ],
+    };
   }
   return CATEGORY_FILTERS[category];
 }
@@ -42,6 +48,7 @@ export const MESSAGE_SELECT = {
   fromAddress: true,
   fromName: true,
   toAddresses: true,
+  ccAddresses: true,
   receivedAt: true,
   isRead: true,
   isFlagged: true,

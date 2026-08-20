@@ -39,6 +39,7 @@ export default async function SnoozedPage({
             query={q!}
             categoryFilter={searchCategoryFilter("snoozed")}
             basePath="/snoozed"
+            list="snoozed"
             showSnoozedUntil
             emptyIcon={<AlarmClock />}
             {...searchActionProps("snoozed")}

@@ -16,7 +16,13 @@ import {
 
 async function getSentFolder(userId: string) {
   return db.folder.findFirst({
-    where: { userId, specialUse: "sent" },
+    where: {
+      userId,
+      OR: [
+        { specialUse: "sent" },
+        { path: { contains: "sent", mode: "insensitive" } },
+      ],
+    },
     select: { id: true },
   });
 }

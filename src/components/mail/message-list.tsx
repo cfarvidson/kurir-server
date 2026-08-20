@@ -42,6 +42,7 @@ export interface MessageItem {
   fromAddress: string;
   fromName: string | null;
   toAddresses?: string[];
+  ccAddresses?: string[];
   receivedAt: Date;
   isRead: boolean;
   hasAttachments: boolean;
@@ -348,6 +349,7 @@ export function MessageRow({
               fromName: message.fromName,
               fromAddress: message.fromAddress,
               toAddresses: message.toAddresses,
+              cc: message.ccAddresses?.join(", ") || null,
             })}
           </span>
           {countLabel && (

@@ -42,6 +42,7 @@ export default async function FeedPage({
             query={q!}
             categoryFilter={searchCategoryFilter("feed")}
             basePath="/feed"
+            list="feed"
             emptyIcon={<Newspaper />}
             {...searchActionProps("feed")}
           />

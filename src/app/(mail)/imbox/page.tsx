@@ -43,6 +43,7 @@ export default async function ImboxPage({
             query={q!}
             categoryFilter={searchCategoryFilter("imbox")}
             basePath="/imbox"
+            list="imbox"
             emptyIcon={<Inbox />}
             {...searchActionProps("imbox")}
           />
