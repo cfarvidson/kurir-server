@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import {
   approveSenderForUser,
   rejectSenderForUser,
@@ -12,7 +13,10 @@ import {
   setSenderUnthreadForUser,
   bulkApproveOldSendersForUser,
 } from "@/lib/mail/mutations";
+import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 import { SenderCategory } from "@prisma/client";
+
+export type RejectSendersResult = { needsConfirm: true; count: number };
 
 export async function approveSender(
   senderId: string,
@@ -40,6 +44,66 @@ export async function rejectSender(senderId: string) {
   }
 
   await rejectSenderForUser(session.user.id, senderId);
+
+  updateTag("sidebar-counts");
+  revalidatePath("/screener");
+  revalidatePath("/archive");
+  revalidatePath("/imbox");
+  revalidatePath("/feed");
+  revalidatePath("/paper-trail");
+}
+
+export async function rejectSenders(
+  senderIds: string[],
+  options?: { confirmed?: boolean },
+): Promise<RejectSendersResult | void> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const userId = session.user.id;
+  const uniqueIds: string[] = [];
+  const seen = new Set<string>();
+  for (const id of senderIds) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    uniqueIds.push(id);
+  }
+  if (uniqueIds.length === 0) return;
+
+  const [own, senders] = await Promise.all([
+    getOwnAddresses(userId),
+    db.sender.findMany({
+      where: { id: { in: uniqueIds }, userId },
+      select: {
+        id: true,
+        email: true,
+        _count: { select: { messages: true } },
+      },
+    }),
+  ]);
+
+  const byId = new Map(senders.map((sender) => [sender.id, sender]));
+  const blockable = uniqueIds
+    .map((id) => byId.get(id))
+    .filter(
+      (sender): sender is NonNullable<typeof sender> =>
+        !!sender && !isOwnAddress(sender.email, own),
+    );
+  if (blockable.length === 0) return;
+
+  if (
+    blockable.length === 1 &&
+    !options?.confirmed &&
+    blockable[0]._count.messages >= 10
+  ) {
+    return { needsConfirm: true, count: blockable[0]._count.messages };
+  }
+
+  for (const sender of blockable) {
+    await rejectSenderForUser(userId, sender.id);
+  }
 
   updateTag("sidebar-counts");
   revalidatePath("/screener");

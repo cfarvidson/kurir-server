@@ -10,6 +10,10 @@ import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
+import {
+  bulkReadMarksRead,
+  listActionSet,
+} from "@/lib/mail/list-contract";
 import { badgeUpdate } from "@/components/layout/sidebar";
 import { Loader2, CheckSquare } from "lucide-react";
 
@@ -251,11 +255,56 @@ export function InfiniteMessageList({
   );
 
   // Resolve selected threadKeys to representative message IDs for the server action
-  const selectedMessageIds = useMemo(() => {
-    return threads
-      .filter((msg) => selectedIds.has(threadKeyOf(msg)))
-      .map((msg) => msg.id);
+  const selectedMessages = useMemo(() => {
+    return threads.filter((msg) => selectedIds.has(threadKeyOf(msg)));
   }, [threads, selectedIds]);
+
+  const selectedMessageIds = useMemo(
+    () => selectedMessages.map((msg) => msg.id),
+    [selectedMessages],
+  );
+
+  const selectedRows = useMemo(
+    () =>
+      selectedMessages.map((msg) => ({
+        isRead: msg.isRead,
+        senderId: msg.sender?.id ?? null,
+        fromAddress: msg.fromAddress,
+        senderName: msg.sender?.displayName ?? msg.fromName,
+      })),
+    [selectedMessages],
+  );
+
+  const handleRead = useCallback(
+    (messageIds: string[], isRead: boolean) => {
+      const allMessages = data?.pages.flatMap((p) => p.messages) ?? [];
+      const threadKeys = new Set(
+        messageIds.map((id) => {
+          const target = allMessages.find((m) => m.id === id);
+          return target ? threadKeyOf(target) : id;
+        }),
+      );
+
+      queryClient.setQueryData<{ pages: PageData[]; pageParams: unknown[] }>(
+        ["messages", category],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                threadKeys.has(threadKeyOf(m)) ? { ...m, isRead } : m,
+              ),
+            })),
+          };
+        },
+      );
+    },
+    [queryClient, category, data],
+  );
+
+  const barActionSet = listActionSet(category);
 
   const renderRow = (message: MessageItem) => {
     const threadKey = threadKeyOf(message);
@@ -360,8 +409,13 @@ export function InfiniteMessageList({
           selectedMessageIds={selectedMessageIds}
           onComplete={clearSelection}
           onQueryInvalidate={handleArchived}
-          showSnoozeAction={showSnoozeAction}
+          showSnoozeAction={barActionSet.snooze}
           showUnarchiveAction={showUnarchiveAction}
+          showReadAction
+          showBlockAction={category !== "sent"}
+          readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
+          selectedRows={selectedRows}
+          onRead={handleRead}
           sourcePath={basePath}
         />
       </div>
@@ -384,8 +438,13 @@ export function InfiniteMessageList({
         selectedMessageIds={selectedMessageIds}
         onComplete={clearSelection}
         onQueryInvalidate={handleArchived}
-        showSnoozeAction={showSnoozeAction}
+        showSnoozeAction={barActionSet.snooze}
         showUnarchiveAction={showUnarchiveAction}
+        showReadAction
+        showBlockAction={category !== "sent"}
+        readLabel={bulkReadMarksRead(selectedRows) ? "Read" : "Unread"}
+        selectedRows={selectedRows}
+        onRead={handleRead}
         sourcePath={basePath}
       />
     </div>

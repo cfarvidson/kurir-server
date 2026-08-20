@@ -51,6 +51,7 @@ export interface MessageItem {
   followUpAt?: Date | null;
   isFollowUp?: boolean;
   sender?: {
+    id?: string;
     displayName: string | null;
     email: string;
     unthread?: boolean;

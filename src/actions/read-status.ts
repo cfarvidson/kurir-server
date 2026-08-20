@@ -26,3 +26,21 @@ export async function toggleReadStatus(messageId: string) {
 
   return { isRead: newStatus };
 }
+
+export async function setConversationsRead(
+  messageIds: string[],
+  isRead: boolean,
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+  const uniqueIds = [...new Set(messageIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return;
+
+  for (const id of uniqueIds) {
+    await setThreadReadState(userId, id, isRead);
+  }
+
+  updateTag("sidebar-counts");
+}
