@@ -33,6 +33,7 @@ vi.mock("@/actions/snooze", () => ({
   unsnoozeConversation: vi.fn(),
 }));
 vi.mock("@/actions/follow-up", () => ({ setFollowUp: vi.fn() }));
+vi.mock("@/actions/read-status", () => ({ toggleReadStatus: vi.fn() }));
 
 import { MessageRow } from "../message-list";
 

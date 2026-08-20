@@ -14,11 +14,13 @@ import {
   Clock,
   Check,
   Loader2,
+  Mail,
   Paperclip,
 } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
-import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
+import { snoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
+import { toggleReadStatus } from "@/actions/read-status";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
@@ -27,6 +29,7 @@ import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import {
   primaryLine,
+  swipeActions,
   threadCountLabel,
   type MailListId,
 } from "@/lib/mail/list-contract";
@@ -235,30 +238,6 @@ export function MessageRow({
     snoozeConversation(message.id, until).then(() => router.refresh());
   };
 
-  // Default snooze used by swipe-left on mobile: tomorrow at 8 AM local time.
-  // Picker stays available via keyboard `s` and the desktop hover button.
-  const handleSwipeSnooze = () => {
-    const until = new Date();
-    until.setDate(until.getDate() + 1);
-    until.setHours(8, 0, 0, 0);
-
-    const subject =
-      message.subject ||
-      message.sender?.displayName ||
-      message.fromName ||
-      "email";
-    showUndoToast({
-      id: `snooze-${message.id}`,
-      label: `Snoozed until ${formatSnoozeUntil(until)}`,
-      description: subject,
-      onUndo: () => {
-        unsnoozeConversation(message.id).then(() => router.refresh());
-      },
-    });
-
-    handleSnooze(until);
-  };
-
   const handleFollowUp = (until: Date) => {
     // On the follow-up page, rescheduling removes the message from the list
     if (basePath === "/follow-up") {
@@ -274,16 +253,30 @@ export function MessageRow({
     setFollowUp(message.id, until).then(() => router.refresh());
   };
 
-  // Swipe config — derived from action props
-  const swipeRightAction = showArchiveAction
-    ? doArchive
-    : showUnarchiveAction
-      ? doUnarchive
-      : undefined;
-  const swipeRightIcon = showUnarchiveAction ? (
-    <ArchiveRestore className="h-5 w-5" />
-  ) : undefined;
-  const swipeRightColor = showUnarchiveAction ? "bg-blue-500" : undefined;
+  // Leading = read (positive x); trailing = archive/unarchive. Snooze is
+  // hover + keyboard `s` + select bar only — SwipeableRow has one left callback.
+  const actions = swipeActions(list);
+  const handleSwipeRead = () => {
+    toggleReadStatus(message.id).then(() => router.refresh());
+  };
+  const swipeLeftAction =
+    actions.trailing === "archive"
+      ? doArchive
+      : actions.trailing === "unarchive"
+        ? doUnarchive
+        : undefined;
+  const swipeLeftIcon =
+    actions.trailing === "unarchive" ? (
+      <ArchiveRestore className="h-5 w-5" />
+    ) : actions.trailing === "archive" ? (
+      <Archive className="h-5 w-5" />
+    ) : undefined;
+  const swipeLeftColor =
+    actions.trailing === "archive"
+      ? "bg-green-600"
+      : actions.trailing === "unarchive"
+        ? "bg-primary"
+        : undefined;
 
   const handleClick = (e: React.MouseEvent) => {
     if (isDragging.current) {
@@ -494,7 +487,7 @@ export function MessageRow({
           </div>
         )}
 
-      {/* Controlled SnoozePicker for swipe-left on mobile — lazy-mounted */}
+      {/* Controlled SnoozePicker for keyboard `s` — lazy-mounted */}
       {showSnoozeAction && !isSelectionMode && snoozeOpen && (
         <SnoozePicker
           onSnooze={handleSnooze}
@@ -544,10 +537,14 @@ export function MessageRow({
 
   return (
     <SwipeableRow
-      onSwipeRight={swipeRightAction}
-      onSwipeLeft={showSnoozeAction ? handleSwipeSnooze : undefined}
-      swipeRightIcon={swipeRightIcon}
-      swipeRightColor={swipeRightColor}
+      onSwipeRight={
+        actions.leading === "read" ? handleSwipeRead : undefined
+      }
+      onSwipeLeft={swipeLeftAction}
+      swipeRightIcon={<Mail className="h-5 w-5" />}
+      swipeRightColor="bg-blue-500"
+      swipeLeftIcon={swipeLeftIcon}
+      swipeLeftColor={swipeLeftColor}
       disabled={actionPending}
       onDragStateChange={(dragging) => {
         isDragging.current = dragging;

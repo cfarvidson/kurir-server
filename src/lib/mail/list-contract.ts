@@ -148,6 +148,18 @@ export function searchActionProps(list: MailListId) {
   };
 }
 
+export function swipeActions(list: MailListId): {
+  leading: "read" | null;
+  trailing: "archive" | "unarchive" | null;
+} {
+  if (list === "reply-later") return { leading: null, trailing: null };
+  const set = listActionSet(list);
+  return {
+    leading: "read",
+    trailing: set.unarchive ? "unarchive" : set.archive ? "archive" : null,
+  };
+}
+
 export function emptyCopy(list: MailListId): EmptyCopy {
   return EMPTY_COPY[list];
 }

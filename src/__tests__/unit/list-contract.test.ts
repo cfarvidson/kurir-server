@@ -11,6 +11,7 @@ import {
   searchActionProps,
   uniqueBlockSenderIds,
   bulkReadMarksRead,
+  swipeActions,
 } from "@/lib/mail/list-contract";
 
 describe("threadCountLabel", () => {
@@ -193,5 +194,26 @@ describe("bulkReadMarksRead", () => {
       true,
     );
     expect(bulkReadMarksRead([{ isRead: true }])).toBe(false);
+  });
+});
+
+describe("swipeActions", () => {
+  it("maps leading read and trailing archive/unarchive per list", () => {
+    expect(swipeActions("imbox")).toEqual({
+      leading: "read",
+      trailing: "archive",
+    });
+    expect(swipeActions("archive")).toEqual({
+      leading: "read",
+      trailing: "unarchive",
+    });
+    expect(swipeActions("sent")).toEqual({
+      leading: "read",
+      trailing: null,
+    });
+    expect(swipeActions("reply-later")).toEqual({
+      leading: null,
+      trailing: null,
+    });
   });
 });
