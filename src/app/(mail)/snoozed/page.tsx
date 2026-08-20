@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { PageMasthead } from "@/components/layout/page-masthead";
@@ -8,6 +7,10 @@ import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
 import { EmptyState } from "@/components/mail/empty-state";
 import { AlarmClock } from "lucide-react";
+import {
+  searchActionProps,
+  searchCategoryFilter,
+} from "@/lib/mail/list-contract";
 
 export default async function SnoozedPage({
   searchParams,
@@ -33,11 +36,11 @@ export default async function SnoozedPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isSnoozed" = true`}
+            categoryFilter={searchCategoryFilter("snoozed")}
             basePath="/snoozed"
-            showSnoozeAction
             showSnoozedUntil
             emptyIcon={<AlarmClock />}
+            {...searchActionProps("snoozed")}
           />
         ) : (
           <PaginatedSnoozed userId={session.user.id} />

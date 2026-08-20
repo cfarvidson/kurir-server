@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { PageMasthead } from "@/components/layout/page-masthead";
@@ -9,6 +8,10 @@ import { SearchResults } from "@/components/mail/search-results";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Inbox } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
+import {
+  searchActionProps,
+  searchCategoryFilter,
+} from "@/lib/mail/list-contract";
 
 export default async function ImboxPage({
   searchParams,
@@ -37,11 +40,10 @@ export default async function ImboxPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isInImbox" = true AND "isSnoozed" = false`}
+            categoryFilter={searchCategoryFilter("imbox")}
             basePath="/imbox"
-            showArchiveAction
-            showSnoozeAction
             emptyIcon={<Inbox />}
+            {...searchActionProps("imbox")}
           />
         ) : (
           <PaginatedImbox userId={session.user.id} />

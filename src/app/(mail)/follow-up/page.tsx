@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { PageMasthead } from "@/components/layout/page-masthead";
@@ -8,6 +7,10 @@ import { SearchResults } from "@/components/mail/search-results";
 import { getMessages } from "@/lib/mail/messages";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Bell } from "lucide-react";
+import {
+  searchActionProps,
+  searchCategoryFilter,
+} from "@/lib/mail/list-contract";
 
 export default async function FollowUpPage({
   searchParams,
@@ -37,9 +40,10 @@ export default async function FollowUpPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isFollowUp" = true AND "isArchived" = false`}
+            categoryFilter={searchCategoryFilter("follow-up")}
             basePath="/follow-up"
             emptyIcon={<Bell />}
+            {...searchActionProps("follow-up")}
           />
         ) : (
           <PaginatedFollowUp userId={session.user.id} />

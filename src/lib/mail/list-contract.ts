@@ -138,6 +138,16 @@ export function listActionSet(list: MailListId): ListActionSet {
   }
 }
 
+export function searchActionProps(list: MailListId) {
+  const set = listActionSet(list);
+  return {
+    showFollowUpAction: set.followUp,
+    showSnoozeAction: set.snooze,
+    showArchiveAction: set.archive,
+    showUnarchiveAction: set.unarchive,
+  };
+}
+
 export function emptyCopy(list: MailListId): EmptyCopy {
   return EMPTY_COPY[list];
 }

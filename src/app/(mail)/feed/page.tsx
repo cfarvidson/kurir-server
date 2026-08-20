@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { InfiniteMessageList } from "@/components/mail/infinite-message-list";
 import { SearchInput } from "@/components/mail/search-input";
 import { PageMasthead } from "@/components/layout/page-masthead";
@@ -8,6 +7,10 @@ import { SearchResults } from "@/components/mail/search-results";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Newspaper } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
+import {
+  searchActionProps,
+  searchCategoryFilter,
+} from "@/lib/mail/list-contract";
 
 export default async function FeedPage({
   searchParams,
@@ -36,11 +39,10 @@ export default async function FeedPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={Prisma.sql`AND "isInFeed" = true AND "isSnoozed" = false`}
+            categoryFilter={searchCategoryFilter("feed")}
             basePath="/feed"
-            showArchiveAction
-            showSnoozeAction
             emptyIcon={<Newspaper />}
+            {...searchActionProps("feed")}
           />
         ) : (
           <PaginatedFeed userId={session.user.id} />

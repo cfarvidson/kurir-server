@@ -8,6 +8,7 @@ import {
   showsSections,
   showsSearch,
   searchCategoryFilter,
+  searchActionProps,
   uniqueBlockSenderIds,
   bulkReadMarksRead,
 } from "@/lib/mail/list-contract";
@@ -118,6 +119,35 @@ describe("showsSections / showsSearch", () => {
     expect(showsSearch("imbox")).toBe(true);
     expect(showsSearch("sent")).toBe(true);
     expect(showsSearch("reply-later")).toBe(false);
+  });
+});
+
+describe("searchActionProps", () => {
+  it("maps Archive search to follow-up + unarchive", () => {
+    expect(searchActionProps("archive")).toEqual({
+      showFollowUpAction: true,
+      showSnoozeAction: false,
+      showArchiveAction: false,
+      showUnarchiveAction: true,
+    });
+  });
+
+  it("maps Imbox search to follow-up, snooze, and archive", () => {
+    expect(searchActionProps("imbox")).toEqual({
+      showFollowUpAction: true,
+      showSnoozeAction: true,
+      showArchiveAction: true,
+      showUnarchiveAction: false,
+    });
+  });
+
+  it("maps Sent search to follow-up only", () => {
+    expect(searchActionProps("sent")).toEqual({
+      showFollowUpAction: true,
+      showSnoozeAction: false,
+      showArchiveAction: false,
+      showUnarchiveAction: false,
+    });
   });
 });
 

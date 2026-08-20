@@ -74,6 +74,8 @@ interface SearchResultsProps {
   showArchiveAction?: boolean;
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
+  showFollowUpAction?: boolean;
+  showUnarchiveAction?: boolean;
 }
 
 export async function SearchResults({
@@ -85,6 +87,8 @@ export async function SearchResults({
   showArchiveAction,
   showSnoozeAction,
   showSnoozedUntil,
+  showFollowUpAction,
+  showUnarchiveAction,
 }: SearchResultsProps) {
   const [messages, contacts] = await Promise.all([
     searchMessages(userId, query, categoryFilter),
@@ -129,6 +133,8 @@ export async function SearchResults({
             showArchiveAction={showArchiveAction}
             showSnoozeAction={showSnoozeAction}
             showSnoozedUntil={showSnoozedUntil}
+            showFollowUpAction={showFollowUpAction}
+            showUnarchiveAction={showUnarchiveAction}
           />
         </div>
       )}
