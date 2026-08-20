@@ -82,6 +82,36 @@ describe("getMessages category filters", () => {
     ]);
   });
 
+  it("keeps the Sent folder filter when a chrono cursor is present", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const { getMessages, encodeChronoCursor } = await import(
+      "@/lib/mail/messages"
+    );
+    const cursor = encodeChronoCursor({
+      receivedAt: new Date("2026-03-15T10:30:00.000Z"),
+      id: "cm1234567890abcdefghij",
+    });
+    await getMessages("user-1", "sent" as never, 50, cursor);
+    const where = vi.mocked(db.message.findMany).mock.calls[0][0]?.where;
+    expect(where).toMatchObject({
+      userId: "user-1",
+      AND: [
+        {
+          isDeleted: false,
+          OR: [
+            { folder: { specialUse: "sent" } },
+            { folder: { path: { contains: "sent", mode: "insensitive" } } },
+          ],
+        },
+        { OR: expect.any(Array) },
+      ],
+    });
+    const folderOr = (where as { AND: { OR?: unknown }[] }).AND[0].OR;
+    const cursorOr = (where as { AND: { OR?: unknown }[] }).AND[1].OR;
+    expect(folderOr).not.toEqual(cursorOr);
+  });
+
   it("returns an empty Sent page when no folder matches", async () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.message.findMany).mockResolvedValue([] as never);

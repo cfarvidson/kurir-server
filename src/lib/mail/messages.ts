@@ -154,12 +154,11 @@ export async function getMessages(
     : undefined;
   if (cursor && !cursorCondition) return null;
 
+  const categoryFilter = categoryWhere(category);
   const messages = await db.message.findMany({
-    where: {
-      userId,
-      ...categoryWhere(category),
-      ...cursorCondition,
-    },
+    where: cursorCondition
+      ? { userId, AND: [categoryFilter, cursorCondition] }
+      : { userId, ...categoryFilter },
     orderBy: chronological
       ? [{ receivedAt: "desc" }, { id: "desc" }]
       : [{ isRead: "asc" }, { receivedAt: "desc" }, { id: "desc" }],
