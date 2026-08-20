@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.19.3",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.19.3",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.19.3",
-  "changelog": "Inbox hover actions now spell out Follow up, Snooze and Archive instead of anonymous F/S/E glyphs.",
+  "version": "2026.08.20",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.20",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.20",
+  "changelog": "List views share the same row, actions, and per-list search. Sent paginates. Files open in the right folder.",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-19T15:57:09Z"
+  "releasedAt": "2026-08-20T11:55:35Z"
 }

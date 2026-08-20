@@ -4,6 +4,29 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.20] - 2026-08-20
+
+### Added
+
+- Shared list contract: same row chrome, actions, and empty copy across
+  mailboxes.
+- Per-list search via `GET /api/mobile/search?category=` so native apps
+  can filter hits to the open mailbox.
+- Read and Block sender on the list select bar.
+- Infinite Sent list with select and keyboard, without archive/snooze.
+- Files list infinite-scrolls and opens the containing thread in the
+  right folder.
+- `PATCH /api/mobile/scheduled/:id` so native Edit can update a scheduled
+  send without cancel-and-recreate.
+
+### Changed
+
+- List rows show a two-line snippet, `·N` thread counts, an attachment
+  paperclip, and follow-up time when one is set.
+- Leading swipe marks a conversation read. Trailing swipe archives (or
+  unarchives in Archive).
+- Search results use the same actions as the list they were opened from.
+
 ## [v2026.08.19.3] - 2026-08-19
 
 ### Changed

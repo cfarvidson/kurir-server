@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.08.20",
+    "date": "2026-08-20",
+    "changes": [
+      "List views share the same row, actions, and per-list search",
+      "Sent paginates like the other mailboxes",
+      "Files open the containing thread in the right folder",
+      "Native apps can edit a scheduled send via PATCH"
+    ]
+  },
+  {
     "version": "2026.08.19.3",
     "date": "2026-08-19",
     "changes": [
