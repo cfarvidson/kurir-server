@@ -291,6 +291,37 @@ describe("createCalDavAdapter", () => {
     expect(updated.title).toBe("Call");
   });
 
+  it("creates ICS with provided icalUid and attendee so respond can match", async () => {
+    davMocks.createCalendarObject.mockResolvedValue({
+      status: 201,
+      ok: true,
+      headers: { get: () => '"etag1"' },
+    });
+
+    const created = await adapter().createEvent(
+      { providerCalendarId: CAL_URL },
+      {
+        ...eventInput,
+        icalUid: "invite-1@x.y",
+        organizer: { email: "ada@x.y", name: "Ada" },
+        attendees: [
+          { email: "user@example.com", status: "needsAction", self: true },
+        ],
+      },
+    );
+
+    const put = davMocks.createCalendarObject.mock.calls[0]?.[0] as {
+      iCalString: string;
+      filename: string;
+    };
+    expect(put.filename).toBe("invite-1@x.y.ics");
+    expect(put.iCalString).toContain("UID:invite-1@x.y");
+    expect(put.iCalString).toContain("mailto:user@example.com");
+    expect(put.iCalString).toMatch(/PARTSTAT=NEEDS-ACTION/i);
+    expect(put.iCalString).toContain("mailto:ada@x.y");
+    expect(created.icalUid).toBe("invite-1@x.y");
+  });
+
   it("throws a generic error on HTTP 403 writes, not CalendarConflictError", async () => {
     davMocks.fetchCalendarObjects.mockResolvedValue([
       { url: EVENT_HREF, etag: '"abc"', data: timedIcs },

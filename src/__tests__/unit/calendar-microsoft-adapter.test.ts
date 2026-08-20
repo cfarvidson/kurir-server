@@ -213,6 +213,43 @@ describe("createMicrosoftAdapter", () => {
     expect(created.startAt.toISOString()).toBe("2026-08-20T12:00:00.000Z");
   });
 
+  it("posts attendees from EventInput so the user can respond", async () => {
+    graphMocks.post.mockResolvedValue({
+      id: "new1",
+      subject: "Lunch",
+      start: { dateTime: "2026-08-20T12:00:00.0000000", timeZone: "UTC" },
+      end: { dateTime: "2026-08-20T13:00:00.0000000", timeZone: "UTC" },
+    });
+
+    const adapter = createMicrosoftAdapter({ accessToken: "tok-1" });
+    await adapter.createEvent(
+      { providerCalendarId: "cal1" },
+      {
+        title: "Lunch",
+        description: null,
+        location: null,
+        startAt: new Date("2026-08-20T12:00:00.000Z"),
+        endAt: new Date("2026-08-20T13:00:00.000Z"),
+        isAllDay: false,
+        timezone: "UTC",
+        rrule: null,
+        icalUid: "invite-uid",
+        attendees: [{ email: "me@x.y", self: true, status: "needsAction" }],
+      },
+    );
+
+    expect(graphMocks.post).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attendees: [
+          expect.objectContaining({
+            emailAddress: expect.objectContaining({ address: "me@x.y" }),
+            status: expect.objectContaining({ response: "notResponded" }),
+          }),
+        ],
+      }),
+    );
+  });
+
   it("patches thisAndFollowing and all with the master etag, not the instance etag", async () => {
     const master = {
       id: "series1",

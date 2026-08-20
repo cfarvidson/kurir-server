@@ -450,6 +450,30 @@ describe("calendar write-through", () => {
     expect(store.instances.some((i) => i.eventId === result.id)).toBe(true);
   });
 
+  it("passes icalUid and attendees through createEvent", async () => {
+    store.calendars.push(calendar());
+    adapter.createEvent.mockResolvedValue(
+      remote({ icalUid: "invite-uid", attendeesJson: [{ email: "me@x.y" }] }),
+    );
+
+    const { createEventForUser } = await import("@/lib/calendar/write");
+    await createEventForUser("u1", "cal-1", {
+      ...input(),
+      icalUid: "invite-uid",
+      organizer: { email: "ada@x.y", name: "Ada" },
+      attendees: [{ email: "me@x.y", self: true, status: "needsAction" }],
+    });
+
+    expect(adapter.createEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      expect.objectContaining({
+        icalUid: "invite-uid",
+        attendees: [{ email: "me@x.y", self: true, status: "needsAction" }],
+        organizer: { email: "ada@x.y", name: "Ada" },
+      }),
+    );
+  });
+
   it("refuses writes to a read-only calendar with status 403", async () => {
     store.calendars.push(calendar({ isReadOnly: true }));
 

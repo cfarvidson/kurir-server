@@ -234,6 +234,54 @@ describe("createGoogleAdapter", () => {
     expect(created.startAt.toISOString()).toBe("2026-08-20T12:00:00.000Z");
   });
 
+  it("inserts iCalUID and attendees from EventInput", async () => {
+    googleMocks.eventsInsert.mockResolvedValue({
+      data: {
+        id: "new1",
+        iCalUID: "invite-uid",
+        summary: "Lunch",
+        status: "confirmed",
+        start: { dateTime: "2026-08-20T12:00:00Z" },
+        end: { dateTime: "2026-08-20T13:00:00Z" },
+        attendees: [
+          { email: "me@x.y", responseStatus: "needsAction", self: true },
+        ],
+      },
+    });
+
+    const adapter = createGoogleAdapter({ accessToken: "tok-1" });
+    await adapter.createEvent(
+      { providerCalendarId: "primary" },
+      {
+        title: "Lunch",
+        description: null,
+        location: null,
+        startAt: new Date("2026-08-20T12:00:00.000Z"),
+        endAt: new Date("2026-08-20T13:00:00.000Z"),
+        isAllDay: false,
+        timezone: "UTC",
+        rrule: null,
+        icalUid: "invite-uid",
+        attendees: [{ email: "me@x.y", self: true, status: "needsAction" }],
+      },
+    );
+
+    expect(googleMocks.eventsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({
+          iCalUID: "invite-uid",
+          attendees: [
+            expect.objectContaining({
+              email: "me@x.y",
+              responseStatus: "needsAction",
+              self: true,
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it("patches thisAndFollowing and all with the master etag, not the instance etag", async () => {
     const master = {
       id: "series1",

@@ -7,6 +7,7 @@ import { mapCalDavEvent } from "./map-caldav";
 import {
   CalendarConflictError,
   type CalendarAdapter,
+  type EventAttendeeInput,
   type EventInput,
   type PullResult,
   type RecurrenceEdit,
@@ -329,6 +330,29 @@ function newCalendar(): ICAL.Component {
   return vcalendar;
 }
 
+function attendeePartstat(status: EventAttendeeInput["status"]): string {
+  if (status === "accepted") return "ACCEPTED";
+  if (status === "tentative") return "TENTATIVE";
+  if (status === "declined") return "DECLINED";
+  return "NEEDS-ACTION";
+}
+
+function applyInvitees(vevent: ICAL.Component, input: EventInput): void {
+  if (input.organizer?.email) {
+    const prop = new ICAL.Property("organizer");
+    prop.setValue(`mailto:${input.organizer.email}`);
+    if (input.organizer.name) prop.setParameter("cn", input.organizer.name);
+    vevent.addProperty(prop);
+  }
+  for (const attendee of input.attendees ?? []) {
+    const prop = new ICAL.Property("attendee");
+    prop.setValue(`mailto:${attendee.email}`);
+    if (attendee.name) prop.setParameter("cn", attendee.name);
+    prop.setParameter("partstat", attendeePartstat(attendee.status));
+    vevent.addProperty(prop);
+  }
+}
+
 function toIcs(
   input: EventInput,
   uid: string,
@@ -341,6 +365,7 @@ function toIcs(
   vevent.updatePropertyWithValue("status", "CONFIRMED");
   vevent.updatePropertyWithValue("transp", "OPAQUE");
   applyInput(vevent, input, !extra?.recurrenceId);
+  applyInvitees(vevent, input);
   if (extra?.recurrenceId) {
     vevent.updatePropertyWithValue(
       "recurrence-id",
@@ -542,7 +567,7 @@ async function createOnCalendar(
   calendarUrl: string,
   eventInput: EventInput,
 ): Promise<RemoteEvent> {
-  const uid = randomUUID();
+  const uid = eventInput.icalUid?.trim() || randomUUID();
   const filename = `${uid}.ics`;
   const href = new URL(filename, collectionUrl(calendarUrl)).href;
   const ics = toIcs(eventInput, uid);

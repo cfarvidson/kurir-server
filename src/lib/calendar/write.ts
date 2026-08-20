@@ -631,7 +631,7 @@ export async function createEventForUser(
     const row = await tx.calendarEvent.create({
       data: {
         providerEventId: `pending:${crypto.randomUUID()}`,
-        icalUid: null,
+        icalUid: input.icalUid ?? null,
         etag: null,
         sequence: 0,
         ...inputFields(input),
@@ -641,8 +641,8 @@ export async function createEventForUser(
         exdate: null,
         masterEventId: null,
         recurrenceId: null,
-        organizerJson: Prisma.DbNull,
-        attendeesJson: Prisma.DbNull,
+        organizerJson: asJson(input.organizer),
+        attendeesJson: asJson(input.attendees),
         rawJson: Prisma.DbNull,
         calendarId: calendar.id,
         userId,

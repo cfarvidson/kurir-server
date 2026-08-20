@@ -132,6 +132,17 @@ function eventInputFromMeeting(meeting: MeetingRow): EventInput {
     isAllDay: meeting.isAllDay,
     timezone: null,
     rrule: null,
+    icalUid: meeting.uid,
+    organizer: meeting.organizerEmail
+      ? { email: meeting.organizerEmail, name: meeting.organizerName }
+      : null,
+    attendees: [
+      {
+        email: attendeeEmail(meeting),
+        self: true,
+        status: "needsAction",
+      },
+    ],
   };
 }
 
@@ -165,30 +176,16 @@ async function loadEventForMeeting(
   userId: string,
   meeting: MeetingRow,
 ): Promise<EventWithCalendar | null> {
-  const include = eventInclude;
-  if (meeting.recurrenceId) {
-    const exception = await db.calendarEvent.findFirst({
-      where: {
-        userId,
-        icalUid: meeting.uid,
-        recurrenceId: meeting.recurrenceId,
-      },
-      include,
-    });
-    if (exception?.calendar?.account) return exception as unknown as EventWithCalendar;
-  }
-  if (meeting.calendarEventId) {
-    const linked = await db.calendarEvent.findFirst({
-      where: { id: meeting.calendarEventId, userId },
-      include,
-    });
-    if (linked?.calendar?.account) return linked as unknown as EventWithCalendar;
-  }
-  const byUid = await db.calendarEvent.findFirst({
-    where: { userId, icalUid: meeting.uid },
-    include,
+  // Range this: exception only. Range all: master only. No fallback either way.
+  const row = await db.calendarEvent.findFirst({
+    where: {
+      userId,
+      icalUid: meeting.uid,
+      recurrenceId: meeting.recurrenceId,
+    },
+    include: eventInclude,
   });
-  if (byUid?.calendar?.account) return byUid as unknown as EventWithCalendar;
+  if (row?.calendar?.account) return row as unknown as EventWithCalendar;
   return null;
 }
 
@@ -390,6 +387,7 @@ export async function rsvpToMeetingForUser(
 
   const calendar = event.calendar;
   const adapter = adapterForAccount(calendar.account);
+  const requestSequence = event.sequence;
   const remote = await adapter.respond(
     { providerCalendarId: calendar.providerCalendarId },
     { providerEventId: event.providerEventId },
@@ -400,6 +398,6 @@ export async function rsvpToMeetingForUser(
 
   const provider = calendar.account.provider as CalendarProviderKind;
   if (rsvpSendsItip(provider)) {
-    await sendCalDavItip(userId, meeting, status, remote.sequence ?? event.sequence);
+    await sendCalDavItip(userId, meeting, status, requestSequence);
   }
 }

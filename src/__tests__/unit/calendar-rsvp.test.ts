@@ -236,6 +236,32 @@ function remote(partial: Partial<RemoteEvent> = {}): RemoteEvent {
   };
 }
 
+function inviteCreateInput() {
+  return {
+    title: "Design review",
+    description: null,
+    location: "Room 4",
+    startAt: START,
+    endAt: END,
+    isAllDay: false,
+    timezone: null,
+    rrule: null,
+    icalUid: "g-uid-1@google.com",
+    organizer: { email: "ada@x.y", name: "Ada" },
+    attendees: [
+      { email: "me@x.y", self: true, status: "needsAction" as const },
+    ],
+  };
+}
+
+function eventLookups(): Array<Record<string, unknown>> {
+  return vi.mocked(db.calendarEvent.findFirst).mock.calls.map(
+    (call) =>
+      ((call[0] as { where?: Record<string, unknown> } | undefined)?.where ??
+        {}) as Record<string, unknown>,
+  );
+}
+
 describe("rsvpToMeetingForUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -268,6 +294,13 @@ describe("rsvpToMeetingForUser", () => {
     expect(sendItipReply).not.toHaveBeenCalled();
     expect(getConnectionCredentials).not.toHaveBeenCalled();
     expect(sendMailForUser).not.toHaveBeenCalled();
+    expect(eventLookups().filter((where) => "icalUid" in where)).toEqual([
+      expect.objectContaining({
+        userId: "user-1",
+        icalUid: "g-uid-1@google.com",
+        recurrenceId: null,
+      }),
+    ]);
   });
 
   it("CalDAV path responds via adapter and sends iTIP over SMTP", async () => {
@@ -275,7 +308,10 @@ describe("rsvpToMeetingForUser", () => {
     vi.mocked(db.messageMeeting.findFirst).mockResolvedValue(meeting() as never);
     vi.mocked(db.calendar.findMany).mockResolvedValue([cal] as never);
     vi.mocked(db.calendarEvent.findFirst).mockResolvedValue(
-      eventRow(cal, { providerEventId: "https://cal.example/home/cal/g-uid-1.ics" }) as never,
+      eventRow(cal, {
+        providerEventId: "https://cal.example/home/cal/g-uid-1.ics",
+        sequence: 2,
+      }) as never,
     );
 
     await rsvpToMeetingForUser("user-1", "msg-1", "accepted");
@@ -296,9 +332,17 @@ describe("rsvpToMeetingForUser", () => {
         organizerEmail: "ada@x.y",
         attendeeEmail: "me@x.y",
         status: "accepted",
+        sequence: 2,
       }),
     );
     expect(sendMailForUser).not.toHaveBeenCalled();
+    expect(eventLookups().filter((where) => "icalUid" in where)).toEqual([
+      expect.objectContaining({
+        userId: "user-1",
+        icalUid: "g-uid-1@google.com",
+        recurrenceId: null,
+      }),
+    ]);
   });
 
   it("creates the event from ICS fields then responds when UID is missing", async () => {
@@ -320,22 +364,24 @@ describe("rsvpToMeetingForUser", () => {
 
     await rsvpToMeetingForUser("user-1", "msg-1", "tentative");
 
-    expect(createEventForUser).toHaveBeenCalledWith("user-1", "cal-g", {
-      title: "Design review",
-      description: null,
-      location: "Room 4",
-      startAt: START,
-      endAt: END,
-      isAllDay: false,
-      timezone: null,
-      rrule: null,
-    });
+    expect(createEventForUser).toHaveBeenCalledWith(
+      "user-1",
+      "cal-g",
+      inviteCreateInput(),
+    );
     expect(adapter.respond).toHaveBeenCalledWith(
       { providerCalendarId: "primary" },
       { providerEventId: "g-new" },
       "tentative",
     );
     expect(sendItipReply).not.toHaveBeenCalled();
+    expect(eventLookups()[0]).toEqual(
+      expect.objectContaining({
+        userId: "user-1",
+        icalUid: "g-uid-1@google.com",
+        recurrenceId: null,
+      }),
+    );
   });
 
   it("throws Connect a calendar to reply. when nothing is writable", async () => {
@@ -378,7 +424,99 @@ describe("rsvpToMeetingForUser", () => {
       expect.objectContaining({
         status: "declined",
         recurrenceId: RECURRENCE,
+        sequence: 0,
       }),
+    );
+    expect(eventLookups().filter((where) => "icalUid" in where)).toEqual([
+      expect.objectContaining({
+        userId: "user-1",
+        icalUid: "g-uid-1@google.com",
+        recurrenceId: RECURRENCE,
+      }),
+    ]);
+  });
+
+  it("does not fall back to the master when recurrenceId is set and no exception exists", async () => {
+    const cal = googleCal();
+    const master = eventRow(cal, {
+      id: "evt-master",
+      providerEventId: "g-master",
+      recurrenceId: null,
+    });
+    const created = eventRow(cal, { id: "evt-new", providerEventId: "g-new" });
+    vi.mocked(db.messageMeeting.findFirst).mockResolvedValue(
+      meeting({ recurrenceId: RECURRENCE }) as never,
+    );
+    vi.mocked(db.calendar.findMany).mockResolvedValue([cal] as never);
+
+    let createdOnProvider = false;
+    vi.mocked(createEventForUser).mockImplementation(async () => {
+      createdOnProvider = true;
+      return { id: "evt-new" };
+    });
+    vi.mocked(db.calendarEvent.findFirst).mockImplementation(async (args) => {
+      const where = (args as { where?: Record<string, unknown> }).where ?? {};
+      if (where.id === "evt-new" && createdOnProvider) return created as never;
+      // Master lives at this UID; exception-only queries must not use it.
+      if (where.icalUid && where.recurrenceId == null) return master as never;
+      return null as never;
+    });
+
+    await rsvpToMeetingForUser("user-1", "msg-1", "accepted");
+
+    expect(createEventForUser).toHaveBeenCalledWith(
+      "user-1",
+      "cal-g",
+      inviteCreateInput(),
+    );
+    expect(adapter.respond).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      { providerEventId: "g-new" },
+      "accepted",
+    );
+    expect(adapter.respond).not.toHaveBeenCalledWith(
+      expect.anything(),
+      { providerEventId: "g-master" },
+      expect.anything(),
+    );
+    expect(
+      eventLookups().some(
+        (where) => where.icalUid === "g-uid-1@google.com" && where.recurrenceId == null,
+      ),
+    ).toBe(false);
+  });
+
+  it("sends CalDAV iTIP SEQUENCE from the REQUEST replica, not post-respond", async () => {
+    const cal = caldavCal();
+    const created = eventRow(cal, {
+      id: "evt-new",
+      providerEventId: "https://cal.example/home/cal/g-uid-1.ics",
+      sequence: 0,
+    });
+    vi.mocked(db.messageMeeting.findFirst).mockResolvedValue(meeting() as never);
+    vi.mocked(db.calendar.findMany).mockResolvedValue([cal] as never);
+    adapter.respond.mockResolvedValue(remote({ sequence: 4 }));
+
+    let createdOnProvider = false;
+    vi.mocked(createEventForUser).mockImplementation(async () => {
+      createdOnProvider = true;
+      return { id: "evt-new" };
+    });
+    vi.mocked(db.calendarEvent.findFirst).mockImplementation(async () => {
+      if (!createdOnProvider) return null as never;
+      return created as never;
+    });
+
+    await rsvpToMeetingForUser("user-1", "msg-1", "accepted");
+
+    expect(createEventForUser).toHaveBeenCalledWith(
+      "user-1",
+      "cal-d",
+      inviteCreateInput(),
+    );
+    expect(sendItipReply).toHaveBeenCalledWith(
+      smtpCreds,
+      expect.objectContaining({ sequence: 0 }),
     );
   });
 

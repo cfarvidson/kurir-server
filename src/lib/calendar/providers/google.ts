@@ -2,6 +2,7 @@ import { google, type calendar_v3 } from "googleapis";
 import { mapGoogleEvent } from "./map-google";
 import type {
   CalendarAdapter,
+  EventAttendeeInput,
   EventInput,
   PullResult,
   RecurrenceEdit,
@@ -67,6 +68,15 @@ function ifMatch(etag: string | null):
   return { headers: { "If-Match": etag } };
 }
 
+function googleAttendeeStatus(
+  status: EventAttendeeInput["status"],
+): string {
+  if (status === "accepted" || status === "tentative" || status === "declined") {
+    return status;
+  }
+  return "needsAction";
+}
+
 function toGoogleEvent(
   input: EventInput,
   opts?: { includeRecurrence?: boolean },
@@ -76,6 +86,7 @@ function toGoogleEvent(
     description: input.description,
     location: input.location,
   };
+  if (input.icalUid) body.iCalUID = input.icalUid;
   if (input.isAllDay) {
     body.start = { date: ymdUtc(input.startAt) };
     body.end = { date: ymdUtc(input.endAt) };
@@ -87,6 +98,20 @@ function toGoogleEvent(
   if ((opts?.includeRecurrence ?? true) && input.rrule) {
     const rule = input.rrule.replace(/^RRULE:/i, "");
     body.recurrence = [`RRULE:${rule}`];
+  }
+  if (input.organizer?.email) {
+    body.organizer = {
+      email: input.organizer.email,
+      displayName: input.organizer.name ?? undefined,
+    };
+  }
+  if (input.attendees && input.attendees.length > 0) {
+    body.attendees = input.attendees.map((attendee) => ({
+      email: attendee.email,
+      displayName: attendee.name ?? undefined,
+      responseStatus: googleAttendeeStatus(attendee.status),
+      self: attendee.self,
+    }));
   }
   return body;
 }

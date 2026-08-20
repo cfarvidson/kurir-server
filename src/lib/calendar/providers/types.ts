@@ -33,6 +33,18 @@ export type RemoteEvent = {
   rawJson: unknown;
 };
 
+export type EventAttendeeInput = {
+  email: string;
+  name?: string | null;
+  status?: "accepted" | "tentative" | "declined" | "needsAction";
+  self?: boolean;
+};
+
+export type EventOrganizerInput = {
+  email: string;
+  name?: string | null;
+};
+
 export type EventInput = {
   title: string;
   description: string | null;
@@ -42,6 +54,9 @@ export type EventInput = {
   isAllDay: boolean;
   timezone: string | null;
   rrule: string | null;
+  icalUid?: string | null;
+  organizer?: EventOrganizerInput | null;
+  attendees?: EventAttendeeInput[] | null;
 };
 
 export type PullResult = {

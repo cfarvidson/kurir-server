@@ -325,6 +325,25 @@ function toGraphEvent(
     );
     if (recurrence) body.recurrence = recurrence;
   }
+  if (input.attendees && input.attendees.length > 0) {
+    body.attendees = input.attendees.map((attendee) => ({
+      type: "required",
+      emailAddress: {
+        address: attendee.email,
+        ...(attendee.name ? { name: attendee.name } : {}),
+      },
+      status: {
+        response:
+          attendee.status === "accepted"
+            ? "accepted"
+            : attendee.status === "tentative"
+              ? "tentativelyAccepted"
+              : attendee.status === "declined"
+                ? "declined"
+                : "notResponded",
+      },
+    }));
+  }
   return body;
 }
 
