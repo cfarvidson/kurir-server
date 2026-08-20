@@ -37,6 +37,20 @@ describe("SelectionActionBar", () => {
     expect(screen.queryByText("Snooze")).toBeNull();
   });
 
+  it("hides Archive when both archive flags are off", () => {
+    render(
+      <SelectionActionBar
+        selectedMessageIds={["m1"]}
+        onComplete={() => {}}
+        onQueryInvalidate={() => {}}
+        showArchiveAction={false}
+        showUnarchiveAction={false}
+      />,
+    );
+    expect(screen.queryByText("Archive")).toBeNull();
+    expect(screen.queryByText("Unarchive")).toBeNull();
+  });
+
   it("notifies onBlocked with sender ids, not selected message ids", async () => {
     vi.mocked(rejectSenders).mockResolvedValue(undefined);
     const onQueryInvalidate = vi.fn();

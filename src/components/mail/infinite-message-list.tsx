@@ -384,6 +384,8 @@ export function InfiniteMessageList({
       onToggleSelect={toggleSelection}
       showSnoozeAction={showSnoozeAction}
       showFollowUpAction={showFollowUpAction}
+      showArchiveAction={barActionSet.archive}
+      showUnarchiveAction={barActionSet.unarchive}
     />
   );
 
@@ -433,6 +435,7 @@ export function InfiniteMessageList({
           onComplete={clearSelection}
           onQueryInvalidate={handleArchived}
           showSnoozeAction={barActionSet.snooze}
+          showArchiveAction={barActionSet.archive}
           showUnarchiveAction={showUnarchiveAction}
           showReadAction
           showBlockAction={category !== "sent"}
@@ -463,6 +466,7 @@ export function InfiniteMessageList({
         onComplete={clearSelection}
         onQueryInvalidate={handleArchived}
         showSnoozeAction={barActionSet.snooze}
+        showArchiveAction={barActionSet.archive}
         showUnarchiveAction={showUnarchiveAction}
         showReadAction
         showBlockAction={category !== "sent"}

@@ -16,6 +16,8 @@ interface ListKeyboardHandlerProps {
   onToggleSelect?: (threadKey: string) => void;
   showSnoozeAction?: boolean;
   showFollowUpAction?: boolean;
+  showArchiveAction?: boolean;
+  showUnarchiveAction?: boolean;
 }
 
 function isInputFocused() {
@@ -43,6 +45,8 @@ export function ListKeyboardHandler({
   onToggleSelect,
   showSnoozeAction,
   showFollowUpAction,
+  showArchiveAction = true,
+  showUnarchiveAction = false,
 }: ListKeyboardHandlerProps) {
   const router = useRouter();
   const { focusedIndex, moveFocus, setFocusedIndex } =
@@ -87,7 +91,7 @@ export function ListKeyboardHandler({
         }
 
         case "e": {
-          if (!msg) break;
+          if (!msg || (!showArchiveAction && !showUnarchiveAction)) break;
           e.preventDefault();
           onArchived?.(msg.id);
 
@@ -167,6 +171,8 @@ export function ListKeyboardHandler({
     onToggleSelect,
     showSnoozeAction,
     showFollowUpAction,
+    showArchiveAction,
+    showUnarchiveAction,
     router,
   ]);
 

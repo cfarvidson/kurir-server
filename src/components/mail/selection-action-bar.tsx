@@ -38,6 +38,7 @@ interface SelectionActionBarProps {
   onComplete: () => void;
   onQueryInvalidate: (messageIds?: string | string[]) => void;
   showSnoozeAction?: boolean;
+  showArchiveAction?: boolean;
   showUnarchiveAction?: boolean;
   showReadAction?: boolean;
   showBlockAction?: boolean;
@@ -54,6 +55,7 @@ export function SelectionActionBar({
   onComplete,
   onQueryInvalidate,
   showSnoozeAction = false,
+  showArchiveAction = true,
   showUnarchiveAction = false,
   showReadAction = false,
   showBlockAction = false,
@@ -200,7 +202,7 @@ export function SelectionActionBar({
             )}
             Unarchive
           </button>
-        ) : (
+        ) : showArchiveAction ? (
           <button
             onClick={handleArchive}
             disabled={isPending}
@@ -213,7 +215,7 @@ export function SelectionActionBar({
             )}
             Archive
           </button>
-        )}
+        ) : null}
         {showReadAction && (
           <button
             onClick={handleRead}
