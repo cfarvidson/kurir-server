@@ -6,6 +6,8 @@ const { adapter } = vi.hoisted(() => {
   const adapter = {
     listCalendars: vi.fn(),
     pull: vi.fn(),
+    getEvent: vi.fn(),
+    moveEvent: vi.fn(),
     createEvent: vi.fn(),
     updateEvent: vi.fn(),
     deleteEvent: vi.fn(),
@@ -128,6 +130,7 @@ vi.mock("@/lib/db", () => {
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    upsert: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),
   };
@@ -325,6 +328,33 @@ function wireStore() {
     Object.assign(row, data);
     return row as never;
   });
+  vi.mocked(db.calendarEvent.upsert).mockImplementation(async (args) => {
+    const keyed = args as {
+      where: {
+        calendarId_providerEventId: {
+          calendarId: string;
+          providerEventId: string;
+        };
+      };
+      create: Partial<EventRow>;
+      update: Partial<EventRow>;
+    };
+    const { calendarId, providerEventId } =
+      keyed.where.calendarId_providerEventId;
+    const found = store.events.find(
+      (e) => e.calendarId === calendarId && e.providerEventId === providerEventId,
+    );
+    if (found) {
+      Object.assign(found, keyed.update);
+      return found as never;
+    }
+    const row = eventRow({
+      ...keyed.create,
+      id: keyed.create.id ?? `evt-${++store.seq}`,
+    } as EventRow);
+    store.events.push(row);
+    return row as never;
+  });
   vi.mocked(db.calendarEvent.delete).mockImplementation(async (args) => {
     const id = (args as { where: { id: string } }).where.id;
     const idx = store.events.findIndex((e) => e.id === id);
@@ -433,8 +463,18 @@ describe("calendar write-through", () => {
 
   it("throws CalendarConflictError with Google toast text on 412", async () => {
     store.calendars.push(calendar());
-    store.events.push(eventRow());
-    adapter.updateEvent.mockRejectedValue(new CalendarConflictError("Google"));
+    store.events.push(eventRow({ title: "Standup" }));
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "From Google",
+        etag: "etag-provider",
+      }),
+    );
+    adapter.updateEvent.mockImplementation(async () => {
+      expect(store.events[0]?.title).toBe("Moved");
+      throw new CalendarConflictError("Google");
+    });
 
     const { updateEventForUser, CalendarConflictError: WriteConflict } =
       await import("@/lib/calendar/write");
@@ -444,6 +484,12 @@ describe("calendar write-through", () => {
     await expect(err).rejects.toBeInstanceOf(CalendarConflictError);
     await expect(err).rejects.toThrow("This event changed on Google.");
     expect(adapter.pull).not.toHaveBeenCalled();
+    expect(adapter.getEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      "g-1",
+    );
+    expect(store.events[0]?.title).toBe("From Google");
+    expect(store.events[0]?.etag).toBe("etag-provider");
   });
 
   it("rolls the replica back to the snapshot when the adapter throws", async () => {
@@ -509,5 +555,169 @@ describe("calendar write-through", () => {
         userId: "u1",
       }),
     ]);
+  });
+
+  it("moves on the adapter for a same-account calendar change and drops source instances", async () => {
+    const acc = account();
+    store.calendars.push(calendar({ account: acc }));
+    store.calendars.push(
+      calendar({
+        id: "cal-2",
+        providerCalendarId: "work",
+        name: "Work",
+        accountId: acc.id,
+        account: acc,
+      }),
+    );
+    store.events.push(eventRow());
+    store.instances.push({
+      startAt: new Date("2026-08-20T10:00:00.000Z"),
+      endAt: new Date("2026-08-20T11:00:00.000Z"),
+      isAllDay: false,
+      isCancelled: false,
+      isException: false,
+      eventId: "evt-1",
+      calendarId: "cal-1",
+      userId: "u1",
+    });
+    adapter.moveEvent.mockResolvedValue(
+      remote({ providerEventId: "g-1", title: "Standup", etag: "etag-moved" }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser(
+      "u1",
+      "evt-1",
+      { ...input({ title: "Standup" }), calendarId: "cal-2" },
+      "all",
+    );
+
+    expect(adapter.moveEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      { providerCalendarId: "work" },
+      expect.objectContaining({ providerEventId: "g-1", etag: "etag-old" }),
+    );
+    expect(adapter.createEvent).not.toHaveBeenCalled();
+    expect(adapter.deleteEvent).not.toHaveBeenCalled();
+    expect(store.events[0]?.calendarId).toBe("cal-2");
+    expect(store.instances.filter((i) => i.eventId === "evt-1")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventId: "evt-1", calendarId: "cal-2" }),
+      ]),
+    );
+    expect(
+      store.instances.some((i) => i.eventId === "evt-1" && i.calendarId === "cal-1"),
+    ).toBe(false);
+  });
+
+  it("throws 400 on a cross-account calendar move", async () => {
+    store.calendars.push(calendar());
+    store.calendars.push(
+      calendar({
+        id: "cal-2",
+        providerCalendarId: "other",
+        accountId: "acc-2",
+        account: account({ id: "acc-2" }),
+      }),
+    );
+    store.events.push(eventRow());
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await expect(
+      updateEventForUser(
+        "u1",
+        "evt-1",
+        { ...input(), calendarId: "cal-2" },
+        "all",
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(adapter.moveEvent).not.toHaveBeenCalled();
+    expect(adapter.updateEvent).not.toHaveBeenCalled();
+    expect(store.events[0]?.calendarId).toBe("cal-1");
+  });
+
+  it("does not stamp startAt as recurrenceId for a non-series this edit", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: null, recurrenceId: null }));
+    adapter.updateEvent.mockResolvedValue(remote({ providerEventId: "g-1" }));
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser("u1", "evt-1", input(), "this");
+
+    expect(adapter.updateEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      expect.objectContaining({
+        providerEventId: "g-1",
+        recurrenceId: null,
+      }),
+      expect.objectContaining({ title: "Lunch" }),
+      "this",
+    );
+  });
+
+  it("restores exception rows when delete all rolls back", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
+    store.events.push(
+      eventRow({
+        id: "evt-ex",
+        providerEventId: "g-1-ex",
+        masterEventId: "evt-1",
+        recurrenceId: new Date("2026-08-21T10:00:00.000Z"),
+        title: "Exception",
+      }),
+    );
+    adapter.deleteEvent.mockRejectedValue(new Error("provider down"));
+
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    await expect(deleteEventForUser("u1", "evt-1", "all")).rejects.toThrow(
+      "provider down",
+    );
+
+    expect(store.events.map((e) => e.id).sort()).toEqual(["evt-1", "evt-ex"]);
+    expect(store.events.find((e) => e.id === "evt-ex")?.title).toBe("Exception");
+  });
+
+  it("restores master instances when delete this on an exception rolls back", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
+    store.events.push(
+      eventRow({
+        id: "evt-ex",
+        providerEventId: "g-1-ex",
+        masterEventId: "evt-1",
+        recurrenceId: new Date("2026-08-21T10:00:00.000Z"),
+        title: "Exception",
+      }),
+    );
+    store.instances.push({
+      startAt: new Date("2026-08-20T10:00:00.000Z"),
+      endAt: new Date("2026-08-20T11:00:00.000Z"),
+      isAllDay: false,
+      isCancelled: false,
+      isException: false,
+      eventId: "evt-1",
+      calendarId: "cal-1",
+      userId: "u1",
+    });
+    adapter.deleteEvent.mockRejectedValue(new Error("provider down"));
+
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    await expect(deleteEventForUser("u1", "evt-ex", "this")).rejects.toThrow(
+      "provider down",
+    );
+
+    expect(store.events.find((e) => e.id === "evt-ex")?.status).toBe(
+      "confirmed",
+    );
+    const masterInstance = store.instances.find(
+      (i) =>
+        i.eventId === "evt-1" &&
+        i.startAt.getTime() === new Date("2026-08-20T10:00:00.000Z").getTime(),
+    );
+    expect(masterInstance).toMatchObject({
+      isCancelled: false,
+      isException: false,
+    });
   });
 });

@@ -671,6 +671,65 @@ export function createCalDavAdapter(input: {
       return createOnCalendar(client, calendar.providerCalendarId, eventInput);
     },
 
+    async getEvent(
+      calendar: { providerCalendarId: string },
+      providerEventId: string,
+    ): Promise<RemoteEvent> {
+      const client = await getClient();
+      const existing = await getObject(
+        client,
+        calendar.providerCalendarId,
+        providerEventId,
+      );
+      return mapCalDavEvent({
+        href: existing.url,
+        etag: existing.etag,
+        data: existing.data,
+      });
+    },
+
+    async moveEvent(
+      from: { providerCalendarId: string },
+      to: { providerCalendarId: string },
+      event: { providerEventId: string; etag: string | null },
+    ): Promise<RemoteEvent> {
+      const client = await getClient();
+      const existing = await getObject(
+        client,
+        from.providerCalendarId,
+        event.providerEventId,
+      );
+      const filename = existing.url.split("/").filter(Boolean).pop() ?? `${randomUUID()}.ics`;
+      const destHref = new URL(filename, collectionUrl(to.providerCalendarId)).href;
+      const res = await writeResponse(() =>
+        client.createCalendarObject({
+          calendar: { url: collectionUrl(to.providerCalendarId) },
+          iCalString: existing.data,
+          filename,
+        }),
+      );
+      assertWriteOk(res);
+      const destEtag = headerEtag(res);
+      try {
+        await deleteObject(client, {
+          url: existing.url,
+          etag: event.etag ?? existing.etag,
+        });
+      } catch (err) {
+        try {
+          await deleteObject(client, { url: destHref, etag: destEtag });
+        } catch {
+          // Prefer the source-delete error if dest cleanup also fails.
+        }
+        throw err;
+      }
+      return mapCalDavEvent({
+        href: destHref,
+        etag: destEtag,
+        data: existing.data,
+      });
+    },
+
     async updateEvent(
       calendar: { providerCalendarId: string },
       event: {

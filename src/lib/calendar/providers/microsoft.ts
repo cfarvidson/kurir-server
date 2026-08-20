@@ -624,6 +624,31 @@ export function createMicrosoftAdapter(tokens: {
       return mapGraphEvent(res);
     },
 
+    async getEvent(
+      calendar: { providerCalendarId: string },
+      providerEventId: string,
+    ): Promise<RemoteEvent> {
+      const data = await getEvent(
+        client,
+        calendar.providerCalendarId,
+        providerEventId,
+      );
+      return mapGraphEvent(data);
+    },
+
+    async moveEvent(
+      from: { providerCalendarId: string },
+      to: { providerCalendarId: string },
+      event: { providerEventId: string; etag: string | null },
+    ): Promise<RemoteEvent> {
+      const res = await eventRequest(
+        client,
+        `${eventPath(from.providerCalendarId, event.providerEventId)}/move`,
+        event.etag,
+      ).post({ destinationId: to.providerCalendarId });
+      return mapGraphEvent(res);
+    },
+
     async updateEvent(
       calendar: { providerCalendarId: string },
       event: {

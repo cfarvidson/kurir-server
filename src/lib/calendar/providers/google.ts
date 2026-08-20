@@ -339,6 +339,34 @@ export function createGoogleAdapter(tokens: {
       return mapGoogleEvent(res.data);
     },
 
+    async getEvent(
+      calendar: { providerCalendarId: string },
+      providerEventId: string,
+    ): Promise<RemoteEvent> {
+      const data = await getEvent(
+        client,
+        calendar.providerCalendarId,
+        providerEventId,
+      );
+      return mapGoogleEvent(data);
+    },
+
+    async moveEvent(
+      from: { providerCalendarId: string },
+      to: { providerCalendarId: string },
+      event: { providerEventId: string; etag: string | null },
+    ): Promise<RemoteEvent> {
+      const res = await client.events.move(
+        {
+          calendarId: from.providerCalendarId,
+          eventId: event.providerEventId,
+          destination: to.providerCalendarId,
+        },
+        ifMatch(event.etag),
+      );
+      return mapGoogleEvent(res.data);
+    },
+
     async updateEvent(
       calendar: { providerCalendarId: string },
       event: {

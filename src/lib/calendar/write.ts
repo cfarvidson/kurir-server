@@ -101,14 +101,8 @@ type Snapshot = {
   createdEventId: string | null;
   wroteTombstone: boolean;
   event: EventRow | null;
+  exceptions: EventRow[];
   instances: InstanceSnap[];
-};
-
-type FetchableAdapter = CalendarAdapter & {
-  getEvent?: (
-    calendar: { providerCalendarId: string },
-    providerEventId: string,
-  ) => Promise<RemoteEvent>;
 };
 
 function asJson(
@@ -344,6 +338,12 @@ function targetCalendarId(input: EventInput): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function isSeries(event: EventRow): boolean {
+  return Boolean(
+    event.rrule || event.rdate || event.masterEventId || event.recurrenceId,
+  );
+}
+
 function adapterEventRef(
   event: EventRow,
   range: RecurrenceEdit,
@@ -353,7 +353,7 @@ function adapterEventRef(
   recurrenceId: Date | null;
 } {
   const needsOccurrence =
-    range === "this" || range === "thisAndFollowing";
+    (range === "this" || range === "thisAndFollowing") && isSeries(event);
   return {
     providerEventId: event.providerEventId,
     etag: event.etag,
@@ -394,27 +394,46 @@ async function loadEvent(userId: string, eventId: string) {
   return row;
 }
 
-function snapshotFromEvent(
+function cloneInstance(row: InstanceSnap): InstanceSnap {
+  return {
+    startAt: new Date(row.startAt),
+    endAt: new Date(row.endAt),
+    isAllDay: row.isAllDay,
+    isCancelled: row.isCancelled,
+    isException: row.isException,
+    eventId: row.eventId,
+    calendarId: row.calendarId,
+    userId: row.userId,
+  };
+}
+
+async function takeSnapshot(
   event: EventRow,
   calendar: CalendarRow,
-  instances: InstanceSnap[],
-): Snapshot {
+): Promise<Snapshot> {
+  const masterId = event.masterEventId ?? event.id;
+  const exceptions = (
+    (await db.calendarEvent.findMany({
+      where: { userId: event.userId, masterEventId: masterId },
+    })) as EventRow[]
+  ).map(cloneEvent);
+  const instanceEventIds = [...new Set([event.id, masterId])];
+  const instances = (
+    (await db.calendarEventInstance.findMany({
+      where: {
+        userId: event.userId,
+        eventId: { in: instanceEventIds },
+      },
+    })) as InstanceSnap[]
+  ).map(cloneInstance);
   return {
     calendarId: calendar.id,
     calendarVisible: calendar.isVisible,
     createdEventId: null,
     wroteTombstone: false,
     event: cloneEvent(event),
-    instances: instances.map((row) => ({
-      startAt: new Date(row.startAt),
-      endAt: new Date(row.endAt),
-      isAllDay: row.isAllDay,
-      isCancelled: row.isCancelled,
-      isException: row.isException,
-      eventId: row.eventId,
-      calendarId: row.calendarId,
-      userId: row.userId,
-    })),
+    exceptions,
+    instances,
   };
 }
 
@@ -426,7 +445,7 @@ async function rebuildInstances(
   now: Date,
 ): Promise<void> {
   await tx.calendarEventInstance.deleteMany({
-    where: { userId, calendarId, eventId: masterId },
+    where: { userId, eventId: masterId },
   });
   const master = await tx.calendarEvent.findFirst({
     where: { id: masterId, userId },
@@ -457,6 +476,18 @@ async function rebuildInstances(
   });
 }
 
+async function restoreEventRow(tx: WriteTx, event: EventRow): Promise<void> {
+  const existing = await tx.calendarEvent.findFirst({
+    where: { id: event.id, userId: event.userId },
+  });
+  const data = persistable(event);
+  if (existing) {
+    await tx.calendarEvent.update({ where: { id: event.id }, data });
+    return;
+  }
+  await tx.calendarEvent.create({ data: { id: event.id, ...data } });
+}
+
 async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
   await db.$transaction(async (tx) => {
     if (snapshot.createdEventId) {
@@ -475,18 +506,21 @@ async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
     const event = snapshot.event;
     if (!event) return;
 
-    const existing = await tx.calendarEvent.findFirst({
-      where: { id: event.id, userId: event.userId },
-    });
-    const data = persistable(event);
-    if (existing) {
-      await tx.calendarEvent.update({ where: { id: event.id }, data });
-    } else {
-      await tx.calendarEvent.create({ data: { id: event.id, ...data } });
+    await restoreEventRow(tx, event);
+    for (const ex of snapshot.exceptions) {
+      if (ex.id === event.id) continue;
+      await restoreEventRow(tx, ex);
     }
 
+    const instanceEventIds = [
+      ...new Set(
+        [event.id, event.masterEventId, ...snapshot.exceptions.map((row) => row.id)].filter(
+          (id): id is string => Boolean(id),
+        ),
+      ),
+    ];
     await tx.calendarEventInstance.deleteMany({
-      where: { eventId: event.id, userId: event.userId },
+      where: { userId: event.userId, eventId: { in: instanceEventIds } },
     });
     if (snapshot.instances.length > 0) {
       await tx.calendarEventInstance.createMany({
@@ -509,11 +543,10 @@ async function refreshAfterConflict(
   providerEventId: string | null,
 ): Promise<void> {
   if (!isConflict(err) || !providerEventId) return;
-  const getEvent = (adapter as FetchableAdapter).getEvent;
-  if (typeof getEvent !== "function") return;
-  const remote = await getEvent.call(adapter, {
-    providerCalendarId: calendar.providerCalendarId,
-  }, providerEventId);
+  const remote = await adapter.getEvent(
+    { providerCalendarId: calendar.providerCalendarId },
+    providerEventId,
+  );
   await applyPull({
     userId: calendar.userId,
     accountId: calendar.accountId,
@@ -567,6 +600,7 @@ export async function createEventForUser(
     createdEventId: null,
     wroteTombstone: false,
     event: null,
+    exceptions: [],
     instances: [],
   };
 
@@ -646,7 +680,7 @@ export async function updateEventForUser(
 
   const adapter = adapterForAccount(calendar.account);
   const now = new Date();
-  const snapshot = snapshotFromEvent(event, calendar, event.instances ?? []);
+  const snapshot = await takeSnapshot(event, calendar);
   const ref = adapterEventRef(event, range);
 
   await db.$transaction(async (tx) => {
@@ -663,14 +697,10 @@ export async function updateEventForUser(
   try {
     let remote: RemoteEvent;
     if (dest.id !== calendar.id) {
-      remote = await adapter.createEvent(
-        { providerCalendarId: dest.providerCalendarId },
-        input,
-      );
-      await adapter.deleteEvent(
+      remote = await adapter.moveEvent(
         { providerCalendarId: calendar.providerCalendarId },
-        ref,
-        "all",
+        { providerCalendarId: dest.providerCalendarId },
+        { providerEventId: event.providerEventId, etag: event.etag },
       );
     } else {
       remote = await adapter.updateEvent(
@@ -709,7 +739,7 @@ export async function deleteEventForUser(
   const event = loaded as unknown as EventRow & { instances?: InstanceSnap[] };
   const adapter = adapterForAccount(calendar.account);
   const now = new Date();
-  const snapshot = snapshotFromEvent(event, calendar, event.instances ?? []);
+  const snapshot = await takeSnapshot(event, calendar);
   const ref = adapterEventRef(event, range);
 
   if (isSeriesThis(event, range) && !event.masterEventId) {

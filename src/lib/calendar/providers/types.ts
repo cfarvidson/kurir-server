@@ -62,6 +62,15 @@ export interface CalendarAdapter {
     calendar: { providerCalendarId: string },
     input: EventInput,
   ): Promise<RemoteEvent>;
+  getEvent(
+    calendar: { providerCalendarId: string },
+    providerEventId: string,
+  ): Promise<RemoteEvent>;
+  moveEvent(
+    from: { providerCalendarId: string },
+    to: { providerCalendarId: string },
+    event: { providerEventId: string; etag: string | null },
+  ): Promise<RemoteEvent>;
   updateEvent(
     calendar: { providerCalendarId: string },
     event: {
