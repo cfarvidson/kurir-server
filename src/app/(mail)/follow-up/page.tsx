@@ -8,6 +8,7 @@ import { getMessages } from "@/lib/mail/messages";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Bell } from "lucide-react";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -57,13 +58,7 @@ async function PaginatedFollowUp({ userId }: { userId: string }) {
   const result = await getMessages(userId, "follow-up", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<Bell />}
-        title="No follow-ups"
-        description="Threads you're waiting on will appear here when the deadline passes."
-      />
-    );
+    return <EmptyState icon={<Bell />} {...emptyCopy("follow-up")} />;
   }
 
   return (

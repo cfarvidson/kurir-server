@@ -14,6 +14,7 @@ import {
 import { formatDate } from "@/lib/date";
 import { clearReplyLater } from "@/actions/reply-later";
 import { EmptyState } from "@/components/mail/empty-state";
+import { emptyCopy } from "@/lib/mail/list-contract";
 
 export interface ReplyLaterItem {
   id: string;
@@ -42,13 +43,7 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
   const queue = items.filter((it) => !clearedIds.has(it.id));
 
   if (queue.length === 0) {
-    return (
-      <EmptyState
-        icon={<CheckCircle2 />}
-        title="All caught up"
-        description="Nothing left to reply to. Nice work."
-      />
-    );
+    return <EmptyState icon={<CheckCircle2 />} {...emptyCopy("reply-later")} />;
   }
 
   const safeIndex = Math.min(index, queue.length - 1);

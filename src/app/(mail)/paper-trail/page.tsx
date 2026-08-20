@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/mail/empty-state";
 import { Receipt } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -56,13 +57,7 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
   const result = await getMessages(userId, "paper-trail", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<Receipt />}
-        title="No receipts yet"
-        description="Screen in transactional senders and send them to Paper Trail."
-      />
-    );
+    return <EmptyState icon={<Receipt />} {...emptyCopy("paper-trail")} />;
   }
 
   return (

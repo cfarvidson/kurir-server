@@ -107,6 +107,23 @@ describe("emptyCopy", () => {
       description: "Nothing left to reply to. Nice work.",
     });
   });
+
+  it("covers every mailbox in the spec table", () => {
+    const lists = [
+      "imbox",
+      "feed",
+      "paper-trail",
+      "snoozed",
+      "follow-up",
+      "archive",
+      "sent",
+      "reply-later",
+    ] as const;
+    for (const list of lists) {
+      expect(emptyCopy(list).title.length).toBeGreaterThan(0);
+      expect(emptyCopy(list).description.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("showsSections / showsSearch", () => {

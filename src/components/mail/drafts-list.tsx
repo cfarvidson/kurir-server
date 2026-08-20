@@ -133,7 +133,7 @@ function DraftRow({ draft, userId }: { draft: DraftListItem; userId: string }) {
           {subject}
         </div>
         {draft.snippet && (
-          <div className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">
+          <div className="mt-0.5 line-clamp-2 text-[0.8125rem] text-muted-foreground">
             {draft.snippet}
           </div>
         )}

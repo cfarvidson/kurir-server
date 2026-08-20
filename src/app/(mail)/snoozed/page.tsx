@@ -8,6 +8,7 @@ import { getMessages } from "@/lib/mail/messages";
 import { EmptyState } from "@/components/mail/empty-state";
 import { AlarmClock } from "lucide-react";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -54,13 +55,7 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
   const result = await getMessages(userId, "snoozed", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<AlarmClock />}
-        title="No snoozed conversations"
-        description="Snoozed conversations will appear here until they wake up."
-      />
-    );
+    return <EmptyState icon={<AlarmClock />} {...emptyCopy("snoozed")} />;
   }
 
   return (

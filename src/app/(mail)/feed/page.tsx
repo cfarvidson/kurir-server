@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/mail/empty-state";
 import { Newspaper } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -56,13 +57,7 @@ async function PaginatedFeed({ userId }: { userId: string }) {
   const result = await getMessages(userId, "feed", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<Newspaper />}
-        title="No newsletters yet"
-        description="Screen in newsletter senders and send them to The Feed."
-      />
-    );
+    return <EmptyState icon={<Newspaper />} {...emptyCopy("feed")} />;
   }
 
   return (

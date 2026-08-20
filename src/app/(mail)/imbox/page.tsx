@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/mail/empty-state";
 import { Inbox } from "lucide-react";
 import { getMessages } from "@/lib/mail/messages";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -57,13 +58,7 @@ async function PaginatedImbox({ userId }: { userId: string }) {
   const result = await getMessages(userId, "imbox", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<Inbox />}
-        title="Your Imbox is empty"
-        description="Approve senders in the Screener to see their emails here."
-      />
-    );
+    return <EmptyState icon={<Inbox />} {...emptyCopy("imbox")} />;
   }
 
   return (

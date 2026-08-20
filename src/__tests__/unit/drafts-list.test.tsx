@@ -111,6 +111,19 @@ describe("DraftsList", () => {
     ).toHaveLength(2);
   });
 
+  it("clamps the snippet to two lines", () => {
+    const longSnippet =
+      "Line one of a long draft body that should wrap across the row. Line two continues with more detail. Line three would be clamped.";
+    const { container } = render(
+      <DraftsList
+        drafts={[fixture({ snippet: longSnippet })]}
+        userId="user-1"
+      />,
+    );
+    const snippet = container.querySelector(".line-clamp-2");
+    expect(snippet?.textContent).toContain("Line one of a long draft body");
+  });
+
   it("asks before deleting and does nothing on cancel", async () => {
     render(<DraftsList drafts={[fixture()]} userId="user-1" />);
     fireEvent.click(screen.getByRole("button", { name: /Delete draft/i }));

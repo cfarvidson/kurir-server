@@ -8,6 +8,7 @@ import { getMessages } from "@/lib/mail/messages";
 import { EmptyState } from "@/components/mail/empty-state";
 import { Archive } from "lucide-react";
 import {
+  emptyCopy,
   searchActionProps,
   searchCategoryFilter,
 } from "@/lib/mail/list-contract";
@@ -57,13 +58,7 @@ async function PaginatedArchive({ userId }: { userId: string }) {
   const result = await getMessages(userId, "archive", 50);
 
   if (!result || result.messages.length === 0) {
-    return (
-      <EmptyState
-        icon={<Archive />}
-        title="Archive is empty"
-        description="Archived conversations will appear here."
-      />
-    );
+    return <EmptyState icon={<Archive />} {...emptyCopy("archive")} />;
   }
 
   return (
