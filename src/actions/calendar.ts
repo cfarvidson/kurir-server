@@ -8,6 +8,16 @@ import {
   deleteCalendarAccount,
   setCalendarVisibleForUser,
 } from "@/lib/calendar/accounts";
+import type {
+  EventInput,
+  RecurrenceEdit,
+} from "@/lib/calendar/providers/types";
+import { rsvpToMeetingForUser, type RsvpStatus } from "@/lib/calendar/rsvp";
+import {
+  createEventForUser,
+  deleteEventForUser,
+  updateEventForUser,
+} from "@/lib/calendar/write";
 import { enqueueCalendarSyncJob } from "@/lib/jobs/calendar-sync-worker";
 
 function revalidateCalendar() {
@@ -54,5 +64,38 @@ export async function setCalendarVisibleAction(
 ) {
   const session = await requireAuth();
   await setCalendarVisibleForUser(session.user.id, calendarId, isVisible);
+  revalidateCalendar();
+}
+
+export async function createEventAction(calendarId: string, input: EventInput) {
+  const session = await requireAuth();
+  const created = await createEventForUser(session.user.id, calendarId, input);
+  revalidateCalendar();
+  return created;
+}
+
+export async function updateEventAction(
+  eventId: string,
+  input: EventInput & { calendarId?: string },
+  range: RecurrenceEdit,
+) {
+  const session = await requireAuth();
+  await updateEventForUser(session.user.id, eventId, input, range);
+  revalidateCalendar();
+}
+
+export async function deleteEventAction(eventId: string, range: RecurrenceEdit) {
+  const session = await requireAuth();
+  await deleteEventForUser(session.user.id, eventId, range);
+  revalidateCalendar();
+}
+
+export async function rsvpAction(
+  messageId: string,
+  status: RsvpStatus,
+  calendarId?: string,
+) {
+  const session = await requireAuth();
+  await rsvpToMeetingForUser(session.user.id, messageId, status, calendarId);
   revalidateCalendar();
 }
