@@ -14,6 +14,7 @@ import {
   storedContentToBuffer,
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
+import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type { SenderCategory, SenderStatus } from "@prisma/client";
 
 /** Domain screening rule shape needed at sync time (plan 033). */
@@ -726,6 +727,9 @@ export async function processMessage(
       senderId: sender.id,
     },
   });
+
+  // Meeting invite ICS - never fail the mail sync on bad calendar parts.
+  await ingestMeetingFromParsed(userId, message.id, parsed);
 
   // Store attachments metadata with correct MIME part IDs from bodyStructure
   if (parsed.attachments && parsed.attachments.length > 0) {
