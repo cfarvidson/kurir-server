@@ -233,4 +233,79 @@ describe("createGoogleAdapter", () => {
     expect(created.title).toBe("Lunch");
     expect(created.startAt.toISOString()).toBe("2026-08-20T12:00:00.000Z");
   });
+
+  it("patches thisAndFollowing and all with the master etag, not the instance etag", async () => {
+    const master = {
+      id: "series1",
+      etag: "etag-master",
+      summary: "Standup",
+      status: "confirmed",
+      start: { dateTime: "2026-08-13T14:00:00Z" },
+      end: { dateTime: "2026-08-13T15:00:00Z" },
+      recurrence: ["RRULE:FREQ=WEEKLY"],
+    };
+    const instance = {
+      providerEventId: "series1_20260820T140000Z",
+      etag: "etag-instance",
+      recurrenceId: new Date("2026-08-20T14:00:00.000Z"),
+    };
+    const input = {
+      title: "Call",
+      description: null,
+      location: null,
+      startAt: new Date("2026-08-20T14:00:00.000Z"),
+      endAt: new Date("2026-08-20T15:00:00.000Z"),
+      isAllDay: false,
+      timezone: "UTC",
+      rrule: "FREQ=WEEKLY",
+    };
+    const calendar = { providerCalendarId: "primary" };
+    const adapter = createGoogleAdapter({ accessToken: "tok-1" });
+
+    googleMocks.eventsGet.mockResolvedValue({ data: master });
+    googleMocks.eventsPatch.mockResolvedValue({
+      data: { ...master, summary: "Call" },
+    });
+    googleMocks.eventsInsert.mockResolvedValue({
+      data: {
+        id: "series2",
+        summary: "Call",
+        status: "confirmed",
+        start: { dateTime: "2026-08-20T14:00:00Z" },
+        end: { dateTime: "2026-08-20T15:00:00Z" },
+        recurrence: ["RRULE:FREQ=WEEKLY"],
+      },
+    });
+
+    await adapter.updateEvent(calendar, instance, input, "thisAndFollowing");
+
+    expect(googleMocks.eventsGet).toHaveBeenCalledWith({
+      calendarId: "primary",
+      eventId: "series1",
+    });
+    expect(googleMocks.eventsPatch.mock.calls[0]?.[1]).toEqual({
+      headers: { "If-Match": "etag-master" },
+    });
+
+    googleMocks.eventsGet.mockClear();
+    googleMocks.eventsPatch.mockClear();
+    googleMocks.eventsGet.mockResolvedValue({ data: master });
+    googleMocks.eventsPatch.mockResolvedValue({
+      data: { ...master, summary: "Call" },
+    });
+
+    await adapter.updateEvent(calendar, instance, input, "all");
+
+    expect(googleMocks.eventsGet).toHaveBeenCalledWith({
+      calendarId: "primary",
+      eventId: "series1",
+    });
+    expect(googleMocks.eventsPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarId: "primary",
+        eventId: "series1",
+      }),
+      { headers: { "If-Match": "etag-master" } },
+    );
+  });
 });

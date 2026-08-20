@@ -270,11 +270,7 @@ async function resolveInstanceId(
 async function truncateMaster(
   client: GoogleClient,
   calendarId: string,
-  event: {
-    providerEventId: string;
-    etag: string | null;
-    recurrenceId: Date | null;
-  },
+  event: { providerEventId: string },
   splitAt: Date,
 ): Promise<void> {
   const masterId = masterProviderId(event.providerEventId);
@@ -288,7 +284,7 @@ async function truncateMaster(
         recurrence: rruleWithUntil(master.recurrence ?? undefined, until),
       },
     },
-    ifMatch(event.etag),
+    ifMatch(master.etag ?? null),
   );
 }
 
@@ -367,17 +363,25 @@ export function createGoogleAdapter(tokens: {
         });
         return mapGoogleEvent(inserted.data);
       }
-      const eventId =
-        range === "this"
-          ? await resolveInstanceId(client, calendarId, event)
-          : masterProviderId(event.providerEventId);
+      if (range === "all") {
+        const masterId = masterProviderId(event.providerEventId);
+        const master = await getEvent(client, calendarId, masterId);
+        const res = await client.events.patch(
+          {
+            calendarId,
+            eventId: masterId,
+            requestBody: toGoogleEvent(input),
+          },
+          ifMatch(master.etag ?? null),
+        );
+        return mapGoogleEvent(res.data);
+      }
+      const eventId = await resolveInstanceId(client, calendarId, event);
       const res = await client.events.patch(
         {
           calendarId,
           eventId,
-          requestBody: toGoogleEvent(input, {
-            includeRecurrence: range !== "this",
-          }),
+          requestBody: toGoogleEvent(input, { includeRecurrence: false }),
         },
         ifMatch(event.etag),
       );
@@ -403,10 +407,16 @@ export function createGoogleAdapter(tokens: {
         );
         return;
       }
-      const eventId =
-        range === "this"
-          ? await resolveInstanceId(client, calendarId, event)
-          : masterProviderId(event.providerEventId);
+      if (range === "all") {
+        const masterId = masterProviderId(event.providerEventId);
+        const master = await getEvent(client, calendarId, masterId);
+        await client.events.delete(
+          { calendarId, eventId: masterId },
+          ifMatch(master.etag ?? null),
+        );
+        return;
+      }
+      const eventId = await resolveInstanceId(client, calendarId, event);
       await client.events.delete({ calendarId, eventId }, ifMatch(event.etag));
     },
 
