@@ -193,7 +193,9 @@ describe("createCalDavAdapter", () => {
     vi.setSystemTime(now);
     const window = instanceWindow(now);
 
-    davMocks.syncCollection.mockRejectedValue(new Error("sync-collection unsupported"));
+    davMocks.syncCollection.mockResolvedValue([
+      { status: 501, ok: false, statusText: "Not Implemented" },
+    ]);
     davMocks.calendarQuery.mockResolvedValue([
       {
         href: EVENT_HREF,
@@ -287,5 +289,145 @@ describe("createCalDavAdapter", () => {
     expect(put.calendarObject.data).toMatch(/PARTSTAT=ACCEPTED/i);
     expect(put.calendarObject.data).not.toMatch(/PARTSTAT=NEEDS-ACTION/i);
     expect(updated.title).toBe("Call");
+  });
+
+  it("throws a generic error on HTTP 403 writes, not CalendarConflictError", async () => {
+    davMocks.fetchCalendarObjects.mockResolvedValue([
+      { url: EVENT_HREF, etag: '"abc"', data: timedIcs },
+    ]);
+    davMocks.updateCalendarObject.mockResolvedValue({
+      status: 403,
+      ok: false,
+    });
+    davMocks.deleteCalendarObject.mockResolvedValue({
+      status: 403,
+      ok: false,
+    });
+
+    const cal = adapter();
+    await expect(
+      cal.updateEvent(
+        { providerCalendarId: CAL_URL },
+        {
+          providerEventId: EVENT_HREF,
+          etag: '"abc"',
+          recurrenceId: null,
+        },
+        eventInput,
+        "all",
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof Error &&
+        !(err instanceof CalendarConflictError) &&
+        /403/.test(err.message),
+    );
+
+    await expect(
+      cal.deleteEvent(
+        { providerCalendarId: CAL_URL },
+        {
+          providerEventId: EVENT_HREF,
+          etag: '"abc"',
+          recurrenceId: null,
+        },
+        "all",
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof Error &&
+        !(err instanceof CalendarConflictError) &&
+        /403/.test(err.message),
+    );
+  });
+
+  it("throws a generic error on HTTP 500 writes", async () => {
+    davMocks.fetchCalendarObjects.mockResolvedValue([
+      { url: EVENT_HREF, etag: '"abc"', data: timedIcs },
+    ]);
+    davMocks.updateCalendarObject.mockResolvedValue({
+      status: 500,
+      ok: false,
+    });
+    davMocks.createCalendarObject.mockResolvedValue({
+      status: 500,
+      ok: false,
+    });
+
+    const cal = adapter();
+    await expect(
+      cal.updateEvent(
+        { providerCalendarId: CAL_URL },
+        {
+          providerEventId: EVENT_HREF,
+          etag: '"abc"',
+          recurrenceId: null,
+        },
+        eventInput,
+        "all",
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof Error &&
+        !(err instanceof CalendarConflictError) &&
+        /500/.test(err.message),
+    );
+
+    await expect(
+      cal.createEvent({ providerCalendarId: CAL_URL }, eventInput),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof Error &&
+        !(err instanceof CalendarConflictError) &&
+        /500/.test(err.message),
+    );
+  });
+
+  it("retries syncCollection without a token and sets reset true on invalid sync-token", async () => {
+    davMocks.syncCollection
+      .mockResolvedValueOnce([{ status: 403, ok: false, statusText: "Forbidden" }])
+      .mockResolvedValueOnce([
+        {
+          href: EVENT_HREF,
+          status: 200,
+          ok: true,
+          props: {
+            getetag: '"etag1"',
+            calendarData: timedIcs,
+          },
+          raw: { multistatus: { syncToken: "sync-new" } },
+        },
+      ]);
+
+    const result = await adapter().pull(
+      { providerCalendarId: CAL_URL, syncToken: "stale" },
+      null,
+    );
+
+    expect(davMocks.syncCollection).toHaveBeenCalledTimes(2);
+    expect(davMocks.syncCollection.mock.calls[0]?.[0]).toMatchObject({
+      url: CAL_URL,
+      syncToken: "stale",
+    });
+    expect(davMocks.syncCollection.mock.calls[1]?.[0]).toMatchObject({
+      url: CAL_URL,
+      syncToken: "",
+    });
+    expect(davMocks.calendarQuery).not.toHaveBeenCalled();
+    expect(result.reset).toBe(true);
+    expect(result.complete).toBe(true);
+    expect(result.cursor).toBe("sync-new");
+    expect(result.upserts[0]?.providerEventId).toBe(EVENT_HREF);
+  });
+
+  it("throws on other syncCollection HTTP errors instead of calendarQuery", async () => {
+    davMocks.syncCollection.mockResolvedValue([
+      { status: 500, ok: false, statusText: "Internal Server Error" },
+    ]);
+
+    await expect(
+      adapter().pull({ providerCalendarId: CAL_URL, syncToken: "sync-1" }, null),
+    ).rejects.toThrow(/500/);
+    expect(davMocks.calendarQuery).not.toHaveBeenCalled();
   });
 });

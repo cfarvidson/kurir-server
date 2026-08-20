@@ -98,12 +98,64 @@ function throwIfConflict(value: unknown): void {
   }
 }
 
-function isSyncFailure(responses: DAVResponse[]): boolean {
-  return responses.some((res) => {
-    const status = Number(res.status);
-    if (!status || status < 400) return false;
-    return status !== 404;
-  });
+function isHttpOk(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const rec = value as { ok?: unknown };
+  if (rec.ok === true) return true;
+  const status = httpStatus(value);
+  return status != null && status >= 200 && status < 300;
+}
+
+function assertWriteOk(value: unknown): void {
+  throwIfConflict(value);
+  if (isHttpOk(value)) return;
+  const status = httpStatus(value);
+  throw new Error(`CalDAV request failed (${status ?? "unknown"})`);
+}
+
+type SyncReportKind = "ok" | "unsupported" | "invalid-token" | "http";
+
+class CalDavSyncReportError extends Error {
+  constructor(
+    readonly kind: Exclude<SyncReportKind, "ok">,
+    readonly status: number | null,
+  ) {
+    super(`CalDAV syncCollection failed (${status ?? kind})`);
+    this.name = "CalDavSyncReportError";
+  }
+}
+
+function classifySyncStatus(status: number | null): SyncReportKind | null {
+  if (status == null || status < 400 || status === 404) return null;
+  if (status === 501) return "unsupported";
+  if (status === 403 || status === 409) return "invalid-token";
+  return "http";
+}
+
+function classifySyncResponses(responses: DAVResponse[]): SyncReportKind {
+  let kind: SyncReportKind = "ok";
+  let status: number | null = null;
+  for (const res of responses) {
+    const next = classifySyncStatus(Number(res.status) || httpStatus(res));
+    if (!next || next === "ok") continue;
+    status = httpStatus(res);
+    if (next === "http" || next === "unsupported") {
+      throw new CalDavSyncReportError(next, status);
+    }
+    kind = next;
+  }
+  if (kind === "invalid-token") {
+    throw new CalDavSyncReportError(kind, status);
+  }
+  return kind;
+}
+
+function throwIfSyncThrown(err: unknown): void {
+  if (err instanceof CalDavSyncReportError) throw err;
+  const kind = classifySyncStatus(httpStatus(err));
+  if (kind && kind !== "ok") {
+    throw new CalDavSyncReportError(kind, httpStatus(err));
+  }
 }
 
 function calendarName(cal: DAVCalendar): string {
@@ -406,48 +458,51 @@ async function getObject(
   return { url: obj.url || href, etag: obj.etag ?? null, data };
 }
 
+async function writeResponse<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    if (err instanceof CalendarConflictError) throw err;
+    throwIfConflict(err);
+    if (httpStatus(err) != null) assertWriteOk(err);
+    throw err;
+  }
+}
+
 async function putObject(
   client: CalDavClient,
   object: { url: string; etag: string | null; data: string },
 ): Promise<{ etag: string | null; data: string; url: string }> {
-  try {
-    const res = await client.updateCalendarObject({
+  const res = await writeResponse(() =>
+    client.updateCalendarObject({
       calendarObject: {
         url: object.url,
         etag: object.etag ?? undefined,
         data: object.data,
       },
-    });
-    throwIfConflict(res);
-    return {
-      url: object.url,
-      data: object.data,
-      etag: headerEtag(res) ?? object.etag,
-    };
-  } catch (err) {
-    if (err instanceof CalendarConflictError) throw err;
-    throwIfConflict(err);
-    throw err;
-  }
+    }),
+  );
+  assertWriteOk(res);
+  return {
+    url: object.url,
+    data: object.data,
+    etag: headerEtag(res) ?? object.etag,
+  };
 }
 
 async function deleteObject(
   client: CalDavClient,
   object: { url: string; etag: string | null },
 ): Promise<void> {
-  try {
-    const res = await client.deleteCalendarObject({
+  const res = await writeResponse(() =>
+    client.deleteCalendarObject({
       calendarObject: {
         url: object.url,
         etag: object.etag ?? undefined,
       },
-    });
-    throwIfConflict(res);
-  } catch (err) {
-    if (err instanceof CalendarConflictError) throw err;
-    throwIfConflict(err);
-    throw err;
-  }
+    }),
+  );
+  assertWriteOk(res);
 }
 
 async function pullSyncCollection(
@@ -455,15 +510,19 @@ async function pullSyncCollection(
   calendarUrl: string,
   syncToken: string | null,
 ): Promise<PullResult> {
-  const responses = await client.syncCollection({
-    url: calendarUrl,
-    props: EVENT_PROPS,
-    syncLevel: 1,
-    syncToken: syncToken ?? "",
-  });
-  if (isSyncFailure(responses)) {
-    throw new Error("CalDAV syncCollection failed");
+  let responses: DAVResponse[];
+  try {
+    responses = await client.syncCollection({
+      url: calendarUrl,
+      props: EVENT_PROPS,
+      syncLevel: 1,
+      syncToken: syncToken ?? "",
+    });
+  } catch (err) {
+    throwIfSyncThrown(err);
+    throw err;
   }
+  classifySyncResponses(responses);
   const { upserts, deletedProviderIds, missingHrefs } = partitionResponses(
     responses,
     calendarUrl,
@@ -487,12 +546,14 @@ async function createOnCalendar(
   const filename = `${uid}.ics`;
   const href = new URL(filename, collectionUrl(calendarUrl)).href;
   const ics = toIcs(eventInput, uid);
-  const res = await client.createCalendarObject({
-    calendar: { url: collectionUrl(calendarUrl) },
-    iCalString: ics,
-    filename,
-  });
-  throwIfConflict(res);
+  const res = await writeResponse(() =>
+    client.createCalendarObject({
+      calendar: { url: collectionUrl(calendarUrl) },
+      iCalString: ics,
+      filename,
+    }),
+  );
+  assertWriteOk(res);
   return mapCalDavEvent({
     href,
     etag: headerEtag(res),
@@ -576,8 +637,29 @@ export function createCalDavAdapter(input: {
       const token = cursor ?? calendar.syncToken;
       try {
         return await pullSyncCollection(client, calendarUrl, token);
-      } catch {
-        return pullCalendarQuery(client, calendarUrl, false);
+      } catch (err) {
+        if (err instanceof CalDavSyncReportError && err.kind === "unsupported") {
+          return pullCalendarQuery(client, calendarUrl, false);
+        }
+        if (
+          err instanceof CalDavSyncReportError &&
+          err.kind === "invalid-token" &&
+          token
+        ) {
+          try {
+            const result = await pullSyncCollection(client, calendarUrl, null);
+            return { ...result, reset: true };
+          } catch (retryErr) {
+            if (
+              retryErr instanceof CalDavSyncReportError &&
+              retryErr.kind === "unsupported"
+            ) {
+              return pullCalendarQuery(client, calendarUrl, true);
+            }
+            throw retryErr;
+          }
+        }
+        throw err;
       }
     },
 
