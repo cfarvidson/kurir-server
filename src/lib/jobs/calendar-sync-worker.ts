@@ -308,6 +308,42 @@ export async function startCalendarSyncWorker(): Promise<void> {
   console.log("[calendar-sync-worker] Started with concurrency 5");
 }
 
+export const CALENDAR_SYNC_EVERY_MS = 120_000;
+
+const CALENDAR_SYNC_JOB_OPTS = {
+  attempts: 3,
+  backoff: { type: "exponential" as const, delay: 10_000 },
+};
+
+/** Repeatable job plus optional one-shot so a new account syncs immediately. */
+export async function enqueueCalendarSyncJob(
+  accountId: string,
+  userId: string,
+  options: { immediate?: boolean } = {},
+): Promise<void> {
+  const queue = getCalendarSyncQueue();
+  const data: CalendarSyncJobData = { calendarAccountId: accountId, userId };
+  await queue.add("sync", data, {
+    ...CALENDAR_SYNC_JOB_OPTS,
+    jobId: `calendar-sync-${accountId}`,
+    repeat: { every: CALENDAR_SYNC_EVERY_MS },
+  });
+  if (options.immediate) {
+    await queue.add("sync", data, CALENDAR_SYNC_JOB_OPTS);
+  }
+}
+
+export async function unscheduleCalendarSyncJob(
+  accountId: string,
+): Promise<void> {
+  const queue = getCalendarSyncQueue();
+  await queue.removeRepeatable(
+    "sync",
+    { every: CALENDAR_SYNC_EVERY_MS },
+    `calendar-sync-${accountId}`,
+  );
+}
+
 /**
  * Schedule repeatable sync jobs for all calendar accounts.
  * Called once at startup, then whenever a new account is connected.
@@ -317,19 +353,8 @@ export async function scheduleCalendarSyncJobs(): Promise<void> {
     select: { id: true, userId: true },
   });
 
-  const queue = getCalendarSyncQueue();
-
   for (const account of accounts) {
-    await queue.add(
-      "sync",
-      { calendarAccountId: account.id, userId: account.userId },
-      {
-        jobId: `calendar-sync-${account.id}`,
-        repeat: { every: 120_000 },
-        attempts: 3,
-        backoff: { type: "exponential", delay: 10_000 },
-      },
-    );
+    await enqueueCalendarSyncJob(account.id, account.userId);
   }
 
   console.log(
