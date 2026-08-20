@@ -533,8 +533,23 @@ describe("rsvpToMeetingForUser", () => {
     expect(adapter.respond).not.toHaveBeenCalled();
     expect(sendItipReply).not.toHaveBeenCalled();
     expect(getConnectionCredentials).not.toHaveBeenCalled();
-    expect(db.calendarEvent.create).toHaveBeenCalled();
     expect(createGoogleAdapter).not.toHaveBeenCalled();
+    expect(db.calendarEvent.create).toHaveBeenCalledTimes(1);
+    const created = vi.mocked(db.calendarEvent.create).mock.calls[0][0]
+      .data as Record<string, unknown>;
+    expect(created).toEqual(
+      expect.objectContaining({
+        icalUid: "g-uid-1@google.com",
+        title: "Design review",
+        location: "Room 4",
+        organizerJson: { email: "ada@x.y", name: "Ada" },
+        attendeesJson: [
+          { email: "me@x.y", partstat: "ACCEPTED", self: true },
+        ],
+      }),
+    );
+    expect(created).not.toHaveProperty("organizer");
+    expect(created).not.toHaveProperty("attendees");
   });
 });
 
