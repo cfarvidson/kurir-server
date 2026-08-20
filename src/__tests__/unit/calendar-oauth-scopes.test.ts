@@ -56,3 +56,23 @@ describe("calendar OAuth scopes", () => {
     expect(parsed.searchParams.get("client_id")).toBe("ms-client");
   });
 });
+
+describe("safeCalendarOAuthRedirect", () => {
+  it("accepts a same-origin path", async () => {
+    const { safeCalendarOAuthRedirect } = await import("@/lib/calendar/oauth");
+    expect(safeCalendarOAuthRedirect("/calendar")).toBe("/calendar");
+    expect(safeCalendarOAuthRedirect("/settings?tab=calendar")).toBe(
+      "/settings?tab=calendar",
+    );
+  });
+
+  it("rejects protocol-relative and backslash WHATWG bypasses", async () => {
+    const { safeCalendarOAuthRedirect } = await import("@/lib/calendar/oauth");
+    const fallback = "/settings?tab=calendar";
+    expect(safeCalendarOAuthRedirect("//evil.com")).toBe(fallback);
+    expect(safeCalendarOAuthRedirect("/\\evil.com")).toBe(fallback);
+    expect(safeCalendarOAuthRedirect("/\\/evil.com")).toBe(fallback);
+    expect(safeCalendarOAuthRedirect("\\\\evil.com")).toBe(fallback);
+    expect(safeCalendarOAuthRedirect("https://evil.com")).toBe(fallback);
+  });
+});

@@ -180,23 +180,23 @@ export async function deleteCalendarAccount(
   userId: string,
   accountId: string,
 ): Promise<void> {
-  const account = await db.calendarAccount.findFirst({
-    where: { id: accountId, userId },
-    select: { id: true },
-  });
-  if (!account) throw new Error("Calendar account not found");
-
-  const masters = await db.calendarEvent.findMany({
-    where: {
-      userId,
-      masterEventId: null,
-      recurrenceId: null,
-      calendar: { accountId },
-    },
-    select: { id: true, providerEventId: true },
-  });
-
   await db.$transaction(async (tx) => {
+    const account = await tx.calendarAccount.findFirst({
+      where: { id: accountId, userId },
+      select: { id: true },
+    });
+    if (!account) throw new Error("Calendar account not found");
+
+    const masters = await tx.calendarEvent.findMany({
+      where: {
+        userId,
+        masterEventId: null,
+        recurrenceId: null,
+        calendar: { accountId },
+      },
+      select: { id: true, providerEventId: true },
+    });
+
     if (masters.length > 0) {
       await tx.calendarTombstone.createMany({
         data: masters.map((row) => ({

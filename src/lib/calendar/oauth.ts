@@ -80,7 +80,14 @@ export function getCalendarOAuthRedirectUri(): string {
 export function safeCalendarOAuthRedirect(redirect: string | null): string {
   const fallback = "/settings?tab=calendar";
   if (!redirect) return fallback;
-  if (!redirect.startsWith("/") || redirect.startsWith("//")) return fallback;
+  // WHATWG URL parsing folds "/\evil.com" into protocol-relative "//evil.com".
+  if (
+    !redirect.startsWith("/") ||
+    redirect.startsWith("//") ||
+    redirect.includes("\\")
+  ) {
+    return fallback;
+  }
   return redirect;
 }
 

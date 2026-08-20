@@ -99,26 +99,31 @@ describe("deleteCalendarAccount", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("tombstones remaining masters, deletes the account, unschedules the job", async () => {
-    vi.mocked(db.calendarAccount.findFirst).mockResolvedValue({
-      id: "acc-1",
-    } as never);
-    vi.mocked(db.calendarEvent.findMany).mockResolvedValue([
-      { id: "evt-1", providerEventId: "prov-1" },
-      { id: "evt-2", providerEventId: "prov-2" },
-    ] as never);
     const tx = {
+      calendarAccount: {
+        findFirst: vi.fn().mockResolvedValue({ id: "acc-1" }),
+        delete: vi.fn(),
+      },
+      calendarEvent: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "evt-1", providerEventId: "prov-1" },
+          { id: "evt-2", providerEventId: "prov-2" },
+        ]),
+      },
       calendarTombstone: { createMany: vi.fn() },
-      calendarAccount: { delete: vi.fn() },
     };
     vi.mocked(db.$transaction).mockImplementation(async (fn) => {
-      await (
-        fn as unknown as (client: typeof tx) => Promise<void>
-      )(tx);
+      await (fn as unknown as (client: typeof tx) => Promise<void>)(tx);
     });
 
     await deleteCalendarAccount("u1", "acc-1");
 
-    expect(db.calendarEvent.findMany).toHaveBeenCalledWith({
+    expect(db.calendarEvent.findMany).not.toHaveBeenCalled();
+    expect(tx.calendarAccount.findFirst).toHaveBeenCalledWith({
+      where: { id: "acc-1", userId: "u1" },
+      select: { id: true },
+    });
+    expect(tx.calendarEvent.findMany).toHaveBeenCalledWith({
       where: {
         userId: "u1",
         masterEventId: null,
