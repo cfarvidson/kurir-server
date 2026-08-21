@@ -270,7 +270,6 @@ export function EventDialog({
         : null,
   );
   const [saving, setSaving] = useState(false);
-  const [rangeOpen, setRangeOpen] = useState(false);
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
 
   if (identity !== seen) {
@@ -283,7 +282,6 @@ export function EventDialog({
           : null,
     );
     setPending(null);
-    setRangeOpen(false);
   }
 
   const readOnly = event?.isReadOnly === true;
@@ -330,7 +328,6 @@ export function EventDialog({
     } finally {
       setSaving(false);
       setPending(null);
-      setRangeOpen(false);
     }
   }
 
@@ -346,7 +343,6 @@ export function EventDialog({
     } finally {
       setSaving(false);
       setPending(null);
-      setRangeOpen(false);
     }
   }
 
@@ -358,7 +354,6 @@ export function EventDialog({
     }
     if (event && isSeries) {
       setPending("save");
-      setRangeOpen(true);
       return;
     }
     void runSave("all");
@@ -368,18 +363,70 @@ export function EventDialog({
     if (!event || readOnly) return;
     if (isSeries) {
       setPending("delete");
-      setRangeOpen(true);
       return;
     }
     void runDelete("all");
   }
 
+  function handleDialogOpenChange(next: boolean) {
+    if (!next && pending) {
+      setPending(null);
+      return;
+    }
+    onOpenChange(next);
+  }
+
   if (!draft) return null;
 
+  const rangeTitle =
+    pending === "delete" ? "Delete recurring event" : "Edit recurring event";
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        {pending ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{rangeTitle}</DialogTitle>
+              <DialogDescription>Choose which events to change.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() =>
+                  pending === "delete" ? void runDelete("this") : void runSave("this")
+                }
+              >
+                This event
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() =>
+                  pending === "delete"
+                    ? void runDelete("thisAndFollowing")
+                    : void runSave("thisAndFollowing")
+                }
+              >
+                This and following events
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() =>
+                  pending === "delete" ? void runDelete("all") : void runSave("all")
+                }
+              >
+                All events
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
           <DialogHeader>
             <DialogTitle>{event ? "Event" : "New event"}</DialogTitle>
             <DialogDescription>
@@ -519,17 +566,9 @@ export function EventDialog({
               </Button>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <RecurrenceRangeDialog
-        open={rangeOpen}
-        onOpenChange={setRangeOpen}
-        title={pending === "delete" ? "Delete recurring event" : "Edit recurring event"}
-        onPick={(range) => {
-          if (pending === "delete") void runDelete(range);
-          else void runSave(range);
-        }}
-      />
-    </>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

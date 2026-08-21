@@ -13,6 +13,10 @@ import {
   snapMinutes,
   wallFromMinutes,
 } from "@/components/calendar/grid-model";
+import {
+  pointerPastThreshold,
+  timedPlacementChanged,
+} from "@/components/calendar/timed-drag";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -47,6 +51,7 @@ type DragState =
       type: "move";
       event: CalendarInstanceDTO;
       day: CivilDate;
+      originDay: CivilDate;
       pointerOrigin: number;
       originalStart: number;
       originalEnd: number;
@@ -57,6 +62,9 @@ type DragState =
       type: "resize";
       event: CalendarInstanceDTO;
       day: CivilDate;
+      originDay: CivilDate;
+      originalStart: number;
+      originalEnd: number;
       startMin: number;
       endMin: number;
     };
@@ -100,10 +108,6 @@ export function TimeGrid({
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    dragRef.current = drag;
-  }, [drag]);
-
   const today = useMemo(() => civilFromZoned(now, timezone), [now, timezone]);
 
   function minutesAt(target: HTMLElement, clientY: number): number {
@@ -124,6 +128,28 @@ export function TimeGrid({
       return;
     }
     if (next.event.isReadOnly) return;
+    const originalStart =
+      next.type === "move" || next.type === "resize"
+        ? next.originalStart
+        : next.startMin;
+    const originalEnd =
+      next.type === "move" || next.type === "resize"
+        ? next.originalEnd
+        : next.endMin;
+    const originalDay =
+      next.type === "move" || next.type === "resize" ? next.originDay : next.day;
+    if (
+      !timedPlacementChanged({
+        originalDay: formatDateParam(originalDay),
+        currentDay: formatDateParam(next.day),
+        originalStart,
+        originalEnd,
+        startMin: next.startMin,
+        endMin: next.endMin,
+      })
+    ) {
+      return;
+    }
     onTimedCommit(
       next.event,
       wallFromMinutes(next.day, next.startMin, timezone),
@@ -131,10 +157,16 @@ export function TimeGrid({
     );
   }
 
-  function bindDrag(start: DragState) {
-    setDrag(start);
+  function bindDrag(start: DragState, originX: number, originY: number) {
+    const isCreate = start.type === "create";
+    if (isCreate) {
+      setDrag(start);
+    } else {
+      setDrag(null);
+    }
     dragRef.current = start;
     suppressClick.current = false;
+    let armed = isCreate;
 
     function columnAt(
       clientX: number,
@@ -159,6 +191,16 @@ export function TimeGrid({
     function onMove(event: PointerEvent) {
       const current = dragRef.current;
       if (!current) return;
+      if (
+        !armed &&
+        !pointerPastThreshold(originX, originY, event.clientX, event.clientY)
+      ) {
+        return;
+      }
+      if (!armed) {
+        armed = true;
+        if (current.type !== "create") suppressClick.current = true;
+      }
       const hit = columnAt(event.clientX, current.day);
       if (!hit) return;
       const minutes = minutesAt(hit.node, event.clientY);
@@ -181,7 +223,6 @@ export function TimeGrid({
         setDrag(next);
         return;
       }
-      suppressClick.current = true;
       if (current.type === "move") {
         const duration = current.originalEnd - current.originalStart;
         const startMin = Math.max(
@@ -215,9 +256,22 @@ export function TimeGrid({
       const current = dragRef.current;
       setDrag(null);
       dragRef.current = null;
-      if (current && suppressClick.current) finishDrag(current);
-      if (current?.type === "create" && !suppressClick.current) {
+      if (current?.type === "create") {
         finishDrag(current);
+      } else if (current && armed) {
+        const changed =
+          current.type === "move" || current.type === "resize"
+            ? timedPlacementChanged({
+                originalDay: formatDateParam(current.originDay),
+                currentDay: formatDateParam(current.day),
+                originalStart: current.originalStart,
+                originalEnd: current.originalEnd,
+                startMin: current.startMin,
+                endMin: current.endMin,
+              })
+            : false;
+        if (changed) finishDrag(current);
+        else suppressClick.current = false;
       }
       window.setTimeout(() => {
         suppressClick.current = false;
@@ -234,13 +288,17 @@ export function TimeGrid({
   ) {
     if (event.button !== 0 || !canCreate) return;
     const minutes = minutesAt(event.currentTarget, event.clientY);
-    bindDrag({
-      type: "create",
-      day,
-      originMin: minutes,
-      startMin: minutes,
-      endMin: minutes + 60,
-    });
+    bindDrag(
+      {
+        type: "create",
+        day,
+        originMin: minutes,
+        startMin: minutes,
+        endMin: minutes + 60,
+      },
+      event.clientX,
+      event.clientY,
+    );
   }
 
   function onEventPointerDown(
@@ -250,21 +308,24 @@ export function TimeGrid({
     startMin: number,
     endMin: number,
   ) {
-    if (event.button !== 0 || instance.isReadOnly) return;
     event.stopPropagation();
+    if (event.button !== 0 || instance.isReadOnly) return;
     const column = event.currentTarget.closest<HTMLElement>("[data-cal-day]");
-    bindDrag({
-      type: "move",
-      event: instance,
-      day,
-      pointerOrigin: column
-        ? minutesAt(column, event.clientY)
-        : startMin,
-      originalStart: startMin,
-      originalEnd: endMin,
-      startMin,
-      endMin,
-    });
+    bindDrag(
+      {
+        type: "move",
+        event: instance,
+        day,
+        originDay: day,
+        pointerOrigin: column ? minutesAt(column, event.clientY) : startMin,
+        originalStart: startMin,
+        originalEnd: endMin,
+        startMin,
+        endMin,
+      },
+      event.clientX,
+      event.clientY,
+    );
   }
 
   function onResizePointerDown(
@@ -274,9 +335,22 @@ export function TimeGrid({
     startMin: number,
     endMin: number,
   ) {
-    if (event.button !== 0 || instance.isReadOnly) return;
     event.stopPropagation();
-    bindDrag({ type: "resize", event: instance, day, startMin, endMin });
+    if (event.button !== 0 || instance.isReadOnly) return;
+    bindDrag(
+      {
+        type: "resize",
+        event: instance,
+        day,
+        originDay: day,
+        originalStart: startMin,
+        originalEnd: endMin,
+        startMin,
+        endMin,
+      },
+      event.clientX,
+      event.clientY,
+    );
   }
 
   return (

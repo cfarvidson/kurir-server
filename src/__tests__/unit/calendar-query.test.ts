@@ -20,6 +20,8 @@ type EventRow = {
   exdate: string | null;
   transparency: string;
   status: string;
+  location: string | null;
+  description: string | null;
   masterEventId: string | null;
   recurrenceId: Date | null;
   calendarId: string;
@@ -205,6 +207,8 @@ describe("listVisibleInstancesForUser", () => {
         exdate: null,
         transparency: "busy",
         status: "confirmed",
+        location: "HQ",
+        description: "Standup notes",
         masterEventId: null,
         recurrenceId: null,
         calendarId: visibleCal.id,
@@ -223,6 +227,8 @@ describe("listVisibleInstancesForUser", () => {
             exdate: null,
             transparency: "busy",
             status: "cancelled",
+            location: "HQ",
+            description: "Standup notes",
             masterEventId: "master-visible",
             recurrenceId: new Date("2025-01-02T08:00:00.000Z"),
             calendarId: visibleCal.id,
@@ -244,6 +250,8 @@ describe("listVisibleInstancesForUser", () => {
         exdate: null,
         transparency: "busy",
         status: "confirmed",
+        location: null,
+        description: null,
         masterEventId: null,
         recurrenceId: null,
         calendarId: hiddenCal.id,
@@ -261,5 +269,76 @@ describe("listVisibleInstancesForUser", () => {
     ]);
     expect(rows.every((row) => row.calendarId === "cal-visible")).toBe(true);
     expect(rows.every((row) => !row.isCancelled)).toBe(true);
+  });
+
+  it("joins exception location and description on on-the-fly expand", async () => {
+    const from = new Date("2025-01-01T00:00:00.000Z");
+    const to = new Date("2025-01-04T00:00:00.000Z");
+    store.events = [
+      {
+        id: "master-notes",
+        userId: "u1",
+        title: "Daily",
+        startAt: new Date("2025-01-01T08:00:00.000Z"),
+        endAt: new Date("2025-01-01T09:00:00.000Z"),
+        isAllDay: false,
+        timezone: "UTC",
+        rrule: "FREQ=DAILY;COUNT=5",
+        rdate: null,
+        exdate: null,
+        transparency: "busy",
+        status: "confirmed",
+        location: "HQ",
+        description: "Standup notes",
+        masterEventId: null,
+        recurrenceId: null,
+        calendarId: visibleCal.id,
+        calendar: visibleCal,
+        exceptions: [
+          {
+            id: "ex-room",
+            userId: "u1",
+            title: "Daily (room change)",
+            startAt: new Date("2025-01-02T09:00:00.000Z"),
+            endAt: new Date("2025-01-02T10:00:00.000Z"),
+            isAllDay: false,
+            timezone: "UTC",
+            rrule: null,
+            rdate: null,
+            exdate: null,
+            transparency: "busy",
+            status: "confirmed",
+            location: "Room B",
+            description: "Moved",
+            masterEventId: "master-notes",
+            recurrenceId: new Date("2025-01-02T08:00:00.000Z"),
+            calendarId: visibleCal.id,
+            calendar: visibleCal,
+            exceptions: [],
+          },
+        ],
+      },
+    ];
+
+    const rows = await listVisibleInstancesForUser("u1", from, to, NOW);
+    const regular = rows.find(
+      (row) => row.startAt.toISOString() === "2025-01-01T08:00:00.000Z",
+    );
+    const patched = rows.find((row) => row.isException);
+
+    expect(regular).toMatchObject({
+      location: "HQ",
+      description: "Standup notes",
+      rrule: "FREQ=DAILY;COUNT=5",
+      isException: false,
+    });
+    expect(patched).toMatchObject({
+      title: "Daily (room change)",
+      location: "Room B",
+      description: "Moved",
+      isException: true,
+      rrule: "FREQ=DAILY;COUNT=5",
+      startAt: new Date("2025-01-02T09:00:00.000Z"),
+    });
   });
 });

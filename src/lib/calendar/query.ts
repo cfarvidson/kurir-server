@@ -133,6 +133,42 @@ function extrasFrom(
   };
 }
 
+function matchingException(
+  master: MasterRow,
+  row: EventInstance,
+): MasterRow["exceptions"][number] | null {
+  if (!row.isException) return null;
+  return (
+    master.exceptions.find(
+      (ex) =>
+        ex.startAt.getTime() === row.startAt.getTime() &&
+        ex.endAt.getTime() === row.endAt.getTime(),
+    ) ??
+    master.exceptions.find((ex) => ex.startAt.getTime() === row.startAt.getTime()) ??
+    null
+  );
+}
+
+function extrasForOccurrence(
+  row: EventInstance,
+  master: MasterRow,
+): EventExtras {
+  const base: EventExtras = {
+    transparency: master.transparency,
+    location: master.location,
+    description: master.description,
+    rrule: master.rrule,
+  };
+  const ex = matchingException(master, row);
+  if (!ex) return base;
+  return {
+    transparency: master.transparency,
+    location: ex.location ?? master.location,
+    description: ex.description ?? master.description,
+    rrule: master.rrule,
+  };
+}
+
 function decorate(
   row: EventInstance,
   calendar: CalendarMeta,
@@ -259,7 +295,13 @@ async function expandVisibleMasters(
       rrule: master.rrule,
     };
     for (const row of expanded) {
-      const mapped = decorate(row, master.calendar, from, to, extra);
+      const mapped = decorate(
+        row,
+        master.calendar,
+        from,
+        to,
+        extrasForOccurrence(row, master),
+      );
       if (mapped) out.push(mapped);
     }
     if (
