@@ -53,29 +53,44 @@ function civilFromKey(key: string): CivilDate {
   return { year, month, day };
 }
 
+type ScrollTarget = { element: HTMLElement; kind: "now" | "section" };
+
 /**
  * The scroll target for a day: its now-line when the day has one, else the
  * section itself. Both are scoped to the day so a strip that also renders
  * today doesn't steal the target.
  */
-function dayScrollTarget(node: HTMLElement, key: string): HTMLElement | null {
-  return (
-    node.querySelector<HTMLElement>(
-      `[data-filmstrip-day="${key}"] [data-filmstrip-now]`,
-    ) ?? node.querySelector<HTMLElement>(`[data-filmstrip-day="${key}"]`)
+function dayScrollTarget(node: HTMLElement, key: string): ScrollTarget | null {
+  const now = node.querySelector<HTMLElement>(
+    `[data-filmstrip-day="${key}"] [data-filmstrip-now]`,
   );
+  if (now) return { element: now, kind: "now" };
+  const section = node.querySelector<HTMLElement>(
+    `[data-filmstrip-day="${key}"]`,
+  );
+  return section ? { element: section, kind: "section" } : null;
 }
+
+/** Breathing room above a day section landed at the viewport top. */
+const SECTION_TOP_INSET = 8;
 
 /**
  * The container has no positioned ancestor, so `offsetTop` would resolve
  * against <body> (or, for the now-line, against its own nearer positioned
  * wrapper) instead of the scroll container — use getBoundingClientRect deltas.
+ *
+ * A now-line is centred a third down; a day section is landed at the top
+ * instead. Centring a section would leave the previous day's tail filling the
+ * viewport top, and the visible-day handler reports whatever sits there — so
+ * asking for the 22nd would put the 21st in the URL and the masthead.
  */
-function scrollTargetIntoView(node: HTMLElement, target: HTMLElement) {
+function scrollTargetIntoView(node: HTMLElement, target: ScrollTarget) {
   const containerTop = node.getBoundingClientRect().top;
   const targetTop =
-    target.getBoundingClientRect().top - containerTop + node.scrollTop;
-  node.scrollTop = Math.max(0, targetTop - node.clientHeight / 3);
+    target.element.getBoundingClientRect().top - containerTop + node.scrollTop;
+  const inset =
+    target.kind === "now" ? node.clientHeight / 3 : SECTION_TOP_INSET;
+  node.scrollTop = Math.max(0, targetTop - inset);
 }
 
 function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
