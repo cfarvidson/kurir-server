@@ -132,6 +132,7 @@ export function Filmstrip({
   const topRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prependCorrection = useRef<number | null>(null);
+  const didInitialScroll = useRef(false);
 
   const extend = useCallback(
     async (direction: "past" | "future") => {
@@ -173,6 +174,15 @@ export function Filmstrip({
     [range],
   );
 
+  // Keep a stable ref to the latest `extend` so the IntersectionObserver
+  // below can be created once instead of being torn down and recreated
+  // (and re-firing against a sentinel still inside rootMargin) on every
+  // successful extend.
+  const extendRef = useRef(extend);
+  useEffect(() => {
+    extendRef.current = extend;
+  }, [extend]);
+
   // Prepend without viewport jump: correct scrollTop after a "past" extend
   // shifts range.start earlier.
   useLayoutEffect(() => {
@@ -182,25 +192,44 @@ export function Filmstrip({
     prependCorrection.current = null;
   }, [range.start]);
 
+  // Sentinels are observed once. Attaching is deferred until the initial
+  // scroll has positioned the viewport, so a sentinel that starts within
+  // rootMargin of scrollTop 0 doesn't fire an extend before the anchor day
+  // is even in view.
   useEffect(() => {
     const root = containerRef.current;
     const top = topRef.current;
     const bottom = bottomRef.current;
     if (!root || !top || !bottom) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          if (entry.target === top) void extend("past");
-          if (entry.target === bottom) void extend("future");
-        }
-      },
-      { root, rootMargin: "600px 0px" },
-    );
-    observer.observe(top);
-    observer.observe(bottom);
-    return () => observer.disconnect();
-  }, [extend]);
+
+    let observer: IntersectionObserver | undefined;
+    let rafId: number | undefined;
+
+    function attach() {
+      if (!didInitialScroll.current) {
+        rafId = window.requestAnimationFrame(attach);
+        return;
+      }
+      observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            if (entry.target === top) void extendRef.current("past");
+            if (entry.target === bottom) void extendRef.current("future");
+          }
+        },
+        { root, rootMargin: "600px 0px" },
+      );
+      observer.observe(top!);
+      observer.observe(bottom!);
+    }
+    attach();
+
+    return () => {
+      observer?.disconnect();
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   const days = useMemo(
     () => daySpan(range.start, range.endExclusive),
@@ -212,8 +241,10 @@ export function Filmstrip({
   );
 
   // Initial scroll, once: to the now-line when present, else the anchor's
-  // day section.
-  const didInitialScroll = useRef(false);
+  // day section. The container has no positioned ancestor, so `offsetTop`
+  // would resolve against <body> (or, for the now-line, against its own
+  // nearer positioned wrapper) instead of the scroll container — use
+  // getBoundingClientRect deltas instead.
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
     const node = containerRef.current;
@@ -223,8 +254,12 @@ export function Filmstrip({
       node.querySelector<HTMLElement>(
         `[data-filmstrip-day="${formatDateParam(anchor)}"]`,
       );
-    if (!target) return;
-    node.scrollTop = Math.max(0, target.offsetTop - node.clientHeight / 3);
+    if (target) {
+      const containerTop = node.getBoundingClientRect().top;
+      const targetTop =
+        target.getBoundingClientRect().top - containerTop + node.scrollTop;
+      node.scrollTop = Math.max(0, targetTop - node.clientHeight / 3);
+    }
     didInitialScroll.current = true;
   }, [anchor]);
 
@@ -240,13 +275,17 @@ export function Filmstrip({
       if (rafId != null) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = null;
-        const scrollTop = node!.scrollTop;
+        // Same rect-based positioning as the initial scroll: the container
+        // isn't a positioned ancestor, so compare each section's top
+        // relative to the container's own rect instead of offsetTop.
+        const containerTop = node!.getBoundingClientRect().top;
         const sections = node!.querySelectorAll<HTMLElement>(
           "[data-filmstrip-day]",
         );
         let current: HTMLElement | null = null;
         for (const section of sections) {
-          if (section.offsetTop <= scrollTop + 24) {
+          const top = section.getBoundingClientRect().top - containerTop;
+          if (top <= 24) {
             current = section;
           } else {
             break;
