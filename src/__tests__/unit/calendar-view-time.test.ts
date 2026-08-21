@@ -9,6 +9,8 @@ import {
   packTimedEvents,
   civilFromAllDayUtc,
   formatDateParam,
+  formatDurationLabel,
+  formatFreetimeLabel,
 } from "@/lib/calendar/view-time";
 
 describe("calendar view time", () => {
@@ -49,5 +51,28 @@ describe("calendar view time", () => {
     expect(byId.a.col).not.toBe(byId.b.col);
     expect(byId.c.cols).toBe(1);
     expect(byId.c.col).toBe(0);
+  });
+});
+
+describe("formatDurationLabel", () => {
+  it("formats sub-hour durations in minutes", () => {
+    expect(formatDurationLabel(45)).toBe("45 min");
+  });
+  it("formats whole hours", () => {
+    expect(formatDurationLabel(60)).toBe("1 h");
+    expect(formatDurationLabel(180)).toBe("3 h");
+  });
+  it("formats half hours with a decimal", () => {
+    expect(formatDurationLabel(90)).toBe("1.5 h");
+  });
+  it("formats other remainders as h + min", () => {
+    expect(formatDurationLabel(135)).toBe("2 h 15 min");
+  });
+});
+
+describe("formatFreetimeLabel", () => {
+  it("appends free", () => {
+    expect(formatFreetimeLabel(180)).toBe("3 h free");
+    expect(formatFreetimeLabel(150)).toBe("2.5 h free");
   });
 });

@@ -376,3 +376,16 @@ export function rruleFromPreset(preset: string): string | null {
       return null;
   }
 }
+
+export function formatDurationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  if (rem === 0) return `${hours} h`;
+  if (rem === 30) return `${hours}.5 h`;
+  return `${hours} h ${rem} min`;
+}
+
+export function formatFreetimeLabel(minutes: number): string {
+  return `${formatDurationLabel(minutes)} free`;
+}
