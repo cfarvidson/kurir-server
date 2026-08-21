@@ -9,6 +9,7 @@ import {
   safeCalendarOAuthRedirect,
   signCalendarOAuthState,
 } from "@/lib/calendar/oauth";
+import { getRequestUserId, requireMobileAuth } from "@/lib/mobile/auth";
 
 /**
  * GET /api/calendar/oauth/start?provider=google|microsoft
@@ -38,8 +39,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = mobile
+    ? ((await requireMobileAuth(request))?.userId ??
+      (await getRequestUserId(request)))
+    : (await auth())?.user?.id;
+  if (!userId) {
     if (mobile) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("redirect"),
   );
   const state = signCalendarOAuthState({
-    userId: session.user.id,
+    userId,
     provider,
     redirect,
   });

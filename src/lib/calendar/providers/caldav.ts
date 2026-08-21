@@ -534,6 +534,7 @@ async function pullSyncCollection(
   client: CalDavClient,
   calendarUrl: string,
   syncToken: string | null,
+  reset: boolean,
 ): Promise<PullResult> {
   let responses: DAVResponse[];
   try {
@@ -553,12 +554,13 @@ async function pullSyncCollection(
     calendarUrl,
   );
   const extra = await fillMissing(client, calendarUrl, missingHrefs);
+  const exhaustive = !syncToken || reset;
   return {
     upserts: [...upserts, ...extra],
     deletedProviderIds,
     cursor: syncTokenOf(responses),
-    reset: false,
-    complete: true,
+    reset: exhaustive,
+    complete: exhaustive,
   };
 }
 
@@ -661,7 +663,7 @@ export function createCalDavAdapter(input: {
       const calendarUrl = calendar.providerCalendarId;
       const token = cursor ?? calendar.syncToken;
       try {
-        return await pullSyncCollection(client, calendarUrl, token);
+        return await pullSyncCollection(client, calendarUrl, token, false);
       } catch (err) {
         if (err instanceof CalDavSyncReportError && err.kind === "unsupported") {
           return pullCalendarQuery(client, calendarUrl, false);
@@ -672,8 +674,7 @@ export function createCalDavAdapter(input: {
           token
         ) {
           try {
-            const result = await pullSyncCollection(client, calendarUrl, null);
-            return { ...result, reset: true };
+            return await pullSyncCollection(client, calendarUrl, null, true);
           } catch (retryErr) {
             if (
               retryErr instanceof CalDavSyncReportError &&

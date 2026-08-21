@@ -31,20 +31,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
 
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 
-const DELTA_LINK =
-  "https://graph.microsoft.com/v1.0/me/calendars/cal1/events/delta?$deltatoken=abc";
-const NEXT_DELTA =
-  "https://graph.microsoft.com/v1.0/me/calendars/cal1/events/delta?$deltatoken=xyz";
 
-function goneError(): Error & { statusCode: number; code: string } {
-  const err = new Error("The delta token is no longer valid") as Error & {
-    statusCode: number;
-    code: string;
-  };
-  err.statusCode = 410;
-  err.code = "gone";
-  return err;
-}
 
 const timedEvent = {
   id: "e1",
@@ -116,20 +103,22 @@ describe("createMicrosoftAdapter", () => {
     ]);
   });
 
-  it("pulls incrementally with the delta link as cursor", async () => {
+  it("lists /events masters and does not use calendarView or events/delta", async () => {
     graphMocks.get.mockResolvedValue({
       value: [timedEvent, { id: "e2", "@removed": { reason: "deleted" } }],
-      "@odata.deltaLink": NEXT_DELTA,
     });
 
     const adapter = createMicrosoftAdapter({ accessToken: "tok-1" });
     const result = await adapter.pull(
-      { providerCalendarId: "cal1", syncToken: DELTA_LINK },
+      { providerCalendarId: "cal1", syncToken: "ignored-delta" },
       null,
     );
 
-    expect(graphMocks.api).toHaveBeenCalledWith(DELTA_LINK);
+    expect(graphMocks.api).toHaveBeenCalledWith("/me/calendars/cal1/events");
     expect(apiPaths().some((path) => path.includes("calendarView"))).toBe(
+      false,
+    );
+    expect(apiPaths().some((path) => path.includes("/events/delta"))).toBe(
       false,
     );
     expect(graphMocks.header).toHaveBeenCalledWith(
@@ -137,40 +126,13 @@ describe("createMicrosoftAdapter", () => {
       'outlook.timezone="UTC"',
     );
 
-    expect(result.reset).toBe(false);
+    expect(result.reset).toBe(true);
     expect(result.complete).toBe(true);
-    expect(result.cursor).toBe(NEXT_DELTA);
+    expect(result.cursor).toBeNull();
     expect(result.upserts).toHaveLength(1);
     expect(result.upserts[0]?.providerEventId).toBe("e1");
     expect(result.upserts[0]?.title).toBe("Call");
     expect(result.deletedProviderIds).toEqual(["e2"]);
-  });
-
-  it("resets with a full list when the delta is gone", async () => {
-    graphMocks.get
-      .mockRejectedValueOnce(goneError())
-      .mockResolvedValueOnce({
-        value: [timedEvent],
-        "@odata.deltaLink": NEXT_DELTA,
-      });
-
-    const adapter = createMicrosoftAdapter({ accessToken: "tok-1" });
-    const result = await adapter.pull(
-      { providerCalendarId: "cal1", syncToken: DELTA_LINK },
-      null,
-    );
-
-    expect(graphMocks.get).toHaveBeenCalledTimes(2);
-    expect(graphMocks.api.mock.calls[0]?.[0]).toBe(DELTA_LINK);
-    const retryPath = String(graphMocks.api.mock.calls[1]?.[0]);
-    expect(retryPath).toContain("/me/calendars/cal1/events");
-    expect(retryPath).not.toContain("calendarView");
-    expect(retryPath).not.toContain("$deltatoken=abc");
-
-    expect(result.reset).toBe(true);
-    expect(result.complete).toBe(true);
-    expect(result.cursor).toBe(NEXT_DELTA);
-    expect(result.upserts[0]?.providerEventId).toBe("e1");
   });
 
   it("creates an event via POST /me/calendars/{id}/events", async () => {

@@ -88,20 +88,6 @@ const ORDINAL_TO_INDEX: Record<string, string> = {
   "-1": "last",
 };
 
-function isGone(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const rec = err as {
-    statusCode?: unknown;
-    status?: unknown;
-    code?: unknown;
-    response?: { status?: unknown };
-  };
-  const status = rec.statusCode ?? rec.response?.status ?? rec.status;
-  if (Number(status) === 410) return true;
-  const code = String(rec.code ?? "").toLowerCase();
-  return code === "gone" || code === "syncstatenotfound";
-}
-
 function ymdUtc(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -172,10 +158,6 @@ function calendarPath(calendarId: string): string {
 
 function eventsPath(calendarId: string): string {
   return `${calendarPath(calendarId)}/events`;
-}
-
-function eventsDeltaPath(calendarId: string): string {
-  return `${eventsPath(calendarId)}/delta`;
 }
 
 function eventPath(calendarId: string, eventId: string): string {
@@ -418,33 +400,28 @@ async function listCalendarsPage(client: Client): Promise<RemoteCalendar[]> {
 async function listEventPages(
   client: Client,
   calendarId: string,
-  token: string | null,
-): Promise<{ items: unknown[]; deltaLink: string | null }> {
+): Promise<unknown[]> {
   const items: unknown[] = [];
-  let url: string | undefined = token && token.length > 0 ? token : eventsDeltaPath(calendarId);
-  let deltaLink: string | null = null;
+  let url: string | undefined = eventsPath(calendarId);
   while (url) {
     const res = (await eventRequest(client, url).get()) as ODataCollection<unknown>;
     items.push(...(res.value ?? []));
     url = res["@odata.nextLink"];
-    if (res["@odata.deltaLink"]) deltaLink = res["@odata.deltaLink"];
   }
-  return { items, deltaLink };
+  return items;
 }
 
-async function pullEvents(
-  client: Client,
-  calendarId: string,
-  token: string | null,
-  reset: boolean,
-): Promise<PullResult> {
-  const { items, deltaLink } = await listEventPages(client, calendarId, token);
+async function pullEvents(client: Client, calendarId: string): Promise<PullResult> {
+  // v1.0 event:delta is calendarView/delta (expanded occurrences, forbidden).
+  // /me/calendars/{id}/events/delta is Graph beta. There is no v1.0 master
+  // delta, so each pull lists /events (series masters) and skips a cursor.
+  const items = await listEventPages(client, calendarId);
   const { upserts, deletedProviderIds } = partitionEvents(items);
   return {
     upserts,
     deletedProviderIds,
-    cursor: deltaLink,
-    reset,
+    cursor: null,
+    reset: true,
     complete: true,
   };
 }
@@ -616,20 +593,9 @@ export function createMicrosoftAdapter(tokens: {
 
     async pull(
       calendar: { providerCalendarId: string; syncToken: string | null },
-      cursor: string | null,
+      _cursor: string | null,
     ): Promise<PullResult> {
-      const start = cursor ?? calendar.syncToken;
-      try {
-        return await pullEvents(
-          client,
-          calendar.providerCalendarId,
-          start,
-          false,
-        );
-      } catch (err) {
-        if (!isGone(err) || !start) throw err;
-        return pullEvents(client, calendar.providerCalendarId, null, true);
-      }
+      return pullEvents(client, calendar.providerCalendarId);
     },
 
     async createEvent(

@@ -1,9 +1,12 @@
 import type { CalendarProvider } from "@prisma/client";
 import { db } from "@/lib/db";
-import { decrypt, encrypt } from "@/lib/crypto";
+import { decrypt } from "@/lib/crypto";
 import { isDemoInstance } from "@/lib/demo";
+import {
+  CalendarOauthError,
+  ensureAccessToken,
+} from "@/lib/calendar/access-token";
 import { applyPull } from "@/lib/calendar/apply-pull";
-import { refreshCalendarAccessToken } from "@/lib/calendar/oauth";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
@@ -19,15 +22,6 @@ import {
   getCalendarSyncQueue,
   getRedisConnection,
 } from "./queue";
-
-class CalendarOauthError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "CalendarOauthError";
-  }
-}
-
-const OAUTH_REFRESH_BUFFER_MS = 60_000;
 
 export type CalendarSyncJobData = {
   calendarAccountId: string;
@@ -70,56 +64,6 @@ function adapterForAccount(
     username: account.caldavUsername,
     password: decrypt(account.encryptedPassword),
   });
-}
-
-async function setOauthError(accountId: string, message: string): Promise<void> {
-  await db.calendarAccount.update({
-    where: { id: accountId },
-    data: { oauthError: message },
-  });
-}
-
-async function ensureAccessToken(account: AccountRow): Promise<string | null> {
-  if (account.provider === "CALDAV") return null;
-
-  const freshEnough =
-    account.oauthAccessToken &&
-    account.oauthTokenExpiresAt &&
-    account.oauthTokenExpiresAt.getTime() - Date.now() >=
-      OAUTH_REFRESH_BUFFER_MS;
-
-  if (freshEnough && account.oauthAccessToken) {
-    return decrypt(account.oauthAccessToken);
-  }
-
-  if (!account.oauthRefreshToken) {
-    const message = "No refresh token available";
-    await setOauthError(account.id, message);
-    throw new CalendarOauthError(message);
-  }
-
-  try {
-    const fresh = await refreshCalendarAccessToken(
-      account.provider,
-      decrypt(account.oauthRefreshToken),
-    );
-    await db.calendarAccount.update({
-      where: { id: account.id },
-      data: {
-        oauthAccessToken: encrypt(fresh.accessToken),
-        oauthTokenExpiresAt: fresh.expiresAt,
-        oauthError: null,
-        ...(fresh.refreshToken
-          ? { oauthRefreshToken: encrypt(fresh.refreshToken) }
-          : {}),
-      },
-    });
-    return fresh.accessToken;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Token refresh failed";
-    await setOauthError(account.id, message);
-    throw new CalendarOauthError(message);
-  }
 }
 
 async function upsertCalendars(
@@ -201,13 +145,15 @@ async function pullOneCalendar(
     });
 
     const data: { syncToken?: string; lastError: null } = { lastError: null };
-    if (pull.complete && pull.cursor) data.syncToken = pull.cursor;
+    if (pull.cursor && (pull.complete || calendar.syncToken)) {
+      data.syncToken = pull.cursor;
+    }
     await db.calendar.update({
       where: { id: calendar.id },
       data,
     });
 
-    if (pull.complete || !pull.cursor) break;
+    if (pull.complete || !pull.cursor || calendar.syncToken) break;
     cursor = pull.cursor;
   }
 }

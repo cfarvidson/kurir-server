@@ -34,6 +34,8 @@ type AccountRow = {
   id: string;
   provider: "GOOGLE" | "MICROSOFT" | "CALDAV";
   oauthAccessToken: string | null;
+  oauthRefreshToken: string | null;
+  oauthTokenExpiresAt: Date | null;
   caldavUrl: string | null;
   caldavUsername: string | null;
   encryptedPassword: string | null;
@@ -143,6 +145,9 @@ vi.mock("@/lib/db", () => {
     createMany: vi.fn(),
     deleteMany: vi.fn(),
   };
+  const calendarAccount = {
+    update: vi.fn(),
+  };
   const tx = {
     calendar,
     calendarEvent,
@@ -152,6 +157,7 @@ vi.mock("@/lib/db", () => {
   return {
     db: {
       ...tx,
+      calendarAccount,
       $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
     },
   };
@@ -159,6 +165,11 @@ vi.mock("@/lib/db", () => {
 
 vi.mock("@/lib/crypto", () => ({
   decrypt: vi.fn((value: string) => value),
+  encrypt: vi.fn((value: string) => value),
+}));
+
+vi.mock("@/lib/demo", () => ({
+  isDemoInstance: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/calendar/providers/google", () => ({
@@ -166,12 +177,15 @@ vi.mock("@/lib/calendar/providers/google", () => ({
 }));
 
 import { db } from "@/lib/db";
+import { isDemoInstance } from "@/lib/demo";
 
 function account(partial: Partial<AccountRow> = {}): AccountRow {
   return {
     id: "acc-1",
     provider: "GOOGLE",
     oauthAccessToken: "tok-1",
+    oauthRefreshToken: "ref-1",
+    oauthTokenExpiresAt: new Date(Date.now() + 60 * 60_000),
     caldavUrl: null,
     caldavUsername: null,
     encryptedPassword: null,
@@ -419,11 +433,12 @@ function wireStore() {
 describe("calendar write-through", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(isDemoInstance).mockReturnValue(false);
     store.calendars = [];
     store.events = [];
     store.instances = [];
     store.tombstones = [];
-    store.seq = 0;
+    store.seq = 10;
     wireStore();
   });
 
@@ -804,5 +819,174 @@ describe("calendar write-through", () => {
       isCancelled: false,
       isException: false,
     });
+  });
+
+  it("writes this as an exception and keeps the master providerEventId", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
+    adapter.updateEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1_20260820T100000Z",
+        title: "Lunch",
+        rrule: null,
+        masterProviderEventId: "g-1",
+        recurrenceId: new Date("2026-08-20T10:00:00.000Z"),
+      }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser("u1", "evt-1", input(), "this");
+
+    const master = store.events.find((e) => e.id === "evt-1");
+    const exception = store.events.find((e) => e.id !== "evt-1");
+    expect(master).toMatchObject({
+      id: "evt-1",
+      providerEventId: "g-1",
+      rrule: "FREQ=DAILY",
+      title: "Standup",
+    });
+    expect(exception).toMatchObject({
+      providerEventId: "g-1_20260820T100000Z",
+      masterEventId: "evt-1",
+      title: "Lunch",
+    });
+    expect(exception?.recurrenceId?.toISOString()).toBe(
+      "2026-08-20T10:00:00.000Z",
+    );
+    expect(store.tombstones).toHaveLength(0);
+  });
+
+  it("keeps the truncated master and inserts a second series for thisAndFollowing", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
+    adapter.updateEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-2",
+        icalUid: "uid-2",
+        title: "Lunch",
+        rrule: "FREQ=DAILY",
+        startAt: new Date("2026-08-20T12:00:00.000Z"),
+        endAt: new Date("2026-08-20T13:00:00.000Z"),
+      }),
+    );
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        icalUid: "uid-1",
+        title: "Standup",
+        rrule: "FREQ=DAILY;UNTIL=20260820T115959Z",
+        etag: "etag-trunc",
+      }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser("u1", "evt-1", input({ rrule: "FREQ=DAILY" }), "thisAndFollowing");
+
+    const original = store.events.find((e) => e.id === "evt-1");
+    const following = store.events.find((e) => e.id !== "evt-1" && !e.masterEventId);
+    expect(original).toMatchObject({
+      id: "evt-1",
+      providerEventId: "g-1",
+      title: "Standup",
+    });
+    expect(original?.rrule).toContain("UNTIL=");
+    expect(following).toMatchObject({
+      providerEventId: "g-2",
+      title: "Lunch",
+      masterEventId: null,
+    });
+    expect(following?.id).not.toBe("evt-1");
+    expect(store.tombstones).toHaveLength(0);
+  });
+
+  it("delete thisAndFollowing truncates the original master and does not tombstone it", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
+    adapter.deleteEvent.mockResolvedValue(undefined);
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "Standup",
+        rrule: "FREQ=DAILY;UNTIL=20260820T095959Z",
+        etag: "etag-trunc",
+      }),
+    );
+
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    await deleteEventForUser("u1", "evt-1", "thisAndFollowing");
+
+    expect(adapter.deleteEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      expect.objectContaining({ providerEventId: "g-1" }),
+      "thisAndFollowing",
+    );
+    const original = store.events.find((e) => e.id === "evt-1");
+    expect(original).toMatchObject({
+      id: "evt-1",
+      providerEventId: "g-1",
+    });
+    expect(original?.rrule).toContain("UNTIL=");
+    expect(store.tombstones).toHaveLength(0);
+  });
+
+  it("refetches the truncated series when thisAndFollowing insert throws", async () => {
+    store.calendars.push(calendar());
+    store.events.push(eventRow({ rrule: "FREQ=DAILY", title: "Standup" }));
+    adapter.updateEvent.mockRejectedValue(new Error("insert failed"));
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "Standup",
+        rrule: "FREQ=DAILY;UNTIL=20260820T115959Z",
+        etag: "etag-trunc",
+      }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await expect(
+      updateEventForUser("u1", "evt-1", input({ rrule: "FREQ=DAILY" }), "thisAndFollowing"),
+    ).rejects.toThrow("insert failed");
+
+    const original = store.events.find((e) => e.id === "evt-1");
+    expect(original).toMatchObject({
+      id: "evt-1",
+      providerEventId: "g-1",
+      rrule: "FREQ=DAILY;UNTIL=20260820T115959Z",
+    });
+    expect(store.events.filter((e) => !e.masterEventId)).toHaveLength(1);
+    expect(adapter.getEvent).toHaveBeenCalledWith(
+      { providerCalendarId: "primary" },
+      "g-1",
+    );
+  });
+
+  it("demo writes stay on the replica and skip the adapter", async () => {
+    vi.mocked(isDemoInstance).mockReturnValue(true);
+    store.calendars.push(
+      calendar({
+        account: account({
+          provider: "CALDAV",
+          oauthAccessToken: null,
+          oauthRefreshToken: null,
+          oauthTokenExpiresAt: null,
+          caldavUrl: "https://cal.example",
+          caldavUsername: "demo",
+          encryptedPassword: null,
+        }),
+      }),
+    );
+
+    const { createEventForUser } = await import("@/lib/calendar/write");
+    const result = await createEventForUser("u1", "cal-1", input());
+
+    expect(result).toEqual({ id: expect.any(String) });
+    expect(adapter.createEvent).not.toHaveBeenCalled();
+    const saved = store.events.find((e) => e.id === result.id);
+    expect(saved).toMatchObject({
+      title: "Lunch",
+      userId: "u1",
+      calendarId: "cal-1",
+    });
+    expect(saved?.providerEventId).toMatch(/^pending:/);
   });
 });

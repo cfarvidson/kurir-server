@@ -22,11 +22,15 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    calendarAccount: {
+      update: vi.fn(),
+    },
   },
 }));
 
 vi.mock("@/lib/crypto", () => ({
   decrypt: vi.fn((value: string) => value),
+  encrypt: vi.fn((value: string) => value),
 }));
 
 vi.mock("@/lib/demo", () => ({
@@ -103,6 +107,8 @@ function googleAccount(partial: Record<string, unknown> = {}) {
     provider: "GOOGLE" as const,
     principalEmail: "me@x.y",
     oauthAccessToken: "tok-g",
+    oauthRefreshToken: "ref-g",
+    oauthTokenExpiresAt: new Date(Date.now() + 60 * 60_000),
     caldavUrl: null,
     caldavUsername: null,
     encryptedPassword: null,

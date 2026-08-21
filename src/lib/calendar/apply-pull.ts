@@ -254,10 +254,14 @@ async function applyPullTx(
     pull.upserts.map((event) => event.providerEventId),
   );
   const deletedProviderIds = new Set(pull.deletedProviderIds);
+  // complete+reset is an exhaustive listing (no token, or retry after 410 /
+  // invalid token). Incremental pages may still set complete today; missing
+  // replica rows must stay unless the provider named them in deletedProviderIds.
+  const deleteMissing = pull.complete && pull.reset;
   const deleteIds: string[] = [];
   for (const row of byId.values()) {
     const named = deletedProviderIds.has(row.providerEventId);
-    const missing = pull.complete && !upsertProviderIds.has(row.providerEventId);
+    const missing = deleteMissing && !upsertProviderIds.has(row.providerEventId);
     if (named || missing) deleteIds.push(row.id);
   }
 

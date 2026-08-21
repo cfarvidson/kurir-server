@@ -231,7 +231,32 @@ describe("applyPull", () => {
     );
   });
 
-  it("deletes replica events missing from a complete pull", async () => {
+  it("does not mass-delete B when an incremental complete page lists only A", async () => {
+    const db = await setupMocks([
+      replicaRow({ id: "e-a", providerEventId: "A" }),
+      replicaRow({ id: "e-b", providerEventId: "B" }),
+    ]);
+
+    const { applyPull } = await import("@/lib/calendar/apply-pull");
+    const result = await applyPull({
+      userId: "u1",
+      accountId: "acc1",
+      calendarId: "cal1",
+      now,
+      pull: pull({
+        upserts: [remote({ providerEventId: "A", title: "A" })],
+        deletedProviderIds: [],
+        reset: false,
+        complete: true,
+      }),
+    });
+
+    expect(result).toEqual({ upserted: 1, deleted: 0 });
+    expect(db.calendarEvent.deleteMany).not.toHaveBeenCalled();
+    expect(db.calendarTombstone.createMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes replica events missing from a complete exhaustive pull", async () => {
     const db = await setupMocks([
       replicaRow({ id: "e-keep", providerEventId: "keep" }),
       replicaRow({ id: "e-missing", providerEventId: "missing" }),
@@ -247,7 +272,7 @@ describe("applyPull", () => {
       pull: pull({
         upserts: [remote({ providerEventId: "keep", title: "Keep" })],
         deletedProviderIds: ["gone"],
-        reset: false,
+        reset: true,
         complete: true,
       }),
     });

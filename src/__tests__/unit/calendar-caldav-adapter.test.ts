@@ -143,7 +143,7 @@ describe("createCalDavAdapter", () => {
     ]);
   });
 
-  it("pulls via syncCollection with complete true", async () => {
+  it("pulls incremental syncCollection without delete-missing complete", async () => {
     davMocks.syncCollection.mockResolvedValue([
       {
         href: EVENT_HREF,
@@ -176,7 +176,7 @@ describe("createCalDavAdapter", () => {
     );
     expect(davMocks.calendarQuery).not.toHaveBeenCalled();
     expect(result.reset).toBe(false);
-    expect(result.complete).toBe(true);
+    expect(result.complete).toBe(false);
     expect(result.cursor).toBe("sync-2");
     expect(result.upserts).toHaveLength(1);
     expect(result.upserts[0]?.providerEventId).toBe(EVENT_HREF);

@@ -231,12 +231,17 @@ async function listEventPages(
   let nextPage = pageToken ?? undefined;
   let nextSyncToken: string | null = null;
   do {
+    // Incremental events.list with syncToken rejects extra fields (including
+    // singleEvents). Only calendarId, syncToken, showDeleted, and pageToken.
     const params: calendar_v3.Params$Resource$Events$List = {
       calendarId,
-      singleEvents: false,
       showDeleted: true,
     };
-    if (syncToken) params.syncToken = syncToken;
+    if (syncToken) {
+      params.syncToken = syncToken;
+    } else {
+      params.singleEvents = false;
+    }
     if (nextPage) params.pageToken = nextPage;
     const res = await client.events.list(params);
     items.push(...(res.data.items ?? []));
@@ -259,12 +264,13 @@ async function pullEvents(
     cursor,
   );
   const { upserts, deletedProviderIds } = partitionEvents(items);
+  const exhaustive = !calendar.syncToken || reset;
   return {
     upserts,
     deletedProviderIds,
     cursor: nextSyncToken,
-    reset,
-    complete: true,
+    reset: exhaustive,
+    complete: exhaustive,
   };
 }
 

@@ -3,6 +3,10 @@ import { getConnectionCredentials } from "@/lib/auth";
 import { decrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { isDemoInstance } from "@/lib/demo";
+import {
+  CalendarOauthError,
+  ensureAccessToken,
+} from "@/lib/calendar/access-token";
 import { sendItipReply } from "@/lib/calendar/itip";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
@@ -36,6 +40,8 @@ type AccountCreds = {
   provider: CalendarProvider;
   principalEmail: string | null;
   oauthAccessToken: string | null;
+  oauthRefreshToken: string | null;
+  oauthTokenExpiresAt: Date | null;
   caldavUrl: string | null;
   caldavUsername: string | null;
   encryptedPassword: string | null;
@@ -92,22 +98,27 @@ function rsvpRange(recurrenceId: Date | null): RecurrenceEdit {
   return recurrenceId ? "this" : "all";
 }
 
-function adapterForAccount(account: AccountCreds): CalendarAdapter {
+async function adapterForAccount(account: AccountCreds): Promise<CalendarAdapter> {
+  let accessToken: string | null = null;
+  try {
+    accessToken = await ensureAccessToken(account);
+  } catch (err) {
+    if (err instanceof CalendarOauthError) {
+      throw new CalendarWriteError(err.message, 401);
+    }
+    throw err;
+  }
   if (account.provider === "GOOGLE") {
-    if (!account.oauthAccessToken) {
+    if (!accessToken) {
       throw new CalendarWriteError("Missing OAuth token", 500);
     }
-    return createGoogleAdapter({
-      accessToken: decrypt(account.oauthAccessToken),
-    });
+    return createGoogleAdapter({ accessToken });
   }
   if (account.provider === "MICROSOFT") {
-    if (!account.oauthAccessToken) {
+    if (!accessToken) {
       throw new CalendarWriteError("Missing OAuth token", 500);
     }
-    return createMicrosoftAdapter({
-      accessToken: decrypt(account.oauthAccessToken),
-    });
+    return createMicrosoftAdapter({ accessToken });
   }
   if (!account.caldavUrl || !account.caldavUsername || !account.encryptedPassword) {
     throw new CalendarWriteError("Missing CalDAV credentials", 500);
@@ -163,6 +174,8 @@ const eventInclude = {
           provider: true,
           principalEmail: true,
           oauthAccessToken: true,
+          oauthRefreshToken: true,
+          oauthTokenExpiresAt: true,
           caldavUrl: true,
           caldavUsername: true,
           encryptedPassword: true,
@@ -333,6 +346,8 @@ export async function rsvpToMeetingForUser(
           provider: true,
           principalEmail: true,
           oauthAccessToken: true,
+          oauthRefreshToken: true,
+          oauthTokenExpiresAt: true,
           caldavUrl: true,
           caldavUsername: true,
           encryptedPassword: true,
@@ -391,7 +406,7 @@ export async function rsvpToMeetingForUser(
   }
 
   const calendar = event.calendar;
-  const adapter = adapterForAccount(calendar.account);
+  const adapter = await adapterForAccount(calendar.account);
   const requestSequence = event.sequence;
   const remote = await adapter.respond(
     { providerCalendarId: calendar.providerCalendarId },

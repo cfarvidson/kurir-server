@@ -1,6 +1,11 @@
 import { Prisma, type CalendarProvider } from "@prisma/client";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
+import { isDemoInstance } from "@/lib/demo";
+import {
+  CalendarOauthError,
+  ensureAccessToken,
+} from "@/lib/calendar/access-token";
 import { applyPull } from "@/lib/calendar/apply-pull";
 import {
   expandEventWindow,
@@ -42,6 +47,8 @@ type AccountCreds = {
   id: string;
   provider: CalendarProvider;
   oauthAccessToken: string | null;
+  oauthRefreshToken: string | null;
+  oauthTokenExpiresAt: Date | null;
   caldavUrl: string | null;
   caldavUsername: string | null;
   encryptedPassword: string | null;
@@ -132,22 +139,21 @@ function isConflict(err: unknown): boolean {
   return err instanceof CalendarConflictError || isHttp412(err);
 }
 
-function adapterForAccount(account: AccountCreds): CalendarAdapter {
+function adapterForAccount(
+  account: AccountCreds,
+  accessToken: string | null,
+): CalendarAdapter {
   if (account.provider === "GOOGLE") {
-    if (!account.oauthAccessToken) {
+    if (!accessToken) {
       throw new CalendarWriteError("Missing OAuth token", 500);
     }
-    return createGoogleAdapter({
-      accessToken: decrypt(account.oauthAccessToken),
-    });
+    return createGoogleAdapter({ accessToken });
   }
   if (account.provider === "MICROSOFT") {
-    if (!account.oauthAccessToken) {
+    if (!accessToken) {
       throw new CalendarWriteError("Missing OAuth token", 500);
     }
-    return createMicrosoftAdapter({
-      accessToken: decrypt(account.oauthAccessToken),
-    });
+    return createMicrosoftAdapter({ accessToken });
   }
   if (!account.caldavUrl || !account.caldavUsername || !account.encryptedPassword) {
     throw new CalendarWriteError("Missing CalDAV credentials", 500);
@@ -157,6 +163,20 @@ function adapterForAccount(account: AccountCreds): CalendarAdapter {
     username: account.caldavUsername,
     password: decrypt(account.encryptedPassword),
   });
+}
+
+async function adapterForWritable(
+  account: AccountCreds,
+): Promise<CalendarAdapter> {
+  try {
+    const accessToken = await ensureAccessToken(account);
+    return adapterForAccount(account, accessToken);
+  } catch (err) {
+    if (err instanceof CalendarOauthError) {
+      throw new CalendarWriteError(err.message, 401);
+    }
+    throw err;
+  }
 }
 
 function assertWritable(calendar: { isReadOnly: boolean }): void {
@@ -381,9 +401,51 @@ function adapterEventRef(
 
 function isSeriesThis(event: EventRow, range: RecurrenceEdit): boolean {
   if (range !== "this") return false;
-  return Boolean(
-    event.rrule || event.rdate || event.masterEventId || event.recurrenceId,
-  );
+  return isSeries(event);
+}
+
+function isSeriesFollowing(event: EventRow, range: RecurrenceEdit): boolean {
+  return range === "thisAndFollowing" && isSeries(event);
+}
+
+function masterRowId(event: EventRow): string {
+  return event.masterEventId ?? event.id;
+}
+
+function occurrenceId(event: EventRow, range: RecurrenceEdit): Date | null {
+  if (event.recurrenceId) return event.recurrenceId;
+  if (range === "this" || range === "thisAndFollowing") {
+    return isSeries(event) ? event.startAt : null;
+  }
+  return null;
+}
+
+function ymdUtc(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function rruleWithUntil(rrule: string | null, until: string): string {
+  const raw = (rrule ?? "FREQ=DAILY").replace(/^RRULE:/i, "");
+  const parts = raw.split(";").filter((part) => {
+    const key = part.split("=")[0]?.toUpperCase();
+    return key !== "UNTIL" && key !== "COUNT" && part.length > 0;
+  });
+  parts.push(`UNTIL=${until}`);
+  return parts.join(";");
+}
+
+function truncateRrule(
+  rrule: string | null,
+  splitAt: Date,
+  isAllDay: boolean,
+): string {
+  const until = isAllDay
+    ? ymdUtc(new Date(splitAt.getTime() - 24 * 60 * 60 * 1000)).replace(
+        /-/g,
+        "",
+      )
+    : compactUtc(new Date(splitAt.getTime() - 1000));
+  return rruleWithUntil(rrule, until);
 }
 
 async function loadCalendar(
@@ -508,7 +570,7 @@ async function restoreEventRow(tx: WriteTx, event: EventRow): Promise<void> {
 async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
   await db.$transaction(async (tx) => {
     if (snapshot.createdEventId) {
-      await tx.calendarEvent.delete({
+      await tx.calendarEvent.deleteMany({
         where: { id: snapshot.createdEventId },
       });
       if (!snapshot.calendarVisible) {
@@ -517,7 +579,6 @@ async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
           data: { isVisible: false },
         });
       }
-      return;
     }
 
     const event = snapshot.event;
@@ -553,17 +614,10 @@ async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
   });
 }
 
-async function refreshAfterConflict(
-  err: unknown,
-  adapter: CalendarAdapter,
+async function applyRemoteEvent(
   calendar: CalendarRow,
-  providerEventId: string | null,
+  remote: RemoteEvent,
 ): Promise<void> {
-  if (!isConflict(err) || !providerEventId) return;
-  const remote = await adapter.getEvent(
-    { providerCalendarId: calendar.providerCalendarId },
-    providerEventId,
-  );
   await applyPull({
     userId: calendar.userId,
     accountId: calendar.accountId,
@@ -579,17 +633,60 @@ async function refreshAfterConflict(
   });
 }
 
+async function refetchSeries(
+  adapter: CalendarAdapter,
+  calendar: CalendarRow,
+  providerEventId: string,
+): Promise<boolean> {
+  try {
+    const remote = await adapter.getEvent(
+      { providerCalendarId: calendar.providerCalendarId },
+      providerEventId,
+    );
+    await applyRemoteEvent(calendar, remote);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshAfterConflict(
+  err: unknown,
+  adapter: CalendarAdapter,
+  calendar: CalendarRow,
+  providerEventId: string | null,
+): Promise<void> {
+  if (!isConflict(err) || !providerEventId) return;
+  await refetchSeries(adapter, calendar, providerEventId);
+}
+
 async function afterAdapterFailure(
   err: unknown,
   snapshot: Snapshot,
   adapter: CalendarAdapter,
   calendar: CalendarRow,
   providerEventId: string | null,
+  opts?: { refetchSeries?: boolean },
 ): Promise<never> {
-  try {
-    await restoreSnapshot(snapshot);
-  } catch {
-    // Prefer the provider error over a restore failure.
+  let refetched = false;
+  if (opts?.refetchSeries && providerEventId) {
+    if (snapshot.createdEventId) {
+      try {
+        await db.calendarEvent.deleteMany({
+          where: { id: snapshot.createdEventId },
+        });
+      } catch {
+        // Continue to refetch the truncated provider series.
+      }
+    }
+    refetched = await refetchSeries(adapter, calendar, providerEventId);
+  }
+  if (!refetched) {
+    try {
+      await restoreSnapshot(snapshot);
+    } catch {
+      // Prefer the provider error over a restore failure.
+    }
   }
   if (isConflict(err)) {
     try {
@@ -602,6 +699,100 @@ async function afterAdapterFailure(
   throw err;
 }
 
+async function persistThisException(
+  tx: WriteTx,
+  event: EventRow,
+  remote: RemoteEvent,
+  userId: string,
+  calendarId: string,
+  now: Date,
+  createdEventId: string | null,
+): Promise<void> {
+  const masterId = masterRowId(event);
+  const data = {
+    ...replicaFields(remote, userId, calendarId, masterId),
+    recurrenceId:
+      remote.recurrenceId ?? event.recurrenceId ?? event.startAt,
+  };
+  const targetId = event.masterEventId ? event.id : createdEventId;
+  if (targetId) {
+    await tx.calendarEvent.update({
+      where: { id: targetId },
+      data,
+    });
+  } else {
+    await tx.calendarEvent.create({ data });
+  }
+  await rebuildInstances(tx, userId, calendarId, masterId, now);
+}
+
+async function persistFollowingSplit(
+  tx: WriteTx,
+  event: EventRow,
+  remote: RemoteEvent,
+  userId: string,
+  calendarId: string,
+  now: Date,
+  createdEventId: string | null,
+  truncated: RemoteEvent | null,
+): Promise<void> {
+  const masterId = masterRowId(event);
+  if (truncated) {
+    await tx.calendarEvent.update({
+      where: { id: masterId },
+      data: replicaFields(truncated, userId, calendarId, null),
+    });
+  }
+  const newFields = replicaFields(remote, userId, calendarId, null);
+  let newId = createdEventId;
+  if (newId) {
+    await tx.calendarEvent.update({
+      where: { id: newId },
+      data: newFields,
+    });
+  } else {
+    const created = await tx.calendarEvent.create({ data: newFields });
+    newId = created.id;
+  }
+  await rebuildInstances(tx, userId, calendarId, masterId, now);
+  if (newId) await rebuildInstances(tx, userId, calendarId, newId, now);
+}
+
+async function createReplicaRow(
+  tx: WriteTx,
+  userId: string,
+  calendar: CalendarRow,
+  input: EventInput,
+  extra?: {
+    providerEventId?: string;
+    masterEventId?: string | null;
+    recurrenceId?: Date | null;
+    rrule?: string | null;
+  },
+): Promise<EventRow> {
+  return tx.calendarEvent.create({
+    data: {
+      providerEventId: extra?.providerEventId ?? `pending:${crypto.randomUUID()}`,
+      icalUid: input.icalUid ?? null,
+      etag: null,
+      sequence: 0,
+      ...inputFields(input),
+      ...(extra?.rrule !== undefined ? { rrule: extra.rrule } : {}),
+      status: "confirmed",
+      transparency: "busy",
+      rdate: null,
+      exdate: null,
+      masterEventId: extra?.masterEventId ?? null,
+      recurrenceId: extra?.recurrenceId ?? null,
+      organizerJson: asJson(input.organizer),
+      attendeesJson: asJson(input.attendees),
+      rawJson: Prisma.DbNull,
+      calendarId: calendar.id,
+      userId,
+    },
+  }) as Promise<EventRow>;
+}
+
 export async function createEventForUser(
   userId: string,
   calendarId: string,
@@ -609,7 +800,6 @@ export async function createEventForUser(
 ): Promise<{ id: string }> {
   const calendar = await loadCalendar(userId, calendarId);
   assertWritable(calendar);
-  const adapter = adapterForAccount(calendar.account);
   const now = new Date();
   const snapshot: Snapshot = {
     calendarId: calendar.id,
@@ -628,31 +818,15 @@ export async function createEventForUser(
         data: { isVisible: true },
       });
     }
-    const row = await tx.calendarEvent.create({
-      data: {
-        providerEventId: `pending:${crypto.randomUUID()}`,
-        icalUid: input.icalUid ?? null,
-        etag: null,
-        sequence: 0,
-        ...inputFields(input),
-        status: "confirmed",
-        transparency: "busy",
-        rdate: null,
-        exdate: null,
-        masterEventId: null,
-        recurrenceId: null,
-        organizerJson: asJson(input.organizer),
-        attendeesJson: asJson(input.attendees),
-        rawJson: Prisma.DbNull,
-        calendarId: calendar.id,
-        userId,
-      },
-    });
+    const row = await createReplicaRow(tx, userId, calendar, input);
     snapshot.createdEventId = row.id;
     await rebuildInstances(tx, userId, calendar.id, row.id, now);
     return row;
   });
 
+  if (isDemoInstance()) return { id: created.id };
+
+  const adapter = await adapterForWritable(calendar.account);
   try {
     const remote = await adapter.createEvent(
       { providerCalendarId: calendar.providerCalendarId },
@@ -695,12 +869,58 @@ export async function updateEventForUser(
     assertWritable(dest);
   }
 
-  const adapter = adapterForAccount(calendar.account);
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
   const ref = adapterEventRef(event, range);
+  const masterId = masterRowId(event);
+  const splitAt = occurrenceId(event, range);
+  const masterForSplit = event.masterEventId
+    ? ((await db.calendarEvent.findFirst({
+        where: { id: masterId, userId },
+      })) as EventRow | null)
+    : event;
 
   await db.$transaction(async (tx) => {
+    if (isSeriesThis(event, range) && splitAt) {
+      if (event.masterEventId) {
+        await tx.calendarEvent.update({
+          where: { id: event.id },
+          data: {
+            ...inputFields(input),
+            recurrenceId: splitAt,
+            ...(dest.id !== calendar.id ? { calendarId: dest.id } : {}),
+          },
+        });
+      } else {
+        const row = await createReplicaRow(tx, userId, dest, input, {
+          masterEventId: masterId,
+          recurrenceId: splitAt,
+          rrule: null,
+        });
+        snapshot.createdEventId = row.id;
+      }
+      await rebuildInstances(tx, userId, dest.id, masterId, now);
+      return;
+    }
+
+    if (isSeriesFollowing(event, range) && splitAt) {
+      await tx.calendarEvent.update({
+        where: { id: masterId },
+        data: {
+          rrule: truncateRrule(
+            masterForSplit?.rrule ?? event.rrule,
+            splitAt,
+            masterForSplit?.isAllDay ?? event.isAllDay,
+          ),
+        },
+      });
+      const row = await createReplicaRow(tx, userId, dest, input);
+      snapshot.createdEventId = row.id;
+      await rebuildInstances(tx, userId, dest.id, masterId, now);
+      await rebuildInstances(tx, userId, dest.id, row.id, now);
+      return;
+    }
+
     await tx.calendarEvent.update({
       where: { id: event.id },
       data: {
@@ -711,6 +931,9 @@ export async function updateEventForUser(
     await rebuildInstances(tx, userId, dest.id, event.id, now);
   });
 
+  if (isDemoInstance()) return;
+
+  const adapter = await adapterForWritable(calendar.account);
   try {
     let remote: RemoteEvent;
     if (dest.id !== calendar.id) {
@@ -739,7 +962,45 @@ export async function updateEventForUser(
         range,
       );
     }
+
+    let truncated: RemoteEvent | null = null;
+    if (isSeriesFollowing(event, range)) {
+      try {
+        truncated = await adapter.getEvent(
+          { providerCalendarId: dest.providerCalendarId },
+          await masterProviderIdOf(event),
+        );
+      } catch {
+        truncated = null;
+      }
+    }
+
     await db.$transaction(async (tx) => {
+      if (isSeriesThis(event, range) && splitAt) {
+        await persistThisException(
+          tx,
+          event,
+          remote,
+          userId,
+          dest.id,
+          now,
+          snapshot.createdEventId,
+        );
+        return;
+      }
+      if (isSeriesFollowing(event, range)) {
+        await persistFollowingSplit(
+          tx,
+          event,
+          remote,
+          userId,
+          dest.id,
+          now,
+          snapshot.createdEventId,
+          truncated,
+        );
+        return;
+      }
       await tx.calendarEvent.update({
         where: { id: event.id },
         data: replicaFields(remote, userId, dest.id, event.masterEventId),
@@ -752,9 +1013,20 @@ export async function updateEventForUser(
       snapshot,
       adapter,
       calendar,
-      event.providerEventId,
+      isSeriesFollowing(event, range)
+        ? await masterProviderIdOf(event)
+        : event.providerEventId,
+      { refetchSeries: isSeriesFollowing(event, range) },
     );
   }
+}
+
+async function masterProviderIdOf(event: EventRow): Promise<string> {
+  if (!event.masterEventId) return event.providerEventId;
+  const master = await db.calendarEvent.findFirst({
+    where: { id: event.masterEventId, userId: event.userId },
+  });
+  return master?.providerEventId ?? event.providerEventId;
 }
 
 export async function deleteEventForUser(
@@ -766,10 +1038,11 @@ export async function deleteEventForUser(
   const calendar = loaded.calendar as CalendarRow;
   assertWritable(calendar);
   const event = loaded as unknown as EventRow & { instances?: InstanceSnap[] };
-  const adapter = adapterForAccount(calendar.account);
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
   const ref = adapterEventRef(event, range);
+  const masterId = masterRowId(event);
+  const splitAt = occurrenceId(event, range);
 
   if (isSeriesThis(event, range) && !event.masterEventId) {
     const occurrence = ref.recurrenceId ?? event.startAt;
@@ -787,6 +1060,25 @@ export async function deleteEventForUser(
         data: { status: "cancelled" },
       });
       await rebuildInstances(tx, userId, calendar.id, event.masterEventId!, now);
+    });
+  } else if (isSeriesFollowing(event, range) && splitAt) {
+    const master = event.masterEventId
+      ? await db.calendarEvent.findFirst({
+          where: { id: masterId, userId },
+        })
+      : event;
+    await db.$transaction(async (tx) => {
+      await tx.calendarEvent.update({
+        where: { id: masterId },
+        data: {
+          rrule: truncateRrule(
+            (master as EventRow | null)?.rrule ?? event.rrule,
+            splitAt,
+            (master as EventRow | null)?.isAllDay ?? event.isAllDay,
+          ),
+        },
+      });
+      await rebuildInstances(tx, userId, calendar.id, masterId, now);
     });
   } else {
     snapshot.wroteTombstone = !event.masterEventId && event.recurrenceId == null;
@@ -807,19 +1099,36 @@ export async function deleteEventForUser(
     });
   }
 
+  if (isDemoInstance()) return;
+
+  const adapter = await adapterForWritable(calendar.account);
   try {
     await adapter.deleteEvent(
       { providerCalendarId: calendar.providerCalendarId },
       ref,
       range,
     );
+    if (isSeriesFollowing(event, range)) {
+      const truncated = await adapter.getEvent(
+        { providerCalendarId: calendar.providerCalendarId },
+        await masterProviderIdOf(event),
+      );
+      await db.$transaction(async (tx) => {
+        await tx.calendarEvent.update({
+          where: { id: masterId },
+          data: replicaFields(truncated, userId, calendar.id, null),
+        });
+        await rebuildInstances(tx, userId, calendar.id, masterId, now);
+      });
+    }
   } catch (err) {
     await afterAdapterFailure(
       err,
       snapshot,
       adapter,
       calendar,
-      event.providerEventId,
+      await masterProviderIdOf(event),
+      { refetchSeries: isSeriesFollowing(event, range) },
     );
   }
 }

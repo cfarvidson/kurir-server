@@ -138,15 +138,16 @@ describe("createGoogleAdapter", () => {
 
     expect(googleMocks.eventsList).toHaveBeenCalledTimes(1);
     const params = googleMocks.eventsList.mock.calls[0][0];
-    expect(params).toMatchObject({
+    expect(params).toEqual({
       calendarId: "primary",
       syncToken: "sync-1",
-      singleEvents: false,
+      showDeleted: true,
     });
+    expect(params.singleEvents).toBeUndefined();
     expect(params.timeMin).toBeUndefined();
 
     expect(result.reset).toBe(false);
-    expect(result.complete).toBe(true);
+    expect(result.complete).toBe(false);
     expect(result.cursor).toBe("sync-2");
     expect(result.upserts).toHaveLength(1);
     expect(result.upserts[0]?.providerEventId).toBe("e1");
@@ -171,16 +172,18 @@ describe("createGoogleAdapter", () => {
     );
 
     expect(googleMocks.eventsList).toHaveBeenCalledTimes(2);
-    expect(googleMocks.eventsList.mock.calls[0][0]).toMatchObject({
+    expect(googleMocks.eventsList.mock.calls[0][0]).toEqual({
       calendarId: "primary",
       syncToken: "stale",
-      singleEvents: false,
+      showDeleted: true,
     });
+    expect(googleMocks.eventsList.mock.calls[0][0].singleEvents).toBeUndefined();
     const retry = googleMocks.eventsList.mock.calls[1][0];
     expect(retry.syncToken).toBeUndefined();
     expect(retry).toMatchObject({
       calendarId: "primary",
       singleEvents: false,
+      showDeleted: true,
     });
 
     expect(result.reset).toBe(true);
