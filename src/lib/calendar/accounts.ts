@@ -230,6 +230,35 @@ export async function deleteCalendarAccount(
   await unscheduleCalendarSyncJob(accountId);
 }
 
+export const calendarAccountListSelect = {
+  id: true,
+  provider: true,
+  displayName: true,
+  principalEmail: true,
+  lastSyncedAt: true,
+  lastError: true,
+  oauthError: true,
+  calendars: {
+    orderBy: [{ isPrimary: "desc" as const }, { name: "asc" as const }],
+    select: {
+      id: true,
+      name: true,
+      color: true,
+      isVisible: true,
+      isPrimary: true,
+      isReadOnly: true,
+    },
+  },
+} as const;
+
+export async function listCalendarAccountsForUser(userId: string) {
+  return db.calendarAccount.findMany({
+    where: { userId },
+    orderBy: { displayName: "asc" },
+    select: calendarAccountListSelect,
+  });
+}
+
 export async function setCalendarVisibleForUser(
   userId: string,
   calendarId: string,

@@ -139,7 +139,7 @@ export function meetingResponseFromAttendees(
   return statusOf(chosen);
 }
 
-export function serializeMessageMeeting(row: {
+export type MessageMeetingRow = {
   method: string;
   title: string;
   startAt: Date | string | null;
@@ -150,7 +150,24 @@ export function serializeMessageMeeting(row: {
   organizerEmail: string | null;
   calendarEventId: string | null;
   calendarEvent?: { attendeesJson: unknown } | null;
-} | null | undefined): MeetingCardMeeting | null {
+};
+
+export type MobileMessageMeeting = {
+  uid: string;
+  method: string;
+  title: string;
+  startAt: string | null;
+  endAt: string | null;
+  isAllDay: boolean;
+  location: string | null;
+  organizerName: string | null;
+  organizerEmail: string | null;
+  calendarEventId: string | null;
+};
+
+export function serializeMessageMeeting(
+  row: MessageMeetingRow | null | undefined,
+): MeetingCardMeeting | null {
   if (!row) return null;
   return {
     method: asIcsMethod(row.method),
@@ -163,6 +180,26 @@ export function serializeMessageMeeting(row: {
     organizerEmail: row.organizerEmail,
     calendarEventId: row.calendarEventId,
     response: meetingResponseFromAttendees(row.calendarEvent?.attendeesJson),
+  };
+}
+
+export function serializeMobileMeeting(
+  row: (MessageMeetingRow & { uid: string }) | null | undefined,
+): MobileMessageMeeting | null {
+  if (!row) return null;
+  const base = serializeMessageMeeting(row);
+  if (!base) return null;
+  return {
+    uid: row.uid,
+    method: base.method,
+    title: base.title,
+    startAt: base.startAt,
+    endAt: base.endAt,
+    isAllDay: base.isAllDay,
+    location: base.location,
+    organizerName: base.organizerName,
+    organizerEmail: base.organizerEmail,
+    calendarEventId: base.calendarEventId,
   };
 }
 

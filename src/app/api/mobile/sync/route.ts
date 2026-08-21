@@ -4,7 +4,7 @@ import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
 import {
   MESSAGE_SELECT,
-  flattenFolderRole,
+  presentMobileMessages,
 } from "@/lib/mobile/message-select";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
 
@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    messages: flattenFolderRole(page),
+    messages: presentMobileMessages(page),
     senders,
     deletedMessageIds: tombstones.map((t) => t.messageId),
     connections,

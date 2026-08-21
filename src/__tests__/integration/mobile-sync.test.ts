@@ -318,6 +318,74 @@ describe("GET /api/mobile/sync", () => {
     expect(select.folder).toEqual({ select: { specialUse: true } });
   });
 
+  it("includes meeting on a message that has a MessageMeeting row and omits it otherwise", async () => {
+    await mockAuthed();
+    await mockEmptyTables();
+    const { db } = await import("@/lib/db");
+
+    const t1 = new Date("2026-07-01T10:00:00Z");
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "with-meeting",
+        updatedAt: t1,
+        folder: null,
+        meeting: {
+          uid: "uid-standup",
+          method: "REQUEST",
+          title: "Standup",
+          startAt: new Date("2026-08-20T09:00:00.000Z"),
+          endAt: new Date("2026-08-20T09:30:00.000Z"),
+          isAllDay: false,
+          location: "Zoom",
+          organizerName: "Ada",
+          organizerEmail: "ada@x.y",
+          calendarEventId: "evt-1",
+        },
+      },
+      {
+        id: "no-meeting",
+        updatedAt: t1,
+        folder: null,
+        meeting: null,
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.messages[0].meeting).toEqual({
+      uid: "uid-standup",
+      method: "REQUEST",
+      title: "Standup",
+      startAt: "2026-08-20T09:00:00.000Z",
+      endAt: "2026-08-20T09:30:00.000Z",
+      isAllDay: false,
+      location: "Zoom",
+      organizerName: "Ada",
+      organizerEmail: "ada@x.y",
+      calendarEventId: "evt-1",
+    });
+    expect("meeting" in body.messages[1]).toBe(false);
+
+    const select = vi.mocked(db.message.findMany).mock.calls[0][0]!
+      .select as any;
+    expect(select.meeting).toEqual({
+      select: {
+        uid: true,
+        method: true,
+        title: true,
+        startAt: true,
+        endAt: true,
+        isAllDay: true,
+        location: true,
+        organizerName: true,
+        organizerEmail: true,
+        calendarEventId: true,
+      },
+    });
+  });
+
   it("returns the full domain-rule set on every sync (replace-all)", async () => {
     await mockAuthed();
     await mockEmptyTables();
