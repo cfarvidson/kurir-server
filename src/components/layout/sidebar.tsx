@@ -52,6 +52,7 @@ const NAV_SHORTCUTS: Record<string, string> = {
   "/imbox": "I",
   "/feed": "F",
   "/paper-trail": "P",
+  "/calendar": "E",
   "/screener": "N",
   "/sent": "S",
   "/archive": "A",
@@ -128,7 +129,10 @@ export function Sidebar({
           if (item.badgeKey === "scheduled" && badgeCounts.scheduled === 0)
             return null;
 
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/calendar"
+              ? pathname === "/calendar" || pathname.startsWith("/calendar/")
+              : pathname === item.href;
           const shortcutKey = NAV_SHORTCUTS[item.href];
           return (
             <Link

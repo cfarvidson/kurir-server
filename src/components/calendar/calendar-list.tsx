@@ -9,9 +9,11 @@ import type { CalendarAccountDTO } from "@/components/calendar/types";
 export function CalendarList({
   accounts,
   className,
+  showAccountHeading = true,
 }: {
   accounts: CalendarAccountDTO[];
   className?: string;
+  showAccountHeading?: boolean;
 }) {
   const router = useRouter();
 
@@ -24,10 +26,12 @@ export function CalendarList({
     <div className={cn("space-y-5", className)}>
       {accounts.map((account) => (
         <div key={account.id}>
-          <p className="px-1 text-xs font-medium text-muted-foreground">
-            {account.displayName}
-          </p>
-          <ul className="mt-1.5 space-y-0.5">
+          {showAccountHeading && (
+            <p className="px-1 text-xs font-medium text-muted-foreground">
+              {account.displayName}
+            </p>
+          )}
+          <ul className={cn("space-y-0.5", showAccountHeading && "mt-1.5")}>
             {account.calendars.map((calendar) => (
               <li key={calendar.id}>
                 <label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-muted/50">

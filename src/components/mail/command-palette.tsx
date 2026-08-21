@@ -14,11 +14,12 @@ import {
   PenSquare,
   Search,
   Bell,
+  Calendar,
   CalendarClock,
+  CalendarPlus,
   BookUser,
   Keyboard,
   Reply,
-  Mail,
   MailOpen,
 } from "lucide-react";
 import { keyboardState } from "@/lib/keyboard-state";
@@ -140,6 +141,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       shortcut: ["G", "P"],
       group: "navigation",
       onSelect: () => go("/paper-trail"),
+    },
+    {
+      id: "go-calendar",
+      label: "Go to Calendar",
+      icon: <Calendar className="h-4 w-4" />,
+      shortcut: ["G", "E"],
+      group: "navigation",
+      onSelect: () => go("/calendar"),
     },
     {
       id: "go-screener",
@@ -313,6 +322,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       shortcut: ["C"],
       group: "compose",
       onSelect: () => go("/compose"),
+    },
+    {
+      id: "new-event",
+      label: "New event",
+      icon: <CalendarPlus className="h-4 w-4" />,
+      group: "compose",
+      onSelect: () => go("/calendar?new=1"),
     },
   ];
 

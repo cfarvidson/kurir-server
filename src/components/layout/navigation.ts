@@ -2,6 +2,7 @@ import {
   Archive,
   Bell,
   Clock,
+  Calendar,
   CalendarClock,
   Inbox,
   Filter,
@@ -71,6 +72,7 @@ export const navigation: NavItem[] = [
     icon: Receipt,
     badgeKey: "paperTrail",
   },
+  { name: "Calendar", href: "/calendar", icon: Calendar },
   { name: "Snoozed", href: "/snoozed", icon: Clock },
   { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
   {

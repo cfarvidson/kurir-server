@@ -12,6 +12,7 @@ const GOTO_MAP: Record<string, string> = {
   s: "/sent",
   a: "/archive",
   n: "/screener",
+  e: "/calendar",
 };
 
 const LISTING_PATHS = new Set([
@@ -51,13 +52,18 @@ describe("keyboard shortcut mappings", () => {
       expect(GOTO_MAP["n"]).toBe("/screener");
     });
 
+    it("maps g+e to /calendar", () => {
+      expect(GOTO_MAP["e"]).toBe("/calendar");
+    });
+
     it("returns undefined for unmapped keys", () => {
       expect(GOTO_MAP["z"]).toBeUndefined();
       expect(GOTO_MAP["x"]).toBeUndefined();
     });
 
-    it("all go-to targets are valid listing paths", () => {
-      for (const [key, path] of Object.entries(GOTO_MAP)) {
+    it("all mail go-to targets are valid listing paths", () => {
+      for (const path of Object.values(GOTO_MAP)) {
+        if (path === "/calendar") continue;
         expect(LISTING_PATHS.has(path)).toBe(true);
       }
     });
@@ -86,6 +92,7 @@ describe("keyboard shortcut mappings", () => {
       expect(LISTING_PATHS.has("/settings")).toBe(false);
       expect(LISTING_PATHS.has("/login")).toBe(false);
       expect(LISTING_PATHS.has("/imbox/some-id")).toBe(false);
+      expect(LISTING_PATHS.has("/calendar")).toBe(false);
     });
   });
 });
@@ -132,7 +139,7 @@ describe("shortcut definitions completeness", () => {
   const threadKeys = ["r", "j", "k", "Esc"];
   const threadSharedKeys = ["e", "s", "Shift+U"];
   const composeKeys = ["Cmd+Enter", "Cmd+Shift+Enter", "Esc"];
-  const goToKeys = ["g+i", "g+f", "g+p", "g+s", "g+a", "g+n"];
+  const goToKeys = ["g+i", "g+f", "g+p", "g+s", "g+a", "g+n", "g+e"];
 
   it("list view has no duplicate single-key shortcuts", () => {
     const singles = listKeys.filter((k) => !k.includes("+"));

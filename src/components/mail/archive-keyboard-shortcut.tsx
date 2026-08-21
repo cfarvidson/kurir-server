@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
+import { keyboardState } from "@/lib/keyboard-state";
 import {
   performOptimisticArchive,
   performOptimisticUnarchive,
@@ -68,6 +69,7 @@ export function ArchiveKeyboardShortcut({
       )
         return;
       if (el.isContentEditable) return;
+      if (keyboardState.gSequenceActive || keyboardState.popoverOpen) return;
       if (e.key === "e") handleAction();
     };
     window.addEventListener("keydown", handler);

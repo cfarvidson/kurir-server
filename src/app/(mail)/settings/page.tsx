@@ -8,6 +8,10 @@ import { ConnectionsList } from "@/components/settings/connections-list";
 import { PasskeysList } from "@/components/settings/passkeys-list";
 import { McpConnections } from "@/components/settings/mcp-connections";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
+import {
+  CalendarAccounts,
+  type SettingsCalendarAccount,
+} from "@/components/settings/calendar-accounts";
 import { listMcpConnections } from "@/actions/mcp-tokens";
 import { ChevronRight, PlusCircle, Shield } from "lucide-react";
 import Link from "next/link";
@@ -123,6 +127,7 @@ export default async function SettingsPage() {
     own,
     mcpConnections,
     settingsBackup,
+    rawCalendarAccounts,
   ] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
@@ -176,6 +181,31 @@ export default async function SettingsPage() {
     getOwnAddresses(userId),
     listMcpConnections(),
     getSettingsBackupState(),
+    db.calendarAccount.findMany({
+      where: { userId },
+      orderBy: { displayName: "asc" },
+      select: {
+        id: true,
+        displayName: true,
+        provider: true,
+        principalEmail: true,
+        lastSyncedAt: true,
+        isSyncing: true,
+        oauthError: true,
+        lastError: true,
+        calendars: {
+          orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            isVisible: true,
+            isReadOnly: true,
+            isPrimary: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const isAdmin = user?.role === "ADMIN";
@@ -219,6 +249,20 @@ export default async function SettingsPage() {
     deviceType: pk.deviceType as "singleDevice" | "multiDevice",
     backedUp: pk.backedUp,
   }));
+
+  const calendarAccounts: SettingsCalendarAccount[] = rawCalendarAccounts.map(
+    (account) => ({
+      id: account.id,
+      displayName: account.displayName,
+      provider: account.provider,
+      principalEmail: account.principalEmail,
+      lastSyncedAt: account.lastSyncedAt?.toISOString() ?? null,
+      isSyncing: account.isSyncing,
+      oauthError: account.oauthError,
+      lastError: account.lastError,
+      calendars: account.calendars,
+    }),
+  );
 
   const imagePolicy = resolveImagePolicy({
     blockRemoteImages: user?.blockRemoteImages ?? true,
@@ -409,6 +453,21 @@ export default async function SettingsPage() {
     </div>
   );
 
+  const calendarContent = (
+    <div className="space-y-10 md:space-y-12">
+      <section>
+        <SectionHeading
+          eyebrow="Calendar"
+          title="Calendar accounts"
+          description="Google, Outlook, or CalDAV. Visibility here is the same as the calendar sidebar."
+        />
+        <div className="mt-4">
+          <CalendarAccounts accounts={calendarAccounts} />
+        </div>
+      </section>
+    </div>
+  );
+
   const systemContent = (
     <div className="space-y-10 md:space-y-12">
       {/* Admin link */}
@@ -541,6 +600,7 @@ export default async function SettingsPage() {
           <SettingsTabs
             accountContent={accountContent}
             mailContent={mailContent}
+            calendarContent={calendarContent}
             systemContent={systemContent}
           />
         </div>
