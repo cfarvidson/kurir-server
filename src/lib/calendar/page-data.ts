@@ -24,7 +24,7 @@ export type CalendarPagePayload = {
   anchor: CivilDate;
 };
 
-function serializeInstance(row: VisibleInstance): CalendarInstanceDTO {
+export function serializeInstance(row: VisibleInstance): CalendarInstanceDTO {
   return {
     eventId: row.eventId,
     title: row.title,
