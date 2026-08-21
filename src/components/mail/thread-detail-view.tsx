@@ -18,9 +18,10 @@ import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 import { findReplyDraftForThread } from "@/lib/mail/draft-presentation-db";
+import { serializeMessageMeeting } from "@/lib/calendar/meeting-card";
 
 async function getUserInfo(userId: string, connectionId: string) {
-  const [conn, user, own] = await Promise.all([
+  const [conn, user, own, writableCalendars] = await Promise.all([
     db.emailConnection.findFirst({
       where: { id: connectionId, userId },
       select: { email: true, sendAsEmail: true, aliases: true },
@@ -30,6 +31,9 @@ async function getUserInfo(userId: string, connectionId: string) {
       select: { timezone: true, blockRemoteImages: true, blockTrackers: true },
     }),
     getOwnAddresses(userId),
+    db.calendar.count({
+      where: { userId, isReadOnly: false },
+    }),
   ]);
   const allEmails = new Set(own.emails);
   return {
@@ -41,6 +45,7 @@ async function getUserInfo(userId: string, connectionId: string) {
       blockRemoteImages: user?.blockRemoteImages ?? true,
       blockTrackers: user?.blockTrackers ?? true,
     }),
+    hasWritableCalendar: writableCalendars > 0,
   };
 }
 
@@ -291,7 +296,10 @@ export async function ThreadDetailView({
             <div className="mt-3 md:mt-6">
               <ThreadPageContent
                 userId={session.user.id}
-                initialMessages={messages}
+                initialMessages={messages.map((message) => ({
+                  ...message,
+                  meeting: serializeMessageMeeting(message.meeting),
+                }))}
                 currentUserEmail={currentUserEmail}
                 userEmails={[...userEmails]}
                 replyToMessageId={pinned.id}
@@ -307,6 +315,7 @@ export async function ThreadDetailView({
                 remoteImagePolicy={userInfo.remoteImagePolicy}
                 recipientNames={recipientNames}
                 hasDraft={Boolean(replyDraft)}
+                hasWritableCalendar={userInfo.hasWritableCalendar}
               />
             </div>
           </div>

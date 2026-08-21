@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { ThreadView } from "./thread-view";
 import { ReplyComposer } from "./reply-composer";
 import type { RemoteImagePolicy } from "@/lib/mail/image-policy";
+import type { MeetingCardMeeting } from "@/lib/calendar/meeting-card";
 
 interface ThreadMessage {
   id: string;
@@ -33,6 +34,7 @@ interface ThreadMessage {
     contentId: string | null;
     contentType: string;
   }[];
+  meeting?: MeetingCardMeeting | null;
 }
 
 interface ThreadPageContentProps {
@@ -53,6 +55,7 @@ interface ThreadPageContentProps {
   remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: Record<string, string>;
   hasDraft?: boolean;
+  hasWritableCalendar?: boolean;
 }
 
 export function ThreadPageContent({
@@ -73,6 +76,7 @@ export function ThreadPageContent({
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
   hasDraft = false,
+  hasWritableCalendar = false,
 }: ThreadPageContentProps) {
   const userEmailSet = useMemo(
     () => new Set(userEmails.map((e) => e.toLowerCase())),
@@ -129,6 +133,7 @@ export function ThreadPageContent({
       snippet: body.length > 150 ? body.slice(0, 150) + "..." : body,
       sender: null,
       attachments: [],
+      meeting: null,
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
@@ -142,6 +147,8 @@ export function ThreadPageContent({
         userEmails={userEmailSet}
         remoteImagePolicy={remoteImagePolicy}
         recipientNames={recipientNames}
+        hasWritableCalendar={hasWritableCalendar}
+        timezone={userTimezone}
       />
 
       <div className="mt-6 pb-8">
