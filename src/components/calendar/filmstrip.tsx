@@ -358,9 +358,13 @@ export function Filmstrip({
     if (!target) return;
     scrollTargetIntoView(node, target);
     // Keep the scroll handler from immediately reporting a stale day back.
+    // That early-return also swallows onVisibleDayChange, so report the day
+    // from here — otherwise a nonce-only nav (Today while the URL has drifted)
+    // fixes the strip and the URL but leaves the shell on the drifted day.
     lastReportedKeyRef.current = pendingScroll;
+    onVisibleDayChange?.(civilFromKey(pendingScroll));
     setPendingScroll(null);
-  }, [pendingScroll, model]);
+  }, [pendingScroll, model, onVisibleDayChange]);
 
   // Visible-day tracking: rAF-throttled scroll handler, URL sync via
   // history.replaceState (not router.replace, which would re-render the
