@@ -34,7 +34,7 @@ export function FreetimeBlock({
       {onSelect ? (
         <button
           type="button"
-          className="pointer-events-auto m-1 rounded-xs px-0.5 text-xs tabular-nums text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+          className="pointer-events-auto m-1 self-start rounded-xs px-0.5 text-left text-xs tabular-nums text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();

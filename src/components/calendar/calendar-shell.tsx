@@ -37,6 +37,7 @@ import {
   formatDayTitle,
   formatMonthTitle,
   formatWeekTitle,
+  sameCivil,
   weekDays,
   zonedParts,
   type CivilDate,
@@ -90,10 +91,12 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const router = useRouter();
   const pathname = usePathname();
   const [calendarsOpen, setCalendarsOpen] = useState(false);
+  const [prevAnchor, setPrevAnchor] = useState<CivilDate>(payload.anchor);
   const [visibleDay, setVisibleDay] = useState<CivilDate>(payload.anchor);
-  useEffect(() => {
+  if (!sameCivil(payload.anchor, prevAnchor)) {
+    setPrevAnchor(payload.anchor);
     setVisibleDay(payload.anchor);
-  }, [payload.anchor]);
+  }
   const date = formatDateParam(
     payload.mode === "day" ? visibleDay : payload.anchor,
   );
