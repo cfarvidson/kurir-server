@@ -16,6 +16,11 @@ export type VisibleInstance = EventInstance & {
   calendarId: string;
   color: string;
   calendarName: string;
+  transparency: Transparency;
+  location: string | null;
+  description: string | null;
+  rrule: string | null;
+  isReadOnly: boolean;
 };
 
 type CalendarMeta = {
@@ -23,6 +28,14 @@ type CalendarMeta = {
   name: string;
   color: string | null;
   isVisible: boolean;
+  isReadOnly?: boolean;
+};
+
+type EventExtras = {
+  transparency: string;
+  location: string | null;
+  description: string | null;
+  rrule: string | null;
 };
 
 type MasterRow = {
@@ -37,6 +50,8 @@ type MasterRow = {
   exdate: string | null;
   transparency: string;
   status: string;
+  location: string | null;
+  description: string | null;
   calendarId: string;
   calendar: CalendarMeta;
   exceptions: Array<{
@@ -46,6 +61,8 @@ type MasterRow = {
     isAllDay: boolean;
     status: string;
     title: string;
+    location?: string | null;
+    description?: string | null;
   }>;
 };
 
@@ -57,7 +74,7 @@ type InstanceRow = {
   isCancelled: boolean;
   isException: boolean;
   calendarId: string;
-  event: { title: string };
+  event: { title: string } & Partial<EventExtras>;
   calendar: CalendarMeta;
 };
 
@@ -105,11 +122,23 @@ function toExceptions(masterId: string, rows: MasterRow["exceptions"]): EventExc
   return out;
 }
 
+function extrasFrom(
+  extra: Partial<EventExtras> | null | undefined,
+): Omit<EventExtras, "transparency"> & { transparency: Transparency } {
+  return {
+    transparency: extra?.transparency === "free" ? "free" : "busy",
+    location: extra?.location ?? null,
+    description: extra?.description ?? null,
+    rrule: extra?.rrule ?? null,
+  };
+}
+
 function decorate(
   row: EventInstance,
   calendar: CalendarMeta,
   from: Date,
   to: Date,
+  extra?: Partial<EventExtras>,
 ): VisibleInstance | null {
   if (row.isCancelled || !calendar.isVisible) return null;
   if (!overlaps(row.startAt, row.endAt, from, to)) return null;
@@ -118,6 +147,8 @@ function decorate(
     calendarId: calendar.id,
     color: calendarColor(calendar.color),
     calendarName: calendar.name,
+    isReadOnly: calendar.isReadOnly === true,
+    ...extrasFrom(extra),
   };
 }
 
@@ -141,8 +172,24 @@ async function loadFromInstanceTable(
       calendar: { isVisible: true },
     },
     include: {
-      event: { select: { title: true } },
-      calendar: { select: { id: true, name: true, color: true, isVisible: true } },
+      event: {
+        select: {
+          title: true,
+          description: true,
+          location: true,
+          rrule: true,
+          transparency: true,
+        },
+      },
+      calendar: {
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          isVisible: true,
+          isReadOnly: true,
+        },
+      },
     },
     orderBy: { startAt: "asc" },
   })) as InstanceRow[];
@@ -162,6 +209,7 @@ async function loadFromInstanceTable(
       row.calendar,
       from,
       to,
+      row.event,
     );
     if (mapped) out.push(mapped);
   }
@@ -183,7 +231,15 @@ async function expandVisibleMasters(
     },
     include: {
       exceptions: true,
-      calendar: { select: { id: true, name: true, color: true, isVisible: true } },
+      calendar: {
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          isVisible: true,
+          isReadOnly: true,
+        },
+      },
     },
   })) as MasterRow[];
 
@@ -196,8 +252,14 @@ async function expandVisibleMasters(
       from,
       to,
     );
+    const extra: EventExtras = {
+      transparency: master.transparency,
+      location: master.location,
+      description: master.description,
+      rrule: master.rrule,
+    };
     for (const row of expanded) {
-      const mapped = decorate(row, master.calendar, from, to);
+      const mapped = decorate(row, master.calendar, from, to, extra);
       if (mapped) out.push(mapped);
     }
     if (
@@ -225,6 +287,7 @@ async function expandVisibleMasters(
           master.calendar,
           from,
           to,
+          extra,
         );
         if (mapped) out.push(mapped);
       }

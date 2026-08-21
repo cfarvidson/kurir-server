@@ -23,6 +23,16 @@ import { enqueueCalendarSyncJob } from "@/lib/jobs/calendar-sync-worker";
 function revalidateCalendar() {
   revalidatePath("/settings");
   revalidatePath("/calendar");
+  revalidatePath("/calendar/day");
+  revalidatePath("/calendar/month");
+}
+
+function coerceEventInput(input: EventInput): EventInput {
+  return {
+    ...input,
+    startAt: new Date(input.startAt),
+    endAt: new Date(input.endAt),
+  };
 }
 
 export async function connectCalDavAction(input: {
@@ -69,7 +79,11 @@ export async function setCalendarVisibleAction(
 
 export async function createEventAction(calendarId: string, input: EventInput) {
   const session = await requireAuth();
-  const created = await createEventForUser(session.user.id, calendarId, input);
+  const created = await createEventForUser(
+    session.user.id,
+    calendarId,
+    coerceEventInput(input),
+  );
   revalidateCalendar();
   return created;
 }
@@ -80,7 +94,12 @@ export async function updateEventAction(
   range: RecurrenceEdit,
 ) {
   const session = await requireAuth();
-  await updateEventForUser(session.user.id, eventId, input, range);
+  await updateEventForUser(
+    session.user.id,
+    eventId,
+    { ...coerceEventInput(input), calendarId: input.calendarId },
+    range,
+  );
   revalidateCalendar();
 }
 
