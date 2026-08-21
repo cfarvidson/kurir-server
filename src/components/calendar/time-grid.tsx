@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { EventBlock } from "@/components/calendar/event-block";
+import { FreetimeBlock } from "@/components/calendar/freetime-block";
 import {
   allDayEventsOnDay,
   freetimeMinutes,
@@ -455,16 +456,26 @@ export function TimeGrid({
                   />
                 ))}
                 {gaps.map((gap) => (
-                  <div
+                  <FreetimeBlock
                     key={`${gap.startMin}-${gap.endMin}`}
-                    className="pointer-events-none absolute inset-x-1 flex items-center"
+                    minutes={gap.endMin - gap.startMin}
+                    className="absolute inset-x-0"
                     style={{
                       top: pxFromMinutes(gap.startMin),
                       height: pxFromMinutes(gap.endMin - gap.startMin),
                     }}
-                  >
-                    <span className="text-xs text-muted-foreground">Free</span>
-                  </div>
+                    onSelect={
+                      canCreate
+                        ? () =>
+                            onSelectSlot({
+                              date: formatDateParam(day),
+                              startMin: gap.startMin,
+                              endMin: gap.endMin,
+                              allDay: false,
+                            })
+                        : undefined
+                    }
+                  />
                 ))}
                 {placed.map((row) => {
                   if (draggingId === row.eventId) return null;
