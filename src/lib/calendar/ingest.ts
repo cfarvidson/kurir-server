@@ -91,6 +91,9 @@ export async function ingestMeetingFromParsed(
       return;
     }
 
+    // Privacy: uid + method only (no body, title, or description).
+    console.log(`[calendar-ics] uid=${ics.uid} method=${ics.method}`);
+
     const linked = await db.calendarEvent.findFirst({
       where: { userId, icalUid: ics.uid },
       select: { id: true },

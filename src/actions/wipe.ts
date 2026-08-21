@@ -38,6 +38,11 @@ export async function wipeAllData() {
  * Wipe all mail data but keep email connections.
  * Deletes messages, folders, senders, and resets sync state.
  * Connections (accounts) are preserved.
+ *
+ * Do not delete CalendarAccount here. Mail-only wipe must keep calendars;
+ * calendar rows cascade from User onDelete. A "cleanup" that adds
+ * calendarAccount.deleteMany would break demo and real users who clear
+ * mail but still want their calendars.
  */
 export async function wipeMailData() {
   const session = await auth();
@@ -57,7 +62,8 @@ export async function wipeMailData() {
     })
   ).map((c) => c.id);
 
-  // Delete messages, folders, senders and reset sync states per connection
+  // Mail tables only - intentionally omits CalendarAccount / Calendar /
+  // CalendarEvent (see comment on wipeMailData).
   await db.$transaction([
     db.message.deleteMany({ where: { userId } }),
     db.folder.deleteMany({ where: { userId } }),

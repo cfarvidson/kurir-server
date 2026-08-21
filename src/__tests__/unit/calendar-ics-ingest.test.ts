@@ -36,39 +36,53 @@ describe("ingestMeetingFromParsed", () => {
 
   it("upserts MessageMeeting from a text/calendar attachment", async () => {
     const ics = fixture("google-request.ics");
-    await ingestMeetingFromParsed("user-1", "msg-1", {
-      attachments: [
-        {
-          contentType: "text/calendar",
-          filename: "invite.ics",
-          content: Buffer.from(ics, "utf8"),
-        },
-      ],
-    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await ingestMeetingFromParsed("user-1", "msg-1", {
+        attachments: [
+          {
+            contentType: "text/calendar",
+            filename: "invite.ics",
+            content: Buffer.from(ics, "utf8"),
+          },
+        ],
+      });
 
-    expect(db.messageMeeting.upsert).toHaveBeenCalledTimes(1);
-    const arg = vi.mocked(db.messageMeeting.upsert).mock.calls[0][0];
-    expect(arg.where).toEqual({ messageId: "msg-1" });
-    expect(arg.create).toMatchObject({
-      userId: "user-1",
-      messageId: "msg-1",
-      uid: "g-uid-1@google.com",
-      method: "REQUEST",
-      title: "Design review",
-      location: "Room 4",
-      organizerEmail: "ada@x.y",
-      organizerName: "Ada",
-      isAllDay: false,
-      calendarEventId: null,
-    });
-    expect(arg.create.startAt).toBeInstanceOf(Date);
-    expect(arg.create.endAt).toBeInstanceOf(Date);
-    expect(arg.update).toMatchObject({
-      uid: "g-uid-1@google.com",
-      method: "REQUEST",
-      title: "Design review",
-      calendarEventId: null,
-    });
+      expect(db.messageMeeting.upsert).toHaveBeenCalledTimes(1);
+      const arg = vi.mocked(db.messageMeeting.upsert).mock.calls[0][0];
+      expect(arg.where).toEqual({ messageId: "msg-1" });
+      expect(arg.create).toMatchObject({
+        userId: "user-1",
+        messageId: "msg-1",
+        uid: "g-uid-1@google.com",
+        method: "REQUEST",
+        title: "Design review",
+        location: "Room 4",
+        organizerEmail: "ada@x.y",
+        organizerName: "Ada",
+        isAllDay: false,
+        calendarEventId: null,
+      });
+      expect(arg.create.startAt).toBeInstanceOf(Date);
+      expect(arg.create.endAt).toBeInstanceOf(Date);
+      expect(arg.update).toMatchObject({
+        uid: "g-uid-1@google.com",
+        method: "REQUEST",
+        title: "Design review",
+        calendarEventId: null,
+      });
+
+      // Privacy: ingest log is uid + method only (never ICS body / title).
+      const logged = logSpy.mock.calls.map((c) => c.map(String).join(" ")).join("\n");
+      expect(logged).toContain("[calendar-ics]");
+      expect(logged).toContain("g-uid-1@google.com");
+      expect(logged).toContain("REQUEST");
+      expect(logged).not.toContain("Design review");
+      expect(logged).not.toContain("BEGIN:VCALENDAR");
+      expect(logged).not.toContain(ics.slice(0, 40));
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it("sets calendarEventId when icalUid matches for the user", async () => {
