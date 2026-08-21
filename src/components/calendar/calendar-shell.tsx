@@ -89,8 +89,14 @@ function hasWritable(payload: CalendarPagePayload): boolean {
 export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const router = useRouter();
   const pathname = usePathname();
-  const date = formatDateParam(payload.anchor);
   const [calendarsOpen, setCalendarsOpen] = useState(false);
+  const [visibleDay, setVisibleDay] = useState<CivilDate>(payload.anchor);
+  useEffect(() => {
+    setVisibleDay(payload.anchor);
+  }, [payload.anchor]);
+  const date = formatDateParam(
+    payload.mode === "day" ? visibleDay : payload.anchor,
+  );
   const [dialogOpen, setDialogOpen] = useState(
     payload.openNew && hasWritable(payload),
   );
@@ -119,10 +125,10 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   );
 
   const title = useMemo(() => {
-    if (payload.mode === "day") return formatDayTitle(payload.anchor);
+    if (payload.mode === "day") return formatDayTitle(visibleDay);
     if (payload.mode === "month") return formatMonthTitle(payload.anchor);
     return formatWeekTitle(weekDays(payload.anchor));
-  }, [payload.anchor, payload.mode]);
+  }, [payload.anchor, payload.mode, visibleDay]);
 
   const todayDate = formatDateParam(
     civilFromZoned(new Date(), payload.timezone),
@@ -380,7 +386,15 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               onEventClick={openEvent}
             />
           ) : payload.mode === "day" ? (
-            <DayView {...viewProps} />
+            <DayView
+              anchor={payload.anchor}
+              instances={payload.instances}
+              timezone={payload.timezone}
+              canCreate={writable}
+              onSelectSlot={openCreate}
+              onEventClick={openEvent}
+              onVisibleDayChange={setVisibleDay}
+            />
           ) : (
             <WeekView {...viewProps} />
           )}

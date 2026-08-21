@@ -1,6 +1,6 @@
 "use client";
 
-import { TimeGrid } from "@/components/calendar/time-grid";
+import { Filmstrip } from "@/components/calendar/filmstrip";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -14,7 +14,7 @@ export function DayView({
   canCreate,
   onSelectSlot,
   onEventClick,
-  onTimedCommit,
+  onVisibleDayChange,
 }: {
   anchor: CivilDate;
   instances: CalendarInstanceDTO[];
@@ -22,22 +22,17 @@ export function DayView({
   canCreate: boolean;
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
-  onTimedCommit: (
-    event: CalendarInstanceDTO,
-    startAt: Date,
-    endAt: Date,
-  ) => void;
+  onVisibleDayChange?: (day: CivilDate) => void;
 }) {
   return (
-    <TimeGrid
-      days={[anchor]}
+    <Filmstrip
+      anchor={anchor}
       instances={instances}
       timezone={timezone}
-      showDayHeader={false}
       canCreate={canCreate}
       onSelectSlot={onSelectSlot}
       onEventClick={onEventClick}
-      onTimedCommit={onTimedCommit}
+      onVisibleDayChange={onVisibleDayChange}
     />
   );
 }

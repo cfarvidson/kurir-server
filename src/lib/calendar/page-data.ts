@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
 import { listVisibleInstancesForUser } from "@/lib/calendar/query";
 import {
-  dayRangeUtc,
+  addDays,
   monthRangeUtc,
   parseDateParam,
+  rangeUtc,
   weekRangeUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -85,7 +86,7 @@ export async function loadCalendarPage(
       ? weekRangeUtc(anchor, timezone)
       : mode === "month"
         ? monthRangeUtc(anchor, timezone)
-        : { ...dayRangeUtc(anchor, timezone) };
+        : rangeUtc(addDays(anchor, -3), addDays(anchor, 12), timezone);
 
   const instances =
     accounts.length === 0
