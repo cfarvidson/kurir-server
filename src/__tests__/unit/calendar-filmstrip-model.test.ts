@@ -78,6 +78,33 @@ describe("buildFilmstrip", () => {
     }
   });
 
+  it("orders same-start events by endMin, shorter first", () => {
+    const days = buildFilmstrip(
+      [
+        inst({
+          eventId: "long",
+          title: "Long meeting",
+          startAt: "2026-08-21T07:00:00.000Z", // 09:00
+          endAt: "2026-08-21T09:00:00.000Z", // 11:00
+        }),
+        inst({
+          eventId: "short",
+          title: "Quick sync",
+          startAt: "2026-08-21T07:00:00.000Z", // 09:00
+          endAt: "2026-08-21T07:30:00.000Z", // 09:30
+        }),
+      ],
+      [FRI],
+      TZ,
+      NOON,
+    );
+    const events = days[0].items.filter((i) => i.kind === "event");
+    expect(events.map((e) => (e.kind === "event" ? e.instance.eventId : ""))).toEqual([
+      "short",
+      "long",
+    ]);
+  });
+
   it("places the now marker inside the containing item", () => {
     const days = buildFilmstrip([inst({})], [FRI], TZ, NOON);
     // 12:00 falls in the 10:00-21:00... actually in the 10-21 freetime gap

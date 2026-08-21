@@ -121,11 +121,11 @@ export function buildFilmstrip(
       heightPx: entryHeightPx(gap.endMin - gap.startMin),
       minutes: gap.endMin - gap.startMin,
     }));
-    const items: FilmstripItem[] = [...timed, ...free].sort(
-      (a, b) =>
-        a.startMin - b.startMin ||
-        (a.kind === "freetime" ? 1 : 0) - (b.kind === "freetime" ? 1 : 0),
-    );
+    const items: FilmstripItem[] = [...timed, ...free].sort((a, b) => {
+      if (a.startMin !== b.startMin) return a.startMin - b.startMin;
+      if (a.kind === "event" && b.kind === "event") return a.endMin - b.endMin;
+      return (a.kind === "freetime" ? 1 : 0) - (b.kind === "freetime" ? 1 : 0);
+    });
     items.push({ kind: "seam" });
     const isToday = sameCivil(day, today);
     const nowMin = isToday ? nowMinutesOnDay(day, timezone, now) : null;
