@@ -182,7 +182,7 @@ function meeting(partial: Record<string, unknown> = {}) {
 }
 
 function eventRow(
-  calendar: ReturnType<typeof googleCal>,
+  calendar: ReturnType<typeof googleCal> | ReturnType<typeof caldavCal>,
   partial: Record<string, unknown> = {},
 ) {
   return {
@@ -363,10 +363,10 @@ describe("rsvpToMeetingForUser", () => {
       createdOnProvider = true;
       return { id: "evt-new" };
     });
-    vi.mocked(db.calendarEvent.findFirst).mockImplementation(async () => {
+    vi.mocked(db.calendarEvent.findFirst).mockImplementation((async () => {
       if (!createdOnProvider) return null as never;
       return created as never;
-    });
+    }) as never);
 
     await rsvpToMeetingForUser("user-1", "msg-1", "tentative");
 
@@ -460,13 +460,15 @@ describe("rsvpToMeetingForUser", () => {
       createdOnProvider = true;
       return { id: "evt-new" };
     });
-    vi.mocked(db.calendarEvent.findFirst).mockImplementation(async (args) => {
+    vi.mocked(db.calendarEvent.findFirst).mockImplementation((async (
+      args: unknown,
+    ) => {
       const where = (args as { where?: Record<string, unknown> }).where ?? {};
       if (where.id === "evt-new" && createdOnProvider) return created as never;
       // Master lives at this UID; exception-only queries must not use it.
       if (where.icalUid && where.recurrenceId == null) return master as never;
       return null as never;
-    });
+    }) as never);
 
     await rsvpToMeetingForUser("user-1", "msg-1", "accepted");
 
@@ -508,10 +510,10 @@ describe("rsvpToMeetingForUser", () => {
       createdOnProvider = true;
       return { id: "evt-new" };
     });
-    vi.mocked(db.calendarEvent.findFirst).mockImplementation(async () => {
+    vi.mocked(db.calendarEvent.findFirst).mockImplementation((async () => {
       if (!createdOnProvider) return null as never;
       return created as never;
-    });
+    }) as never);
 
     await rsvpToMeetingForUser("user-1", "msg-1", "accepted");
 

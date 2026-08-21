@@ -158,7 +158,7 @@ describe("pruneCalendarTombstones", () => {
     const after = Date.now();
 
     expect(count).toBe(4);
-    const call = vi.mocked(db.calendarTombstone.deleteMany).mock.calls[0][0];
+    const call = vi.mocked(db.calendarTombstone.deleteMany).mock.calls[0][0]!;
     const cutoff = (call.where as { deletedAt: { lt: Date } }).deletedAt.lt;
     const day = 24 * 60 * 60_000;
     expect(cutoff.getTime()).toBeGreaterThanOrEqual(before - 30 * day);

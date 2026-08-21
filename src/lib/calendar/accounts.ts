@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { createAccount, getBasicAuthHeaders } from "tsdav";
 import { encrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -249,7 +250,7 @@ export const calendarAccountListSelect = {
       isReadOnly: true,
     },
   },
-} as const;
+} satisfies Prisma.CalendarAccountSelect;
 
 export async function listCalendarAccountsForUser(userId: string) {
   return db.calendarAccount.findMany({

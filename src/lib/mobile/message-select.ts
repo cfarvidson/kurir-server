@@ -86,19 +86,18 @@ type MobileMeetingRow = {
  * Sync/search presentation: flat folderRole, and `meeting` only when a
  * MessageMeeting row exists (native Task 7). Omit the key otherwise.
  */
+type PresentedMobileMessage<T> = Omit<T, "folder" | "meeting"> & {
+  folderRole: string | null;
+  meeting?: ReturnType<typeof serializeMobileMeeting>;
+};
+
 export function presentMobileMessages<
   T extends {
     folder: { specialUse: string | null } | null;
     meeting?: MobileMeetingRow | null;
   },
->(
-  rows: T[],
-): Array<
-  Omit<T, "folder" | "meeting"> & {
-    folderRole: string | null;
-    meeting?: ReturnType<typeof serializeMobileMeeting>;
-  }
-> {
+>(rows: T[]): Array<PresentedMobileMessage<T>> {
+  // TS can't relate the chained generic Omits, hence the cast.
   return flattenFolderRole(rows).map((row) => {
     const { meeting, ...rest } = row as typeof row & {
       meeting?: MobileMeetingRow | null;
@@ -106,5 +105,5 @@ export function presentMobileMessages<
     const serialized = serializeMobileMeeting(meeting);
     if (!serialized) return rest;
     return { ...rest, meeting: serialized };
-  });
+  }) as Array<PresentedMobileMessage<T>>;
 }

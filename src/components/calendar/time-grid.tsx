@@ -129,22 +129,12 @@ export function TimeGrid({
       return;
     }
     if (next.event.isReadOnly) return;
-    const originalStart =
-      next.type === "move" || next.type === "resize"
-        ? next.originalStart
-        : next.startMin;
-    const originalEnd =
-      next.type === "move" || next.type === "resize"
-        ? next.originalEnd
-        : next.endMin;
-    const originalDay =
-      next.type === "move" || next.type === "resize" ? next.originDay : next.day;
     if (
       !timedPlacementChanged({
-        originalDay: formatDateParam(originalDay),
+        originalDay: formatDateParam(next.originDay),
         currentDay: formatDateParam(next.day),
-        originalStart,
-        originalEnd,
+        originalStart: next.originalStart,
+        originalEnd: next.originalEnd,
         startMin: next.startMin,
         endMin: next.endMin,
       })

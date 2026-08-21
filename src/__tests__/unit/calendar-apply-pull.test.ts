@@ -138,7 +138,9 @@ describe("applyPull", () => {
   async function setupMocks(existing: ReturnType<typeof replicaRow>[]) {
     const { db } = await import("@/lib/db");
     vi.mocked(db.calendarEvent.findMany).mockResolvedValue(existing as never);
-    vi.mocked(db.calendarEvent.upsert).mockImplementation(async (args) => {
+    vi.mocked(db.calendarEvent.upsert).mockImplementation((async (
+      args: unknown,
+    ) => {
       const pid = (
         args as {
           where: { calendarId_providerEventId: { providerEventId: string } };
@@ -155,7 +157,7 @@ describe("applyPull", () => {
       const found = existing.find((row) => row.providerEventId === pid);
       if (found) return { ...found, ...update, id: found.id } as never;
       return { id: `id-${pid}`, ...create } as never;
-    });
+    }) as never);
     vi.mocked(db.calendarEvent.deleteMany).mockResolvedValue({ count: 0 } as never);
     vi.mocked(db.calendarEventInstance.deleteMany).mockResolvedValue({
       count: 0,
@@ -205,7 +207,7 @@ describe("applyPull", () => {
 
     expect(result).toEqual({ upserted: 1, deleted: 1 });
     expect(db.calendarEvent.deleteMany).toHaveBeenCalledTimes(1);
-    const where = vi.mocked(db.calendarEvent.deleteMany).mock.calls[0][0]
+    const where = vi.mocked(db.calendarEvent.deleteMany).mock.calls[0][0]!
       .where as Record<string, unknown>;
     expect(collectNotIn(where)).toEqual([]);
     const deletedProviders = collectIn(where, "providerEventId");
@@ -279,7 +281,7 @@ describe("applyPull", () => {
 
     expect(result).toEqual({ upserted: 1, deleted: 2 });
     expect(db.calendarEvent.deleteMany).toHaveBeenCalledTimes(1);
-    const where = vi.mocked(db.calendarEvent.deleteMany).mock.calls[0][0]
+    const where = vi.mocked(db.calendarEvent.deleteMany).mock.calls[0][0]!
       .where as Record<string, unknown>;
     const deletedProviders = collectIn(where, "providerEventId");
     const deletedIds = collectIn(where, "id");
@@ -290,7 +292,7 @@ describe("applyPull", () => {
     }
 
     const tombstoneData = vi.mocked(db.calendarTombstone.createMany).mock
-      .calls[0][0].data as Array<{ eventId: string; providerEventId: string }>;
+      .calls[0][0]!.data as Array<{ eventId: string; providerEventId: string }>;
     expect(tombstoneData).toHaveLength(2);
     expect(tombstoneData.map((t) => t.providerEventId).sort()).toEqual([
       "gone",
@@ -402,7 +404,7 @@ describe("applyPull", () => {
     expect(upsertArg.update).toMatchObject({ masterEventId: "e-master" });
 
     const created = vi.mocked(db.calendarEventInstance.createMany).mock
-      .calls[0][0].data as Array<{
+      .calls[0][0]!.data as Array<{
       startAt: Date;
       isException: boolean;
       title?: string;
@@ -467,9 +469,9 @@ describe("applyPull", () => {
         return inner ? inner(...args) : undefined;
       });
     }
-    wrap("upsert", db.calendarEvent.upsert);
-    wrap("tombstone", db.calendarTombstone.createMany);
-    wrap("delete", db.calendarEvent.deleteMany);
+    wrap("upsert", db.calendarEvent.upsert as never);
+    wrap("tombstone", db.calendarTombstone.createMany as never);
+    wrap("delete", db.calendarEvent.deleteMany as never);
 
     const { applyPull } = await import("@/lib/calendar/apply-pull");
     await applyPull({

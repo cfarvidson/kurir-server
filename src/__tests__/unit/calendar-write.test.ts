@@ -284,23 +284,23 @@ function remote(partial: Partial<RemoteEvent> = {}): RemoteEvent {
 }
 
 function wireStore() {
-  vi.mocked(db.calendar.findFirst).mockImplementation(async (args) => {
+  vi.mocked(db.calendar.findFirst).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     const row = store.calendars.find((c) =>
       whereMatch(c as unknown as Record<string, unknown>, where),
     );
     return (row ?? null) as never;
-  });
-  vi.mocked(db.calendar.update).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendar.update).mockImplementation((async (args: unknown) => {
     const id = (args as { where: { id: string } }).where.id;
     const data = (args as { data: Partial<CalendarRow> }).data;
     const row = store.calendars.find((c) => c.id === id);
     if (!row) throw new Error("calendar not found");
     Object.assign(row, data);
     return row as never;
-  });
+  }) as never);
 
-  vi.mocked(db.calendarEvent.findFirst).mockImplementation(async (args) => {
+  vi.mocked(db.calendarEvent.findFirst).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     const include = (args as { include?: Record<string, unknown> }).include;
     const row = store.events.find((e) =>
@@ -318,14 +318,14 @@ function wireStore() {
       result.instances = store.instances.filter((i) => i.eventId === row.id);
     }
     return result as never;
-  });
-  vi.mocked(db.calendarEvent.findMany).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.findMany).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     return store.events.filter((e) =>
       whereMatch(e as unknown as Record<string, unknown>, where),
     ) as never;
-  });
-  vi.mocked(db.calendarEvent.create).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.create).mockImplementation((async (args: unknown) => {
     const data = (args as { data: Partial<EventRow> }).data;
     const row = eventRow({
       ...data,
@@ -333,16 +333,16 @@ function wireStore() {
     } as EventRow);
     store.events.push(row);
     return row as never;
-  });
-  vi.mocked(db.calendarEvent.update).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.update).mockImplementation((async (args: unknown) => {
     const id = (args as { where: { id: string } }).where.id;
     const data = (args as { data: Partial<EventRow> }).data;
     const row = store.events.find((e) => e.id === id);
     if (!row) throw new Error("event not found");
     Object.assign(row, data);
     return row as never;
-  });
-  vi.mocked(db.calendarEvent.upsert).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.upsert).mockImplementation((async (args: unknown) => {
     const keyed = args as {
       where: {
         calendarId_providerEventId: {
@@ -368,8 +368,8 @@ function wireStore() {
     } as EventRow);
     store.events.push(row);
     return row as never;
-  });
-  vi.mocked(db.calendarEvent.delete).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.delete).mockImplementation((async (args: unknown) => {
     const id = (args as { where: { id: string } }).where.id;
     const idx = store.events.findIndex((e) => e.id === id);
     if (idx < 0) throw new Error("event not found");
@@ -377,8 +377,8 @@ function wireStore() {
     store.instances = store.instances.filter((i) => i.eventId !== id);
     store.events = store.events.filter((e) => e.masterEventId !== id);
     return row as never;
-  });
-  vi.mocked(db.calendarEvent.deleteMany).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEvent.deleteMany).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     const before = store.events.length;
     const removed = store.events.filter((e) =>
@@ -388,29 +388,29 @@ function wireStore() {
     store.events = store.events.filter((e) => !removedIds.has(e.id));
     store.instances = store.instances.filter((i) => !removedIds.has(i.eventId));
     return { count: before - store.events.length } as never;
-  });
+  }) as never);
 
-  vi.mocked(db.calendarEventInstance.findMany).mockImplementation(async (args) => {
+  vi.mocked(db.calendarEventInstance.findMany).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     return store.instances.filter((i) =>
       whereMatch(i as unknown as Record<string, unknown>, where),
     ) as never;
-  });
-  vi.mocked(db.calendarEventInstance.deleteMany).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEventInstance.deleteMany).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     const before = store.instances.length;
     store.instances = store.instances.filter(
       (i) => !whereMatch(i as unknown as Record<string, unknown>, where),
     );
     return { count: before - store.instances.length } as never;
-  });
-  vi.mocked(db.calendarEventInstance.createMany).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarEventInstance.createMany).mockImplementation((async (args: unknown) => {
     const data = (args as { data: InstanceRow[] }).data;
     store.instances.push(...data);
     return { count: data.length } as never;
-  });
+  }) as never);
 
-  vi.mocked(db.calendarTombstone.createMany).mockImplementation(async (args) => {
+  vi.mocked(db.calendarTombstone.createMany).mockImplementation((async (args: unknown) => {
     const data = (args as { data: TombstoneRow[] }).data;
     for (const row of data) {
       const exists = store.tombstones.some(
@@ -419,15 +419,15 @@ function wireStore() {
       if (!exists) store.tombstones.push(row);
     }
     return { count: data.length } as never;
-  });
-  vi.mocked(db.calendarTombstone.deleteMany).mockImplementation(async (args) => {
+  }) as never);
+  vi.mocked(db.calendarTombstone.deleteMany).mockImplementation((async (args: unknown) => {
     const where = (args as { where?: Record<string, unknown> }).where;
     const before = store.tombstones.length;
     store.tombstones = store.tombstones.filter(
       (t) => !whereMatch(t as unknown as Record<string, unknown>, where),
     );
     return { count: before - store.tombstones.length } as never;
-  });
+  }) as never);
 }
 
 describe("calendar write-through", () => {
