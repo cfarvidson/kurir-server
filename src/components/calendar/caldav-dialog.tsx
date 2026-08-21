@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { connectCalDavAction } from "@/actions/calendar";
@@ -16,23 +16,40 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const DEFAULT_URL = "https://caldav.icloud.com";
+
 export function CalDavDialog({
   open,
   onOpenChange,
+  accountId,
+  initialUrl,
+  initialUsername,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  accountId?: string;
+  initialUrl?: string | null;
+  initialUsername?: string | null;
 }) {
   const router = useRouter();
-  const [url, setUrl] = useState("https://caldav.icloud.com");
-  const [username, setUsername] = useState("");
+  const reconnect = Boolean(accountId);
+  const fieldId = accountId ? `caldav-${accountId}` : "caldav";
+  const [url, setUrl] = useState(initialUrl || DEFAULT_URL);
+  const [username, setUsername] = useState(initialUsername || "");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setUrl(initialUrl || DEFAULT_URL);
+    setUsername(initialUsername || "");
+    setPassword("");
+  }, [open, initialUrl, initialUsername]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await connectCalDavAction({ url, username, password });
+      await connectCalDavAction({ url, username, password, accountId });
       onOpenChange(false);
       router.refresh();
     } catch (err) {
@@ -46,34 +63,34 @@ export function CalDavDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add CalDAV</DialogTitle>
+          <DialogTitle>{reconnect ? "Reconnect CalDAV" : "Add CalDAV"}</DialogTitle>
           <DialogDescription>
             For iCloud, use an app-specific password at https://caldav.icloud.com.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="caldav-url">URL</Label>
+            <Label htmlFor={`${fieldId}-url`}>URL</Label>
             <Input
-              id="caldav-url"
+              id={`${fieldId}-url`}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               autoComplete="url"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="caldav-username">Username</Label>
+            <Label htmlFor={`${fieldId}-username`}>Username</Label>
             <Input
-              id="caldav-username"
+              id={`${fieldId}-username`}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="caldav-password">Password</Label>
+            <Label htmlFor={`${fieldId}-password`}>Password</Label>
             <Input
-              id="caldav-password"
+              id={`${fieldId}-password`}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -83,7 +100,13 @@ export function CalDavDialog({
         </div>
         <DialogFooter>
           <Button type="button" onClick={handleSave} disabled={saving}>
-            {saving ? "Connecting..." : "Connect"}
+            {saving
+              ? reconnect
+                ? "Reconnecting..."
+                : "Connecting..."
+              : reconnect
+                ? "Reconnect"
+                : "Connect"}
           </Button>
         </DialogFooter>
       </DialogContent>

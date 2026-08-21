@@ -23,6 +23,8 @@ export type SettingsCalendarAccount = {
   displayName: string;
   provider: CalendarProviderId;
   principalEmail: string | null;
+  caldavUrl: string | null;
+  caldavUsername: string | null;
   lastSyncedAt: string | null;
   isSyncing: boolean;
   oauthError: string | null;
@@ -257,7 +259,13 @@ function CalendarAccountCard({
       </div>
 
       {account.provider === "CALDAV" && (
-        <CalDavDialog open={caldavOpen} onOpenChange={setCaldavOpen} />
+        <CalDavDialog
+          open={caldavOpen}
+          onOpenChange={setCaldavOpen}
+          accountId={account.id}
+          initialUrl={account.caldavUrl}
+          initialUsername={account.caldavUsername}
+        />
       )}
     </article>
   );

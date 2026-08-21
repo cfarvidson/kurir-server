@@ -62,11 +62,26 @@ export async function createCalDavAccount(input: {
   url: string;
   username: string;
   password: string;
+  accountId?: string;
 }): Promise<{ id: string }> {
   const username = input.username.trim();
   const password = input.password;
   if (!username) throw new Error("CalDAV username is required");
   if (!password) throw new Error("CalDAV password is required");
+
+  let reconnectId: string | null = null;
+  if (input.accountId) {
+    const owned = await db.calendarAccount.findFirst({
+      where: {
+        id: input.accountId,
+        userId: input.userId,
+        provider: "CALDAV",
+      },
+      select: { id: true },
+    });
+    if (!owned) throw new Error("Calendar account not found");
+    reconnectId = owned.id;
+  }
 
   let homeUrl: string;
   try {
@@ -80,15 +95,17 @@ export async function createCalDavAccount(input: {
     throw new Error(`CalDAV discovery failed: ${message}`);
   }
 
-  const existing = await db.calendarAccount.findFirst({
-    where: {
-      userId: input.userId,
-      provider: "CALDAV",
-      caldavUsername: username,
-      caldavUrl: homeUrl,
-    },
-    select: { id: true },
-  });
+  const existing = reconnectId
+    ? { id: reconnectId }
+    : await db.calendarAccount.findFirst({
+        where: {
+          userId: input.userId,
+          provider: "CALDAV",
+          caldavUsername: username,
+          caldavUrl: homeUrl,
+        },
+        select: { id: true },
+      });
 
   const data = {
     displayName: calDavDisplayName(username, homeUrl),

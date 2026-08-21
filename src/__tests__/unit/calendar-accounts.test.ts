@@ -93,6 +93,66 @@ describe("createCalDavAccount", () => {
     );
     expect(account).toEqual({ id: "acc-1" });
   });
+
+  it("updates the named account even when username and home would not match", async () => {
+    davMocks.createAccount.mockResolvedValue({
+      homeUrl: "https://caldav.example.com/home/",
+    });
+    vi.mocked(db.calendarAccount.findFirst).mockResolvedValue({
+      id: "acc-old",
+    } as never);
+    vi.mocked(db.calendarAccount.update).mockResolvedValue({
+      id: "acc-old",
+    } as never);
+
+    const account = await createCalDavAccount({
+      userId: "u1",
+      url: "https://caldav.example.com",
+      username: "new-user",
+      password: "new-pass",
+      accountId: "acc-old",
+    });
+
+    expect(db.calendarAccount.findFirst).toHaveBeenCalledWith({
+      where: { id: "acc-old", userId: "u1", provider: "CALDAV" },
+      select: { id: true },
+    });
+    expect(db.calendarAccount.create).not.toHaveBeenCalled();
+    expect(db.calendarAccount.update).toHaveBeenCalledWith({
+      where: { id: "acc-old" },
+      data: expect.objectContaining({
+        caldavUrl: "https://caldav.example.com/home/",
+        caldavUsername: "new-user",
+        encryptedPassword: "enc:new-pass",
+        lastError: null,
+      }),
+      select: { id: true },
+    });
+    expect(jobMocks.enqueueCalendarSyncJob).toHaveBeenCalledWith(
+      "acc-old",
+      "u1",
+      { immediate: true },
+    );
+    expect(account).toEqual({ id: "acc-old" });
+  });
+
+  it("rejects reconnect of a missing CalDAV account before discovery", async () => {
+    vi.mocked(db.calendarAccount.findFirst).mockResolvedValue(null);
+
+    await expect(
+      createCalDavAccount({
+        userId: "u1",
+        url: "https://caldav.example.com",
+        username: "user",
+        password: "pass",
+        accountId: "missing",
+      }),
+    ).rejects.toThrow("Calendar account not found");
+
+    expect(davMocks.createAccount).not.toHaveBeenCalled();
+    expect(db.calendarAccount.create).not.toHaveBeenCalled();
+    expect(db.calendarAccount.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteCalendarAccount", () => {

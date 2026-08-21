@@ -39,6 +39,7 @@ export async function connectCalDavAction(input: {
   url: string;
   username: string;
   password: string;
+  accountId?: string;
 }) {
   const session = await requireAuth();
   const account = await createCalDavAccount({
@@ -46,6 +47,7 @@ export async function connectCalDavAction(input: {
     url: input.url,
     username: input.username,
     password: input.password,
+    accountId: input.accountId,
   });
   revalidateCalendar();
   return account;
