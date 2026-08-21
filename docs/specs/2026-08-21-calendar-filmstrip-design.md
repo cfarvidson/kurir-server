@@ -3,6 +3,18 @@
 Date: 2026-08-21
 Status: approved in brainstorming, ready for implementation planning
 
+> **Revision (2026-08-21, later):** after using the shipped vertical strip,
+> the user redirected the day view to match HEY's actual filmstrip:
+> **horizontal** — days as equal-width columns scrolled sideways with snap,
+> story flow top-to-bottom inside each column. Timed events render as solid
+> blocks of their calendar color (light/dark text by YIQ brightness), and
+> today's column gets a warm wash + 2px terracotta top rail. Night seams are
+> gone (each day is its own frame). Equal column widths make scroll position
+> <-> day index plain arithmetic (`stripIndexAtOffset`/`stripOffsetForIndex`),
+> replacing the rect-measuring scroll math that caused landing bugs. The
+> sections below describe the original vertical design; data flow, freetime
+> rules, interactions, and the API are unchanged.
+
 ## Context
 
 The calendar shipped with HEY's information architecture (week as home,

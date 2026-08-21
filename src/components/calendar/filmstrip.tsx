@@ -12,6 +12,8 @@ import { FreetimeBlock } from "@/components/calendar/freetime-block";
 import { EventBlock } from "@/components/calendar/event-block";
 import {
   buildFilmstrip,
+  stripIndexAtOffset,
+  stripOffsetForIndex,
   WINDOW_BACK,
   WINDOW_FORWARD,
   type FilmstripDay,
@@ -22,7 +24,7 @@ import type {
   CalendarInstanceDTO,
   SlotSelection,
 } from "@/components/calendar/types";
-import { eventBlockStyle } from "@/lib/calendar/color";
+import { normalizeEventHex, readableTextTone } from "@/lib/calendar/color";
 import {
   addDays,
   formatDateParam,
@@ -53,44 +55,43 @@ function civilFromKey(key: string): CivilDate {
   return { year, month, day };
 }
 
-type ScrollTarget = { element: HTMLElement; kind: "now" | "section" };
-
 /**
- * The scroll target for a day: its now-line when the day has one, else the
- * section itself. Both are scoped to the day so a strip that also renders
- * today doesn't steal the target.
+ * The strip's geometry: `base` is the first column's offset from content
+ * left, `stride` the column-to-column distance. All columns share one
+ * width, so both come from at most two rect reads — never a per-column
+ * walk. The container has no positioned ancestor, so offsets are rect
+ * deltas, not offsetLeft.
  */
-function dayScrollTarget(node: HTMLElement, key: string): ScrollTarget | null {
-  const now = node.querySelector<HTMLElement>(
-    `[data-filmstrip-day="${key}"] [data-filmstrip-now]`,
-  );
-  if (now) return { element: now, kind: "now" };
-  const section = node.querySelector<HTMLElement>(
-    `[data-filmstrip-day="${key}"]`,
-  );
-  return section ? { element: section, kind: "section" } : null;
+function measureStrip(
+  node: HTMLElement,
+): { base: number; stride: number } | null {
+  const sections = node.querySelectorAll<HTMLElement>("[data-filmstrip-day]");
+  const first = sections[0]?.getBoundingClientRect();
+  if (!first) return null;
+  const base = first.left - node.getBoundingClientRect().left + node.scrollLeft;
+  const second = sections[1]?.getBoundingClientRect();
+  return { base, stride: second ? second.left - first.left : first.width };
 }
 
-/** Breathing room above a day section landed at the viewport top. */
-const SECTION_TOP_INSET = 8;
-
 /**
- * The container has no positioned ancestor, so `offsetTop` would resolve
- * against <body> (or, for the now-line, against its own nearer positioned
- * wrapper) instead of the scroll container — use getBoundingClientRect deltas.
- *
- * A now-line is centred a third down; a day section is landed at the top
- * instead. Centring a section would leave the previous day's tail filling the
- * viewport top, and the visible-day handler reports whatever sits there — so
- * asking for the 22nd would put the 21st in the URL and the masthead.
+ * Vertically reveal today's now-line inside its own column scroller (the
+ * horizontal position is the caller's job). A third down, like the old
+ * vertical strip landed it.
  */
-function scrollTargetIntoView(node: HTMLElement, target: ScrollTarget) {
-  const containerTop = node.getBoundingClientRect().top;
-  const targetTop =
-    target.element.getBoundingClientRect().top - containerTop + node.scrollTop;
-  const inset =
-    target.kind === "now" ? node.clientHeight / 3 : SECTION_TOP_INSET;
-  node.scrollTop = Math.max(0, targetTop - inset);
+function revealNowInColumn(node: HTMLElement, key: string) {
+  const column = node.querySelector<HTMLElement>(
+    `[data-filmstrip-day="${key}"]`,
+  );
+  const scroller = column?.querySelector<HTMLElement>(
+    "[data-filmstrip-scroll]",
+  );
+  const nowEl = column?.querySelector<HTMLElement>("[data-filmstrip-now]");
+  if (!scroller || !nowEl) return;
+  const top =
+    nowEl.getBoundingClientRect().top -
+    scroller.getBoundingClientRect().top +
+    scroller.scrollTop;
+  scroller.scrollTop = Math.max(0, top - scroller.clientHeight / 3);
 }
 
 function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
@@ -104,7 +105,6 @@ function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
 }
 
 function itemKey(item: FilmstripItem): string {
-  if (item.kind === "seam") return "seam";
   const idPart = item.kind === "event" ? `:${item.instance.eventId}` : "";
   return `${item.kind}:${item.startMin}${idPart}`;
 }
@@ -194,8 +194,8 @@ export function Filmstrip({
   }, [instances, anchor, timezone]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const topRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const prependCorrection = useRef<number | null>(null);
   const didInitialScroll = useRef(false);
   const lastReportedKeyRef = useRef<string | null>(null);
@@ -232,8 +232,7 @@ export function Filmstrip({
           return next;
         });
         if (direction === "past") {
-          prependCorrection.current =
-            containerRef.current?.scrollHeight ?? null;
+          prependCorrection.current = containerRef.current?.scrollWidth ?? null;
         }
         setRange((prev) =>
           direction === "past"
@@ -258,24 +257,24 @@ export function Filmstrip({
     extendRef.current = extend;
   }, [extend]);
 
-  // Prepend without viewport jump: correct scrollTop after a "past" extend
+  // Prepend without viewport jump: correct scrollLeft after a "past" extend
   // shifts range.start earlier.
   useLayoutEffect(() => {
     const node = containerRef.current;
     if (node == null || prependCorrection.current == null) return;
-    node.scrollTop += node.scrollHeight - prependCorrection.current;
+    node.scrollLeft += node.scrollWidth - prependCorrection.current;
     prependCorrection.current = null;
   }, [range.start]);
 
   // Sentinels are observed once. Attaching is deferred until the initial
   // scroll has positioned the viewport, so a sentinel that starts within
-  // rootMargin of scrollTop 0 doesn't fire an extend before the anchor day
+  // rootMargin of scrollLeft 0 doesn't fire an extend before the anchor day
   // is even in view.
   useEffect(() => {
     const root = containerRef.current;
-    const top = topRef.current;
-    const bottom = bottomRef.current;
-    if (!root || !top || !bottom) return;
+    const start = startRef.current;
+    const end = endRef.current;
+    if (!root || !start || !end) return;
 
     let observer: IntersectionObserver | undefined;
     let rafId: number | undefined;
@@ -289,14 +288,14 @@ export function Filmstrip({
         (entries) => {
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
-            if (entry.target === top) void extendRef.current("past");
-            if (entry.target === bottom) void extendRef.current("future");
+            if (entry.target === start) void extendRef.current("past");
+            if (entry.target === end) void extendRef.current("future");
           }
         },
-        { root, rootMargin: "600px 0px" },
+        { root, rootMargin: "0px 600px" },
       );
-      observer.observe(top!);
-      observer.observe(bottom!);
+      observer.observe(start!);
+      observer.observe(end!);
     }
     attach();
 
@@ -306,27 +305,37 @@ export function Filmstrip({
     };
   }, []);
 
-  const days = useMemo(
-    () => daySpan(range.start, range.endExclusive),
-    [range],
-  );
+  const days = useMemo(() => daySpan(range.start, range.endExclusive), [range]);
   const model = useMemo(
     () => buildFilmstrip([...byKey.values()], days, timezone, now),
     [byKey, days, timezone, now],
   );
+  // The scroll handler reads the day list without re-binding on every extend.
+  const dayKeysRef = useRef<string[]>([]);
+  dayKeysRef.current = model.map((day) => day.key);
 
-  // Initial scroll, once: to the anchor day's now-line when it has one, else
-  // to the anchor's section.
+  const positionStrip = useCallback(
+    (key: string): boolean => {
+      const node = containerRef.current;
+      if (!node) return false;
+      const index = dayKeysRef.current.indexOf(key);
+      const strip = measureStrip(node);
+      if (index === -1 || !strip) return false;
+      node.scrollLeft = stripOffsetForIndex(index, strip.base, strip.stride);
+      revealNowInColumn(node, key);
+      return true;
+    },
+    [],
+  );
+
+  // Initial scroll, once: the anchor day lands at the strip's left edge;
+  // today's column also reveals its now-line vertically.
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
-    const node = containerRef.current;
-    if (!node) return;
-    const key = formatDateParam(anchor);
-    const target = dayScrollTarget(node, key);
-    if (target) scrollTargetIntoView(node, target);
-    lastReportedKeyRef.current = key;
+    positionStrip(formatDateParam(anchor));
+    lastReportedKeyRef.current = formatDateParam(anchor);
     didInitialScroll.current = true;
-  }, [anchor]);
+  }, [anchor, positionStrip]);
 
   // Nav intent from the shell: prev/next/Today must reposition the strip even
   // when `?date=` (and so `anchor`) is unchanged, which is why this keys off
@@ -352,11 +361,7 @@ export function Filmstrip({
   // a jump outside the current range only paints after `range` settles.
   useLayoutEffect(() => {
     if (pendingScroll == null || !didInitialScroll.current) return;
-    const node = containerRef.current;
-    if (!node) return;
-    const target = dayScrollTarget(node, pendingScroll);
-    if (!target) return;
-    scrollTargetIntoView(node, target);
+    if (!positionStrip(pendingScroll)) return;
     // Keep the scroll handler from immediately reporting a stale day back.
     // That early-return also swallows onVisibleDayChange, so report the day
     // from here — otherwise a nonce-only nav (Today while the URL has drifted)
@@ -364,7 +369,7 @@ export function Filmstrip({
     lastReportedKeyRef.current = pendingScroll;
     onVisibleDayChange?.(civilFromKey(pendingScroll));
     setPendingScroll(null);
-  }, [pendingScroll, model, onVisibleDayChange]);
+  }, [pendingScroll, model, onVisibleDayChange, positionStrip]);
 
   // Visible-day tracking: rAF-throttled scroll handler, URL sync via
   // history.replaceState (not router.replace, which would re-render the
@@ -377,23 +382,15 @@ export function Filmstrip({
       if (rafId != null) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = null;
-        // Same rect-based positioning as the initial scroll: the container
-        // isn't a positioned ancestor, so compare each section's top
-        // relative to the container's own rect instead of offsetTop.
-        const containerTop = node!.getBoundingClientRect().top;
-        const sections = node!.querySelectorAll<HTMLElement>(
-          "[data-filmstrip-day]",
+        const strip = measureStrip(node!);
+        if (!strip) return;
+        const index = stripIndexAtOffset(
+          node!.scrollLeft,
+          strip.base,
+          strip.stride,
+          dayKeysRef.current.length,
         );
-        let current: HTMLElement | null = null;
-        for (const section of sections) {
-          const top = section.getBoundingClientRect().top - containerTop;
-          if (top <= 24) {
-            current = section;
-          } else {
-            break;
-          }
-        }
-        const key = current?.dataset.filmstripDay;
+        const key = dayKeysRef.current[index];
         if (!key || key === lastReportedKeyRef.current) return;
         lastReportedKeyRef.current = key;
         try {
@@ -413,49 +410,53 @@ export function Filmstrip({
   }, [onVisibleDayChange]);
 
   return (
-    <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-2xl px-4 pb-16">
-        <div ref={topRef} className="py-8 text-center">
-          {loadError === "past" && (
-            <button
-              type="button"
-              onClick={() => void extend("past")}
-              className="text-sm text-muted-foreground underline-offset-2 hover:underline"
-            >
-              Couldn&apos;t load more days — retry
-            </button>
-          )}
-        </div>
-        {model.map((day) => (
-          <FilmstripDaySection
-            key={day.key}
-            day={day}
-            canCreate={canCreate}
-            onSelectSlot={onSelectSlot}
-            onEventClick={onEventClick}
-          />
-        ))}
-        <div ref={bottomRef} className="py-8 text-center">
-          {loadError === "future" ? (
-            <button
-              type="button"
-              onClick={() => void extend("future")}
-              className="text-sm text-muted-foreground underline-offset-2 hover:underline"
-            >
-              Couldn&apos;t load more days — retry
-            </button>
-          ) : (
-            <p className="font-serif text-sm italic text-muted-foreground">
-              Time never stops.
-            </p>
-          )}
-        </div>
+    <div
+      ref={containerRef}
+      className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
+    >
+      <div ref={startRef} className="flex w-12 shrink-0 items-center">
+        {loadError === "past" && (
+          <button
+            type="button"
+            onClick={() => void extend("past")}
+            className="w-full -rotate-90 whitespace-nowrap text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+      {model.map((day) => (
+        <FilmstripDayColumn
+          key={day.key}
+          day={day}
+          canCreate={canCreate}
+          onSelectSlot={onSelectSlot}
+          onEventClick={onEventClick}
+        />
+      ))}
+      <div
+        ref={endRef}
+        className="flex w-44 shrink-0 items-center justify-center px-6"
+      >
+        {loadError === "future" ? (
+          <button
+            type="button"
+            onClick={() => void extend("future")}
+            className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Couldn&apos;t load more days — retry
+          </button>
+        ) : (
+          <p className="text-center font-serif text-sm italic text-muted-foreground">
+            Time never stops.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-function FilmstripDaySection({
+function FilmstripDayColumn({
   day,
   canCreate,
   onSelectSlot,
@@ -477,27 +478,10 @@ function FilmstripDaySection({
       <div key={itemKey(item)} className="relative">
         {between && <NowLine label={day.nowTimeLabel ?? ""} />}
         {item.kind === "event" && (
-          <button
-            type="button"
+          <EventEntry
+            item={item}
             onClick={() => onEventClick(item.instance)}
-            className="flex w-full items-baseline gap-3 rounded-xs px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-            style={{
-              minHeight: item.heightPx,
-              ...eventBlockStyle(item.instance.color),
-              borderLeft: "2px solid var(--event-color)",
-              backgroundColor: "var(--event-fill)",
-            }}
-          >
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {item.startLabel}
-            </span>
-            <span className="min-w-0 truncate text-sm font-semibold">
-              {item.instance.title}
-            </span>
-            <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-              {item.durationLabel}
-            </span>
-          </button>
+          />
         )}
         {item.kind === "freetime" && (
           <FreetimeBlock
@@ -517,10 +501,7 @@ function FilmstripDaySection({
             }
           />
         )}
-        {item.kind === "seam" && (
-          <div aria-hidden className="my-3 border-t border-dashed border-border" />
-        )}
-        {inside && item.kind !== "seam" && (
+        {inside && (
           <div
             className="pointer-events-none absolute inset-x-0"
             style={{
@@ -538,64 +519,119 @@ function FilmstripDaySection({
     <section
       data-filmstrip-day={day.key}
       className={cn(
-        "pt-6",
-        day.isWeekend && "bg-muted/20",
+        "flex w-[85vw] max-w-80 shrink-0 snap-start flex-col border-r border-border border-t-2 border-t-transparent",
+        day.isToday && "border-t-primary bg-primary/5",
+        !day.isToday && day.isWeekend && "bg-muted/20",
         day.isPast && "opacity-60",
       )}
     >
-      <header className="flex items-baseline gap-2 pb-2">
+      <header className="flex items-baseline gap-2 px-4 pb-3 pt-6">
         <span
           className={cn(
-            "font-serif text-2xl font-semibold tabular-nums",
+            "font-serif text-3xl font-semibold tabular-nums",
             day.isToday && "text-primary",
           )}
         >
           {day.date.day}
         </span>
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <span
+          className={cn(
+            "text-[11px] uppercase tracking-wide text-muted-foreground",
+            day.isToday && "font-medium text-primary",
+          )}
+        >
           {formatWeekdayShort(day.date)}
         </span>
       </header>
-      {day.allDay.map((row) => (
-        <EventBlock
-          key={`${row.eventId}:${row.startAt}`}
-          title={row.title}
-          color={row.color}
-          muted={row.transparency === "free"}
-          className="relative mb-1 h-5"
-          onClick={() => onEventClick(row)}
-        />
-      ))}
-      {hasEvents ? (
-        day.items.map(renderItem)
-      ) : (
-        <>
-          {day.isToday && day.now && <NowLine label={day.nowTimeLabel ?? ""} />}
-          {canCreate ? (
-            <button
-              type="button"
-              onClick={() =>
-                onSelectSlot({
-                  date: day.key,
-                  startMin: 9 * 60,
-                  endMin: 10 * 60,
-                  allDay: false,
-                })
-              }
-              className="w-full rounded-xs px-3 py-4 text-left text-sm text-muted-foreground hover:text-foreground"
-            >
-              Nothing planned
-            </button>
-          ) : (
-            <p className="px-3 py-4 text-sm text-muted-foreground">
-              Nothing planned
-            </p>
-          )}
-        </>
-      )}
-      {!hasEvents && (
-        <div aria-hidden className="my-3 border-t border-dashed border-border" />
-      )}
+      <div
+        data-filmstrip-scroll
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-6"
+      >
+        {day.allDay.map((row) => (
+          <EventBlock
+            key={`${row.eventId}:${row.startAt}`}
+            title={row.title}
+            color={row.color}
+            muted={row.transparency === "free"}
+            className="relative h-5"
+            onClick={() => onEventClick(row)}
+          />
+        ))}
+        {hasEvents ? (
+          <>
+            {day.items.map(renderItem)}
+            {day.now?.kind === "between" &&
+              day.now.beforeIndex === day.items.length && (
+                <NowLine label={day.nowTimeLabel ?? ""} />
+              )}
+          </>
+        ) : (
+          <>
+            {day.isToday && day.now && (
+              <NowLine label={day.nowTimeLabel ?? ""} />
+            )}
+            {canCreate ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onSelectSlot({
+                    date: day.key,
+                    startMin: 9 * 60,
+                    endMin: 10 * 60,
+                    allDay: false,
+                  })
+                }
+                className="w-full rounded-xs px-1 py-4 text-left text-sm text-muted-foreground hover:text-foreground"
+              >
+                Nothing planned
+              </button>
+            ) : (
+              <p className="px-1 py-4 text-sm text-muted-foreground">
+                Nothing planned
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </section>
+  );
+}
+
+/**
+ * A timed entry as a solid block of its calendar's color — the HEY-style
+ * color coding. Text picks light/dark per fill for contrast; the fixed
+ * tones are theme-safe because they sit on the fixed calendar hex.
+ */
+function EventEntry({
+  item,
+  onClick,
+}: {
+  item: Extract<FilmstripItem, { kind: "event" }>;
+  onClick: () => void;
+}) {
+  const fill = normalizeEventHex(item.instance.color);
+  const tone = readableTextTone(fill);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full flex-col justify-center gap-0.5 rounded-sm px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+        tone === "light" ? "text-white" : "text-zinc-950",
+      )}
+      style={{ minHeight: item.heightPx, backgroundColor: fill }}
+    >
+      <span className="min-w-0 truncate text-sm font-semibold">
+        {item.instance.title}
+      </span>
+      <span
+        className={cn(
+          "text-xs tabular-nums",
+          tone === "light" ? "text-white/75" : "text-zinc-950/70",
+        )}
+      >
+        {item.startLabel} · {item.durationLabel}
+      </span>
+    </button>
   );
 }

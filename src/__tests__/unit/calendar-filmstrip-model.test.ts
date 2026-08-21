@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   buildFilmstrip,
   entryHeightPx,
+  stripIndexAtOffset,
+  stripOffsetForIndex,
 } from "@/components/calendar/filmstrip-model";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 
@@ -44,7 +46,7 @@ describe("entryHeightPx", () => {
 });
 
 describe("buildFilmstrip", () => {
-  it("orders events and freetime by start, seam last", () => {
+  it("orders events and freetime by start", () => {
     const days = buildFilmstrip(
       [
         inst({}), // 09:00-10:00
@@ -61,14 +63,13 @@ describe("buildFilmstrip", () => {
     );
     const kinds = days[0].items.map((i) => i.kind);
     // freetime 07-09 (120 min), event 09-10, freetime 10-13, event 13-14,
-    // freetime 14-21 (420 min), seam
+    // freetime 14-21 (420 min)
     expect(kinds).toEqual([
       "freetime",
       "event",
       "freetime",
       "event",
       "freetime",
-      "seam",
     ]);
     const first = days[0].items[1];
     expect(first.kind).toBe("event");
@@ -144,13 +145,13 @@ describe("buildFilmstrip", () => {
       NOON,
     );
     expect(days[0].allDay).toHaveLength(1);
-    // whole visible day is one freetime span + seam
-    expect(days[0].items.map((i) => i.kind)).toEqual(["freetime", "seam"]);
+    // whole visible day is one freetime span
+    expect(days[0].items.map((i) => i.kind)).toEqual(["freetime"]);
   });
 
-  it("an empty day is one freetime span plus a seam", () => {
+  it("an empty day is one freetime span", () => {
     const days = buildFilmstrip([], [{ ...FRI, day: 22 }], TZ, NOON);
-    expect(days[0].items.map((i) => i.kind)).toEqual(["freetime", "seam"]);
+    expect(days[0].items.map((i) => i.kind)).toEqual(["freetime"]);
   });
 
   it("labels a midnight-crossing event with its true span on both days", () => {
@@ -190,10 +191,39 @@ describe("buildFilmstrip", () => {
     const dst = { year: 2026, month: 10, day: 25 };
     const days = buildFilmstrip([], [dst], TZ, NOON);
     for (const item of days[0].items) {
-      if (item.kind !== "seam") {
-        expect(item.endMin).toBeGreaterThan(item.startMin);
-        expect(item.heightPx).toBeGreaterThanOrEqual(40);
-      }
+      expect(item.endMin).toBeGreaterThan(item.startMin);
+      expect(item.heightPx).toBeGreaterThanOrEqual(40);
     }
+  });
+
+  it("puts the now marker after all items when the day's flow is over", () => {
+    const evening = new Date("2026-08-21T20:30:00.000Z"); // 22:30 Stockholm
+    const days = buildFilmstrip([inst({})], [FRI], TZ, evening);
+    // Items end at 21:00 (freetime window); 22:30 is after everything.
+    expect(days[0].now).toEqual({
+      kind: "between",
+      beforeIndex: days[0].items.length,
+    });
+  });
+});
+
+describe("strip scroll math", () => {
+  it("round-trips index <-> offset", () => {
+    expect(stripOffsetForIndex(0, 48, 320)).toBe(48);
+    expect(stripOffsetForIndex(3, 48, 320)).toBe(48 + 3 * 320);
+    expect(stripIndexAtOffset(48 + 3 * 320, 48, 320, 15)).toBe(3);
+  });
+
+  it("rounds to the nearest column", () => {
+    expect(stripIndexAtOffset(48 + 3 * 320 - 100, 48, 320, 15)).toBe(3);
+    expect(stripIndexAtOffset(48 + 3 * 320 + 100, 48, 320, 15)).toBe(3);
+    expect(stripIndexAtOffset(48 + 3 * 320 + 200, 48, 320, 15)).toBe(4);
+  });
+
+  it("clamps to the rendered days", () => {
+    expect(stripIndexAtOffset(-500, 48, 320, 15)).toBe(0);
+    expect(stripIndexAtOffset(1e9, 48, 320, 15)).toBe(14);
+    expect(stripIndexAtOffset(100, 48, 0, 15)).toBe(0);
+    expect(stripIndexAtOffset(100, 48, 320, 0)).toBe(0);
   });
 });

@@ -37,12 +37,11 @@ export type FilmstripItem =
       endMin: number;
       heightPx: number;
       minutes: number; // endMin - startMin, for FreetimeBlock
-    }
-  | { kind: "seam" };
+    };
 
 export type NowMarker =
   | { kind: "in-item"; index: number; fraction: number } // 0..1 within items[index]
-  | { kind: "between"; beforeIndex: number }; // render before items[beforeIndex]
+  | { kind: "between"; beforeIndex: number }; // before items[beforeIndex]; items.length = after all items
 
 export type FilmstripDay = {
   date: CivilDate;
@@ -51,13 +50,38 @@ export type FilmstripDay = {
   isWeekend: boolean;
   isPast: boolean; // civil day strictly before today
   allDay: CalendarInstanceDTO[];
-  items: FilmstripItem[]; // ordered by startMin, seam always last
+  items: FilmstripItem[]; // ordered by startMin
   now: NowMarker | null; // only set when isToday
   nowTimeLabel: string | null; // "13:37" when now is set, else null
 };
 
 export function entryHeightPx(minutes: number): number {
   return Math.round(Math.min(140, Math.max(40, 24 + minutes * 0.5)));
+}
+
+/**
+ * Uniform-column scroll math. All day columns share one width, so position
+ * <-> day index is plain arithmetic against the first column's offset
+ * (`base`) and the column-to-column distance (`stride`) — no per-column
+ * DOM measurement on scroll.
+ */
+export function stripIndexAtOffset(
+  scrollLeft: number,
+  base: number,
+  stride: number,
+  count: number,
+): number {
+  if (stride <= 0 || count <= 0) return 0;
+  const raw = Math.round((scrollLeft - base) / stride);
+  return Math.min(Math.max(raw, 0), count - 1);
+}
+
+export function stripOffsetForIndex(
+  index: number,
+  base: number,
+  stride: number,
+): number {
+  return Math.max(0, base + index * stride);
 }
 
 function nowMarker(
@@ -67,7 +91,6 @@ function nowMarker(
   if (nowMin == null) return null;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (item.kind === "seam") continue;
     if (item.startMin <= nowMin && nowMin < item.endMin) {
       return {
         kind: "in-item",
@@ -76,12 +99,10 @@ function nowMarker(
       };
     }
   }
-  const before = items.findIndex(
-    (item) => item.kind !== "seam" && item.startMin > nowMin,
-  );
+  const before = items.findIndex((item) => item.startMin > nowMin);
   return {
     kind: "between",
-    beforeIndex: before === -1 ? items.length - 1 : before,
+    beforeIndex: before === -1 ? items.length : before,
   };
 }
 
@@ -137,7 +158,6 @@ export function buildFilmstrip(
       if (a.kind === "event" && b.kind === "event") return a.endMin - b.endMin;
       return (a.kind === "freetime" ? 1 : 0) - (b.kind === "freetime" ? 1 : 0);
     });
-    items.push({ kind: "seam" });
     const isToday = sameCivil(day, today);
     const nowMin = isToday ? nowMinutesOnDay(day, timezone, now) : null;
     return {
