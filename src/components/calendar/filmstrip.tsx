@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FreetimeBlock } from "@/components/calendar/freetime-block";
 import { EventBlock } from "@/components/calendar/event-block";
 import {
@@ -17,6 +24,7 @@ import {
   addDays,
   formatDateParam,
   formatWeekdayShort,
+  zonedWallToUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
@@ -34,9 +42,19 @@ function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
   return out;
 }
 
+function itemKey(item: FilmstripItem): string {
+  if (item.kind === "seam") return "seam";
+  const idPart = item.kind === "event" ? `:${item.instance.eventId}` : "";
+  return `${item.kind}:${item.startMin}${idPart}`;
+}
+
 function NowLine({ label }: { label: string }) {
   return (
-    <div aria-hidden className="relative z-10 h-px bg-primary">
+    <div
+      data-filmstrip-now
+      aria-hidden
+      className="relative z-10 h-px bg-primary"
+    >
       <span className="absolute -left-0.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary" />
       <span className="absolute -top-2 left-2 text-[10px] tabular-nums text-primary">
         {label}
@@ -52,6 +70,7 @@ export function Filmstrip({
   canCreate,
   onSelectSlot,
   onEventClick,
+  onVisibleDayChange,
 }: {
   anchor: CivilDate;
   instances: CalendarInstanceDTO[];
@@ -68,19 +87,200 @@ export function Filmstrip({
     return () => window.clearInterval(id);
   }, []);
 
-  const days = useMemo(
-    () =>
-      daySpan(addDays(anchor, -WINDOW_BACK), addDays(anchor, WINDOW_FORWARD)),
-    [anchor],
+  const [range, setRange] = useState(() => ({
+    start: addDays(anchor, -WINDOW_BACK),
+    endExclusive: addDays(anchor, WINDOW_FORWARD),
+  }));
+  const [byKey, setByKey] = useState<Map<string, CalendarInstanceDTO>>(
+    () => new Map(instances.map((i) => [`${i.eventId}:${i.startAt}`, i])),
   );
-  const model = useMemo(
-    () => buildFilmstrip(instances, days, timezone, now),
-    [instances, days, timezone, now],
+  const [loadError, setLoadError] = useState<"past" | "future" | null>(null);
+  const loadingRef = useRef<{ past: boolean; future: boolean }>({
+    past: false,
+    future: false,
+  });
+
+  // Server refresh reconciliation: when the `instances` prop changes (create/
+  // edit/delete triggers router.refresh()), drop stored entries that overlap
+  // the server window and re-add the fresh ones.
+  useEffect(() => {
+    setByKey((prev) => {
+      const next = new Map(prev);
+      const winFrom = zonedWallToUtc(timezone, {
+        ...addDays(anchor, -WINDOW_BACK),
+        hour: 0,
+        minute: 0,
+      });
+      const winTo = zonedWallToUtc(timezone, {
+        ...addDays(anchor, WINDOW_FORWARD),
+        hour: 0,
+        minute: 0,
+      });
+      for (const [key, row] of next) {
+        if (new Date(row.startAt) < winTo && new Date(row.endAt) > winFrom) {
+          next.delete(key);
+        }
+      }
+      for (const row of instances) {
+        next.set(`${row.eventId}:${row.startAt}`, row);
+      }
+      return next;
+    });
+  }, [instances, anchor, timezone]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const prependCorrection = useRef<number | null>(null);
+
+  const extend = useCallback(
+    async (direction: "past" | "future") => {
+      if (loadingRef.current[direction]) return;
+      loadingRef.current[direction] = true;
+      setLoadError((prev) => (prev === direction ? null : prev));
+      const fetchStart =
+        direction === "past" ? addDays(range.start, -7) : range.endExclusive;
+      const fetchEnd =
+        direction === "past" ? range.start : addDays(range.endExclusive, 7);
+      try {
+        const res = await fetch(
+          `/api/calendar/instances?start=${formatDateParam(fetchStart)}&end=${formatDateParam(fetchEnd)}`,
+        );
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { instances: CalendarInstanceDTO[] };
+        setByKey((prev) => {
+          const next = new Map(prev);
+          for (const row of data.instances) {
+            next.set(`${row.eventId}:${row.startAt}`, row);
+          }
+          return next;
+        });
+        if (direction === "past") {
+          prependCorrection.current =
+            containerRef.current?.scrollHeight ?? null;
+        }
+        setRange((prev) =>
+          direction === "past"
+            ? { ...prev, start: fetchStart }
+            : { ...prev, endExclusive: fetchEnd },
+        );
+      } catch {
+        setLoadError(direction);
+      } finally {
+        loadingRef.current[direction] = false;
+      }
+    },
+    [range],
   );
 
+  // Prepend without viewport jump: correct scrollTop after a "past" extend
+  // shifts range.start earlier.
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (node == null || prependCorrection.current == null) return;
+    node.scrollTop += node.scrollHeight - prependCorrection.current;
+    prependCorrection.current = null;
+  }, [range.start]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    const top = topRef.current;
+    const bottom = bottomRef.current;
+    if (!root || !top || !bottom) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (entry.target === top) void extend("past");
+          if (entry.target === bottom) void extend("future");
+        }
+      },
+      { root, rootMargin: "600px 0px" },
+    );
+    observer.observe(top);
+    observer.observe(bottom);
+    return () => observer.disconnect();
+  }, [extend]);
+
+  const days = useMemo(
+    () => daySpan(range.start, range.endExclusive),
+    [range],
+  );
+  const model = useMemo(
+    () => buildFilmstrip([...byKey.values()], days, timezone, now),
+    [byKey, days, timezone, now],
+  );
+
+  // Initial scroll, once: to the now-line when present, else the anchor's
+  // day section.
+  const didInitialScroll = useRef(false);
+  useLayoutEffect(() => {
+    if (didInitialScroll.current) return;
+    const node = containerRef.current;
+    if (!node) return;
+    const target =
+      node.querySelector<HTMLElement>("[data-filmstrip-now]") ??
+      node.querySelector<HTMLElement>(
+        `[data-filmstrip-day="${formatDateParam(anchor)}"]`,
+      );
+    if (!target) return;
+    node.scrollTop = Math.max(0, target.offsetTop - node.clientHeight / 3);
+    didInitialScroll.current = true;
+  }, [anchor]);
+
+  // Visible-day tracking: rAF-throttled scroll handler, URL sync via
+  // history.replaceState (not router.replace, which would re-render the
+  // server component on every scroll).
+  const lastReportedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    let rafId: number | null = null;
+    function handleScroll() {
+      if (rafId != null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const scrollTop = node!.scrollTop;
+        const sections = node!.querySelectorAll<HTMLElement>(
+          "[data-filmstrip-day]",
+        );
+        let current: HTMLElement | null = null;
+        for (const section of sections) {
+          if (section.offsetTop <= scrollTop + 24) {
+            current = section;
+          } else {
+            break;
+          }
+        }
+        const key = current?.dataset.filmstripDay;
+        if (!key || key === lastReportedKeyRef.current) return;
+        lastReportedKeyRef.current = key;
+        window.history.replaceState(null, "", `/calendar/day?date=${key}`);
+        const [year, month, day] = key.split("-").map(Number);
+        onVisibleDayChange?.({ year, month, day });
+      });
+    }
+    node.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      node.removeEventListener("scroll", handleScroll);
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+    };
+  }, [onVisibleDayChange]);
+
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-2xl px-4 pb-16">
+        <div ref={topRef} className="py-8 text-center">
+          {loadError === "past" && (
+            <button
+              type="button"
+              onClick={() => void extend("past")}
+              className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Couldn&apos;t load more days — retry
+            </button>
+          )}
+        </div>
         {model.map((day) => (
           <FilmstripDaySection
             key={day.key}
@@ -90,6 +290,21 @@ export function Filmstrip({
             onEventClick={onEventClick}
           />
         ))}
+        <div ref={bottomRef} className="py-8 text-center">
+          {loadError === "future" ? (
+            <button
+              type="button"
+              onClick={() => void extend("future")}
+              className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Couldn&apos;t load more days — retry
+            </button>
+          ) : (
+            <p className="font-serif text-sm italic text-muted-foreground">
+              Time never stops.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -114,7 +329,7 @@ function FilmstripDaySection({
       day.now?.kind === "between" && day.now.beforeIndex === index;
     const inside = day.now?.kind === "in-item" && day.now.index === index;
     return (
-      <div key={index} className="relative">
+      <div key={itemKey(item)} className="relative">
         {between && <NowLine label={day.nowTimeLabel ?? ""} />}
         {item.kind === "event" && (
           <button
