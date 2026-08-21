@@ -220,6 +220,7 @@ function MonthWeek({
               "border-l border-border px-1.5 py-1 text-left text-xs tabular-nums",
               isWeekend(day) && "bg-muted/40",
               day.month !== anchor.month && "text-muted-foreground",
+              sameCivil(day, today) && "bg-primary/5",
               sameCivil(day, today) && "font-semibold text-primary",
             )}
           >

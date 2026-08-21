@@ -24,6 +24,6 @@ export function eventBlockStyle(hex: string): EventBlockStyle {
   return {
     "--event-color": normalizeEventHex(hex),
     "--event-fill":
-      "color-mix(in srgb, var(--event-color) 18%, var(--background))",
+      "color-mix(in srgb, var(--event-color) 24%, var(--background))",
   };
 }

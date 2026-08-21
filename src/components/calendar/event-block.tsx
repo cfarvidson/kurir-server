@@ -58,7 +58,7 @@ export function EventBlock({
         } as CSSProperties
       }
     >
-      <span className="block truncate px-1.5 py-0.5 text-xs font-medium">
+      <span className="block truncate px-1.5 py-0.5 text-xs font-semibold">
         {timeLabel ? `${timeLabel} ${title}` : title}
       </span>
       {onResizePointerDown && (

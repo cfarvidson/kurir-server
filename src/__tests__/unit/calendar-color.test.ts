@@ -6,7 +6,7 @@ describe("eventBlockStyle", () => {
     expect(eventBlockStyle("#c45c26")).toEqual({
       "--event-color": "#c45c26",
       "--event-fill":
-        "color-mix(in srgb, var(--event-color) 18%, var(--background))",
+        "color-mix(in srgb, var(--event-color) 24%, var(--background))",
     });
   });
 

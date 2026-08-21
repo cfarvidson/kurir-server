@@ -365,6 +365,7 @@ export function TimeGrid({
               className={cn(
                 "min-w-0 flex-1 py-2 text-center",
                 isWeekend(day) && "bg-muted/40",
+                sameCivil(day, today) && "bg-primary/5",
               )}
             >
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -393,6 +394,7 @@ export function TimeGrid({
               className={cn(
                 "min-w-0 flex-1 space-y-0.5 p-0.5",
                 isWeekend(day) && "bg-muted/40",
+                sameCivil(day, today) && "bg-primary/5",
               )}
               onClick={() => {
                 if (!canCreate) return;
@@ -445,6 +447,7 @@ export function TimeGrid({
                 className={cn(
                   "relative min-w-0 flex-1 border-l border-border",
                   isWeekend(day) && "bg-muted/40",
+                  sameCivil(day, today) && "bg-primary/5",
                 )}
                 onPointerDown={(event) => onColumnPointerDown(event, day)}
               >
@@ -484,6 +487,11 @@ export function TimeGrid({
                       key={`${row.eventId}:${row.startMin}`}
                       title={row.title}
                       color={row.color}
+                      timeLabel={
+                        row.endMin - row.startMin >= 45
+                          ? formatTimeLabel(Math.floor(row.startMin / 60), row.startMin % 60)
+                          : undefined
+                      }
                       muted={row.transparency === "free"}
                       className="absolute z-10"
                       style={{
@@ -557,6 +565,10 @@ export function TimeGrid({
                     className="pointer-events-none absolute inset-x-0 z-20 h-px bg-primary"
                     style={{ top: pxFromMinutes(nowMin) }}
                   >
+                    <span
+                      aria-hidden
+                      className="absolute -left-0.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
+                    />
                     <span className="absolute -top-2 left-1 text-[10px] tabular-nums text-primary">
                       {formatTimeLabel(
                         Math.floor(nowMin / 60),
