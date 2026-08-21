@@ -12,9 +12,12 @@ import { FreetimeBlock } from "@/components/calendar/freetime-block";
 import { EventBlock } from "@/components/calendar/event-block";
 import {
   buildFilmstrip,
+  WINDOW_BACK,
+  WINDOW_FORWARD,
   type FilmstripDay,
   type FilmstripItem,
 } from "@/components/calendar/filmstrip-model";
+import { compareCivil } from "@/components/calendar/grid-model";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -29,8 +32,51 @@ import {
 } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
 
-const WINDOW_BACK = 3;
-const WINDOW_FORWARD = 12; // exclusive end offset
+type DayRange = { start: CivilDate; endExclusive: CivilDate };
+
+function windowAround(day: CivilDate): DayRange {
+  return {
+    start: addDays(day, -WINDOW_BACK),
+    endExclusive: addDays(day, WINDOW_FORWARD),
+  };
+}
+
+function rangeCovers(range: DayRange, day: CivilDate): boolean {
+  return (
+    compareCivil(range.start, day) <= 0 &&
+    compareCivil(day, range.endExclusive) < 0
+  );
+}
+
+function civilFromKey(key: string): CivilDate {
+  const [year, month, day] = key.split("-").map(Number);
+  return { year, month, day };
+}
+
+/**
+ * The scroll target for a day: its now-line when the day has one, else the
+ * section itself. Both are scoped to the day so a strip that also renders
+ * today doesn't steal the target.
+ */
+function dayScrollTarget(node: HTMLElement, key: string): HTMLElement | null {
+  return (
+    node.querySelector<HTMLElement>(
+      `[data-filmstrip-day="${key}"] [data-filmstrip-now]`,
+    ) ?? node.querySelector<HTMLElement>(`[data-filmstrip-day="${key}"]`)
+  );
+}
+
+/**
+ * The container has no positioned ancestor, so `offsetTop` would resolve
+ * against <body> (or, for the now-line, against its own nearer positioned
+ * wrapper) instead of the scroll container — use getBoundingClientRect deltas.
+ */
+function scrollTargetIntoView(node: HTMLElement, target: HTMLElement) {
+  const containerTop = node.getBoundingClientRect().top;
+  const targetTop =
+    target.getBoundingClientRect().top - containerTop + node.scrollTop;
+  node.scrollTop = Math.max(0, targetTop - node.clientHeight / 3);
+}
 
 function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
   const out: CivilDate[] = [];
@@ -71,6 +117,7 @@ export function Filmstrip({
   onSelectSlot,
   onEventClick,
   onVisibleDayChange,
+  scrollToRequest,
 }: {
   anchor: CivilDate;
   instances: CalendarInstanceDTO[];
@@ -79,6 +126,12 @@ export function Filmstrip({
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
   onVisibleDayChange?: (day: CivilDate) => void;
+  /**
+   * Nav intent from the shell (prev/next/Today). The strip stays mounted
+   * across `?date=` navigations, so a bumped nonce — not a changed anchor —
+   * is what tells it to reposition.
+   */
+  scrollToRequest?: { key: string; nonce: number };
 }) {
   const [now, setNow] = useState(() => new Date());
 
@@ -87,10 +140,7 @@ export function Filmstrip({
     return () => window.clearInterval(id);
   }, []);
 
-  const [range, setRange] = useState(() => ({
-    start: addDays(anchor, -WINDOW_BACK),
-    endExclusive: addDays(anchor, WINDOW_FORWARD),
-  }));
+  const [range, setRange] = useState<DayRange>(() => windowAround(anchor));
   const [byKey, setByKey] = useState<Map<string, CalendarInstanceDTO>>(
     () => new Map(instances.map((i) => [`${i.eventId}:${i.startAt}`, i])),
   );
@@ -133,6 +183,16 @@ export function Filmstrip({
   const bottomRef = useRef<HTMLDivElement>(null);
   const prependCorrection = useRef<number | null>(null);
   const didInitialScroll = useRef(false);
+  const lastReportedKeyRef = useRef<string | null>(null);
+
+  // A day the strip should scroll to once it is rendered. Set by nav intents
+  // and by anchor changes that didn't come from our own replaceState.
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  const requestScroll = useCallback((key: string) => {
+    const day = civilFromKey(key);
+    setRange((prev) => (rangeCovers(prev, day) ? prev : windowAround(day)));
+    setPendingScroll(key);
+  }, []);
 
   const extend = useCallback(
     async (direction: "past" | "future") => {
@@ -240,33 +300,56 @@ export function Filmstrip({
     [byKey, days, timezone, now],
   );
 
-  // Initial scroll, once: to the now-line when present, else the anchor's
-  // day section. The container has no positioned ancestor, so `offsetTop`
-  // would resolve against <body> (or, for the now-line, against its own
-  // nearer positioned wrapper) instead of the scroll container — use
-  // getBoundingClientRect deltas instead.
+  // Initial scroll, once: to the anchor day's now-line when it has one, else
+  // to the anchor's section.
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
     const node = containerRef.current;
     if (!node) return;
-    const target =
-      node.querySelector<HTMLElement>("[data-filmstrip-now]") ??
-      node.querySelector<HTMLElement>(
-        `[data-filmstrip-day="${formatDateParam(anchor)}"]`,
-      );
-    if (target) {
-      const containerTop = node.getBoundingClientRect().top;
-      const targetTop =
-        target.getBoundingClientRect().top - containerTop + node.scrollTop;
-      node.scrollTop = Math.max(0, targetTop - node.clientHeight / 3);
-    }
+    const key = formatDateParam(anchor);
+    const target = dayScrollTarget(node, key);
+    if (target) scrollTargetIntoView(node, target);
+    lastReportedKeyRef.current = key;
     didInitialScroll.current = true;
   }, [anchor]);
+
+  // Nav intent from the shell: prev/next/Today must reposition the strip even
+  // when `?date=` (and so `anchor`) is unchanged, which is why this keys off
+  // the request object rather than the anchor.
+  useEffect(() => {
+    if (!scrollToRequest) return;
+    requestScroll(scrollToRequest.key);
+  }, [scrollToRequest, requestScroll]);
+
+  // Anchor changes the strip didn't cause itself (direct URL load, back/
+  // forward) also reposition it. Our own replaceState round-tripping through
+  // a refresh is ignored.
+  const lastAnchorKeyRef = useRef(formatDateParam(anchor));
+  useEffect(() => {
+    const key = formatDateParam(anchor);
+    if (key === lastAnchorKeyRef.current) return;
+    lastAnchorKeyRef.current = key;
+    if (key === lastReportedKeyRef.current) return;
+    requestScroll(key);
+  }, [anchor, requestScroll]);
+
+  // Runs again on every model change until the requested day is rendered:
+  // a jump outside the current range only paints after `range` settles.
+  useLayoutEffect(() => {
+    if (pendingScroll == null || !didInitialScroll.current) return;
+    const node = containerRef.current;
+    if (!node) return;
+    const target = dayScrollTarget(node, pendingScroll);
+    if (!target) return;
+    scrollTargetIntoView(node, target);
+    // Keep the scroll handler from immediately reporting a stale day back.
+    lastReportedKeyRef.current = pendingScroll;
+    setPendingScroll(null);
+  }, [pendingScroll, model]);
 
   // Visible-day tracking: rAF-throttled scroll handler, URL sync via
   // history.replaceState (not router.replace, which would re-render the
   // server component on every scroll).
-  const lastReportedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
@@ -294,9 +377,13 @@ export function Filmstrip({
         const key = current?.dataset.filmstripDay;
         if (!key || key === lastReportedKeyRef.current) return;
         lastReportedKeyRef.current = key;
-        window.history.replaceState(null, "", `/calendar/day?date=${key}`);
-        const [year, month, day] = key.split("-").map(Number);
-        onVisibleDayChange?.({ year, month, day });
+        try {
+          window.history.replaceState(null, "", `/calendar/day?date=${key}`);
+        } catch {
+          // iOS Safari throttles replaceState (~100 calls / 30 s) and throws
+          // past the limit. The URL falling behind is cosmetic.
+        }
+        onVisibleDayChange?.(civilFromKey(key));
       });
     }
     node.addEventListener("scroll", handleScroll, { passive: true });
@@ -431,7 +518,11 @@ function FilmstripDaySection({
   return (
     <section
       data-filmstrip-day={day.key}
-      className={cn("pt-6", day.isPast && "opacity-60")}
+      className={cn(
+        "pt-6",
+        day.isWeekend && "bg-muted/20",
+        day.isPast && "opacity-60",
+      )}
     >
       <header className="flex items-baseline gap-2 pb-2">
         <span
@@ -459,21 +550,29 @@ function FilmstripDaySection({
       {hasEvents ? (
         day.items.map(renderItem)
       ) : (
-        <button
-          type="button"
-          disabled={!canCreate}
-          onClick={() =>
-            onSelectSlot({
-              date: day.key,
-              startMin: 9 * 60,
-              endMin: 10 * 60,
-              allDay: false,
-            })
-          }
-          className="w-full rounded-xs px-3 py-4 text-left text-sm text-muted-foreground hover:text-foreground disabled:pointer-events-none"
-        >
-          Nothing planned
-        </button>
+        <>
+          {day.isToday && day.now && <NowLine label={day.nowTimeLabel ?? ""} />}
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={() =>
+                onSelectSlot({
+                  date: day.key,
+                  startMin: 9 * 60,
+                  endMin: 10 * 60,
+                  allDay: false,
+                })
+              }
+              className="w-full rounded-xs px-3 py-4 text-left text-sm text-muted-foreground hover:text-foreground"
+            >
+              Nothing planned
+            </button>
+          ) : (
+            <p className="px-3 py-4 text-sm text-muted-foreground">
+              Nothing planned
+            </p>
+          )}
+        </>
       )}
       {!hasEvents && (
         <div aria-hidden className="my-3 border-t border-dashed border-border" />

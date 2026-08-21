@@ -93,6 +93,10 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const [calendarsOpen, setCalendarsOpen] = useState(false);
   const [prevAnchor, setPrevAnchor] = useState<CivilDate>(payload.anchor);
   const [visibleDay, setVisibleDay] = useState<CivilDate>(payload.anchor);
+  const [scrollToRequest, setScrollToRequest] = useState<{
+    key: string;
+    nonce: number;
+  } | null>(null);
   if (!sameCivil(payload.anchor, prevAnchor)) {
     setPrevAnchor(payload.anchor);
     setVisibleDay(payload.anchor);
@@ -172,28 +176,37 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     setDialogOpen(true);
   }, []);
 
-  const goTo = useCallback(
-    (next: CivilDate) => {
-      router.push(viewHref(payload.mode, formatDateParam(next)));
+  // Day mode scrolls a mounted filmstrip, so `?date=` alone can't move it:
+  // the target day may already be the anchor the user scrolled away from.
+  // The bumped nonce is the nav intent the strip acts on.
+  const goToKey = useCallback(
+    (key: string) => {
+      if (payload.mode === "day") {
+        setScrollToRequest((prev) => ({ key, nonce: (prev?.nonce ?? 0) + 1 }));
+      }
+      router.push(viewHref(payload.mode, key));
     },
     [payload.mode, router],
   );
 
-  const goToday = useCallback(() => {
-    router.push(viewHref(payload.mode, todayDate));
-  }, [payload.mode, router, todayDate]);
+  const goTo = useCallback(
+    (next: CivilDate) => goToKey(formatDateParam(next)),
+    [goToKey],
+  );
+
+  const goToday = useCallback(() => goToKey(todayDate), [goToKey, todayDate]);
 
   const goPrev = useCallback(() => {
     if (payload.mode === "month") goTo(addMonths(payload.anchor, -1));
     else if (payload.mode === "week") goTo(addDays(payload.anchor, -7));
-    else goTo(addDays(payload.anchor, -1));
-  }, [goTo, payload.anchor, payload.mode]);
+    else goTo(addDays(visibleDay, -1));
+  }, [goTo, payload.anchor, payload.mode, visibleDay]);
 
   const goNext = useCallback(() => {
     if (payload.mode === "month") goTo(addMonths(payload.anchor, 1));
     else if (payload.mode === "week") goTo(addDays(payload.anchor, 7));
-    else goTo(addDays(payload.anchor, 1));
-  }, [goTo, payload.anchor, payload.mode]);
+    else goTo(addDays(visibleDay, 1));
+  }, [goTo, payload.anchor, payload.mode, visibleDay]);
 
   useEffect(() => {
     function handler(event: KeyboardEvent) {
@@ -397,6 +410,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               onSelectSlot={openCreate}
               onEventClick={openEvent}
               onVisibleDayChange={setVisibleDay}
+              scrollToRequest={scrollToRequest ?? undefined}
             />
           ) : (
             <WeekView {...viewProps} />

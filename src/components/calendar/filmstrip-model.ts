@@ -17,6 +17,10 @@ import {
 } from "@/lib/calendar/view-time";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 
+/** Day window around the anchor: [anchor - WINDOW_BACK, anchor + WINDOW_FORWARD). */
+export const WINDOW_BACK = 3;
+export const WINDOW_FORWARD = 12; // exclusive end offset
+
 export type FilmstripItem =
   | {
       kind: "event";
@@ -100,6 +104,13 @@ export function buildFilmstrip(
           minutesFromDayStart(new Date(instance.endAt), day, timezone),
           startMin + 15,
         );
+        // Heights are day-clipped, but the label states the event's true
+        // span so a midnight-crosser doesn't read as two shorter events.
+        const spanMin = Math.round(
+          (new Date(instance.endAt).getTime() -
+            new Date(instance.startAt).getTime()) /
+            60_000,
+        );
         return {
           kind: "event" as const,
           instance,
@@ -110,7 +121,7 @@ export function buildFilmstrip(
             Math.floor(startMin / 60),
             startMin % 60,
           ),
-          durationLabel: formatDurationLabel(endMin - startMin),
+          durationLabel: formatDurationLabel(spanMin),
         };
       },
     );

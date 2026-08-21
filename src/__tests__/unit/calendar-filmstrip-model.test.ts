@@ -107,7 +107,8 @@ describe("buildFilmstrip", () => {
 
   it("places the now marker inside the containing item", () => {
     const days = buildFilmstrip([inst({})], [FRI], TZ, NOON);
-    // 12:00 falls in the 10:00-21:00... actually in the 10-21 freetime gap
+    // The only event is 09:00-10:00, so 12:00 falls inside the 10:00-21:00
+    // freetime gap that follows it.
     expect(days[0].isToday).toBe(true);
     expect(days[0].now).not.toBeNull();
     expect(days[0].nowTimeLabel).toBe("12:00");
@@ -147,9 +148,41 @@ describe("buildFilmstrip", () => {
     expect(days[0].items.map((i) => i.kind)).toEqual(["freetime", "seam"]);
   });
 
-  it("an empty day has only a seam", () => {
+  it("an empty day is one freetime span plus a seam", () => {
     const days = buildFilmstrip([], [{ ...FRI, day: 22 }], TZ, NOON);
     expect(days[0].items.map((i) => i.kind)).toEqual(["freetime", "seam"]);
+  });
+
+  it("labels a midnight-crossing event with its true span on both days", () => {
+    const days = buildFilmstrip(
+      [
+        inst({
+          eventId: "night",
+          title: "Night shift",
+          startAt: "2026-08-21T21:00:00.000Z", // 23:00 Fri
+          endAt: "2026-08-21T23:00:00.000Z", // 01:00 Sat
+        }),
+      ],
+      [FRI, { ...FRI, day: 22 }],
+      TZ,
+      NOON,
+    );
+    const fri = days[0].items.find((i) => i.kind === "event");
+    const sat = days[1].items.find((i) => i.kind === "event");
+    if (fri?.kind !== "event" || sat?.kind !== "event") {
+      throw new Error("expected the event on both days");
+    }
+    expect([fri.startMin, fri.endMin]).toEqual([23 * 60, 24 * 60]);
+    expect([sat.startMin, sat.endMin]).toEqual([0, 60]);
+    expect(fri.durationLabel).toBe("2 h");
+    expect(sat.durationLabel).toBe("2 h");
+  });
+
+  it("keeps the now marker on an empty today", () => {
+    const days = buildFilmstrip([], [FRI], TZ, NOON);
+    expect(days[0].isToday).toBe(true);
+    expect(days[0].now).not.toBeNull();
+    expect(days[0].nowTimeLabel).toBe("12:00");
   });
 
   it("handles the DST fall-back day without negative spans", () => {

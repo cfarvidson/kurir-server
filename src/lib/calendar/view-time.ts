@@ -94,16 +94,29 @@ export function addMonths(date: CivilDate, months: number): CivilDate {
   };
 }
 
+// Constructing an Intl.DateTimeFormat is expensive and zonedParts runs per
+// event, per day, per render — keep one formatter per timezone.
+const partsFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function partsFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = partsFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    partsFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 export function zonedParts(date: Date, timeZone: string): WallTime {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  const parts = partsFormatter(timeZone).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return {
     year: Number(get("year")),

@@ -15,6 +15,7 @@ export function DayView({
   onSelectSlot,
   onEventClick,
   onVisibleDayChange,
+  scrollToRequest,
 }: {
   anchor: CivilDate;
   instances: CalendarInstanceDTO[];
@@ -23,6 +24,7 @@ export function DayView({
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
   onVisibleDayChange?: (day: CivilDate) => void;
+  scrollToRequest?: { key: string; nonce: number };
 }) {
   return (
     <Filmstrip
@@ -33,6 +35,7 @@ export function DayView({
       onSelectSlot={onSelectSlot}
       onEventClick={onEventClick}
       onVisibleDayChange={onVisibleDayChange}
+      scrollToRequest={scrollToRequest}
     />
   );
 }
