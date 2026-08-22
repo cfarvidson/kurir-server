@@ -47,6 +47,7 @@ const navigationShortcuts: ShortcutEntry[] = [
   { keys: ["g", "i"], description: "Imbox", mode: "sequence" },
   { keys: ["g", "f"], description: "Feed", mode: "sequence" },
   { keys: ["g", "p"], description: "Paper Trail", mode: "sequence" },
+  { keys: ["g", "e"], description: "Calendar", mode: "sequence" },
   { keys: ["g", "s"], description: "Sent", mode: "sequence" },
   { keys: ["g", "a"], description: "Archive", mode: "sequence" },
   { keys: ["g", "n"], description: "Screener", mode: "sequence" },
@@ -209,6 +210,7 @@ const GOTO_MAP: Record<string, string> = {
   i: "/imbox",
   f: "/feed",
   p: "/paper-trail",
+  e: "/calendar",
   s: "/sent",
   a: "/archive",
   n: "/screener",
@@ -252,7 +254,6 @@ export function KeyboardShortcuts() {
       // Handle second key of g+X sequence
       if (gPressedRef.current) {
         gPressedRef.current = false;
-        keyboardState.gSequenceActive = false;
         if (gTimerRef.current) {
           clearTimeout(gTimerRef.current);
           gTimerRef.current = null;
@@ -262,6 +263,11 @@ export function KeyboardShortcuts() {
           e.preventDefault();
           router.push(target);
         }
+        // Keep the flag true for remaining keydown listeners on this event
+        // (`e` is also archive on thread pages).
+        queueMicrotask(() => {
+          keyboardState.gSequenceActive = false;
+        });
         return;
       }
 

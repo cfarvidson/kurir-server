@@ -5,16 +5,18 @@
  */
 import { PrismaClient, SenderStatus, SenderCategory } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { insertDemoCalendarSeed } from "../src/lib/calendar/demo-seed";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
-const now = Date.now();
+const nowMs = Date.now();
+const now = new Date(nowMs);
 const min = 60_000;
 const hour = 60 * min;
 const day = 24 * hour;
-const at = (msAgo: number) => new Date(now - msAgo);
+const at = (msAgo: number) => new Date(nowMs - msAgo);
 
 async function main() {
   // Wipe any previous demo run
@@ -344,6 +346,8 @@ async function main() {
       emailConnectionId: conn.id,
     },
   });
+
+  await insertDemoCalendarSeed(db, user.id, now);
 
   console.log("Seeded demo user:", user.id);
 }

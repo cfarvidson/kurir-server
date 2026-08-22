@@ -68,6 +68,22 @@ const threadInclude = {
       contentType: true,
     },
   },
+  meeting: {
+    select: {
+      method: true,
+      title: true,
+      startAt: true,
+      endAt: true,
+      isAllDay: true,
+      location: true,
+      organizerName: true,
+      organizerEmail: true,
+      calendarEventId: true,
+      calendarEvent: {
+        select: { attendeesJson: true },
+      },
+    },
+  },
 } as const;
 
 /**

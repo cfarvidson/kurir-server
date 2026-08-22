@@ -99,3 +99,16 @@ export async function approveOwnPendingSenders(
   );
   return ids.length;
 }
+
+const CALENDAR_TOMBSTONE_TTL_DAYS = 30;
+
+/** Prune calendar tombstones older than 30 days. */
+export async function pruneCalendarTombstones(): Promise<number> {
+  const cutoff = new Date(
+    Date.now() - CALENDAR_TOMBSTONE_TTL_DAYS * 24 * 60 * 60_000,
+  );
+  const { count } = await db.calendarTombstone.deleteMany({
+    where: { deletedAt: { lt: cutoff } },
+  });
+  return count;
+}

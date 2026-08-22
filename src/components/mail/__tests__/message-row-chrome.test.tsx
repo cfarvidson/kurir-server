@@ -37,7 +37,9 @@ vi.mock("@/actions/read-status", () => ({ toggleReadStatus: vi.fn() }));
 
 import { MessageRow } from "../message-list";
 
-const followUpAt = new Date("2026-08-21T08:00:00.000Z");
+// Relative to now so the fixture never drifts into the past (a fixed date
+// here starts rendering the overdue path once real time passes it).
+const followUpAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 const base = {
   id: "m1",

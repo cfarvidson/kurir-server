@@ -5,6 +5,11 @@ import {
   refreshSyncPriorities,
 } from "@/lib/jobs/sync-worker";
 import {
+  startCalendarSyncWorker,
+  scheduleCalendarSyncJobs,
+  stopCalendarSyncWorker,
+} from "@/lib/jobs/calendar-sync-worker";
+import {
   startMaintenanceWorker,
   scheduleMaintenanceJobs,
   stopMaintenanceWorker,
@@ -129,10 +134,12 @@ export async function startBackgroundSync() {
     try {
       // Start workers
       await startSyncWorker();
+      await startCalendarSyncWorker();
       await startMaintenanceWorker();
 
       // Schedule repeatable jobs
       await scheduleSyncJobs();
+      await scheduleCalendarSyncJobs();
       await scheduleMaintenanceJobs();
 
       // Periodically refresh sync priorities based on SSE activity
@@ -168,6 +175,7 @@ export async function stopBackgroundSync() {
 
   await Promise.allSettled([
     stopSyncWorker(),
+    stopCalendarSyncWorker(),
     stopMaintenanceWorker(),
     closeQueues(),
     connectionManager.stopAll(),

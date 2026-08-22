@@ -4,18 +4,20 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-const TABS = ["account", "mail", "system"] as const;
+const TABS = ["account", "mail", "calendar", "system"] as const;
 type Tab = (typeof TABS)[number];
 
 interface SettingsTabsProps {
   accountContent: React.ReactNode;
   mailContent: React.ReactNode;
+  calendarContent: React.ReactNode;
   systemContent: React.ReactNode;
 }
 
 export function SettingsTabs({
   accountContent,
   mailContent,
+  calendarContent,
   systemContent,
 }: SettingsTabsProps) {
   const searchParams = useSearchParams();
@@ -48,6 +50,9 @@ export function SettingsTabs({
         <TabsTrigger value="mail" className="flex-1">
           Mail
         </TabsTrigger>
+        <TabsTrigger value="calendar" className="flex-1">
+          Calendar
+        </TabsTrigger>
         <TabsTrigger value="system" className="flex-1">
           System
         </TabsTrigger>
@@ -55,6 +60,7 @@ export function SettingsTabs({
 
       <TabsContent value="account">{accountContent}</TabsContent>
       <TabsContent value="mail">{mailContent}</TabsContent>
+      <TabsContent value="calendar">{calendarContent}</TabsContent>
       <TabsContent value="system">{systemContent}</TabsContent>
     </Tabs>
   );

@@ -66,6 +66,12 @@ model User {
   mcpTokens             McpToken[]
   mcpAuthorizationCodes McpAuthorizationCode[]
   mcpConfirmations      McpConfirmation[]
+  calendarAccounts       CalendarAccount[]
+  calendars              Calendar[]
+  calendarEvents         CalendarEvent[]
+  calendarEventInstances CalendarEventInstance[]
+  messageMeetings        MessageMeeting[]
+  calendarTombstones     CalendarTombstone[]
 }
 
 // Bearer-token session for native mobile clients (iOS). One row per device
@@ -242,6 +248,7 @@ model EmailConnection {
   syncState         SyncState?
   scheduledMessages ScheduledMessage[]
   domainRules       DomainRule[]
+  calendarAccounts  CalendarAccount[]
 
   @@unique([userId, email])
   @@index([userId])
@@ -479,6 +486,7 @@ model Message {
   sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
 
   attachments Attachment[]
+  meeting     MessageMeeting?
 
   // Full-text search (managed by prisma/migrations/search_vector.sql, not Prisma)
   search_vector Unsupported("tsvector")?
@@ -824,4 +832,207 @@ model ContactGroupMember {
   @@unique([groupId, contactEmailId])
   @@index([groupId])
   @@index([contactEmailId])
+}
+
+// ============================================
+// CALENDAR REPLICA
+// ============================================
+
+enum CalendarProvider {
+  GOOGLE
+  MICROSOFT
+  CALDAV
+}
+
+// One connected Google / Microsoft / CalDAV source. Tokens live here, never on EmailConnection.
+model CalendarAccount {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider       CalendarProvider
+  displayName    String
+  principalEmail String?
+
+  // Optional label for grouping in settings. Mail wipe must not delete this row.
+  emailConnectionId String?
+  emailConnection   EmailConnection? @relation(fields: [emailConnectionId], references: [id], onDelete: SetNull)
+
+  // OAuth (Google / Microsoft). Tokens encrypted AES-256-GCM.
+  oauthAccessToken    String?
+  oauthRefreshToken   String?
+  oauthTokenExpiresAt DateTime?
+  oauthError          String?
+
+  // CalDAV. Password encrypted AES-256-GCM.
+  caldavUrl         String?
+  caldavUsername    String?
+  encryptedPassword String?
+
+  isSyncing     Boolean   @default(false)
+  syncLockToken String?
+  syncLockAt    DateTime?
+  lastSyncedAt  DateTime?
+  lastError     String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  calendars Calendar[]
+
+  @@index([userId])
+  @@index([emailConnectionId])
+}
+
+// One calendar inside an account (Work, Personal, a shared read-only).
+model Calendar {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  providerCalendarId String
+  name               String
+  color              String? // provider hex, #rrggbb
+  isVisible          Boolean @default(true)
+  isPrimary          Boolean @default(false)
+  isReadOnly         Boolean @default(false)
+  timezone           String?
+
+  syncToken String?
+  ctag      String?
+  lastError String?
+
+  accountId String
+  account   CalendarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  events    CalendarEvent[]
+  instances CalendarEventInstance[]
+
+  @@unique([accountId, providerCalendarId])
+  @@index([userId])
+}
+
+// Master or exception. Not an expanded occurrence.
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  providerEventId String
+  icalUid         String?
+  etag            String?
+  sequence        Int     @default(0)
+
+  title       String
+  description String?
+  location    String?
+
+  // All-day: startAt is midnight UTC of the first day; endAt is exclusive midnight UTC of the day after.
+  startAt  DateTime
+  endAt    DateTime
+  isAllDay Boolean  @default(false)
+  timezone String?
+
+  status       String @default("confirmed") // "confirmed" | "tentative" | "cancelled"
+  transparency String @default("busy") // "busy" | "free"
+
+  rrule  String?
+  rdate  String?
+  exdate String?
+
+  masterEventId String?
+  masterEvent   CalendarEvent?  @relation("CalendarEventExceptions", fields: [masterEventId], references: [id], onDelete: Cascade)
+  exceptions    CalendarEvent[] @relation("CalendarEventExceptions")
+  recurrenceId  DateTime?
+
+  organizerJson Json?
+  attendeesJson Json?
+  rawJson       Json?
+
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  instances CalendarEventInstance[]
+  meetings  MessageMeeting[]
+
+  @@unique([calendarId, providerEventId])
+  @@index([userId, icalUid])
+  @@index([masterEventId])
+}
+
+// Materialized occurrence in the window now-2 months .. now+18 months.
+model CalendarEventInstance {
+  id String @id @default(cuid())
+
+  startAt     DateTime
+  endAt       DateTime
+  isAllDay    Boolean @default(false)
+  isCancelled Boolean @default(false)
+  isException Boolean @default(false)
+
+  eventId String
+  event   CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startAt, endAt])
+  @@index([eventId])
+  @@index([userId, calendarId, startAt])
+}
+
+// Parsed invite attached to one Message. Unique on messageId.
+model MessageMeeting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uid    String
+  method String // REQUEST | CANCEL | REPLY | PUBLISH | COUNTER
+
+  title    String
+  startAt  DateTime?
+  endAt    DateTime?
+  isAllDay Boolean   @default(false)
+  location String?
+
+  organizerEmail String?
+  organizerName  String?
+  recurrenceId   DateTime?
+
+  calendarEventId String?
+  calendarEvent   CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: SetNull)
+
+  messageId String  @unique
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([calendarEventId])
+}
+
+// Deleted masters so native delta-sync can drop rows it already has. Prune after 30 days.
+model CalendarTombstone {
+  id        String   @id @default(cuid())
+  deletedAt DateTime @default(now())
+
+  eventId         String
+  providerEventId String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([userId, deletedAt])
 }

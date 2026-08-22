@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
+import { MeetingCard } from "@/components/calendar/meeting-card";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
 import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
@@ -25,6 +26,7 @@ import {
   resolveEffectiveMessagePolicy,
   type RemoteImagePolicy,
 } from "@/lib/mail/image-policy";
+import type { MeetingCardMeeting } from "@/lib/calendar/meeting-card";
 
 interface ThreadMessage {
   id: string;
@@ -54,6 +56,7 @@ interface ThreadMessage {
     contentId: string | null;
     contentType: string;
   }[];
+  meeting?: MeetingCardMeeting | null;
 }
 
 interface ThreadViewProps {
@@ -64,6 +67,8 @@ interface ThreadViewProps {
   remoteImagePolicy?: RemoteImagePolicy;
   /** Lowercased address → contact name, for recipient display. */
   recipientNames?: RecipientNameMap;
+  hasWritableCalendar?: boolean;
+  timezone?: string;
 }
 
 function escapeHtml(str: string): string {
@@ -130,6 +135,8 @@ function MessageBubble({
   isFirst,
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
+  hasWritableCalendar = false,
+  timezone = "UTC",
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
@@ -137,6 +144,8 @@ function MessageBubble({
   isFirst: boolean;
   remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: RecipientNameMap;
+  hasWritableCalendar?: boolean;
+  timezone?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -274,6 +283,15 @@ function MessageBubble({
                   <AttachmentList attachments={message.attachments} />
                 )}
 
+                {message.meeting && (
+                  <MeetingCard
+                    messageId={message.id}
+                    meeting={message.meeting}
+                    hasWritableCalendar={hasWritableCalendar}
+                    timezone={timezone}
+                  />
+                )}
+
                 {/* Body */}
                 <div className="mt-4">
                   {message.htmlBody ? (
@@ -345,6 +363,8 @@ export function ThreadView({
   userEmails,
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
+  hasWritableCalendar = false,
+  timezone = "UTC",
 }: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
   return (
@@ -358,6 +378,8 @@ export function ThreadView({
           isFirst={i === 0}
           remoteImagePolicy={remoteImagePolicy}
           recipientNames={recipientNames}
+          hasWritableCalendar={hasWritableCalendar}
+          timezone={timezone}
         />
       ))}
     </div>

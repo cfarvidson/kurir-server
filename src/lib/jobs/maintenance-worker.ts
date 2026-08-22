@@ -17,6 +17,7 @@ type MaintenanceJobType =
   | "expire-attachments"
   | "cleanup-orphan-uploads"
   | "prune-tombstones"
+  | "prune-calendar-tombstones"
   | "approve-own-senders"
   | "settings-backup";
 
@@ -55,6 +56,15 @@ async function processMaintenanceJob(
       const count = await pruneMessageTombstones();
       if (count > 0) {
         console.log(`[maintenance] Pruned ${count} message tombstone(s)`);
+      }
+      break;
+    }
+
+    case "prune-calendar-tombstones": {
+      const { pruneCalendarTombstones } = await import("./maintenance-tasks");
+      const count = await pruneCalendarTombstones();
+      if (count > 0) {
+        console.log(`[maintenance] Pruned ${count} calendar tombstone(s)`);
       }
       break;
     }
@@ -252,6 +262,16 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
     { task: "prune-tombstones" as const },
     {
       jobId: "prune-tombstones",
+      repeat: { every: 24 * 60 * 60_000 },
+    },
+  );
+
+  // Prune calendar replica tombstones: every 24 hours
+  await queue.add(
+    "prune-calendar-tombstones",
+    { task: "prune-calendar-tombstones" as const },
+    {
+      jobId: "prune-calendar-tombstones",
       repeat: { every: 24 * 60 * 60_000 },
     },
   );

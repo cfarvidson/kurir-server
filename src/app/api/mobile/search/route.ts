@@ -9,7 +9,7 @@ import {
 } from "@/lib/mail/list-contract";
 import {
   MESSAGE_SELECT,
-  flattenFolderRole,
+  presentMobileMessages,
 } from "@/lib/mobile/message-select";
 
 /**
@@ -78,5 +78,5 @@ export async function GET(req: NextRequest) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const messages = hits.flatMap((hit) => byId.get(hit.id) ?? []);
 
-  return NextResponse.json({ messages: flattenFolderRole(messages) });
+  return NextResponse.json({ messages: presentMobileMessages(messages) });
 }
