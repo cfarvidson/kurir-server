@@ -409,6 +409,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               canCreate={writable}
               onSelectSlot={openCreate}
               onEventClick={openEvent}
+              onTimedCommit={handleTimedCommit}
               onVisibleDayChange={setVisibleDay}
               scrollToRequest={scrollToRequest ?? undefined}
             />

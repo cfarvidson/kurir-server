@@ -5,6 +5,7 @@ import {
   DAY_END_MIN,
   DAY_START_MIN,
   MIN_SLAT_PX,
+  minuteForX,
   NIGHT_RUN_PX,
   stripDayOffsets,
   stripIndexAtOffset,
@@ -115,6 +116,22 @@ describe("xForMinute", () => {
     expect(xForMinute(spans, 99999)).toBe(EMPTY_DAY_PX);
     // Midpoint of the lead night maps to the middle of its collapsed band.
     expect(xForMinute(spans, DAY_START_MIN / 2)).toBeCloseTo(NIGHT_RUN_PX / 2);
+  });
+});
+
+describe("minuteForX", () => {
+  const spans = buildDaySpans([]);
+
+  it("inverts xForMinute across daytime and collapsed nights", () => {
+    for (const minute of [0, 100, DAY_START_MIN, 9 * 60, 20 * 60, 23 * 60]) {
+      expect(minuteForX(spans, xForMinute(spans, minute))).toBeCloseTo(minute);
+    }
+  });
+
+  it("clamps outside the day's pixel range", () => {
+    expect(minuteForX(spans, -50)).toBe(0);
+    expect(minuteForX(spans, 1e6)).toBe(24 * 60);
+    expect(minuteForX([], 100)).toBe(0);
   });
 });
 

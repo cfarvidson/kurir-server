@@ -8,19 +8,31 @@ import {
   useRef,
   useState,
 } from "react";
+import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 import { EventBlock } from "@/components/calendar/event-block";
 import {
   buildFilmstrip,
+  minuteForX,
+  MIN_SLAT_PX,
   stripDayOffsets,
   stripIndexAtOffset,
   stripOffsetForIndex,
   WINDOW_BACK,
   WINDOW_FORWARD,
+  xForMinute,
   type FilmstripDay,
   type FilmstripSlat,
   type FreetimeZone,
 } from "@/components/calendar/filmstrip-model";
-import { compareCivil } from "@/components/calendar/grid-model";
+import {
+  compareCivil,
+  snapMinutes,
+  wallFromMinutes,
+} from "@/components/calendar/grid-model";
+import {
+  pointerPastThreshold,
+  timedPlacementChanged,
+} from "@/components/calendar/timed-drag";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -28,6 +40,7 @@ import type {
 import { normalizeEventHex, readableTextTone } from "@/lib/calendar/color";
 import {
   addDays,
+  DAY_MINUTES,
   formatDateParam,
   formatFreetimeLabel,
   formatWeekdayShort,
@@ -82,6 +95,26 @@ function daySpan(start: CivilDate, endExclusive: CivilDate): CivilDate[] {
   return out;
 }
 
+type StripDrag =
+  | {
+      type: "create";
+      dayKey: string;
+      originMin: number;
+      startMin: number;
+      endMin: number;
+    }
+  | {
+      type: "move";
+      event: CalendarInstanceDTO;
+      dayKey: string;
+      originDayKey: string;
+      pointerOrigin: number;
+      originalStart: number;
+      originalEnd: number;
+      startMin: number;
+      endMin: number;
+    };
+
 // The night sky is fixed-dark in both themes, like the event fills: film
 // stock doesn't change color with the app theme.
 const NIGHT_FILL = "#191b2f";
@@ -100,6 +133,7 @@ export function Filmstrip({
   canCreate,
   onSelectSlot,
   onEventClick,
+  onTimedCommit,
   onVisibleDayChange,
   scrollToRequest,
 }: {
@@ -109,6 +143,11 @@ export function Filmstrip({
   canCreate: boolean;
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
+  onTimedCommit: (
+    event: CalendarInstanceDTO,
+    startAt: Date,
+    endAt: Date,
+  ) => void;
   onVisibleDayChange?: (day: CivilDate) => void;
   /**
    * Nav intent from the shell (prev/next/Today). The strip stays mounted
@@ -292,6 +331,227 @@ export function Filmstrip({
     offsets: stripDayOffsets(model.map((day) => day.widthPx)),
   };
 
+  // Drag interactions (mouse/pen; touch pans the strip). The proportional
+  // axis makes pointer x <-> minute a pure mapping, so drag-create and
+  // drag-move mirror the week grid's semantics: 6 px threshold, 15 min
+  // snap, commit through the same onTimedCommit path.
+  const [drag, setDrag] = useState<StripDrag | null>(null);
+  const dragRef = useRef<StripDrag | null>(null);
+  const suppressClick = useRef(false);
+
+  const sectionFor = useCallback((key: string): HTMLElement | null => {
+    return (
+      containerRef.current?.querySelector<HTMLElement>(
+        `[data-filmstrip-day="${key}"]`,
+      ) ?? null
+    );
+  }, []);
+
+  const dayAtPointer = useCallback(
+    (clientX: number): { day: FilmstripDay; node: HTMLElement } | null => {
+      for (const day of modelRef.current) {
+        const node = sectionFor(day.key);
+        if (!node) continue;
+        const rect = node.getBoundingClientRect();
+        if (clientX >= rect.left && clientX < rect.right) {
+          return { day, node };
+        }
+      }
+      return null;
+    },
+    [sectionFor],
+  );
+
+  function minutesAt(day: FilmstripDay, node: HTMLElement, clientX: number) {
+    return snapMinutes(
+      minuteForX(day.spans, clientX - node.getBoundingClientRect().left),
+    );
+  }
+
+  function finishStripDrag(next: StripDrag) {
+    if (next.type === "create") {
+      const startMin = Math.min(next.startMin, next.endMin);
+      const endMin = Math.max(next.startMin, next.endMin);
+      onSelectSlot({
+        date: next.dayKey,
+        startMin,
+        endMin: Math.max(endMin, startMin + 30),
+        allDay: false,
+      });
+      return;
+    }
+    if (next.event.isReadOnly) return;
+    if (
+      !timedPlacementChanged({
+        originalDay: next.originDayKey,
+        currentDay: next.dayKey,
+        originalStart: next.originalStart,
+        originalEnd: next.originalEnd,
+        startMin: next.startMin,
+        endMin: next.endMin,
+      })
+    ) {
+      return;
+    }
+    const day = civilFromKey(next.dayKey);
+    onTimedCommit(
+      next.event,
+      wallFromMinutes(day, next.startMin, timezone),
+      wallFromMinutes(day, next.endMin, timezone),
+    );
+  }
+
+  function bindStripDrag(start: StripDrag, originX: number, originY: number) {
+    const isCreate = start.type === "create";
+    setDrag(isCreate ? start : null);
+    dragRef.current = start;
+    suppressClick.current = false;
+    let armed = isCreate;
+
+    const onMove = (event: PointerEvent) => {
+      const current = dragRef.current;
+      if (!current) return;
+      if (
+        !armed &&
+        !pointerPastThreshold(originX, originY, event.clientX, event.clientY)
+      ) {
+        return;
+      }
+      if (!armed) {
+        armed = true;
+        if (current.type !== "create") suppressClick.current = true;
+      }
+      if (current.type === "create") {
+        // Create stays within its origin day; the pointer x is clamped to
+        // that section so the preview never jumps across the night band.
+        const node = sectionFor(current.dayKey);
+        const dayIndex = dayMetaRef.current.keys.indexOf(current.dayKey);
+        const day = modelRef.current[dayIndex];
+        if (!node || !day) return;
+        const minutes = minutesAt(day, node, event.clientX);
+        if (Math.abs(minutes - current.originMin) >= 15) {
+          suppressClick.current = true;
+        }
+        const startMin = Math.min(current.originMin, minutes);
+        const endMin = Math.max(current.originMin, minutes);
+        const next: StripDrag = {
+          ...current,
+          startMin,
+          endMin: Math.max(endMin, startMin + 15),
+        };
+        dragRef.current = next;
+        setDrag(next);
+        return;
+      }
+      const hit = dayAtPointer(event.clientX);
+      if (!hit) return;
+      const minutes = minutesAt(hit.day, hit.node, event.clientX);
+      const duration = current.originalEnd - current.originalStart;
+      const startMin = Math.max(
+        0,
+        Math.min(
+          DAY_MINUTES - 15,
+          snapMinutes(current.originalStart + (minutes - current.pointerOrigin)),
+        ),
+      );
+      const next: StripDrag = {
+        ...current,
+        dayKey: hit.day.key,
+        startMin,
+        endMin: Math.min(DAY_MINUTES, startMin + duration),
+      };
+      dragRef.current = next;
+      setDrag(next);
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const current = dragRef.current;
+      setDrag(null);
+      dragRef.current = null;
+      if (current?.type === "create") {
+        finishStripDrag(current);
+      } else if (current && armed) {
+        if (
+          timedPlacementChanged({
+            originalDay: current.originDayKey,
+            currentDay: current.dayKey,
+            originalStart: current.originalStart,
+            originalEnd: current.originalEnd,
+            startMin: current.startMin,
+            endMin: current.endMin,
+          })
+        ) {
+          finishStripDrag(current);
+        } else {
+          suppressClick.current = false;
+        }
+      }
+      window.setTimeout(() => {
+        suppressClick.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function onCanvasPointerDown(
+    day: FilmstripDay,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (event.button !== 0 || !canCreate || event.pointerType === "touch") {
+      return;
+    }
+    const node = sectionFor(day.key);
+    if (!node) return;
+    const minutes = minutesAt(day, node, event.clientX);
+    bindStripDrag(
+      {
+        type: "create",
+        dayKey: day.key,
+        originMin: minutes,
+        startMin: minutes,
+        endMin: Math.min(DAY_MINUTES, minutes + 60),
+      },
+      event.clientX,
+      event.clientY,
+    );
+  }
+
+  function onSlatPointerDown(
+    day: FilmstripDay,
+    slat: FilmstripSlat,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    event.stopPropagation();
+    if (
+      event.button !== 0 ||
+      slat.instance.isReadOnly ||
+      event.pointerType === "touch"
+    ) {
+      return;
+    }
+    const node = sectionFor(day.key);
+    if (!node) return;
+    bindStripDrag(
+      {
+        type: "move",
+        event: slat.instance,
+        dayKey: day.key,
+        originDayKey: day.key,
+        pointerOrigin: minutesAt(day, node, event.clientX),
+        originalStart: slat.startMin,
+        originalEnd: slat.endMin,
+        startMin: slat.startMin,
+        endMin: slat.endMin,
+      },
+      event.clientX,
+      event.clientY,
+    );
+  }
+
   const positionStrip = useCallback((key: string): boolean => {
     const node = containerRef.current;
     if (!node) return false;
@@ -415,8 +675,12 @@ export function Filmstrip({
           key={day.key}
           day={day}
           canCreate={canCreate}
+          drag={drag}
+          suppressClick={suppressClick}
           onSelectSlot={onSelectSlot}
           onEventClick={onEventClick}
+          onCanvasPointerDown={onCanvasPointerDown}
+          onSlatPointerDown={onSlatPointerDown}
         />
       ))}
       <div
@@ -444,13 +708,28 @@ export function Filmstrip({
 function FilmstripDaySection({
   day,
   canCreate,
+  drag,
+  suppressClick,
   onSelectSlot,
   onEventClick,
+  onCanvasPointerDown,
+  onSlatPointerDown,
 }: {
   day: FilmstripDay;
   canCreate: boolean;
+  drag: StripDrag | null;
+  suppressClick: RefObject<boolean>;
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
+  onCanvasPointerDown: (
+    day: FilmstripDay,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => void;
+  onSlatPointerDown: (
+    day: FilmstripDay,
+    slat: FilmstripSlat,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => void;
 }) {
   const [leadNight, trailNight] = day.nights;
   const daytimeX = leadNight.widthPx;
@@ -555,7 +834,10 @@ function FilmstripDaySection({
       )}
 
       {/* The canvas: hour lines, freetime zones, event slats, now-line. */}
-      <div className="relative z-10 min-h-0 flex-1">
+      <div
+        className="relative z-10 min-h-0 flex-1"
+        onPointerDown={(event) => onCanvasPointerDown(day, event)}
+      >
         {day.hourTicks.slice(1).map((tick) => (
           <div
             key={tick.hour}
@@ -582,24 +864,41 @@ function FilmstripDaySection({
             zone={zone}
             onSelect={
               canCreate
-                ? () =>
+                ? () => {
+                    if (suppressClick.current) return;
                     onSelectSlot({
                       date: day.key,
                       startMin: zone.startMin,
                       endMin: zone.endMin,
                       allDay: false,
-                    })
+                    });
+                  }
                 : undefined
             }
           />
         ))}
-        {day.slats.map((slat) => (
-          <EventSlat
-            key={`${slat.instance.eventId}:${slat.startMin}:${slat.lane}`}
-            slat={slat}
-            onClick={() => onEventClick(slat.instance)}
-          />
-        ))}
+        {day.slats.map((slat) => {
+          if (
+            drag?.type === "move" &&
+            drag.event.eventId === slat.instance.eventId
+          ) {
+            return null;
+          }
+          return (
+            <EventSlat
+              key={`${slat.instance.eventId}:${slat.startMin}:${slat.lane}`}
+              slat={slat}
+              onClick={() => {
+                if (suppressClick.current) return;
+                onEventClick(slat.instance);
+              }}
+              onPointerDown={(event) => onSlatPointerDown(day, slat, event)}
+            />
+          );
+        })}
+        {drag && drag.dayKey === day.key && (
+          <StripDragPreview drag={drag} day={day} />
+        )}
         {day.nowXPx != null && (
           <div
             aria-hidden
@@ -613,8 +912,10 @@ function FilmstripDaySection({
 }
 
 /**
- * A qualifying gap keeps its click-to-create affordance but reads like
- * HEY's: a quiet duration label on the baseline, not a block.
+ * A qualifying gap reads like HEY's: a quiet duration label on the
+ * baseline. The label is the click target that claims the whole span —
+ * the zone itself lets pointer events through so drag-create owns the
+ * canvas (same split as the week grid's FreetimeBlock).
  */
 function FreetimeStripZone({
   zone,
@@ -624,29 +925,63 @@ function FreetimeStripZone({
   onSelect?: () => void;
 }) {
   const label = formatFreetimeLabel(zone.minutes);
-  const position = { left: zone.xPx, width: zone.widthPx };
-  const text = (
-    <span className="absolute bottom-2 left-2 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-      {label}
-    </span>
+  return (
+    <div
+      className="pointer-events-none absolute inset-y-0"
+      style={{ left: zone.xPx, width: zone.widthPx }}
+    >
+      {onSelect ? (
+        <button
+          type="button"
+          aria-label={`New event, ${label}`}
+          className="pointer-events-auto absolute bottom-1.5 left-1.5 whitespace-nowrap rounded-xs px-0.5 text-[11px] tabular-nums text-muted-foreground/70 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+        >
+          {label}
+        </button>
+      ) : (
+        <span className="absolute bottom-2 left-2 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground/70">
+          {label}
+        </span>
+      )}
+    </div>
   );
-  if (!onSelect) {
+}
+
+/** Live preview while dragging: a primary band for create, a ghost slat for move. */
+function StripDragPreview({
+  drag,
+  day,
+}: {
+  drag: StripDrag;
+  day: FilmstripDay;
+}) {
+  const x1 = xForMinute(day.spans, drag.startMin);
+  const x2 = xForMinute(day.spans, drag.endMin);
+  if (drag.type === "create") {
     return (
-      <div className="absolute inset-y-0" style={position}>
-        {text}
-      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 z-30 rounded-xs bg-primary/10 ring-1 ring-inset ring-primary/40"
+        style={{ left: x1, width: Math.max(x2 - x1, 2) }}
+      />
     );
   }
+  const fill = normalizeEventHex(drag.event.color);
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-label={`New event, ${label}`}
-      className="absolute inset-y-0 hover:bg-primary/[0.04] focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
-      style={position}
-    >
-      {text}
-    </button>
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 z-30 rounded-sm opacity-80"
+      style={{
+        left: x1,
+        width: Math.max(x2 - x1, MIN_SLAT_PX),
+        backgroundColor: fill,
+      }}
+    />
   );
 }
 
@@ -659,9 +994,11 @@ function FreetimeStripZone({
 function EventSlat({
   slat,
   onClick,
+  onPointerDown,
 }: {
   slat: FilmstripSlat;
   onClick: () => void;
+  onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
   const fill = normalizeEventHex(slat.instance.color);
   const tone = readableTextTone(fill);
@@ -670,6 +1007,7 @@ function EventSlat({
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={onPointerDown}
       title={`${slat.startLabel} · ${slat.instance.title}`}
       className={cn(
         "absolute overflow-hidden rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",

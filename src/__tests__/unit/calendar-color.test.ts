@@ -1,20 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { eventBlockStyle, readableTextTone } from "@/lib/calendar/color";
+import { normalizeEventHex, readableTextTone } from "@/lib/calendar/color";
 
-describe("eventBlockStyle", () => {
-  it("returns rail and fill CSS variables for a provider hex", () => {
-    expect(eventBlockStyle("#c45c26")).toEqual({
-      "--event-color": "#c45c26",
-      "--event-fill":
-        "color-mix(in srgb, var(--event-color) 24%, var(--background))",
-    });
+describe("normalizeEventHex", () => {
+  it("passes through a valid provider hex", () => {
+    expect(normalizeEventHex("#c45c26")).toBe("#c45c26");
   });
 
-  it("normalizes missing hash, uppercase, and blank values", () => {
-    expect(eventBlockStyle("B45309")["--event-color"]).toBe("#b45309");
-    expect(eventBlockStyle("  #abc  ")["--event-color"]).toBe("#aabbcc");
-    expect(eventBlockStyle("")["--event-color"]).toBe("#737373");
-    expect(eventBlockStyle("nope")["--event-color"]).toBe("#737373");
+  it("normalizes missing hash, short form, uppercase, and blank values", () => {
+    expect(normalizeEventHex("B45309")).toBe("#b45309");
+    expect(normalizeEventHex("  #abc  ")).toBe("#aabbcc");
+    expect(normalizeEventHex("")).toBe("#737373");
+    expect(normalizeEventHex("nope")).toBe("#737373");
   });
 });
 

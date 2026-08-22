@@ -35,7 +35,7 @@ export function FreetimeBlock({
         <button
           type="button"
           aria-label={`New event, ${formatFreetimeLabel(minutes)}`}
-          className="pointer-events-auto m-1 self-start rounded-xs px-0.5 text-left text-xs tabular-nums text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+          className="pointer-events-auto m-1 self-start rounded-xs px-0.5 text-left text-[11px] tabular-nums text-muted-foreground/70 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
@@ -45,7 +45,7 @@ export function FreetimeBlock({
           {formatFreetimeLabel(minutes)}
         </button>
       ) : (
-        <span className="m-1 inline-block px-0.5 text-xs tabular-nums text-muted-foreground">
+        <span className="m-1 inline-block px-0.5 text-[11px] tabular-nums text-muted-foreground/70">
           {formatFreetimeLabel(minutes)}
         </span>
       )}

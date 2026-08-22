@@ -217,11 +217,10 @@ function MonthWeek({
             type="button"
             onClick={() => onDayClick(day)}
             className={cn(
-              "border-l border-border px-1.5 py-1 text-left text-xs tabular-nums",
+              "border-l border-border px-1.5 py-1 text-left font-serif text-base font-semibold leading-tight tabular-nums",
               isWeekend(day) && "bg-muted/40",
-              day.month !== anchor.month && "text-muted-foreground",
-              sameCivil(day, today) && "bg-primary/5",
-              sameCivil(day, today) && "font-semibold text-primary",
+              day.month !== anchor.month && "font-normal text-muted-foreground/50",
+              sameCivil(day, today) && "bg-primary/5 text-primary",
             )}
           >
             {day.day}
@@ -281,7 +280,7 @@ function MonthWeek({
                 <button
                   type="button"
                   onClick={() => onDayClick(day)}
-                  className="px-0.5 text-[11px] tabular-nums text-muted-foreground"
+                  className="px-0.5 text-[11px] font-medium tabular-nums text-primary hover:underline"
                 >
                   +{extra}
                 </button>

@@ -77,6 +77,7 @@ export type FilmstripDay = {
   isWeekend: boolean;
   isPast: boolean; // civil day strictly before today
   widthPx: number;
+  spans: StripSpan[]; // the day's minute -> pixel mapping (for drag math)
   allDay: CalendarInstanceDTO[];
   slats: FilmstripSlat[];
   freetime: FreetimeZone[];
@@ -173,6 +174,23 @@ export function xForMinute(spans: StripSpan[], minute: number): number {
     }
   }
   return spans.length > 0 ? spans[spans.length - 1].toPx : 0;
+}
+
+/** Inverse of xForMinute: pixel offset within a day -> minute (unsnapped). */
+export function minuteForX(spans: StripSpan[], xPx: number): number {
+  if (spans.length === 0) return 0;
+  const total = spans[spans.length - 1].toPx;
+  const x = Math.max(0, Math.min(total, xPx));
+  for (const span of spans) {
+    if (x <= span.toPx) {
+      const width = span.toPx - span.fromPx;
+      if (width <= 0) return span.fromMin;
+      return (
+        span.fromMin + ((x - span.fromPx) / width) * (span.toMin - span.fromMin)
+      );
+    }
+  }
+  return DAY_MINUTES;
 }
 
 /**
@@ -276,6 +294,7 @@ export function buildFilmstrip(
       isWeekend: isWeekend(day),
       isPast: compareCivil(day, today) < 0,
       widthPx,
+      spans,
       allDay: allDayEventsOnDay(instances, day, timezone),
       slats,
       freetime,

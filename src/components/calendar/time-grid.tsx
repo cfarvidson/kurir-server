@@ -358,12 +358,17 @@ export function TimeGrid({
                 sameCivil(day, today) && "bg-primary/5",
               )}
             >
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              <div
+                className={cn(
+                  "text-[11px] uppercase tracking-wide text-muted-foreground",
+                  sameCivil(day, today) && "font-medium text-primary",
+                )}
+              >
                 {formatWeekdayShort(day)}
               </div>
               <div
                 className={cn(
-                  "text-sm font-medium tabular-nums",
+                  "font-serif text-2xl font-semibold leading-tight tabular-nums",
                   sameCivil(day, today) && "text-primary",
                 )}
               >

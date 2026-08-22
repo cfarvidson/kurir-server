@@ -14,6 +14,7 @@ export function DayView({
   canCreate,
   onSelectSlot,
   onEventClick,
+  onTimedCommit,
   onVisibleDayChange,
   scrollToRequest,
 }: {
@@ -23,6 +24,11 @@ export function DayView({
   canCreate: boolean;
   onSelectSlot: (slot: SlotSelection) => void;
   onEventClick: (event: CalendarInstanceDTO) => void;
+  onTimedCommit: (
+    event: CalendarInstanceDTO,
+    startAt: Date,
+    endAt: Date,
+  ) => void;
   onVisibleDayChange?: (day: CivilDate) => void;
   scrollToRequest?: { key: string; nonce: number };
 }) {
@@ -34,6 +40,7 @@ export function DayView({
       canCreate={canCreate}
       onSelectSlot={onSelectSlot}
       onEventClick={onEventClick}
+      onTimedCommit={onTimedCommit}
       onVisibleDayChange={onVisibleDayChange}
       scrollToRequest={scrollToRequest}
     />
