@@ -15,6 +15,25 @@ Status: approved in brainstorming, ready for implementation planning
 > sections below describe the original vertical design; data flow, freetime
 > rules, interactions, and the API are unchanged.
 
+> **Revision 2 (2026-08-22):** a side-by-side comparison with
+> hey.com/calendar showed the day-card carousel still wasn't HEY's
+> filmstrip — theirs is one continuous **proportional timeline**. The strip
+> was rebuilt: daytime minutes (07-21) map to pixels at 1 px/min, timed
+> events are full-height vertical slats (width = duration, min 32 px, text
+> rotated to read bottom-to-top, lanes split the height on overlap), and
+> empty night runs (21-07) collapse to fixed 36 px dark starfield bands —
+> each day owns two half-nights, so adjacent days merge into one night band
+> with the midnight hairline through it. Events at night stay proportional
+> and break the band. Freetime keeps its click-to-create zone but reads as
+> a quiet baseline duration label. `transparency=free` events render
+> hatched with an italic serif title. The minute -> pixel mapping
+> (`buildDaySpans`/`xForMinute`) is pure model output, so day offsets are
+> prefix sums (`stripDayOffsets`) and the only DOM read is the first
+> section's base offset. Day labels are sticky within the scroller; the
+> now-marker is a dashed vertical through the strip with its time on the
+> axis. Data flow, the instances API, and the week/month views are still
+> unchanged.
+
 ## Context
 
 The calendar shipped with HEY's information architecture (week as home,
