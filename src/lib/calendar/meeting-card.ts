@@ -38,6 +38,7 @@ const PARTSTAT: Record<string, MeetingRsvpResponse> = {
   accepted: "accepted",
   tentative: "tentative",
   declined: "declined",
+  tentativelyAccepted: "tentative",
 };
 
 export function meetingCardState(

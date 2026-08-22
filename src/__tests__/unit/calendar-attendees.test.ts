@@ -80,4 +80,18 @@ describe("normalizeAttendees", () => {
       normalizeAttendees([{ email: "x@y.z", responseStatus: "wat" }]),
     ).toEqual([{ email: "x@y.z", name: null, status: null, isSelf: false }]);
   });
+
+  it("reads Microsoft Graph tentativelyAccepted the same way meeting-card does", () => {
+    expect(
+      normalizeAttendees([
+        {
+          emailAddress: { address: "me@x.y" },
+          status: { response: "tentativelyAccepted" },
+          self: true,
+        },
+      ]),
+    ).toEqual([
+      { email: "me@x.y", name: null, status: "tentative", isSelf: true },
+    ]);
+  });
 });

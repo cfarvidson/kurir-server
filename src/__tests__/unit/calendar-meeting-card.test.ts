@@ -133,4 +133,16 @@ describe("meetingResponseFromAttendees", () => {
       meetingResponseFromAttendees([{ email: "me@x.y", self: true }]),
     ).toBeNull();
   });
+
+  it("reads Microsoft Graph tentativelyAccepted", () => {
+    expect(
+      meetingResponseFromAttendees([
+        {
+          emailAddress: { address: "me@x.y" },
+          status: { response: "tentativelyAccepted" },
+          self: true,
+        },
+      ]),
+    ).toBe("tentative");
+  });
 });
