@@ -21,6 +21,7 @@ export type VisibleInstance = EventInstance & {
   description: string | null;
   rrule: string | null;
   isReadOnly: boolean;
+  attendeesJson: unknown;
 };
 
 type CalendarMeta = {
@@ -36,6 +37,7 @@ type EventExtras = {
   location: string | null;
   description: string | null;
   rrule: string | null;
+  attendeesJson: unknown;
 };
 
 type MasterRow = {
@@ -52,6 +54,7 @@ type MasterRow = {
   status: string;
   location: string | null;
   description: string | null;
+  attendeesJson: unknown;
   calendarId: string;
   calendar: CalendarMeta;
   exceptions: Array<{
@@ -130,6 +133,7 @@ function extrasFrom(
     location: extra?.location ?? null,
     description: extra?.description ?? null,
     rrule: extra?.rrule ?? null,
+    attendeesJson: extra?.attendeesJson ?? null,
   };
 }
 
@@ -158,6 +162,7 @@ function extrasForOccurrence(
     location: master.location,
     description: master.description,
     rrule: master.rrule,
+    attendeesJson: master.attendeesJson,
   };
   const ex = matchingException(master, row);
   if (!ex) return base;
@@ -166,6 +171,7 @@ function extrasForOccurrence(
     location: ex.location ?? master.location,
     description: ex.description ?? master.description,
     rrule: master.rrule,
+    attendeesJson: master.attendeesJson,
   };
 }
 
@@ -215,6 +221,7 @@ async function loadFromInstanceTable(
           location: true,
           rrule: true,
           transparency: true,
+          attendeesJson: true,
         },
       },
       calendar: {
@@ -293,6 +300,7 @@ async function expandVisibleMasters(
       location: master.location,
       description: master.description,
       rrule: master.rrule,
+      attendeesJson: master.attendeesJson,
     };
     for (const row of expanded) {
       const mapped = decorate(

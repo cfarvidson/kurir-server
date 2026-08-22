@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
 import { normalizeEventHex } from "@/lib/calendar/color";
+import { normalizeAttendees } from "@/lib/calendar/attendees";
 import {
   CalendarConflictError,
   type RecurrenceEdit,
@@ -177,6 +178,7 @@ export function serializeRangeInstance(row: VisibleInstance) {
     description: row.description,
     rrule: row.rrule,
     isReadOnly: row.isReadOnly,
+    attendees: normalizeAttendees(row.attendeesJson),
   };
 }
 
@@ -200,6 +202,7 @@ export function serializeSyncEvent(row: {
   recurrenceId: Date | null;
   updatedAt: Date;
   sequence: number;
+  attendeesJson: unknown;
 }) {
   return {
     id: row.id,
@@ -221,6 +224,7 @@ export function serializeSyncEvent(row: {
     recurrenceId: row.recurrenceId ? row.recurrenceId.toISOString() : null,
     updatedAt: row.updatedAt.toISOString(),
     sequence: row.sequence,
+    attendees: normalizeAttendees(row.attendeesJson),
   };
 }
 

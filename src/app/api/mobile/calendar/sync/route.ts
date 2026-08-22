@@ -39,6 +39,7 @@ const EVENT_SELECT = {
   recurrenceId: true,
   updatedAt: true,
   sequence: true,
+  attendeesJson: true,
 } as const;
 
 export async function GET(req: NextRequest) {

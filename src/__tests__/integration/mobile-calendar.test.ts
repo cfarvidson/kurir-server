@@ -177,6 +177,7 @@ describe("/api/mobile/calendar", () => {
         description: null,
         rrule: null,
         isReadOnly: false,
+        attendeesJson: null,
       },
     ]);
 
