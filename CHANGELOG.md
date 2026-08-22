@@ -4,6 +4,24 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.21] - 2026-08-22
+
+### Changed
+
+- Calendar day view rebuilt as a HEY-style filmstrip: one continuous
+  proportional timeline with full-height calendar-color slats, collapsing
+  starfield night bands, and sticky day labels.
+- Week and month share the day view's solid calendar-color event chrome,
+  serif day numerals, and quieter freetime labels.
+
+### Added
+
+- Drag to create in the day view: mark a time span to open the event
+  dialog prefilled with the snapped range.
+- Drag to move events in the day view - across days too - committed
+  through the same path as the week grid, including the recurrence
+  scope dialog.
+
 ## [v2026.08.20] - 2026-08-20
 
 ### Added

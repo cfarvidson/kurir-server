@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.08.21",
+    "date": "2026-08-22",
+    "changes": [
+      "Calendar day view is a HEY-style filmstrip: a continuous timeline with color slats and night bands",
+      "Drag on the day view to create an event, or drag an event to move it",
+      "Week and month events render in solid calendar colors with serif day numerals"
+    ]
+  },
+  {
     "version": "2026.08.20",
     "date": "2026-08-20",
     "changes": [
@@ -106,7 +115,7 @@
     "version": "2026.08.16",
     "date": "2026-08-16",
     "changes": [
-      "Connecting Claude Code via /mcp no longer fails with \"Invalid redirect\" - loopback OAuth redirect URIs are accepted on any port (RFC 8252 §7.3)"
+      "Connecting Claude Code via /mcp no longer fails with \"Invalid redirect\" - loopback OAuth redirect URIs are accepted on any port (RFC 8252 \u00a77.3)"
     ]
   },
   {
@@ -116,7 +125,7 @@
       "Connect Claude to your Kurir instance at /mcp with passkey consent",
       "Agents can read, search, triage, screen senders, and change your own settings",
       "Sending mail and other destructive actions ask for a confirmation in Claude first",
-      "Revoke connected apps under Settings → Connected apps"
+      "Revoke connected apps under Settings \u2192 Connected apps"
     ]
   },
   {
@@ -126,7 +135,7 @@
       "Connect Claude to your Kurir instance at /mcp with passkey consent",
       "Agents can read, search, triage, screen senders, and change your own settings",
       "Sending mail and other destructive actions ask for a confirmation in Claude first",
-      "Revoke connected apps under Settings → Connected apps"
+      "Revoke connected apps under Settings \u2192 Connected apps"
     ]
   },
   {
@@ -187,7 +196,7 @@
     "version": "2026.08.06.2",
     "date": "2026-08-06",
     "changes": [
-      "Screen domain retroactively: create a domain rule from an existing message (thread header) or screened sender — the sender moves with the rule",
+      "Screen domain retroactively: create a domain rule from an existing message (thread header) or screened sender \u2014 the sender moves with the rule",
       "Mobile: the createDomainRule action moves the origin sender, enabling Screen domain menus in the iOS/macOS app"
     ]
   },
@@ -197,7 +206,7 @@
     "changes": [
       "Domain screening rules: approve or screen out every sender from a domain (or subdomain wildcard) directly from the screener",
       "New rules retroactively decide matching pending senders and apply automatically to new senders at sync",
-      "Manage rules at the top of the screened list — change category or remove; removing keeps past decisions",
+      "Manage rules at the top of the screened list \u2014 change category or remove; removing keeps past decisions",
       "Mobile: domain-rule actions and sync support for the iOS/macOS app"
     ]
   },
@@ -205,7 +214,7 @@
     "version": "2026.08.05.1",
     "date": "2026-08-05",
     "changes": [
-      "Fix settings connection actions locking up when a request fails or stalls — errors now show inline and controls recover",
+      "Fix settings connection actions locking up when a request fails or stalls \u2014 errors now show inline and controls recover",
       "Backfill this changelog with all releases since April; updating it is now part of every release"
     ]
   },
@@ -213,21 +222,21 @@
     "version": "2026.08.05",
     "date": "2026-08-05",
     "changes": [
-      "Catch-all domains: treat every address on your own domain as yours — in Screener exclusion, sync-time auto-approve, and the mobile sync payload",
+      "Catch-all domains: treat every address on your own domain as yours \u2014 in Screener exclusion, sync-time auto-approve, and the mobile sync payload",
       "Settings: catch-all toggle on the connection card next to alias management",
       "Setup wizard collects aliases and the catch-all setting so they apply from the first sync",
-      "Sweep stale pending senders for your own addresses to approved/Imbox — hourly and immediately when aliases, send-as, or catch-all change"
+      "Sweep stale pending senders for your own addresses to approved/Imbox \u2014 hourly and immediately when aliases, send-as, or catch-all change"
     ]
   },
   {
     "version": "2026.08.04",
     "date": "2026-08-04",
     "changes": [
-      "Fix fresh self-host installs never getting a database schema — the entrypoint now bootstraps empty databases",
+      "Fix fresh self-host installs never getting a database schema \u2014 the entrypoint now bootstraps empty databases",
       "Fix the search_vector migration silently failing on every boot since Prisma 7",
-      "Fix container healthcheck probing ::1 while the app binds IPv4 — installs could never report healthy",
+      "Fix container healthcheck probing ::1 while the app binds IPv4 \u2014 installs could never report healthy",
       "Fix install.sh reporting success for an unhealthy app",
-      "Redis eviction policy changed to noeviction — required by BullMQ, eviction could drop queued jobs",
+      "Redis eviction policy changed to noeviction \u2014 required by BullMQ, eviction could drop queued jobs",
       "Fix installer OS detection on rolling-release distros like Arch"
     ]
   },
@@ -261,7 +270,7 @@
     "date": "2026-06-10",
     "changes": [
       "New remote-image privacy mode: load images but block known trackers and invisible spy pixels, with a per-thread blocked-tracker indicator",
-      "Fix PWA push notifications silently failing when the VAPID keys drifted apart — the public key is now served at runtime"
+      "Fix PWA push notifications silently failing when the VAPID keys drifted apart \u2014 the public key is now served at runtime"
     ]
   },
   {
@@ -269,7 +278,7 @@
     "date": "2026-06-10",
     "changes": [
       "Archiving from the thread view is now instant",
-      "New mail (including login codes) arrives within seconds — IMAP IDLE events are no longer dropped during full syncs and connections start at boot",
+      "New mail (including login codes) arrives within seconds \u2014 IMAP IDLE events are no longer dropped during full syncs and connections start at boot",
       "Remove a faint extra border on undo toasts"
     ]
   },
@@ -314,14 +323,14 @@
     "changes": [
       "Files library: browse every attachment across your mail with type filters, search, and paging (g+l shortcut)",
       "Mobile attachments open through the native iOS share sheet",
-      "Fix PWA freezes during bursts of realtime activity — refreshes are debounced and the connection follows tab visibility"
+      "Fix PWA freezes during bursts of realtime activity \u2014 refreshes are debounced and the connection follows tab visibility"
     ]
   },
   {
     "version": "2026.05.20",
     "date": "2026-05-20",
     "changes": [
-      "Un-thread emails from noisy senders — each message renders as its own row, reversible at any time",
+      "Un-thread emails from noisy senders \u2014 each message renders as its own row, reversible at any time",
       "Fix iOS swipe-back being swallowed in the PWA",
       "Toasts now sit above the bottom bars so Undo is reachable on mobile"
     ]
@@ -342,7 +351,7 @@
     "version": "2026.04.26.2",
     "date": "2026-04-26",
     "changes": [
-      "Email body renders in a Shadow DOM instead of an iframe — no pop-in flash and natural mobile scrolling, same CSS isolation and sanitizer guarantees"
+      "Email body renders in a Shadow DOM instead of an iframe \u2014 no pop-in flash and natural mobile scrolling, same CSS isolation and sanitizer guarantees"
     ]
   },
   {

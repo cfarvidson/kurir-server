@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.20",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.20",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.20",
-  "changelog": "List views share the same row, actions, and per-list search. Sent paginates. Files open in the right folder.",
+  "version": "2026.08.21",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.21",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.21",
+  "changelog": "Calendar day view rebuilt as a HEY-style filmstrip timeline with drag and drop; solid color event chrome across week and month",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-20T11:55:35Z"
+  "releasedAt": "2026-08-22T16:48:21Z"
 }
