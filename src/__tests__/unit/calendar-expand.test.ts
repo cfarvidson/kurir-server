@@ -110,6 +110,76 @@ describe("expandEventWindow", () => {
     expect(rows[0]?.isAllDay).toBe(true);
   });
 
+  /// Apple writes an annual birthday as FREQ=YEARLY;BYMONTHDAY=3 and renders
+  /// it once a year. Read strictly, BYMONTHDAY expands inside the yearly
+  /// period and nothing narrows it, so the rule means the 3rd of *every*
+  /// month - which is how a grandfather ended up with twelve birthdays a
+  /// year. A rule that really means monthly is written FREQ=MONTHLY.
+  it("keeps a yearly BYMONTHDAY rule in the month DTSTART falls in", () => {
+    const rows = expandEventWindow(
+      {
+        ...timed,
+        isAllDay: true,
+        startAt: new Date("2015-12-03T00:00:00.000Z"),
+        endAt: new Date("2015-12-04T00:00:00.000Z"),
+        timezone: null,
+        rrule: "FREQ=YEARLY;BYMONTHDAY=3",
+      },
+      [],
+      new Date("2026-06-01T00:00:00.000Z"),
+      new Date("2027-06-01T00:00:00.000Z"),
+    );
+
+    expect(rows.map((row) => row.startAt.toISOString().slice(0, 10))).toEqual([
+      "2026-12-03",
+    ]);
+  });
+
+  /// The month is only borrowed when nothing else scopes the rule. An
+  /// explicit BYMONTH is the author's own answer and must win.
+  it("leaves an explicit BYMONTH alone", () => {
+    const rows = expandEventWindow(
+      {
+        ...timed,
+        isAllDay: true,
+        startAt: new Date("2015-12-03T00:00:00.000Z"),
+        endAt: new Date("2015-12-04T00:00:00.000Z"),
+        timezone: null,
+        rrule: "FREQ=YEARLY;BYMONTH=6;BYMONTHDAY=3",
+      },
+      [],
+      new Date("2026-01-01T00:00:00.000Z"),
+      new Date("2026-12-31T00:00:00.000Z"),
+    );
+
+    expect(rows.map((row) => row.startAt.toISOString().slice(0, 10))).toEqual([
+      "2026-06-03",
+    ]);
+  });
+
+  /// BYWEEKNO and BYYEARDAY are genuinely year-scoped: their whole point is
+  /// to pick a spot in the year rather than in a month, so pinning a month
+  /// onto them would empty the rule out.
+  it("does not pin a month onto a yearly BYYEARDAY rule", () => {
+    const rows = expandEventWindow(
+      {
+        ...timed,
+        isAllDay: true,
+        startAt: new Date("2015-12-03T00:00:00.000Z"),
+        endAt: new Date("2015-12-04T00:00:00.000Z"),
+        timezone: null,
+        rrule: "FREQ=YEARLY;BYYEARDAY=100",
+      },
+      [],
+      new Date("2026-01-01T00:00:00.000Z"),
+      new Date("2026-12-31T00:00:00.000Z"),
+    );
+
+    expect(rows.map((row) => row.startAt.toISOString().slice(0, 10))).toEqual([
+      "2026-04-10",
+    ]);
+  });
+
   it("returns no rows when the master is cancelled", () => {
     const rows = expandEventWindow(
       { ...timed, status: "cancelled", rrule: null },

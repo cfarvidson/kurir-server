@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.24",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.24",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.24",
-  "changelog": "Large calendars finish their first sync, and a reminder in a calendar no longer blocks its events",
+  "version": "2026.08.25",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.25",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.25",
+  "changelog": "A yearly birthday no longer repeats every month",
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-23T00:00:00Z"
 }

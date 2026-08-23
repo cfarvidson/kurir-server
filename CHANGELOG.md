@@ -4,6 +4,20 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.25] - 2026-08-23
+
+### Fixed
+
+- A birthday repeating once a year appeared on the same date every month.
+  Apple writes an annual birthday as `FREQ=YEARLY;BYMONTHDAY=3` and renders it
+  once a year, as do Google and Microsoft, but read strictly that rule means
+  the 3rd of *every* month: BYMONTHDAY expands inside the yearly period and,
+  with no BYMONTH, nothing narrows it back down. A yearly rule that pins a day
+  of the month now takes its month from DTSTART unless BYMONTH, BYWEEKNO or
+  BYYEARDAY already scopes it. Calendars holding such a rule resync once on
+  upgrade so their stored occurrences are rebuilt; an incremental pull would
+  never have touched an unchanged birthday.
+
 ## [v2026.08.24] - 2026-08-23
 
 ### Fixed

@@ -1,4 +1,4 @@
-import { RRule, RRuleSet } from "rrule";
+import { RRule, RRuleSet, type Options } from "rrule";
 
 export const INSTANCE_PAST_MONTHS = 2;
 export const INSTANCE_FUTURE_MONTHS = 18;
@@ -76,6 +76,35 @@ function inWindow(start: Date, from: Date, to: Date): boolean {
   return t >= from.getTime() && t < to.getTime();
 }
 
+function isUnset(value: number | number[] | null | undefined): boolean {
+  if (value == null) return true;
+  return Array.isArray(value) && value.length === 0;
+}
+
+/**
+ * Read strictly, `FREQ=YEARLY;BYMONTHDAY=3` means the 3rd of *every* month:
+ * BYMONTHDAY expands inside the yearly period and, with no BYMONTH, nothing
+ * narrows it back down. Apple writes exactly that rule for an annual birthday
+ * and renders it once a year, as do Google and Microsoft - so a grandfather's
+ * birthday showed up twelve times a year here. A rule that really means every
+ * month is written FREQ=MONTHLY, so when a yearly rule pins a day of the
+ * month and nothing else scopes it, the month comes from DTSTART.
+ *
+ * BYWEEKNO and BYYEARDAY are left alone: picking a spot in the year rather
+ * than in a month is their whole point, and pinning a month onto them would
+ * empty the rule out instead of narrowing it.
+ *
+ * The month is read in UTC, like every other date in this file.
+ */
+function pinYearlyMonthToDtstart(options: Partial<Options>): void {
+  if (options.freq !== RRule.YEARLY) return;
+  if (isUnset(options.bymonthday)) return;
+  if (!isUnset(options.bymonth)) return;
+  if (!isUnset(options.byweekno) || !isUnset(options.byyearday)) return;
+  if (!options.dtstart) return;
+  options.bymonth = options.dtstart.getUTCMonth() + 1;
+}
+
 function occurrenceStarts(
   master: EventMaster,
   from: Date,
@@ -89,6 +118,7 @@ function occurrenceStarts(
   if (master.rrule) {
     const options = RRule.parseString(master.rrule);
     options.dtstart = master.startAt;
+    pinYearlyMonthToDtstart(options);
     set.rrule(new RRule(options));
   }
   for (const d of parseUtcStamps(master.rdate)) {

@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.08.25",
+    "date": "2026-08-23",
+    "changes": [
+      "A birthday that repeats once a year no longer shows up on the same date every month"
+    ]
+  },
+  {
     "version": "2026.08.24",
     "date": "2026-08-23",
     "changes": [
