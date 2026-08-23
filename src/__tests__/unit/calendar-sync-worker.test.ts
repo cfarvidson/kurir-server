@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
       upsert: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      deleteMany: vi.fn(),
       findMany: vi.fn(),
     },
   },
@@ -150,6 +151,49 @@ describe("processCalendarSyncJob", () => {
     expect(db.calendar.updateMany).not.toHaveBeenCalled();
     expect(db.calendar.upsert).not.toHaveBeenCalled();
     expect(adapter.pull).not.toHaveBeenCalled();
+    expect(releaseCalendarSyncLock).toHaveBeenCalledWith("acc-1");
+  });
+
+  it("prunes vanished event-less calendars alongside the soft-hide", async () => {
+    vi.mocked(isDemoInstance).mockReturnValue(false);
+    vi.mocked(claimCalendarSyncLock).mockResolvedValue(true);
+    vi.mocked(db.calendarAccount.findUnique).mockResolvedValue(
+      googleAccount() as never,
+    );
+    adapter.listCalendars.mockResolvedValue([
+      {
+        providerCalendarId: "remote-cal-1",
+        name: "Remote",
+        color: null,
+        isPrimary: true,
+        isReadOnly: false,
+        timezone: null,
+      },
+    ]);
+    vi.mocked(db.calendar.findMany).mockResolvedValue([] as never);
+
+    const { processCalendarSyncJob } = await import(
+      "@/lib/jobs/calendar-sync-worker"
+    );
+    await processCalendarSyncJob({
+      calendarAccountId: "acc-1",
+      userId: "u1",
+    });
+
+    expect(db.calendar.updateMany).toHaveBeenCalledWith({
+      where: {
+        accountId: "acc-1",
+        providerCalendarId: { notIn: ["remote-cal-1"] },
+      },
+      data: { isVisible: false },
+    });
+    expect(db.calendar.deleteMany).toHaveBeenCalledWith({
+      where: {
+        accountId: "acc-1",
+        providerCalendarId: { notIn: ["remote-cal-1"] },
+        events: { none: {} },
+      },
+    });
     expect(releaseCalendarSyncLock).toHaveBeenCalledWith("acc-1");
   });
 });

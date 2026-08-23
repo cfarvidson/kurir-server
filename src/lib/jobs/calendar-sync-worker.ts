@@ -113,6 +113,19 @@ async function upsertCalendars(
     data: { isVisible: false },
   });
 
+  // A collection that no longer exists remotely and never produced an
+  // event (the VTODO reminder lists task 1 now filters, or a calendar
+  // deleted at the provider before it ever synced) is dead weight in
+  // every calendar list. Rows with events keep the soft-hide so history
+  // survives a provider glitch.
+  await db.calendar.deleteMany({
+    where: {
+      accountId: account.id,
+      providerCalendarId: { notIn: remoteIds },
+      events: { none: {} },
+    },
+  });
+
   return remoteIds;
 }
 
