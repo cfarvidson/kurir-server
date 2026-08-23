@@ -4,6 +4,22 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.26] - 2026-08-23
+
+### Fixed
+
+- CalDAV discovery filters out reminder (VTODO) collections, so iCloud's
+  legacy "Påminnelser ⚠️" list no longer appears as a calendar. Collections
+  with an empty component set are probed for VTODOs, failing open.
+- The calendar sync worker deletes calendars that vanished remotely and never
+  produced an event, so stale reminder rows clean themselves up on the next
+  sync. Calendars with events keep the soft-hide behavior.
+
+### Changed
+
+- Today is marked with a filled primary-color date circle in the calendar's
+  week header and month grid.
+
 ## [v2026.08.25] - 2026-08-23
 
 ### Fixed
@@ -11,7 +27,7 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 - A birthday repeating once a year appeared on the same date every month.
   Apple writes an annual birthday as `FREQ=YEARLY;BYMONTHDAY=3` and renders it
   once a year, as do Google and Microsoft, but read strictly that rule means
-  the 3rd of *every* month: BYMONTHDAY expands inside the yearly period and,
+  the 3rd of _every_ month: BYMONTHDAY expands inside the yearly period and,
   with no BYMONTH, nothing narrows it back down. A yearly rule that pins a day
   of the month now takes its month from DTSTART unless BYMONTH, BYWEEKNO or
   BYYEARDAY already scopes it. Calendars holding such a rule resync once on

@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.25",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.25",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.25",
-  "changelog": "A yearly birthday no longer repeats every month",
+  "version": "2026.08.26",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.26",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.26",
+  "changelog": "Reminders lists no longer appear as calendars, and today is easier to spot",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-23T00:00:00Z"
+  "releasedAt": "2026-08-23T21:00:00Z"
 }
