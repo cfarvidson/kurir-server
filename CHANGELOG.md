@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MM.DD`).
+All notable changes to Kurir are documented here. Versioning follows CalVer (`YYYY.MICRO`); entries predating the format flip use the older `YYYY.MM.N` and `YYYY.MM.DD` formats.
 
 ## [Unreleased]
 

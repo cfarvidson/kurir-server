@@ -1,6 +1,14 @@
 # Releasing a New Version
 
-Kurir uses **calendar versioning** (CalVer) in the format `YYYY.MM.DD` (e.g., `2026.04.01`). If multiple releases ship on the same day, append a build number: `2026.04.01.2`, `2026.04.01.3`, etc.
+Kurir uses **calendar versioning** (CalVer) in the format `YYYY.MICRO` (e.g. `2026.29`): a four-digit year and one serial per year.
+
+`MICRO` is a single counter shared with **kurir-ios**. It is incremented across both repos, not per repo and not per month, and resets to 1 at the year boundary. A paired release carries the identical string in both. It is not a date: `2026.29` is the 29th release of 2026, not February 9th or September 29th.
+
+Pick the next micro as one greater than the highest serial across both repos' tags. Tags from the older `YYYY.MM.N` and `YYYY.MM.DD.N` formats count via their third component. The micro must also outrank the last month component ever used (`08`), so that component-wise numeric comparison keeps ranking the new format above the old: `2026.08.27` < `2026.28` < `2026.29`. Both rules together are why a micro must never restart at 1 mid-year.
+
+`./scripts/verify-release.sh` enforces the shape and refuses a leftover `YYYY.MM.N` or a zero-padded micro. Note the asymmetry: instances *parse* two, three, or four components so they can still read old manifests, but we only ever *release* two.
+
+> **Instances older than the final `YYYY.MM.N` release must be updated by hand.** The tolerant manifest parser ships in that release, which is why it had to go out before the format flipped. An instance that never picked it up cannot read a `YYYY.MICRO` manifest at all: it logs a parse failure, reports "no update", and stays there until someone pulls a newer image manually.
 
 ## How the auto-update system works
 
@@ -23,7 +31,7 @@ https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json
 4. **Update `changelog.json`** in the repo root — it feeds the Changelog list in the admin Updates page and must be updated in the same commit as the version bump (format: `{ "version", "date", "changes": [...] }`, newest first)
 5. **Commit** to main and **verify** with `./scripts/verify-release.sh v<version>` — it checks that all four files above were bumped. CI runs the same check on the tag build and refuses to publish the Docker image for an incomplete release
 6. **Tag and push** to main
-7. **Create a GitHub release** with the tag `vYYYY.MM.DD`
+7. **Create a GitHub release** with the tag `vYYYY.MICRO`
 8. **Deploy** the CI-built image — see [Deploying a release](#deploying-a-release) below
 
 ## Deploying a release
@@ -60,18 +68,18 @@ If the deploy fails with `target failed to become healthy` and the container log
 
 ```json
 {
-  "version": "2026.04.01",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.04.01",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.04.01",
+  "version": "2026.29",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.29",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.29",
   "changelog": "Short description of what changed",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-04-01T00:00:00Z"
+  "releasedAt": "2026-01-15T00:00:00Z"
 }
 ```
 
 | Field        | Description                                                |
 | ------------ | ---------------------------------------------------------- |
-| `version`    | The new version string (CalVer)                            |
+| `version`    | The new version string (CalVer `YYYY.MICRO`)               |
 | `image`      | Docker image tag for this release                          |
 | `releaseUrl` | GitHub release URL                                         |
 | `changelog`  | One-liner shown in the admin UI                            |

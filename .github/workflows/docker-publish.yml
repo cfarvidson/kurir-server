@@ -139,9 +139,10 @@ jobs:
             # version stamp. Main builds get `:main` instead.
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=main,enable={{is_default_branch}}
-            # CalVer tags (vYYYY.MM.DD[.N]) are not valid semver, so the
-            # semver types never matched and no versioned image was ever
-            # published — latest.json pointed at tags that didn't exist.
+            # CalVer tags (vYYYY.MICRO, and the older vYYYY.MM.DD[.N])
+            # are not valid semver, so the semver types never matched and
+            # no versioned image was ever published — latest.json pointed
+            # at tags that didn't exist.
             # ref/event=tag publishes the git tag name verbatim.
             type=ref,event=tag
             type=semver,pattern={{version}}
