@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.08.24",
+    "date": "2026-08-23",
+    "changes": [
+      "Calendars with thousands of events now finish their first sync instead of timing out and staying empty",
+      "A reminder stored in a calendar no longer blocks every event in that calendar from syncing"
+    ]
+  },
+  {
     "version": "2026.08.23",
     "date": "2026-08-23",
     "changes": [

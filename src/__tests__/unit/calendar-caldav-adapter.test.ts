@@ -236,6 +236,49 @@ describe("createCalDavAdapter", () => {
     expect(result.upserts[0]?.etag).toBe('"etag1"');
   });
 
+  it("skips an object that holds no VEVENT instead of failing the calendar", async () => {
+    // iCloud keeps reminders as VTODO objects inside ordinary <calendar>
+    // collections, and its supported-calendar-component-set comes back empty,
+    // so there is no way to tell those collections apart up front. One VTODO
+    // used to throw out of mapCalDavEvent and take every event in the calendar
+    // with it. A malformed ICS from any provider did the same.
+    davMocks.syncCollection.mockResolvedValue([
+      {
+        href: "/calendars/user/home/todo.ics",
+        status: 200,
+        ok: true,
+        props: {
+          getetag: '"etag0"',
+          calendarData: `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VTODO
+UID:t1
+SUMMARY:Buy milk
+END:VTODO
+END:VCALENDAR`,
+        },
+        raw: { multistatus: { syncToken: "sync-2" } },
+      },
+      {
+        href: EVENT_HREF,
+        status: 200,
+        ok: true,
+        props: { getetag: '"etag1"', calendarData: timedIcs },
+      },
+    ]);
+
+    const result = await adapter().pull(
+      { providerCalendarId: CAL_URL, syncToken: null },
+      null,
+    );
+
+    expect(result.upserts).toHaveLength(1);
+    expect(result.upserts[0]?.providerEventId).toBe(EVENT_HREF);
+    expect(result.upserts[0]?.title).toBe("Call");
+    // Skipped, not tombstoned - the object is there, it just is not an event.
+    expect(result.deletedProviderIds).toEqual([]);
+  });
+
   it("falls back to calendarQuery over instanceWindow with complete false", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const now = new Date("2026-08-20T12:00:00.000Z");

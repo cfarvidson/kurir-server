@@ -172,6 +172,20 @@ type ReplicaTx = Pick<
   "calendarEvent" | "calendarEventInstance" | "calendarTombstone"
 >;
 
+/**
+ * A first sync writes one event per round-trip, and a real iCloud calendar
+ * holds thousands - one here held 4023 and blew past Prisma's 5000 ms default
+ * about four fifths of the way in. The pull then died with "a query cannot be
+ * executed on an expired transaction", the sync token was never written, and
+ * the calendar retried into the same wall forever at zero events. Incremental
+ * pulls afterwards carry a handful of objects and finish in milliseconds, so
+ * this ceiling is only ever reached by the initial load.
+ */
+const PULL_TRANSACTION_TIMEOUT_MS = 120_000;
+
+/** Long enough to queue behind another calendar's initial load. */
+const PULL_TRANSACTION_MAX_WAIT_MS = 15_000;
+
 export async function applyPull(input: {
   userId: string;
   accountId: string;
@@ -179,7 +193,10 @@ export async function applyPull(input: {
   pull: PullResult;
   now: Date;
 }): Promise<{ upserted: number; deleted: number }> {
-  return db.$transaction((tx) => applyPullTx(tx, input));
+  return db.$transaction((tx) => applyPullTx(tx, input), {
+    timeout: PULL_TRANSACTION_TIMEOUT_MS,
+    maxWait: PULL_TRANSACTION_MAX_WAIT_MS,
+  });
 }
 
 async function applyPullTx(

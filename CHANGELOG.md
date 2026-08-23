@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.24] - 2026-08-23
+
+### Fixed
+
+- A calendar with thousands of events never finished its first sync. The
+  pull writes one event per round-trip inside a single transaction, and
+  Prisma's default interactive-transaction timeout is 5 seconds - a calendar
+  holding 4023 events blew past it about four fifths of the way in, died with
+  "a query cannot be executed on an expired transaction", never wrote its sync
+  token, and retried into the same wall forever at zero events. The pull
+  transaction now gets 120 seconds; incremental pulls afterwards carry a
+  handful of objects and are unaffected.
+- A single reminder stored inside a calendar stopped every event in that
+  calendar from syncing. iCloud keeps reminders as VTODO objects in ordinary
+  calendar collections and reports an empty supported-calendar-component-set,
+  so there is no way to filter such a collection out up front. One VTODO threw
+  and took the whole calendar's pull with it. An object that is not a readable
+  event is now skipped, which also covers a malformed ICS from any provider.
+
 ## [v2026.08.23] - 2026-08-23
 
 ### Fixed

@@ -242,7 +242,21 @@ function partitionResponses(
       missingHrefs.push(href);
       continue;
     }
-    upserts.push(mapCalDavEvent({ href, etag, data }));
+    // An object that is not an event we can read is skipped, not fatal.
+    // iCloud keeps reminders as VTODO inside ordinary <calendar>
+    // collections and reports an empty supported-calendar-component-set, so
+    // there is no way to filter those collections out up front - and one
+    // VTODO used to throw out of here and take every event in the calendar
+    // with it. The same guard covers a malformed ICS from any provider.
+    try {
+      upserts.push(mapCalDavEvent({ href, etag, data }));
+    } catch (err) {
+      console.warn(
+        `[caldav] Skipping ${href}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
   return { upserts, deletedProviderIds, missingHrefs };
 }

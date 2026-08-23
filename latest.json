@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.23",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.23",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.23",
-  "changelog": "iCloud calendars sync their events again, and a calendar that fails to sync now says so",
+  "version": "2026.08.24",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.24",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.24",
+  "changelog": "Large calendars finish their first sync, and a reminder in a calendar no longer blocks its events",
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-23T00:00:00Z"
 }

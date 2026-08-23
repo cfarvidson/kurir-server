@@ -25,8 +25,9 @@ vi.mock("@/lib/db", () => {
       calendarEvent,
       calendarEventInstance,
       calendarTombstone,
-      $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({ calendarEvent, calendarEventInstance, calendarTombstone }),
+      $transaction: vi.fn(
+        async (fn: (tx: unknown) => unknown, _options?: unknown) =>
+          fn({ calendarEvent, calendarEventInstance, calendarTombstone }),
       ),
     },
   };
@@ -183,6 +184,31 @@ describe("applyPull", () => {
     );
     return db;
   }
+
+  /// A first sync upserts one event per round-trip, and a real iCloud
+  /// calendar can hold thousands. Prisma's default interactive-transaction
+  /// timeout is 5000 ms, which a 4000-event calendar blew past - the pull
+  /// died with "A query cannot be executed on an expired transaction", the
+  /// sync token was never written, and the calendar retried into the same
+  /// wall forever, holding at zero events.
+  it("gives the pull transaction longer than prisma's 5s default", async () => {
+    const db = await setupMocks([]);
+
+    const { applyPull } = await import("@/lib/calendar/apply-pull");
+    await applyPull({
+      userId: "u1",
+      accountId: "acc1",
+      calendarId: "cal1",
+      now,
+      pull: pull({ upserts: [remote({ providerEventId: "a" })] }),
+    });
+
+    const options = vi.mocked(db.$transaction).mock.calls[0]?.[1] as
+      | { timeout?: number; maxWait?: number }
+      | undefined;
+    expect(options?.timeout).toBeGreaterThan(5_000);
+    expect(options?.maxWait).toBeGreaterThan(2_000);
+  });
 
   it("does not mass-delete on an incomplete pull (reset does not change that)", async () => {
     const db = await setupMocks([
