@@ -12,14 +12,21 @@ export interface VersionManifest {
   releasedAt: string;
 }
 
-const manifestSchema = z.object({
-  version: z.string().regex(/^\d+\.\d+\.\d+/),
+/**
+ * Two to four numeric components: `YYYY.MICRO` (the current format),
+ * `YYYY.MM.N` and the historical four-part `YYYY.MM.DD.N` still sitting in
+ * old manifests. Anchored at both ends so a version is digits and dots only.
+ */
+const versionPattern = /^\d+(\.\d+){1,3}$/;
+
+export const manifestSchema = z.object({
+  version: z.string().regex(versionPattern),
   image: z.string().min(1),
   releaseUrl: z.url(),
   changelog: z.string(),
   minVersion: z
     .string()
-    .regex(/^\d+\.\d+\.\d+/)
+    .regex(versionPattern)
     .optional()
     .default("0.0.0"),
   releasedAt: z.string(),
@@ -35,10 +42,15 @@ function isValidManifestUrl(url: string): boolean {
 }
 
 /**
- * Compare two semver strings (e.g. "1.2.3" vs "1.3.0").
- * Returns -1 if a < b, 0 if equal, 1 if a > b.
+ * Compare two CalVer strings component by component, padding the shorter one
+ * with zeroes. Returns -1 if a < b, 0 if equal, 1 if a > b.
+ *
+ * The `YYYY.MM.N` -> `YYYY.MICRO` crossover needs no special case here: the
+ * first micro was picked to outrank the last month component, so
+ * `2026.08.27` < `2026.28` is just `8 < 28` on the second component. That is
+ * also why a micro cannot restart at 1 mid-year.
  */
-function compareSemver(a: string, b: string): -1 | 0 | 1 {
+export function compareVersions(a: string, b: string): -1 | 0 | 1 {
   const partsA = a.split(".").map(Number);
   const partsB = b.split(".").map(Number);
 
@@ -95,7 +107,7 @@ export async function checkForUpdates(): Promise<{
     const raw = await response.json();
     const manifest = manifestSchema.parse(raw);
     const latestVersion = manifest.version;
-    const updateAvailable = compareSemver(currentVersion, latestVersion) < 0;
+    const updateAvailable = compareVersions(currentVersion, latestVersion) < 0;
 
     // Persist the result in SystemSettings
     await db.systemSettings.upsert({
