@@ -856,6 +856,41 @@ describe("calendar write-through", () => {
     expect(store.tombstones).toHaveLength(0);
   });
 
+  it("keeps the caller's occurrence as the exception's recurrenceId when the adapter echoes the master (CalDAV)", async () => {
+    store.calendars.push(calendar());
+    store.events.push(
+      eventRow({
+        rrule: "FREQ=DAILY",
+        startAt: new Date("2026-08-19T09:00:00.000Z"),
+        endAt: new Date("2026-08-19T09:30:00.000Z"),
+      }),
+    );
+    adapter.updateEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "Lunch",
+        rrule: "FREQ=DAILY",
+        // CalDAV's write response has no distinct instance concept - it
+        // echoes the master, recurrenceId included.
+        recurrenceId: null,
+      }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser(
+      "u1",
+      "evt-1",
+      input({ rrule: "FREQ=DAILY" }),
+      "this",
+      new Date("2026-08-21T09:00:00.000Z"),
+    );
+
+    const exception = store.events.find((e) => e.id !== "evt-1");
+    expect(exception?.recurrenceId?.toISOString()).toBe(
+      "2026-08-21T09:00:00.000Z",
+    );
+  });
+
   it("keeps the truncated master and inserts a second series for thisAndFollowing", async () => {
     store.calendars.push(calendar());
     store.events.push(eventRow({ rrule: "FREQ=DAILY" }));
@@ -897,6 +932,47 @@ describe("calendar write-through", () => {
     });
     expect(following?.id).not.toBe("evt-1");
     expect(store.tombstones).toHaveLength(0);
+  });
+
+  it("update thisAndFollowing truncates at the named occurrence, not the series start", async () => {
+    store.calendars.push(calendar());
+    store.events.push(
+      eventRow({
+        rrule: "FREQ=DAILY",
+        startAt: new Date("2026-08-19T09:00:00.000Z"),
+        endAt: new Date("2026-08-19T09:30:00.000Z"),
+      }),
+    );
+    adapter.updateEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-2",
+        icalUid: "uid-2",
+        title: "Lunch",
+        rrule: "FREQ=DAILY",
+      }),
+    );
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "Standup",
+        rrule: "FREQ=DAILY;UNTIL=20260821T085959Z",
+        etag: "etag-trunc",
+      }),
+    );
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await updateEventForUser(
+      "u1",
+      "evt-1",
+      input({ rrule: "FREQ=DAILY" }),
+      "thisAndFollowing",
+      new Date("2026-08-21T09:00:00.000Z"),
+    );
+
+    expect(db.calendarEvent.update).toHaveBeenCalledWith({
+      where: { id: "evt-1" },
+      data: { rrule: "FREQ=DAILY;UNTIL=20260821T085959Z" },
+    });
   });
 
   it("delete thisAndFollowing truncates the original master and does not tombstone it", async () => {
@@ -1010,6 +1086,44 @@ describe("calendar write-through", () => {
       "evt-1",
       "this",
       new Date("2026-08-21T09:00:00.000Z"),
+    );
+
+    const master = store.events.find((e) => e.id === "evt-1");
+    expect(master?.exdate).toBe("20260821T090000Z");
+  });
+
+  it("resolves an already-moved occurrence to its original slot before exdating it", async () => {
+    store.calendars.push(calendar());
+    store.events.push(
+      eventRow({
+        rrule: "FREQ=DAILY",
+        startAt: new Date("2026-08-19T09:00:00.000Z"),
+        endAt: new Date("2026-08-19T09:30:00.000Z"),
+      }),
+    );
+    // An earlier "this" edit already moved the 2026-08-21T09:00Z occurrence
+    // to 14:00 - the exception row sits at the new time but still carries
+    // the original slot as its recurrenceId.
+    store.events.push(
+      eventRow({
+        id: "evt-1-ex",
+        providerEventId: "g-1_20260821T090000Z",
+        masterEventId: "evt-1",
+        recurrenceId: new Date("2026-08-21T09:00:00.000Z"),
+        startAt: new Date("2026-08-21T14:00:00.000Z"),
+        endAt: new Date("2026-08-21T14:30:00.000Z"),
+        title: "Moved",
+      }),
+    );
+    adapter.deleteEvent.mockResolvedValue(undefined);
+
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    // The client only knows the occurrence by its current (moved) start.
+    await deleteEventForUser(
+      "u1",
+      "evt-1",
+      "this",
+      new Date("2026-08-21T14:00:00.000Z"),
     );
 
     const master = store.events.find((e) => e.id === "evt-1");

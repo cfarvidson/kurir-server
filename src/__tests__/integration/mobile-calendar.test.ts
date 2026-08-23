@@ -250,4 +250,34 @@ describe("/api/mobile/calendar", () => {
       null,
     );
   });
+
+  it("DELETE /events/:id forwards a present occurrence query param as a Date", async () => {
+    await mockAuthed();
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    vi.mocked(deleteEventForUser).mockResolvedValue(undefined);
+
+    const { DELETE } = await import(
+      "@/app/api/mobile/calendar/events/[id]/route"
+    );
+
+    const deleted = await DELETE(
+      {
+        headers: { get: () => null },
+        nextUrl: {
+          searchParams: new URLSearchParams({
+            range: "thisAndFollowing",
+            occurrence: "2026-08-21T09:00:00.000Z",
+          }),
+        },
+      } as never,
+      params({ id: "evt-1" }),
+    );
+    expect(deleted.status).toBe(200);
+    expect(deleteEventForUser).toHaveBeenCalledWith(
+      "user-1",
+      "evt-1",
+      "thisAndFollowing",
+      new Date("2026-08-21T09:00:00.000Z"),
+    );
+  });
 });
