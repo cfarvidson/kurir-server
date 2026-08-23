@@ -143,6 +143,55 @@ describe("createCalDavAdapter", () => {
     ]);
   });
 
+  describe("listCalendars VTODO filtering", () => {
+    it("drops collections whose components lack VEVENT without probing", async () => {
+      davMocks.createDAVClient.mockResolvedValue(mockClient());
+      davMocks.fetchCalendars.mockResolvedValue([
+        {
+          url: `${SERVER_URL}/calendars/user/events/`,
+          displayName: "Personal",
+          components: ["VEVENT"],
+        },
+        {
+          url: `${SERVER_URL}/calendars/user/reminders/`,
+          displayName: "Påminnelser ⚠️",
+          components: ["VTODO"],
+        },
+      ]);
+      const calendars = await adapter().listCalendars();
+      expect(calendars.map((c) => c.name)).toEqual(["Personal"]);
+      expect(calendars[0].isPrimary).toBe(true);
+      expect(davMocks.calendarQuery).not.toHaveBeenCalled();
+    });
+
+    it("probes empty-component collections and drops the ones holding VTODOs", async () => {
+      davMocks.createDAVClient.mockResolvedValue(mockClient());
+      const eventsUrl = `${SERVER_URL}/calendars/user/events/`;
+      const legacyUrl = `${SERVER_URL}/calendars/user/legacy-reminders/`;
+      davMocks.fetchCalendars.mockResolvedValue([
+        { url: eventsUrl, displayName: "Home", components: [] },
+        { url: legacyUrl, displayName: "Påminnelser ⚠️", components: [] },
+      ]);
+      davMocks.calendarQuery.mockImplementation(async ({ url }: { url: string }) =>
+        url === legacyUrl
+          ? [{ href: `${legacyUrl}todo-1.ics`, status: 200, props: {} }]
+          : [],
+      );
+      const calendars = await adapter().listCalendars();
+      expect(calendars.map((c) => c.name)).toEqual(["Home"]);
+    });
+
+    it("keeps an empty-component collection when the VTODO probe throws", async () => {
+      davMocks.createDAVClient.mockResolvedValue(mockClient());
+      davMocks.fetchCalendars.mockResolvedValue([
+        { url: `${SERVER_URL}/calendars/user/events/`, displayName: "Home", components: [] },
+      ]);
+      davMocks.calendarQuery.mockRejectedValue(new Error("boom"));
+      const calendars = await adapter().listCalendars();
+      expect(calendars.map((c) => c.name)).toEqual(["Home"]);
+    });
+  });
+
   it("pulls incremental syncCollection without delete-missing complete", async () => {
     davMocks.syncCollection.mockResolvedValue([
       {

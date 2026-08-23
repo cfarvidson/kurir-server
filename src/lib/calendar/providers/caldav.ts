@@ -202,6 +202,49 @@ function mapCalendar(cal: DAVCalendar, index: number): RemoteCalendar {
   };
 }
 
+// iCloud's legacy Reminders list survives as an ordinary <calendar>
+// collection (renamed "Påminnelser ⚠️" by Apple) whose component set is
+// empty, and a well-behaved provider reports VTODO-only sets for todo
+// lists. Neither belongs in a calendar UI.
+function declaresNoEvents(cal: DAVCalendar): boolean {
+  const components = cal.components ?? [];
+  return components.length > 0 && !components.includes("VEVENT");
+}
+
+function vtodoFilter() {
+  return {
+    "comp-filter": {
+      _attributes: { name: "VCALENDAR" },
+      "comp-filter": {
+        _attributes: { name: "VTODO" },
+      },
+    },
+  };
+}
+
+async function holdsTodos(
+  client: CalDavClient,
+  calendarUrl: string,
+): Promise<boolean> {
+  try {
+    const responses = await client.calendarQuery({
+      url: calendarUrl,
+      props: { "d:getetag": {} },
+      filters: vtodoFilter(),
+      depth: "1",
+    });
+    return responses.some(
+      (res) =>
+        typeof res.href === "string" &&
+        res.href &&
+        !sameHref(resolveHref(res.href, calendarUrl), calendarUrl),
+    );
+  } catch {
+    // A failed probe must not hide a real calendar.
+    return false;
+  }
+}
+
 function timeRangeFilter(from: Date, to: Date) {
   return {
     "comp-filter": {
@@ -686,7 +729,16 @@ export function createCalDavAdapter(input: {
     async listCalendars(): Promise<RemoteCalendar[]> {
       const client = await getClient();
       const calendars = await client.fetchCalendars();
-      return calendars.map(mapCalendar);
+      const kept: DAVCalendar[] = [];
+      for (const cal of calendars) {
+        if (declaresNoEvents(cal)) continue;
+        const components = cal.components ?? [];
+        if (components.length === 0 && (await holdsTodos(client, cal.url))) {
+          continue;
+        }
+        kept.push(cal);
+      }
+      return kept.map(mapCalendar);
     },
 
     async pull(
