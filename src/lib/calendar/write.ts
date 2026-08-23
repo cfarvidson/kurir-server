@@ -381,24 +381,6 @@ function isSeries(event: EventRow): boolean {
   );
 }
 
-/// The client only ever knows an occurrence by its current start. If an
-/// earlier "this" edit already moved that occurrence, an exception row
-/// sits at the new start but still carries the original slot as its own
-/// recurrenceId - the instant the RRULE actually generates and the one
-/// EXDATE or a further split must act on. Resolve to that original slot
-/// when a moved occurrence is named; an unmoved occurrence's start already
-/// is its recurrence id, so it passes through unchanged.
-function resolveOccurrence(
-  event: EventRow & { exceptions?: EventRow[] },
-  occurrence: Date | null | undefined,
-): Date | null | undefined {
-  if (!occurrence) return occurrence;
-  const moved = (event.exceptions ?? []).find(
-    (ex) => ex.startAt.getTime() === occurrence.getTime(),
-  );
-  return moved?.recurrenceId ?? occurrence;
-}
-
 function adapterEventRef(
   event: EventRow,
   range: RecurrenceEdit,
@@ -906,10 +888,16 @@ export async function updateEventForUser(
 
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
-  const resolvedOccurrence = resolveOccurrence(event, occurrence);
-  const ref = adapterEventRef(event, range, resolvedOccurrence);
+  // `occurrence` is the instant the client is currently looking at, not a
+  // stable key. For every occurrence the user has not moved, that instant
+  // IS the occurrence's recurrenceId. For one already moved by an earlier
+  // "this" edit, the two differ - the exception row's own start moved but
+  // its recurrenceId (the original slot) did not. Editing that occurrence
+  // a second time therefore misses the exception on the provider (404 on
+  // Google, throw on Microsoft, silent no-op on CalDAV).
+  const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
-  const splitAt = occurrenceId(event, range, resolvedOccurrence);
+  const splitAt = occurrenceId(event, range, occurrence);
   const masterForSplit = event.masterEventId
     ? ((await db.calendarEvent.findFirst({
         where: { id: masterId, userId },
@@ -1075,16 +1063,19 @@ export async function deleteEventForUser(
   const loaded = await loadEvent(userId, eventId);
   const calendar = loaded.calendar as CalendarRow;
   assertWritable(calendar);
-  const event = loaded as unknown as EventRow & {
-    instances?: InstanceSnap[];
-    exceptions?: EventRow[];
-  };
+  const event = loaded as unknown as EventRow & { instances?: InstanceSnap[] };
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
-  const resolvedOccurrence = resolveOccurrence(event, occurrence);
-  const ref = adapterEventRef(event, range, resolvedOccurrence);
+  // `occurrence` is the instant the client is currently looking at, not a
+  // stable key. For every occurrence the user has not moved, that instant
+  // IS the occurrence's recurrenceId. For one already moved by an earlier
+  // "this" edit, the two differ - the exception row's own start moved but
+  // its recurrenceId (the original slot) did not. Deleting that occurrence
+  // a second time therefore misses the exception on the provider (404 on
+  // Google, throw on Microsoft, silent no-op on CalDAV).
+  const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
-  const splitAt = occurrenceId(event, range, resolvedOccurrence);
+  const splitAt = occurrenceId(event, range, occurrence);
 
   if (isSeriesThis(event, range) && !event.masterEventId) {
     const occurrence = ref.recurrenceId ?? event.startAt;

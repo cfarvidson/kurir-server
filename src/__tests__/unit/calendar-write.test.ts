@@ -1069,6 +1069,61 @@ describe("calendar write-through", () => {
     });
   });
 
+  // Pins a trade that was tried and reverted: matching an occurrence by its
+  // display start (rather than trusting the caller's occurrence outright)
+  // treats that start as a unique key, and moving a recurring meeting to
+  // another day at the same time of day breaks that. Here the series'
+  // first occurrence (2026-08-19T09:00Z) was moved with an earlier "this"
+  // edit to 2026-08-21T09:00Z - the same time of day the native,
+  // still-recurring 2026-08-21 occurrence falls on. The user then taps
+  // that native occurrence, not the moved one, and picks thisAndFollowing.
+  // A resolver that looked the display start up among the exceptions would
+  // find the moved one and truncate at its original slot - the series
+  // start here - instead of the occurrence actually named.
+  it("truncates at the named occurrence even when a moved exception shares its display time", async () => {
+    store.calendars.push(calendar());
+    store.events.push(
+      eventRow({
+        rrule: "FREQ=DAILY",
+        startAt: new Date("2026-08-19T09:00:00.000Z"),
+        endAt: new Date("2026-08-19T09:30:00.000Z"),
+      }),
+    );
+    store.events.push(
+      eventRow({
+        id: "evt-1-ex",
+        providerEventId: "g-1_20260819T090000Z",
+        masterEventId: "evt-1",
+        recurrenceId: new Date("2026-08-19T09:00:00.000Z"),
+        startAt: new Date("2026-08-21T09:00:00.000Z"),
+        endAt: new Date("2026-08-21T09:30:00.000Z"),
+        title: "Moved",
+      }),
+    );
+    adapter.deleteEvent.mockResolvedValue(undefined);
+    adapter.getEvent.mockResolvedValue(
+      remote({
+        providerEventId: "g-1",
+        title: "Standup",
+        rrule: "FREQ=DAILY;UNTIL=20260821T085959Z",
+        etag: "etag-trunc",
+      }),
+    );
+
+    const { deleteEventForUser } = await import("@/lib/calendar/write");
+    await deleteEventForUser(
+      "u1",
+      "evt-1",
+      "thisAndFollowing",
+      new Date("2026-08-21T09:00:00.000Z"),
+    );
+
+    expect(db.calendarEvent.update).toHaveBeenCalledWith({
+      where: { id: "evt-1" },
+      data: { rrule: "FREQ=DAILY;UNTIL=20260821T085959Z" },
+    });
+  });
+
   it("exdates the occurrence the caller names for a single delete", async () => {
     store.calendars.push(calendar());
     store.events.push(
@@ -1086,44 +1141,6 @@ describe("calendar write-through", () => {
       "evt-1",
       "this",
       new Date("2026-08-21T09:00:00.000Z"),
-    );
-
-    const master = store.events.find((e) => e.id === "evt-1");
-    expect(master?.exdate).toBe("20260821T090000Z");
-  });
-
-  it("resolves an already-moved occurrence to its original slot before exdating it", async () => {
-    store.calendars.push(calendar());
-    store.events.push(
-      eventRow({
-        rrule: "FREQ=DAILY",
-        startAt: new Date("2026-08-19T09:00:00.000Z"),
-        endAt: new Date("2026-08-19T09:30:00.000Z"),
-      }),
-    );
-    // An earlier "this" edit already moved the 2026-08-21T09:00Z occurrence
-    // to 14:00 - the exception row sits at the new time but still carries
-    // the original slot as its recurrenceId.
-    store.events.push(
-      eventRow({
-        id: "evt-1-ex",
-        providerEventId: "g-1_20260821T090000Z",
-        masterEventId: "evt-1",
-        recurrenceId: new Date("2026-08-21T09:00:00.000Z"),
-        startAt: new Date("2026-08-21T14:00:00.000Z"),
-        endAt: new Date("2026-08-21T14:30:00.000Z"),
-        title: "Moved",
-      }),
-    );
-    adapter.deleteEvent.mockResolvedValue(undefined);
-
-    const { deleteEventForUser } = await import("@/lib/calendar/write");
-    // The client only knows the occurrence by its current (moved) start.
-    await deleteEventForUser(
-      "u1",
-      "evt-1",
-      "this",
-      new Date("2026-08-21T14:00:00.000Z"),
     );
 
     const master = store.events.find((e) => e.id === "evt-1");
