@@ -12,6 +12,21 @@ describe("normalizeEventHex", () => {
     expect(normalizeEventHex("")).toBe("#737373");
     expect(normalizeEventHex("nope")).toBe("#737373");
   });
+
+  // Apple's CalDAV reports calendar-color with an alpha channel. Rejecting
+  // it drew every iCloud calendar - and every event in it - in the fallback
+  // grey, in the web and in both apps.
+  it("drops the alpha channel from an eight-digit hex", () => {
+    expect(normalizeEventHex("#CB30E0FF")).toBe("#cb30e0");
+    expect(normalizeEventHex("cb30e000")).toBe("#cb30e0");
+    expect(normalizeEventHex("#0a5f")).toBe("#00aa55");
+  });
+
+  it("still rejects lengths that are neither form", () => {
+    expect(normalizeEventHex("#12345")).toBe("#737373");
+    expect(normalizeEventHex("#1234567")).toBe("#737373");
+    expect(normalizeEventHex("#zzzzzzzz")).toBe("#737373");
+  });
 });
 
 describe("readableTextTone", () => {
@@ -30,5 +45,6 @@ describe("readableTextTone", () => {
   it("normalizes input like the fill does", () => {
     expect(readableTextTone("059669")).toBe("light");
     expect(readableTextTone("")).toBe(readableTextTone("#737373"));
+    expect(readableTextTone("#fbbf24ff")).toBe(readableTextTone("#fbbf24"));
   });
 });

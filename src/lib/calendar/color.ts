@@ -1,17 +1,30 @@
 const FALLBACK_HEX = "#737373";
 
+/** `#RGB` or `#RGBA` to `#RRGGBB`. The fourth digit is alpha and is dropped. */
 function expandShortHex(hex: string): string {
-  if (hex.length !== 4) return hex;
+  if (!/^#[0-9a-f]{3,4}$/.test(hex)) return hex;
   return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
 }
 
+/**
+ * A provider hex as six lowercase RGB digits behind a hash, or the fallback.
+ *
+ * Four forms arrive in practice: `#RGB` and `#RRGGBB` from our own palette,
+ * and `#RGBA`/`#RRGGBBAA` from Apple's CalDAV, which reports `calendar-color`
+ * with an alpha channel (`#CB30E0FF`). The alpha is dropped rather than
+ * honoured - a calendar colour is an identity, not an opacity, and every
+ * surface draws it opaque. Rejecting the eight-digit form is what drew every
+ * iCloud calendar grey; the apps carry the same rule in CalendarPalette, and
+ * the two have to agree or a colour differs between the web and the app.
+ */
 export function normalizeEventHex(hex: string | null | undefined): string {
   const raw = hex?.trim() ?? "";
   if (!raw) return FALLBACK_HEX;
   const withHash = raw.startsWith("#") ? raw : `#${raw}`;
   const lower = withHash.toLowerCase();
-  if (/^#[0-9a-f]{3}$/.test(lower)) return expandShortHex(lower);
+  if (/^#[0-9a-f]{3,4}$/.test(lower)) return expandShortHex(lower);
   if (/^#[0-9a-f]{6}$/.test(lower)) return lower;
+  if (/^#[0-9a-f]{8}$/.test(lower)) return lower.slice(0, 7);
   return FALLBACK_HEX;
 }
 
