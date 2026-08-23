@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.22",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.22",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.22",
-  "changelog": "Calendar API for the native apps, and a fix for editing a single occurrence of a repeating event",
+  "version": "2026.08.23",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.23",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.23",
+  "changelog": "iCloud calendars sync their events again, and a calendar that fails to sync now says so",
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-23T00:00:00Z"
 }

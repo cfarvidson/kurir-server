@@ -4,6 +4,27 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.23] - 2026-08-23
+
+### Fixed
+
+- iCloud calendars never pulled a single event. iCloud answers a
+  sync-collection REPORT with etags only, never calendar-data, so every
+  object goes through calendar-multiget - and it answers 404 to an absolute
+  href there while serving the same href written as a path. tsdav throws on
+  the first 404 in the multistatus, so one absolute href killed the whole
+  calendar's pull. Requests now carry the path form; provider ids stay
+  absolute. Every iCloud calendar had been stuck at zero events since the
+  CalDAV adapter landed.
+
+### Added
+
+- A calendar's own sync error is now visible. It was recorded per calendar
+  but never selected or rendered anywhere, so a calendar whose pull had died
+  drew exactly like a calendar with nothing in it. It now travels to the
+  calendar rail, the settings DTO and the mobile wire, and shows under the
+  calendar's name.
+
 ## [v2026.08.22] - 2026-08-23
 
 ### Added

@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.08.23",
+    "date": "2026-08-23",
+    "changes": [
+      "iCloud calendars pull their events again - every one of them had been stuck at zero since CalDAV support landed",
+      "A calendar whose own sync fails now says so under its name, in the web rail and in the native apps, instead of just looking empty"
+    ]
+  },
+  {
     "version": "2026.08.22",
     "date": "2026-08-23",
     "changes": [
@@ -346,7 +354,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -397,7 +407,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",
