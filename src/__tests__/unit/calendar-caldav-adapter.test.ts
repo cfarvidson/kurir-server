@@ -181,6 +181,19 @@ describe("createCalDavAdapter", () => {
       expect(calendars.map((c) => c.name)).toEqual(["Home"]);
     });
 
+    it("keeps an empty-component collection when the probe only returns the collection's own href", async () => {
+      davMocks.createDAVClient.mockResolvedValue(mockClient());
+      const legacyUrl = `${SERVER_URL}/calendars/user/legacy-reminders/`;
+      davMocks.fetchCalendars.mockResolvedValue([
+        { url: legacyUrl, displayName: "Påminnelser ⚠️", components: [] },
+      ]);
+      davMocks.calendarQuery.mockResolvedValue([
+        { href: legacyUrl, status: 200, props: {} },
+      ]);
+      const calendars = await adapter().listCalendars();
+      expect(calendars.map((c) => c.name)).toEqual(["Påminnelser ⚠️"]);
+    });
+
     it("keeps an empty-component collection when the VTODO probe throws", async () => {
       davMocks.createDAVClient.mockResolvedValue(mockClient());
       davMocks.fetchCalendars.mockResolvedValue([
