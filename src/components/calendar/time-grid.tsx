@@ -372,7 +372,13 @@ export function TimeGrid({
                   sameCivil(day, today) && "text-primary",
                 )}
               >
-                {day.day}
+                {sameCivil(day, today) ? (
+                  <span className="inline-flex size-8 items-center justify-center rounded-full bg-primary text-lg text-primary-foreground">
+                    {day.day}
+                  </span>
+                ) : (
+                  day.day
+                )}
               </div>
             </div>
           ))}

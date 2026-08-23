@@ -223,7 +223,13 @@ function MonthWeek({
               sameCivil(day, today) && "bg-primary/5 text-primary",
             )}
           >
-            {day.day}
+            {sameCivil(day, today) ? (
+              <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
+                {day.day}
+              </span>
+            ) : (
+              day.day
+            )}
           </button>
         ))}
       </div>
