@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.21",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.21",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.21",
-  "changelog": "Calendar day view rebuilt as a HEY-style filmstrip timeline with drag and drop; solid color event chrome across week and month",
+  "version": "2026.08.22",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.22",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.22",
+  "changelog": "Calendar API for the native apps, and a fix for editing a single occurrence of a repeating event",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-22T16:48:21Z"
+  "releasedAt": "2026-08-23T00:00:00Z"
 }

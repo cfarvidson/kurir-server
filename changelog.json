@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.08.22",
+    "date": "2026-08-23",
+    "changes": [
+      "Calendar invitations show attendee names and their replies in the native apps",
+      "Editing or deleting one occurrence of a repeating event now acts on the occurrence you picked, not the first one in the series"
+    ]
+  },
+  {
     "version": "2026.08.21",
     "date": "2026-08-22",
     "changes": [

@@ -4,6 +4,26 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.22] - 2026-08-23
+
+### Added
+
+- The calendar mobile endpoints return normalized attendees, so the native
+  apps can show who was invited and how each of them replied.
+
+### Fixed
+
+- Editing or deleting a single occurrence of a repeating event acted on the
+  series' first occurrence instead of the one that was picked. Every instance
+  the API returns carries the series master's id, and the write contract had
+  no way to say which occurrence was meant, so the server fell back to the
+  master's own start. For "this and following events" that set the rule's
+  UNTIL to one second before the series began, which left no occurrences at
+  all and deleted the whole series at the provider, history included. The
+  PATCH body and the DELETE query now carry an `occurrence`, and both fall
+  back to the old behaviour when it is absent. The web client does not send
+  it yet and is unchanged.
+
 ## [v2026.08.21] - 2026-08-22
 
 ### Changed
