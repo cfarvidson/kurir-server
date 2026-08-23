@@ -893,8 +893,12 @@ export async function updateEventForUser(
   // IS the occurrence's recurrenceId. For one already moved by an earlier
   // "this" edit, the two differ - the exception row's own start moved but
   // its recurrenceId (the original slot) did not. Editing that occurrence
-  // a second time therefore misses the exception on the provider (404 on
-  // Google, throw on Microsoft, silent no-op on CalDAV).
+  // a second time with "this" therefore misses the exception on the
+  // provider (404 on Google, throw on Microsoft, silent no-op on CalDAV).
+  // With "thisAndFollowing" it does not fail at all: the series truncates
+  // at the moved start, so the later occurrences go and the one the user
+  // tapped stays. Nothing extra is destroyed in any of the four, which is
+  // why this is a limitation and not a bug.
   const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
   const splitAt = occurrenceId(event, range, occurrence);
@@ -1071,8 +1075,12 @@ export async function deleteEventForUser(
   // IS the occurrence's recurrenceId. For one already moved by an earlier
   // "this" edit, the two differ - the exception row's own start moved but
   // its recurrenceId (the original slot) did not. Deleting that occurrence
-  // a second time therefore misses the exception on the provider (404 on
-  // Google, throw on Microsoft, silent no-op on CalDAV).
+  // a second time with "this" therefore misses the exception on the
+  // provider (404 on Google, throw on Microsoft, silent no-op on CalDAV).
+  // With "thisAndFollowing" it does not fail at all: the series truncates
+  // at the moved start, so the later occurrences go and the one the user
+  // tapped stays. Nothing extra is destroyed in any of the four, which is
+  // why this is a limitation and not a bug.
   const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
   const splitAt = occurrenceId(event, range, occurrence);
