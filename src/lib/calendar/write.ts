@@ -384,6 +384,7 @@ function isSeries(event: EventRow): boolean {
 function adapterEventRef(
   event: EventRow,
   range: RecurrenceEdit,
+  occurrence?: Date | null,
 ): {
   providerEventId: string;
   etag: string | null;
@@ -394,8 +395,13 @@ function adapterEventRef(
   return {
     providerEventId: event.providerEventId,
     etag: event.etag,
+    // The caller names the occurrence. Falling back to the master's own
+    // start is what every caller did before the mobile contract carried
+    // the field, and it is what the web still relies on - but for any
+    // occurrence other than the first it silently acts on the wrong one.
     recurrenceId:
-      event.recurrenceId ?? (needsOccurrence ? event.startAt : null),
+      event.recurrenceId ??
+      (needsOccurrence ? (occurrence ?? event.startAt) : null),
   };
 }
 
@@ -412,10 +418,14 @@ function masterRowId(event: EventRow): string {
   return event.masterEventId ?? event.id;
 }
 
-function occurrenceId(event: EventRow, range: RecurrenceEdit): Date | null {
+function occurrenceId(
+  event: EventRow,
+  range: RecurrenceEdit,
+  occurrence?: Date | null,
+): Date | null {
   if (event.recurrenceId) return event.recurrenceId;
   if (range === "this" || range === "thisAndFollowing") {
-    return isSeries(event) ? event.startAt : null;
+    return isSeries(event) ? (occurrence ?? event.startAt) : null;
   }
   return null;
 }
@@ -850,6 +860,7 @@ export async function updateEventForUser(
   eventId: string,
   input: EventInput & { calendarId?: string },
   range: RecurrenceEdit,
+  occurrence?: Date | null,
 ): Promise<void> {
   const loaded = await loadEvent(userId, eventId);
   const calendar = loaded.calendar as CalendarRow;
@@ -871,9 +882,9 @@ export async function updateEventForUser(
 
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
-  const ref = adapterEventRef(event, range);
+  const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
-  const splitAt = occurrenceId(event, range);
+  const splitAt = occurrenceId(event, range, occurrence);
   const masterForSplit = event.masterEventId
     ? ((await db.calendarEvent.findFirst({
         where: { id: masterId, userId },
@@ -1033,6 +1044,7 @@ export async function deleteEventForUser(
   userId: string,
   eventId: string,
   range: RecurrenceEdit,
+  occurrence?: Date | null,
 ): Promise<void> {
   const loaded = await loadEvent(userId, eventId);
   const calendar = loaded.calendar as CalendarRow;
@@ -1040,9 +1052,9 @@ export async function deleteEventForUser(
   const event = loaded as unknown as EventRow & { instances?: InstanceSnap[] };
   const now = new Date();
   const snapshot = await takeSnapshot(event, calendar);
-  const ref = adapterEventRef(event, range);
+  const ref = adapterEventRef(event, range, occurrence);
   const masterId = masterRowId(event);
-  const splitAt = occurrenceId(event, range);
+  const splitAt = occurrenceId(event, range, occurrence);
 
   if (isSeriesThis(event, range) && !event.masterEventId) {
     const occurrence = ref.recurrenceId ?? event.startAt;

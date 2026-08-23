@@ -232,6 +232,7 @@ describe("/api/mobile/calendar", () => {
       "evt-1",
       expect.objectContaining({ title: "Standup", calendarId: "cal-1" }),
       "this",
+      null,
     );
 
     const deleted = await DELETE(
@@ -242,6 +243,11 @@ describe("/api/mobile/calendar", () => {
       params({ id: "evt-1" }),
     );
     expect(deleted.status).toBe(200);
-    expect(deleteEventForUser).toHaveBeenCalledWith("user-1", "evt-1", "all");
+    expect(deleteEventForUser).toHaveBeenCalledWith(
+      "user-1",
+      "evt-1",
+      "all",
+      null,
+    );
   });
 });

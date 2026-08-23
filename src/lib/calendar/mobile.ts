@@ -92,6 +92,10 @@ export const recurrenceRangeSchema = z.enum([
 export const updateEventBodySchema = eventInputSchema.extend({
   calendarId: z.string().min(1).optional(),
   range: recurrenceRangeSchema,
+  // Which occurrence `this` and `thisAndFollowing` mean. Absent from an
+  // older client, and from the web, which both get the historical
+  // fallback to the series start.
+  occurrence: z.coerce.date().nullable().optional().default(null),
 });
 
 export const caldavBodySchema = z.object({
@@ -115,6 +119,12 @@ export function parseRecurrenceRange(
 ): RecurrenceEdit | null {
   const parsed = recurrenceRangeSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
+}
+
+export function parseOccurrence(raw: string | null): Date | null {
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export function parseIsoRange(
