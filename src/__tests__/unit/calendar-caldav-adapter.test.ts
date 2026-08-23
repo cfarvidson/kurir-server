@@ -187,6 +187,55 @@ describe("createCalDavAdapter", () => {
     ]);
   });
 
+  it("multigets missing calendar-data with path-only hrefs", async () => {
+    // iCloud answers a sync-collection REPORT with etags only, never
+    // calendar-data, so every object goes through calendar-multiget - and it
+    // answers 404 to an absolute href there while serving the same href in
+    // path form. Sending absolute hrefs made tsdav throw on the first 404 and
+    // took the whole calendar's pull with it.
+    davMocks.syncCollection.mockResolvedValue([
+      {
+        href: "/calendars/user/home/",
+        status: 200,
+        ok: true,
+        props: { getetag: '"ctag"' },
+        raw: { multistatus: { syncToken: "sync-2" } },
+      },
+      {
+        href: "/calendars/user/home/e1.ics",
+        status: 200,
+        ok: true,
+        props: { getetag: '"etag1"' },
+      },
+    ]);
+    davMocks.calendarMultiGet.mockResolvedValue([
+      {
+        href: "/calendars/user/home/e1.ics",
+        status: 200,
+        ok: true,
+        props: { getetag: '"etag1"', calendarData: timedIcs },
+      },
+    ]);
+
+    const result = await adapter().pull(
+      { providerCalendarId: CAL_URL, syncToken: null },
+      null,
+    );
+
+    const multiGetArg = davMocks.calendarMultiGet.mock.calls[0]?.[0] as {
+      url: string;
+      objectUrls: string[];
+    };
+    expect(multiGetArg.url).toBe(CAL_URL);
+    expect(multiGetArg.objectUrls).toEqual(["/calendars/user/home/e1.ics"]);
+
+    // The provider id stays absolute - only the wire form is narrowed.
+    expect(result.upserts).toHaveLength(1);
+    expect(result.upserts[0]?.providerEventId).toBe(EVENT_HREF);
+    expect(result.upserts[0]?.title).toBe("Call");
+    expect(result.upserts[0]?.etag).toBe('"etag1"');
+  });
+
   it("falls back to calendarQuery over instanceWindow with complete false", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const now = new Date("2026-08-20T12:00:00.000Z");

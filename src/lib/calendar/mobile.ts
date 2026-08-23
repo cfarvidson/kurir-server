@@ -166,6 +166,10 @@ export function serializeCalendarAccount(row: AccountRow) {
       isVisible: calendar.isVisible,
       isPrimary: calendar.isPrimary,
       isReadOnly: calendar.isReadOnly,
+      // Why this calendar's own pull last failed, if it did. An account can
+      // be perfectly healthy while one collection 404s, and without this the
+      // app can only render that as an empty calendar.
+      lastError: calendar.lastError,
     })),
   };
 }

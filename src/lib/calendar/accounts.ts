@@ -248,6 +248,7 @@ export const calendarAccountListSelect = {
       isVisible: true,
       isPrimary: true,
       isReadOnly: true,
+      lastError: true,
     },
   },
 } satisfies Prisma.CalendarAccountSelect;

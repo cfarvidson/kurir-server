@@ -204,6 +204,7 @@ export default async function SettingsPage() {
             isVisible: true,
             isReadOnly: true,
             isPrimary: true,
+            lastError: true,
           },
         },
       },

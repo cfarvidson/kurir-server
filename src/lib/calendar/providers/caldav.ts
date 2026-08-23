@@ -46,6 +46,26 @@ function resolveHref(href: string, base: string): string {
   }
 }
 
+/**
+ * The form an href takes inside a request body. iCloud answers 404 to an
+ * absolute href in a calendar-multiget and 200 to the same href written as a
+ * path, and tsdav throws on the first 404 in the multistatus - so one
+ * absolute href killed the whole calendar's pull. Provider ids stay absolute:
+ * they identify the object across hosts, and only the wire form is narrowed.
+ *
+ * tsdav's own `fetchCalendarObjects` already narrows the hrefs it is given,
+ * which is why the write path never hit this. `calendarMultiGet` passes
+ * `objectUrls` through untouched.
+ */
+function requestHref(href: string, base: string): string {
+  try {
+    const url = new URL(href, collectionUrl(base));
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return href;
+  }
+}
+
 function sameHref(a: string, b: string): boolean {
   return a.replace(/\/$/, "") === b.replace(/\/$/, "");
 }
@@ -236,7 +256,7 @@ async function fillMissing(
   const responses = await client.calendarMultiGet({
     url: calendarUrl,
     props: EVENT_PROPS,
-    objectUrls: hrefs,
+    objectUrls: hrefs.map((href) => requestHref(href, calendarUrl)),
     depth: "1",
   });
   const { upserts } = partitionResponses(responses, calendarUrl);

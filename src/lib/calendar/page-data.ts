@@ -76,6 +76,7 @@ export async function loadCalendarPage(
             isVisible: true,
             isReadOnly: true,
             isPrimary: true,
+            lastError: true,
           },
         },
       },

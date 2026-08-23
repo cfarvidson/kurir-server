@@ -24,6 +24,8 @@ export type CalendarListItem = {
   isVisible: boolean;
   isReadOnly: boolean;
   isPrimary: boolean;
+  /** Why this calendar's own pull last failed. Account errors live on the account. */
+  lastError: string | null;
 };
 
 export type CalendarAccountDTO = {

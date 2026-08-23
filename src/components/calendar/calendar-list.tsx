@@ -57,6 +57,14 @@ export function CalendarList({
                         Subscribe
                       </span>
                     )}
+                    {calendar.lastError && (
+                      <span
+                        className="block truncate text-xs text-red-700 dark:text-red-300"
+                        title={calendar.lastError}
+                      >
+                        Sync failed: {calendar.lastError}
+                      </span>
+                    )}
                   </span>
                 </label>
               </li>
