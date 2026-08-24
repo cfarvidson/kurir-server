@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.33] - 2026-08-24
+
+### Added
+
+- The mobile calendar sync payload carries the account's timezone, so the
+  iPhone and Mac apps draw the calendar in the same zone the web does
+  instead of the device's.
+
 ### Changed
 
 - A new `vYYYY.MICRO` tag is beta. It writes `latest.json.beta` and

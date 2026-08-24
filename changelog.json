@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.33",
+    "date": "2026-08-24",
+    "changes": [
+      "Calendar apps follow your account timezone instead of the device's",
+      "A new tagged version is a beta until it is marked stable",
+      "Leaving the beta channel offers a reinstall of the latest stable"
+    ]
+  },
+  {
     "version": "2026.31",
     "date": "2026-08-24",
     "changes": [

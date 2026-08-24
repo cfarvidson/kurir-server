@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.31",
   "changelog": "Admin -> Updates can follow tagged versions before they are marked stable",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-24T09:31:52Z"
+  "releasedAt": "2026-08-24T09:31:52Z",
+  "beta": {
+    "version": "2026.33",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.33",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.33",
+    "changelog": "Calendar apps follow your account timezone instead of the device's",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-08-24T13:29:57Z"
+  }
 }
