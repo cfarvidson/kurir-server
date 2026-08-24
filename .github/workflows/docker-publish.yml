@@ -132,6 +132,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # metadata-action defaults to `latest=auto`, which adds `:latest`
+          # on every tag event. That silently contradicted the rule below
+          # from the moment `type=ref,event=tag` was added: since v2026.29
+          # every tag has moved `:latest`. It went unnoticed because each of
+          # those versions was marked stable soon after, so `:latest`
+          # happened to land where it belonged. The first tag meant to stay
+          # a beta is the one it breaks - a fresh `install.sh` would pull an
+          # unmarked version.
+          flavor: latest=false
           tags: |
             # `:latest` is the newest *stable* image and must not move on
             # tag. Tagging publishes the versioned image only; marking
