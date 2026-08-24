@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.30] - 2026-08-24
+
+### Added
+
+- Subscribe to a public ICS calendar URL. Paste a webcal or https feed
+  and Kurir fetches it as a read-only calendar. Private destinations
+  and URLs with userinfo are refused; demo instances do not fetch.
+
 ## [v2026.29] - 2026-08-24
 
 The first release numbered `YYYY.MICRO`: a four-digit year and one serial

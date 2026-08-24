@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.30",
+    "date": "2026-08-24",
+    "changes": [
+      "Subscribe to a public ICS calendar URL as a read-only calendar"
+    ]
+  },
+  {
     "version": "2026.29",
     "date": "2026-08-24",
     "changes": [
