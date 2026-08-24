@@ -6,7 +6,13 @@ order: 7
 
 # Updating
 
-Kurir is distributed as a Docker image via GitHub Container Registry (`ghcr.io/cfarvidson/kurir-server:latest`). Updating pulls the latest image and restarts the app. Database migrations run automatically on startup, so no manual migration step is needed.
+Kurir is distributed as a Docker image via GitHub Container Registry (`ghcr.io/cfarvidson/kurir-server:latest`). That tag is the newest _stable_ image. Updating pulls it and restarts the app. Database migrations run automatically on startup, so no manual migration step is needed.
+
+## Admin -> Updates
+
+The admin Updates page polls `latest.json`. Stable is the default channel. **Install betas** follows tagged versions that have not been marked stable yet.
+
+Turning the switch off does not move you back by itself. If the instance is already running an unmarked version, the page says it is ahead of stable and offers **Reinstall stable**. That uses the same pull and health-check path as a normal update, including rollback if the health check fails. It does **not** undo database migrations the beta already applied. There is no clean downgrade once a migration has run.
 
 ## Before updating
 
@@ -50,10 +56,10 @@ Database migrations run automatically on application startup: the entrypoint app
 
 ## Checking for updates
 
-Kurir does not have a built-in update notification system. To check for new releases:
-
-- Watch the [GitHub repository](https://github.com/cfarvidson/kurir-server) for new releases.
-- Compare your running image digest with the latest:
+Admin -> Updates is the built-in check. It polls `latest.json` and offers
+the pointer for the channel you are on. You can also watch the
+[GitHub repository](https://github.com/cfarvidson/kurir-server) or compare
+image digests:
 
 ```bash
 # See what you're running

@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+### Changed
+
+- A new `vYYYY.MICRO` tag is beta. It writes `latest.json.beta` and
+  publishes the versioned image without moving `:latest`. Marking that
+  version stable copies the pointer onto the top-level fields, clears
+  the GitHub prerelease flag, and retags `:latest` onto the same image.
+- Turning Install betas off while running an unmarked version now says
+  the instance is ahead of stable and offers a reinstall of the latest
+  stable image. Applied migrations are not reverted.
+
 ## [v2026.31] - 2026-08-24
 
 ### Added
