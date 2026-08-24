@@ -15,6 +15,12 @@ import {
  *
  * Delta of calendar events + tombstones. Accounts (with nested calendars)
  * are the full replace-all set, same idea as mail connections.
+ *
+ * `timezone` is the *account's* zone, not any event's - the one the web
+ * renders every calendar surface in (see `lib/calendar/page-data.ts`). It
+ * rides along on the full replace-all half rather than the delta because it
+ * is a setting, not a row: a client that syncs gets the current value every
+ * time and never has to reconcile it against a cursor.
  */
 
 const MAX_LIMIT = 500;
@@ -65,7 +71,11 @@ export async function GET(req: NextRequest) {
       }
     : {};
 
-  const [accounts, events, tombstones] = await Promise.all([
+  const [user, accounts, events, tombstones] = await Promise.all([
+    db.user.findUnique({
+      where: { id: auth.userId },
+      select: { timezone: true },
+    }),
     listCalendarAccountsForUser(auth.userId),
     db.calendarEvent.findMany({
       where: { userId: auth.userId, ...afterCursor },
@@ -92,6 +102,9 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    // Same `|| "UTC"` the web uses, so the two clients cannot disagree
+    // about what "no timezone set" means.
+    timezone: user?.timezone || "UTC",
     accounts: accounts.map(serializeCalendarAccount),
     events: page.map(serializeSyncEvent),
     tombstones,
