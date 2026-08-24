@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     calendar: { findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     calendarEvent: { findMany: vi.fn() },
     calendarTombstone: { findMany: vi.fn() },
+    user: { findUnique: vi.fn() },
   },
 }));
 
@@ -320,6 +321,41 @@ describe("/api/mobile/calendar", () => {
     expect(createIcsAccount).toHaveBeenCalledWith({
       userId: "user-1",
       url: "https://example.com/holidays.ics",
+    });
+  });
+
+  describe("GET /sync serves the account's timezone", () => {
+    async function runSync(timezone: string | null) {
+      await mockAuthed();
+      const { db } = await import("@/lib/db");
+      vi.mocked(db.calendarAccount.findMany).mockResolvedValue([] as never);
+      vi.mocked(db.calendarEvent.findMany).mockResolvedValue([] as never);
+      vi.mocked(db.calendarTombstone.findMany).mockResolvedValue([] as never);
+      vi.mocked(db.user.findUnique).mockResolvedValue(
+        (timezone === null ? null : { timezone }) as never,
+      );
+      const { GET } = await import("@/app/api/mobile/calendar/sync/route");
+      const res = await GET(makeGet());
+      return res.json();
+    }
+
+    // The apps render every surface in this zone. Without it they fall back
+    // to the device's, which is the parity gap in #29.
+    it("returns the user's timezone", async () => {
+      const body = await runSync("Europe/Stockholm");
+      expect(body.timezone).toBe("Europe/Stockholm");
+    });
+
+    // Same default the web page data uses, so the two cannot disagree about
+    // what "no timezone set" means.
+    it("falls back to UTC when the user has none", async () => {
+      const body = await runSync(null);
+      expect(body.timezone).toBe("UTC");
+    });
+
+    it("falls back to UTC when the column is empty", async () => {
+      const body = await runSync("");
+      expect(body.timezone).toBe("UTC");
     });
   });
 });
