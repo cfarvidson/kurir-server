@@ -19,7 +19,7 @@ export interface VersionManifest {
  */
 const versionPattern = /^\d+(\.\d+){1,3}$/;
 
-export const manifestSchema = z.object({
+const pointerSchema = z.object({
   version: z.string().regex(versionPattern),
   image: z.string().min(1),
   releaseUrl: z.url(),
@@ -31,6 +31,48 @@ export const manifestSchema = z.object({
     .default("0.0.0"),
   releasedAt: z.string(),
 });
+
+export const manifestSchema = pointerSchema.extend({
+  beta: pointerSchema.nullish(),
+});
+
+type UpdateChannel = "stable" | "beta";
+
+function asPointer(
+  parsed: z.infer<typeof pointerSchema>,
+): VersionManifest {
+  return {
+    version: parsed.version,
+    image: parsed.image,
+    releaseUrl: parsed.releaseUrl,
+    changelog: parsed.changelog,
+    minVersion: parsed.minVersion,
+    releasedAt: parsed.releasedAt,
+  };
+}
+
+/**
+ * Stable reads the top-level object. Beta reads `beta` when that version is
+ * newer than top-level; a missing, equal, or older `beta` falls back.
+ */
+function selectManifestPointer(
+  manifest: z.infer<typeof manifestSchema>,
+  channel: UpdateChannel,
+): VersionManifest {
+  const stable = asPointer(manifest);
+  if (
+    channel === "beta" &&
+    manifest.beta &&
+    compareVersions(manifest.version, manifest.beta.version) < 0
+  ) {
+    return asPointer(manifest.beta);
+  }
+  return stable;
+}
+
+function readChannel(value: string | null | undefined): UpdateChannel {
+  return value === "beta" ? "beta" : "stable";
+}
 
 function isValidManifestUrl(url: string): boolean {
   try {
@@ -106,7 +148,11 @@ export async function checkForUpdates(): Promise<{
 
     const raw = await response.json();
     const manifest = manifestSchema.parse(raw);
-    const latestVersion = manifest.version;
+    const pointer = selectManifestPointer(
+      manifest,
+      readChannel(settings?.updateChannel),
+    );
+    const latestVersion = pointer.version;
     const updateAvailable = compareVersions(currentVersion, latestVersion) < 0;
 
     // Persist the result in SystemSettings
@@ -115,17 +161,17 @@ export async function checkForUpdates(): Promise<{
       create: {
         id: "singleton",
         latestVersion,
-        latestImageTag: manifest.image,
-        latestReleaseUrl: manifest.releaseUrl,
-        latestChangelog: manifest.changelog,
+        latestImageTag: pointer.image,
+        latestReleaseUrl: pointer.releaseUrl,
+        latestChangelog: pointer.changelog,
         updateAvailable,
         lastUpdateCheck: new Date(),
       },
       update: {
         latestVersion,
-        latestImageTag: manifest.image,
-        latestReleaseUrl: manifest.releaseUrl,
-        latestChangelog: manifest.changelog,
+        latestImageTag: pointer.image,
+        latestReleaseUrl: pointer.releaseUrl,
+        latestChangelog: pointer.changelog,
         updateAvailable,
         lastUpdateCheck: new Date(),
       },

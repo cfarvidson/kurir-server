@@ -551,6 +551,7 @@ model SystemSettings {
 
   // Auto-update settings
   updateMode        String    @default("notify") // "off" | "notify" | "auto"
+  updateChannel     String    @default("stable") // "stable" | "beta"
   updateManifestUrl String    @default("https://raw.githubusercontent.com/cfarvidson/kurir-server/main/latest.json")
   lastUpdateCheck   DateTime?
   latestVersion     String?

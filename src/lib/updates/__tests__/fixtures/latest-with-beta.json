@@ -1,0 +1,16 @@
+{
+  "version": "2026.29",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.29",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.29",
+  "changelog": "stable changelog",
+  "minVersion": "0.0.0",
+  "releasedAt": "2026-08-24T00:00:00Z",
+  "beta": {
+    "version": "2026.30",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.30",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.30",
+    "changelog": "beta changelog",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-08-25T00:00:00Z"
+  }
+}

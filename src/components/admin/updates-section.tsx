@@ -12,6 +12,7 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { FileText } from "lucide-react";
 import changelog from "@/../changelog.json";
 
@@ -29,6 +30,7 @@ interface UpdateStatus {
   latestChangelog: string | null;
   lastUpdateCheck: string | null;
   updateMode: string;
+  updateChannel: "stable" | "beta";
   history: UpdateLogEntry[];
 }
 
@@ -169,6 +171,23 @@ export function UpdatesSection({
     }
   };
 
+  const handleChannelChange = async (installBetas: boolean) => {
+    try {
+      const res = await fetch("/api/admin/updates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updateChannel: installBetas ? "beta" : "stable",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update channel");
+      await fetchStatus();
+      await handleCheck();
+    } catch {
+      setError("Failed to change update channel");
+    }
+  };
+
   if (loading && !status) {
     return (
       <section>
@@ -297,6 +316,27 @@ export function UpdatesSection({
               <p>{status.latestChangelog}</p>
             </div>
           )}
+        </div>
+
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Install betas</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {status.updateChannel === "beta"
+                  ? "This instance is on the beta channel."
+                  : "This instance is on the stable channel."}{" "}
+                Tagged versions that have not been marked stable show up only
+                with this on.
+              </p>
+            </div>
+            <Switch
+              aria-label="Install betas"
+              checked={status.updateChannel === "beta"}
+              disabled={checking}
+              onCheckedChange={handleChannelChange}
+            />
+          </div>
         </div>
 
         {/* Update Mode Setting */}
