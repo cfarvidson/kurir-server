@@ -26,16 +26,11 @@ fi
 # YYYY.MICRO only. A leading zero on the micro is refused too: it means someone
 # typed a month (2026.08) where a serial belongs, and micro counts from 1.
 #
-# BRIDGE EXCEPTION, remove after v2026.08.28 ships. That release is the final
-# YYYY.MM.N one and the reason the flip is safe at all: it carries the tolerant
-# manifest parser, so instances can read a two-component manifest afterwards.
-# docs/releasing.md has always said it has to go out before the format changes,
-# but this gate landed one release early and refuses the very version it
-# describes. The exception is exactly that one string, so nothing else old
-# slips through.
-if [ "$VERSION" = "2026.08.28" ]; then
-  echo "ok: $VERSION is the final YYYY.MM.N bridge release"
-elif ! echo "$VERSION" | grep -qE '^[0-9]{4}\.[1-9][0-9]*$'; then
+# v2026.08.28 was the final YYYY.MM.N release - the one carrying the tolerant
+# manifest parser, which had to reach the field before the format could flip.
+# It shipped, so the one-release exception that let it past this gate is gone
+# again and the shape is unconditional from here on.
+if ! echo "$VERSION" | grep -qE '^[0-9]{4}\.[1-9][0-9]*$'; then
   echo "MISSING: $VERSION is not a YYYY.MICRO version" >&2
   echo "" >&2
   echo "Releases are YYYY.MICRO - a four-digit year and one serial per year," >&2
