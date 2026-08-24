@@ -4,6 +4,27 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.08.28] - 2026-08-24
+
+The last release numbered `YYYY.MM.N`. It carries the tolerant manifest
+parser, so this instance can read the two-component `YYYY.MICRO` manifests
+that follow. An instance that never picks this release up cannot read them
+at all and has to be updated by hand.
+
+### Fixed
+
+- Apple's CalDAV sends `calendar-color` with an alpha channel (`#CB30E0FF`)
+  and the colour normaliser accepted only 3- and 6-digit hex, so every iCloud
+  calendar and every event in it drew in the fallback grey. The alpha is now
+  dropped instead of the colour.
+
+### Changed
+
+- The update checker accepts two-, three- and four-component versions, so a
+  `YYYY.MICRO` manifest parses. Releases are still written in one shape only.
+- `verify-release.sh` requires `YYYY.MICRO`, with a one-release exception for
+  this version.
+
 ## [v2026.08.26] - 2026-08-23
 
 ### Fixed

@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.26",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.26",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.26",
-  "changelog": "Reminders lists no longer appear as calendars, and today is easier to spot",
+  "version": "2026.08.28",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.28",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.28",
+  "changelog": "iCloud calendars keep their real colours, and the updater can read the next version format",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-23T21:00:00Z"
+  "releasedAt": "2026-08-24T00:20:00Z"
 }
