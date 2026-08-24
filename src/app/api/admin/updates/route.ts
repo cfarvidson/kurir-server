@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
+import {
+  checkForUpdates,
+  isRunningAheadOfStable,
+} from "@/lib/updates/version-checker";
 
 export async function GET() {
   try {
@@ -22,15 +26,22 @@ export async function GET() {
     }),
   ]);
 
+  const updateChannel = settings.updateChannel === "beta" ? "beta" : "stable";
+
   return NextResponse.json({
     currentVersion: pkg.version,
     updateAvailable: settings.updateAvailable,
+    runningAheadOfStable: isRunningAheadOfStable(
+      pkg.version,
+      settings.latestVersion,
+      updateChannel,
+    ),
     latestVersion: settings.latestVersion,
     latestReleaseUrl: settings.latestReleaseUrl,
     latestChangelog: settings.latestChangelog,
     lastUpdateCheck: settings.lastUpdateCheck?.toISOString() ?? null,
     updateMode: settings.updateMode,
-    updateChannel: settings.updateChannel === "beta" ? "beta" : "stable",
+    updateChannel,
     history: history.map((h) => ({
       id: h.id,
       createdAt: h.createdAt.toISOString(),
@@ -98,6 +109,13 @@ export async function PATCH(request: NextRequest) {
     create: data,
     update: data,
   });
+
+  // Re-read the manifest on the new channel so latestVersion / updateAvailable
+  // are not left on the previous pointer (a stable instance would otherwise
+  // still offer the beta until the next poll).
+  if (data.updateChannel !== undefined) {
+    await checkForUpdates();
+  }
 
   return NextResponse.json({
     updateMode: settings.updateMode,

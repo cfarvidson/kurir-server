@@ -27,17 +27,18 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Tag builds must come from a complete release commit: package.json,
-  # latest.json, changelog.json (admin Updates changelog), and CHANGELOG.md
-  # all bumped together. Publishing is gated on this, so an incomplete
-  # release never ships an image.
+  # Tag builds must come from a complete *beta* commit: package.json,
+  # changelog files, and latest.json.beta all match the tag. The top-level
+  # pointer stays on the last stable. Publishing is gated on this, so an
+  # incomplete release never ships an image. :latest moves later via
+  # promote-latest.yml when the version is marked stable.
   verify-release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Verify release files match the tag
-        run: ./scripts/verify-release.sh "${GITHUB_REF_NAME}"
+        run: ./scripts/verify-release.sh --mode beta "${GITHUB_REF_NAME}"
 
   build-amd64:
     runs-on: ubuntu-latest
@@ -132,12 +133,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # `:latest` must only move when a release tag is published —
-            # self-host installs pull it. A main-push build carrying `:latest`
-            # races the release pipeline: updaters that pull between the main
-            # build and the tag build get unreleased code with a stale
-            # version stamp. Main builds get `:main` instead.
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            # `:latest` is the newest *stable* image and must not move on
+            # tag. Tagging publishes the versioned image only; marking
+            # stable runs promote-latest.yml to retag :latest onto that
+            # already-published image. Main builds get `:main`.
             type=raw,value=main,enable={{is_default_branch}}
             # CalVer tags (vYYYY.MICRO, and the older vYYYY.MM.DD[.N])
             # are not valid semver, so the semver types never matched and

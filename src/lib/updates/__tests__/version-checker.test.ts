@@ -61,7 +61,8 @@ function stubFetch(body: unknown) {
 }
 
 function persisted() {
-  return upsert.mock.calls[0]?.[0]?.update as Record<string, unknown> | undefined;
+  return upsert.mock.calls[0]?.[0]?.update as
+    Record<string, unknown> | undefined;
 }
 
 describe("manifestSchema", () => {
@@ -72,22 +73,36 @@ describe("manifestSchema", () => {
   });
 
   it("still accepts the three- and four-component versions already in the field", () => {
-    expect(manifestSchema.parse(manifest({ version: "2026.08.27" })).version).toBe("2026.08.27");
-    expect(manifestSchema.parse(manifest({ version: "2026.08.19.3" })).version).toBe("2026.08.19.3");
+    expect(
+      manifestSchema.parse(manifest({ version: "2026.08.27" })).version,
+    ).toBe("2026.08.27");
+    expect(
+      manifestSchema.parse(manifest({ version: "2026.08.19.3" })).version,
+    ).toBe("2026.08.19.3");
   });
 
   it("rejects versions that are not two to four numeric components", () => {
     expect(() => manifestSchema.parse(manifest({ version: "2026" }))).toThrow();
-    expect(() => manifestSchema.parse(manifest({ version: "2026.1.2.3.4" }))).toThrow();
-    expect(() => manifestSchema.parse(manifest({ version: "2026.08-beta" }))).toThrow();
+    expect(() =>
+      manifestSchema.parse(manifest({ version: "2026.1.2.3.4" })),
+    ).toThrow();
+    expect(() =>
+      manifestSchema.parse(manifest({ version: "2026.08-beta" })),
+    ).toThrow();
     expect(() => manifestSchema.parse(manifest({ version: "" }))).toThrow();
   });
 
   it("accepts the same shapes for minVersion, defaulting when absent", () => {
     expect(manifestSchema.parse(manifest()).minVersion).toBe("0.0.0");
-    expect(manifestSchema.parse(manifest({ minVersion: "2026.28" })).minVersion).toBe("2026.28");
-    expect(manifestSchema.parse(manifest({ minVersion: "2026.08.19.3" })).minVersion).toBe("2026.08.19.3");
-    expect(() => manifestSchema.parse(manifest({ minVersion: "2026" }))).toThrow();
+    expect(
+      manifestSchema.parse(manifest({ minVersion: "2026.28" })).minVersion,
+    ).toBe("2026.28");
+    expect(
+      manifestSchema.parse(manifest({ minVersion: "2026.08.19.3" })).minVersion,
+    ).toBe("2026.08.19.3");
+    expect(() =>
+      manifestSchema.parse(manifest({ minVersion: "2026" })),
+    ).toThrow();
   });
 
   it("accepts a handwritten manifest with top-level 2026.29 and beta 2026.30", () => {
@@ -293,6 +308,49 @@ describe("checkForUpdates", () => {
     const onBeta = await checkForUpdates();
     expect(onBeta.latestVersion).toBe("2026.30");
     expect(onBeta.updateAvailable).toBe(true);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("reports running ahead of stable when betas are off and current is an unmarked version", async () => {
+    pkg.version = "2026.30";
+    stubFetch(mixedManifest);
+
+    const result = await checkForUpdates();
+
+    expect(result.error).toBeUndefined();
+    expect(result.latestVersion).toBe("2026.29");
+    expect(result.updateAvailable).toBe(false);
+    expect(result.runningAheadOfStable).toBe(true);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("does not report ahead of stable for an ordinary stable instance", async () => {
+    pkg.version = "2026.29";
+    stubFetch(mixedManifest);
+
+    const result = await checkForUpdates();
+
+    expect(result.updateAvailable).toBe(false);
+    expect(result.runningAheadOfStable).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("does not report ahead of stable while the instance is still on the beta channel", async () => {
+    pkg.version = "2026.30";
+    findFirst.mockResolvedValue({
+      updateManifestUrl: null,
+      updateChannel: "beta",
+    });
+    stubFetch(mixedManifest);
+
+    const result = await checkForUpdates();
+
+    expect(result.latestVersion).toBe("2026.30");
+    expect(result.updateAvailable).toBe(false);
+    expect(result.runningAheadOfStable).toBe(false);
 
     vi.unstubAllGlobals();
   });

@@ -24,11 +24,7 @@ const pointerSchema = z.object({
   image: z.string().min(1),
   releaseUrl: z.url(),
   changelog: z.string(),
-  minVersion: z
-    .string()
-    .regex(versionPattern)
-    .optional()
-    .default("0.0.0"),
+  minVersion: z.string().regex(versionPattern).optional().default("0.0.0"),
   releasedAt: z.string(),
 });
 
@@ -38,9 +34,7 @@ export const manifestSchema = pointerSchema.extend({
 
 type UpdateChannel = "stable" | "beta";
 
-function asPointer(
-  parsed: z.infer<typeof pointerSchema>,
-): VersionManifest {
+function asPointer(parsed: z.infer<typeof pointerSchema>): VersionManifest {
   return {
     version: parsed.version,
     image: parsed.image,
@@ -72,6 +66,22 @@ function selectManifestPointer(
 
 function readChannel(value: string | null | undefined): UpdateChannel {
   return value === "beta" ? "beta" : "stable";
+}
+
+/**
+ * Running a tagged version that has not been copied onto the top-level
+ * latest.json pointer, with Install betas off. The update check only
+ * offers a strictly newer version, so this is otherwise reported as
+ * "Up to Date".
+ */
+export function isRunningAheadOfStable(
+  currentVersion: string,
+  latestVersion: string | null | undefined,
+  channel: string | null | undefined,
+): boolean {
+  if (!latestVersion) return false;
+  if (readChannel(channel) !== "stable") return false;
+  return compareVersions(currentVersion, latestVersion) > 0;
 }
 
 function isValidManifestUrl(url: string): boolean {
@@ -116,6 +126,7 @@ export async function checkForUpdates(): Promise<{
   updateAvailable: boolean;
   currentVersion: string;
   latestVersion: string;
+  runningAheadOfStable: boolean;
   error?: string;
 }> {
   const currentVersion: string = pkg.version;
@@ -123,6 +134,7 @@ export async function checkForUpdates(): Promise<{
   try {
     // Read the manifest URL from SystemSettings, falling back to the default
     const settings = await db.systemSettings.findFirst();
+    const channel = readChannel(settings?.updateChannel);
     const manifestUrl = settings?.updateManifestUrl ?? DEFAULT_MANIFEST_URL;
 
     if (!isValidManifestUrl(manifestUrl)) {
@@ -148,12 +160,14 @@ export async function checkForUpdates(): Promise<{
 
     const raw = await response.json();
     const manifest = manifestSchema.parse(raw);
-    const pointer = selectManifestPointer(
-      manifest,
-      readChannel(settings?.updateChannel),
-    );
+    const pointer = selectManifestPointer(manifest, channel);
     const latestVersion = pointer.version;
     const updateAvailable = compareVersions(currentVersion, latestVersion) < 0;
+    const runningAheadOfStable = isRunningAheadOfStable(
+      currentVersion,
+      latestVersion,
+      channel,
+    );
 
     // Persist the result in SystemSettings
     await db.systemSettings.upsert({
@@ -177,7 +191,12 @@ export async function checkForUpdates(): Promise<{
       },
     });
 
-    return { updateAvailable, currentVersion, latestVersion };
+    return {
+      updateAvailable,
+      currentVersion,
+      latestVersion,
+      runningAheadOfStable,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[update-checker] Failed to check for updates: ${message}`);
@@ -186,6 +205,7 @@ export async function checkForUpdates(): Promise<{
       updateAvailable: false,
       currentVersion,
       latestVersion: "unknown",
+      runningAheadOfStable: false,
       error: message,
     };
   }

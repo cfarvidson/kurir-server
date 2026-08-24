@@ -25,6 +25,7 @@ interface ChangelogEntry {
 interface UpdateStatus {
   currentVersion: string;
   updateAvailable: boolean;
+  runningAheadOfStable?: boolean;
   latestVersion: string | null;
   latestReleaseUrl: string | null;
   latestChangelog: string | null;
@@ -212,6 +213,8 @@ export function UpdatesSection({
 
   if (!status) return null;
 
+  const aheadOfStable = status.runningAheadOfStable && !status.updateAvailable;
+
   return (
     <section>
       <div className="flex items-center justify-between">
@@ -232,12 +235,16 @@ export function UpdatesSection({
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 text-sm font-medium">
-                {status.updateAvailable ? (
+                {status.updateAvailable || aheadOfStable ? (
                   <ArrowDownCircle className="h-4 w-4 text-blue-500" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
-                {status.updateAvailable ? "Update Available" : "Up to Date"}
+                {status.updateAvailable
+                  ? "Update Available"
+                  : aheadOfStable
+                    ? "Ahead of stable"
+                    : "Up to Date"}
               </div>
               <div className="mt-2 space-y-1 text-xs">
                 <div>
@@ -260,7 +267,7 @@ export function UpdatesSection({
               </div>
             </div>
 
-            {status.updateAvailable && (
+            {(status.updateAvailable || aheadOfStable) && (
               <div className="flex gap-2">
                 {status.latestReleaseUrl && (
                   <a
@@ -280,28 +287,32 @@ export function UpdatesSection({
                     disabled={updating}
                   >
                     <Download className="mr-1 h-3 w-3" />
-                    Update Now
+                    {aheadOfStable ? "Reinstall stable" : "Update Now"}
                   </Button>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      Are you sure?
+                  <div className="flex max-w-xs flex-col items-end gap-2">
+                    <span className="text-xs text-muted-foreground text-right">
+                      {aheadOfStable
+                        ? "This reinstalls the latest stable image. Database migrations this version already applied are not reverted."
+                        : "Are you sure?"}
                     </span>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={handleUpdate}
-                      disabled={updating}
-                    >
-                      {updating ? "Updating..." : "Confirm"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setConfirmUpdate(false)}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={handleUpdate}
+                        disabled={updating}
+                      >
+                        {updating ? "Updating..." : "Confirm"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmUpdate(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

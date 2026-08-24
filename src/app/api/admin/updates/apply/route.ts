@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import pkg from "@/../package.json";
 import { startUpdate } from "@/lib/updates/update-executor";
+import { isRunningAheadOfStable } from "@/lib/updates/version-checker";
 
 export async function POST() {
   try {
@@ -14,7 +16,13 @@ export async function POST() {
     where: { id: "singleton" },
   });
 
-  if (!settings?.updateAvailable || !settings.latestVersion) {
+  const ahead = isRunningAheadOfStable(
+    pkg.version,
+    settings?.latestVersion,
+    settings?.updateChannel,
+  );
+
+  if ((!settings?.updateAvailable && !ahead) || !settings?.latestVersion) {
     return NextResponse.json({ error: "No update available" }, { status: 400 });
   }
 
