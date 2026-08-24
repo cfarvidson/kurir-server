@@ -30,6 +30,7 @@ export async function GET() {
     latestChangelog: settings.latestChangelog,
     lastUpdateCheck: settings.lastUpdateCheck?.toISOString() ?? null,
     updateMode: settings.updateMode,
+    updateChannel: settings.updateChannel === "beta" ? "beta" : "stable",
     history: history.map((h) => ({
       id: h.id,
       createdAt: h.createdAt.toISOString(),
@@ -52,20 +53,54 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { updateMode } = body;
+  const { updateMode, updateChannel } = body as {
+    updateMode?: unknown;
+    updateChannel?: unknown;
+  };
 
-  if (!updateMode || !["off", "notify", "auto"].includes(updateMode)) {
+  const data: { updateMode?: string; updateChannel?: string } = {};
+
+  if (updateMode !== undefined) {
+    if (
+      typeof updateMode !== "string" ||
+      !["off", "notify", "auto"].includes(updateMode)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid update mode. Must be one of: off, notify, auto" },
+        { status: 400 },
+      );
+    }
+    data.updateMode = updateMode;
+  }
+
+  if (updateChannel !== undefined) {
+    if (
+      typeof updateChannel !== "string" ||
+      !["stable", "beta"].includes(updateChannel)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid update channel. Must be one of: stable, beta" },
+        { status: 400 },
+      );
+    }
+    data.updateChannel = updateChannel;
+  }
+
+  if (Object.keys(data).length === 0) {
     return NextResponse.json(
-      { error: "Invalid update mode. Must be one of: off, notify, auto" },
+      { error: "Expected updateMode or updateChannel" },
       { status: 400 },
     );
   }
 
   const settings = await db.systemSettings.upsert({
     where: { id: "singleton" },
-    create: { updateMode },
-    update: { updateMode },
+    create: data,
+    update: data,
   });
 
-  return NextResponse.json({ updateMode: settings.updateMode });
+  return NextResponse.json({
+    updateMode: settings.updateMode,
+    updateChannel: settings.updateChannel,
+  });
 }
