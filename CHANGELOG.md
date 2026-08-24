@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.31] - 2026-08-24
+
+### Added
+
+- Admin -> Updates has an Install betas switch. Tagged YYYY.MICRO
+  versions that have not been marked stable show up only with that
+  on. Same number, same image. Existing instances stay on stable.
+
 ## [v2026.30] - 2026-08-24
 
 ### Added

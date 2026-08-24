@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.31",
+    "date": "2026-08-24",
+    "changes": [
+      "Admin -> Updates can follow tagged versions before they are marked stable"
+    ]
+  },
+  {
     "version": "2026.30",
     "date": "2026-08-24",
     "changes": [
