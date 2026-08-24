@@ -1,4 +1,4 @@
-export type CalendarProviderKind = "GOOGLE" | "MICROSOFT" | "CALDAV";
+export type CalendarProviderKind = "GOOGLE" | "MICROSOFT" | "CALDAV" | "ICS";
 
 export function rsvpSendsItip(provider: CalendarProviderKind): boolean {
   return provider === "CALDAV";

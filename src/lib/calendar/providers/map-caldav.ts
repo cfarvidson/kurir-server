@@ -122,6 +122,66 @@ function providerIdOf(raw: CalDavRaw, uid: string): string {
   return uid;
 }
 
+export function mapCalDavVevent(
+  vevent: ICAL.Component,
+  raw: CalDavRaw = {},
+): RemoteEvent {
+  const event = new ICAL.Event(vevent);
+  const uid = event.uid?.trim();
+  if (!uid) {
+    throw new Error("mapCalDavEvent: missing UID");
+  }
+
+  const start = event.startDate;
+  const end = event.endDate;
+  const startAt = timeToDate(start);
+  const endAt = timeToDate(end);
+  if (!startAt || !endAt) {
+    throw new Error("mapCalDavEvent: missing DTSTART/DTEND");
+  }
+
+  const isAllDay = Boolean(start?.isDate);
+  const tzParam = vevent.getFirstProperty("dtstart")?.getParameter("tzid");
+  const zoneName = start?.zone?.tzid;
+  const timezone = !isAllDay
+    ? (typeof tzParam === "string" && tzParam
+      ? tzParam
+      : zoneName && zoneName !== "floating"
+        ? zoneName
+        : null)
+    : null;
+
+  const sequenceRaw = vevent.getFirstPropertyValue("sequence");
+  const sequence =
+    typeof sequenceRaw === "number"
+      ? sequenceRaw
+      : Number.parseInt(String(sequenceRaw ?? "0"), 10) || 0;
+
+  return {
+    providerEventId: providerIdOf(raw, uid),
+    icalUid: uid,
+    etag: raw.etag ?? null,
+    sequence,
+    title: event.summary ?? "",
+    description: event.description?.trim() ? event.description : null,
+    location: event.location?.trim() ? event.location : null,
+    startAt,
+    endAt,
+    isAllDay,
+    timezone,
+    status: mapStatus(propString(vevent, "status")),
+    transparency: mapTransparency(propString(vevent, "transp")),
+    rrule: propString(vevent, "rrule"),
+    rdate: stampProps(vevent, "rdate"),
+    exdate: stampProps(vevent, "exdate"),
+    masterProviderEventId: null,
+    recurrenceId: timeToDate(event.recurrenceId),
+    organizerJson: organizerJson(vevent),
+    attendeesJson: attendeesJson(vevent),
+    rawJson: raw,
+  };
+}
+
 export function mapCalDavEvent(raw: unknown): RemoteEvent {
   const input = asRecord(raw);
   const ics = input.data ?? input.ics;
@@ -146,50 +206,5 @@ export function mapCalDavEvent(raw: unknown): RemoteEvent {
     throw new Error("mapCalDavEvent: invalid ICS");
   }
 
-  const event = new ICAL.Event(vevent);
-  const uid = event.uid?.trim();
-  if (!uid) {
-    throw new Error("mapCalDavEvent: missing UID");
-  }
-
-  const start = event.startDate;
-  const end = event.endDate;
-  const startAt = timeToDate(start);
-  const endAt = timeToDate(end);
-  if (!startAt || !endAt) {
-    throw new Error("mapCalDavEvent: missing DTSTART/DTEND");
-  }
-
-  const isAllDay = Boolean(start?.isDate);
-  const timezone = !isAllDay && start?.zone?.tzid ? start.zone.tzid : null;
-
-  const sequenceRaw = vevent.getFirstPropertyValue("sequence");
-  const sequence =
-    typeof sequenceRaw === "number"
-      ? sequenceRaw
-      : Number.parseInt(String(sequenceRaw ?? "0"), 10) || 0;
-
-  return {
-    providerEventId: providerIdOf(input, uid),
-    icalUid: uid,
-    etag: input.etag ?? null,
-    sequence,
-    title: event.summary ?? "",
-    description: event.description?.trim() ? event.description : null,
-    location: event.location?.trim() ? event.location : null,
-    startAt,
-    endAt,
-    isAllDay,
-    timezone,
-    status: mapStatus(propString(vevent, "status")),
-    transparency: mapTransparency(propString(vevent, "transp")),
-    rrule: propString(vevent, "rrule"),
-    rdate: stampProps(vevent, "rdate"),
-    exdate: stampProps(vevent, "exdate"),
-    masterProviderEventId: null,
-    recurrenceId: timeToDate(event.recurrenceId),
-    organizerJson: organizerJson(vevent),
-    attendeesJson: attendeesJson(vevent),
-    rawJson: raw,
-  };
+  return mapCalDavVevent(vevent, input);
 }

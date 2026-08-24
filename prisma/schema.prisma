@@ -842,6 +842,7 @@ enum CalendarProvider {
   GOOGLE
   MICROSOFT
   CALDAV
+  ICS
 }
 
 // One connected Google / Microsoft / CalDAV source. Tokens live here, never on EmailConnection.

@@ -9,6 +9,7 @@ import {
 } from "@/actions/calendar";
 import { CalendarList } from "@/components/calendar/calendar-list";
 import { CalDavDialog } from "@/components/calendar/caldav-dialog";
+import { IcsDialog } from "@/components/calendar/ics-dialog";
 import type { CalendarListItem } from "@/components/calendar/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export function CalendarAccounts({
   accounts: SettingsCalendarAccount[];
 }) {
   const [caldavOpen, setCaldavOpen] = useState(false);
+  const [icsOpen, setIcsOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -58,6 +60,13 @@ export function CalendarAccounts({
         >
           Add CalDAV
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setIcsOpen(true)}
+        >
+          Add calendar URL
+        </Button>
       </div>
 
       {accounts.length === 0 ? (
@@ -74,6 +83,7 @@ export function CalendarAccounts({
       )}
 
       <CalDavDialog open={caldavOpen} onOpenChange={setCaldavOpen} />
+      <IcsDialog open={icsOpen} onOpenChange={setIcsOpen} />
     </div>
   );
 }
@@ -88,6 +98,7 @@ function CalendarAccountCard({
   const [busy, setBusy] = useState<"sync" | "disconnect" | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [caldavOpen, setCaldavOpen] = useState(false);
+  const [icsOpen, setIcsOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const reconnectHref = calendarReconnectHref(account.provider);
@@ -240,7 +251,17 @@ function CalendarAccountCard({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setCaldavOpen(true)}
+                onClick={() => {
+                  if (account.provider === "ICS") {
+                    if (account.lastError) {
+                      setIcsOpen(true);
+                      return;
+                    }
+                    run("sync", () => syncCalendarNowAction(account.id));
+                    return;
+                  }
+                  setCaldavOpen(true);
+                }}
               >
                 Reconnect
               </Button>
@@ -265,6 +286,14 @@ function CalendarAccountCard({
           accountId={account.id}
           initialUrl={account.caldavUrl}
           initialUsername={account.caldavUsername}
+        />
+      )}
+      {account.provider === "ICS" && (
+        <IcsDialog
+          open={icsOpen}
+          onOpenChange={setIcsOpen}
+          accountId={account.id}
+          initialUrl={account.caldavUrl}
         />
       )}
     </article>

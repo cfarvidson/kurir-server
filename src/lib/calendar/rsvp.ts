@@ -120,6 +120,9 @@ async function adapterForAccount(account: AccountCreds): Promise<CalendarAdapter
     }
     return createMicrosoftAdapter({ accessToken });
   }
+  if (account.provider === "ICS") {
+    throw new CalendarWriteError("Calendar is read-only", 403);
+  }
   if (!account.caldavUrl || !account.caldavUsername || !account.encryptedPassword) {
     throw new CalendarWriteError("Missing CalDAV credentials", 500);
   }

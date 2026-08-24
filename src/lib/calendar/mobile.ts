@@ -104,6 +104,10 @@ export const caldavBodySchema = z.object({
   password: z.string().min(1),
 });
 
+export const icsBodySchema = z.object({
+  url: z.string().min(1),
+});
+
 export const visibilityBodySchema = z.object({
   isVisible: z.boolean(),
 });

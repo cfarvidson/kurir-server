@@ -17,6 +17,7 @@ import {
 } from "@/lib/calendar/expand";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
+import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 import {
   CalendarConflictError,
@@ -122,6 +123,7 @@ function asJson(
 function providerLabel(provider: CalendarProvider): string {
   if (provider === "GOOGLE") return "Google";
   if (provider === "MICROSOFT") return "Outlook";
+  if (provider === "ICS") return "Calendar URL";
   return "this calendar";
 }
 
@@ -154,6 +156,12 @@ function adapterForAccount(
       throw new CalendarWriteError("Missing OAuth token", 500);
     }
     return createMicrosoftAdapter({ accessToken });
+  }
+  if (account.provider === "ICS") {
+    if (!account.caldavUrl) {
+      throw new CalendarWriteError("Missing ICS URL", 500);
+    }
+    return createIcsAdapter({ url: account.caldavUrl });
   }
   if (!account.caldavUrl || !account.caldavUsername || !account.encryptedPassword) {
     throw new CalendarWriteError("Missing CalDAV credentials", 500);

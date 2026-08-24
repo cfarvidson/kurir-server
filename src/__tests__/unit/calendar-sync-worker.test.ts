@@ -62,6 +62,10 @@ vi.mock("@/lib/calendar/providers/caldav", () => ({
   createCalDavAdapter: vi.fn(() => adapter),
 }));
 
+vi.mock("@/lib/calendar/providers/ics", () => ({
+  createIcsAdapter: vi.fn(() => adapter),
+}));
+
 vi.mock("@/lib/jobs/queue", () => ({
   CALENDAR_SYNC_QUEUE: "sync-calendar",
   getCalendarSyncQueue: vi.fn(),
@@ -78,6 +82,7 @@ import {
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
+import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 
 function googleAccount() {
   return {
@@ -125,6 +130,7 @@ describe("processCalendarSyncJob", () => {
     expect(createGoogleAdapter).not.toHaveBeenCalled();
     expect(createMicrosoftAdapter).not.toHaveBeenCalled();
     expect(createCalDavAdapter).not.toHaveBeenCalled();
+    expect(createIcsAdapter).not.toHaveBeenCalled();
     expect(claimCalendarSyncLock).not.toHaveBeenCalled();
     expect(adapter.listCalendars).not.toHaveBeenCalled();
     expect(adapter.pull).not.toHaveBeenCalled();
@@ -195,5 +201,36 @@ describe("processCalendarSyncJob", () => {
       },
     });
     expect(releaseCalendarSyncLock).toHaveBeenCalledWith("acc-1");
+  });
+
+  it("picks the ICS adapter before the CalDAV credential check", async () => {
+    vi.mocked(isDemoInstance).mockReturnValue(false);
+    vi.mocked(claimCalendarSyncLock).mockResolvedValue(true);
+    vi.mocked(db.calendarAccount.findUnique).mockResolvedValue({
+      id: "acc-ics",
+      userId: "u1",
+      provider: "ICS",
+      oauthAccessToken: null,
+      oauthRefreshToken: null,
+      oauthTokenExpiresAt: null,
+      caldavUrl: "https://school.example/term.ics",
+      caldavUsername: null,
+      encryptedPassword: null,
+      calendars: [],
+    } as never);
+    adapter.listCalendars.mockResolvedValue([]);
+
+    const { processCalendarSyncJob } = await import(
+      "@/lib/jobs/calendar-sync-worker"
+    );
+    await processCalendarSyncJob({
+      calendarAccountId: "acc-ics",
+      userId: "u1",
+    });
+
+    expect(createIcsAdapter).toHaveBeenCalledWith({
+      url: "https://school.example/term.ics",
+    });
+    expect(createCalDavAdapter).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ import {
 import { applyPull } from "@/lib/calendar/apply-pull";
 import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
+import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 import type { CalendarAdapter } from "@/lib/calendar/providers/types";
 import {
@@ -51,6 +52,10 @@ function adapterForAccount(
   if (account.provider === "MICROSOFT") {
     if (!accessToken) throw new Error("Missing OAuth token");
     return createMicrosoftAdapter({ accessToken });
+  }
+  if (account.provider === "ICS") {
+    if (!account.caldavUrl) throw new Error("Missing ICS URL");
+    return createIcsAdapter({ url: account.caldavUrl });
   }
   if (
     !account.caldavUrl ||

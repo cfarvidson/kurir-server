@@ -8,6 +8,7 @@ import {
   deleteCalendarAccount,
   setCalendarVisibleForUser,
 } from "@/lib/calendar/accounts";
+import { createIcsAccount } from "@/lib/calendar/ics-account";
 import type {
   EventInput,
   RecurrenceEdit,
@@ -47,6 +48,20 @@ export async function connectCalDavAction(input: {
     url: input.url,
     username: input.username,
     password: input.password,
+    accountId: input.accountId,
+  });
+  revalidateCalendar();
+  return account;
+}
+
+export async function connectIcsAction(input: {
+  url: string;
+  accountId?: string;
+}) {
+  const session = await requireAuth();
+  const account = await createIcsAccount({
+    userId: session.user.id,
+    url: input.url,
     accountId: input.accountId,
   });
   revalidateCalendar();

@@ -58,6 +58,10 @@ vi.mock("@/lib/calendar/rsvp", () => ({
   rsvpToMeetingForUser: vi.fn(),
 }));
 
+vi.mock("@/lib/calendar/ics-account", () => ({
+  createIcsAccount: vi.fn(),
+}));
+
 function makeGet(params: Record<string, string> = {}) {
   const searchParams = new URLSearchParams(params);
   return {
@@ -279,5 +283,43 @@ describe("/api/mobile/calendar", () => {
       "thisAndFollowing",
       new Date("2026-08-21T09:00:00.000Z"),
     );
+  });
+
+  it("POST /accounts/ics without bearer auth returns 401", async () => {
+    await mockUnauthed();
+    const { POST } = await import(
+      "@/app/api/mobile/calendar/accounts/ics/route"
+    );
+    const res = await POST(makeBody({ url: "https://example.com/cal.ics" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("POST /accounts/ics with a bad body returns 400", async () => {
+    await mockAuthed();
+    const { POST } = await import(
+      "@/app/api/mobile/calendar/accounts/ics/route"
+    );
+    const res = await POST(makeBody({}));
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /accounts/ics returns the created account id", async () => {
+    await mockAuthed();
+    const { createIcsAccount } = await import("@/lib/calendar/ics-account");
+    vi.mocked(createIcsAccount).mockResolvedValue({ id: "acc-ics" });
+
+    const { POST } = await import(
+      "@/app/api/mobile/calendar/accounts/ics/route"
+    );
+    const res = await POST(
+      makeBody({ url: "https://example.com/holidays.ics" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: "acc-ics" });
+    expect(createIcsAccount).toHaveBeenCalledWith({
+      userId: "user-1",
+      url: "https://example.com/holidays.ics",
+    });
   });
 });

@@ -31,7 +31,7 @@ async function setOauthError(accountId: string, message: string): Promise<void> 
 export async function ensureAccessToken(
   account: CalendarAccountTokens,
 ): Promise<string | null> {
-  if (account.provider === "CALDAV") return null;
+  if (account.provider === "CALDAV" || account.provider === "ICS") return null;
 
   const freshEnough =
     account.oauthAccessToken &&

@@ -31,7 +31,7 @@ export type CalendarListItem = {
 export type CalendarAccountDTO = {
   id: string;
   displayName: string;
-  provider: "GOOGLE" | "MICROSOFT" | "CALDAV";
+  provider: "GOOGLE" | "MICROSOFT" | "CALDAV" | "ICS";
   oauthError: string | null;
   lastError: string | null;
   calendars: CalendarListItem[];

@@ -10,6 +10,7 @@ describe("calendarProviderLabel", () => {
     expect(calendarProviderLabel("GOOGLE")).toBe("Google");
     expect(calendarProviderLabel("MICROSOFT")).toBe("Outlook");
     expect(calendarProviderLabel("CALDAV")).toBe("CalDAV");
+    expect(calendarProviderLabel("ICS")).toBe("Calendar URL");
   });
 });
 
@@ -23,8 +24,9 @@ describe("calendarReconnectHref", () => {
     );
   });
 
-  it("returns null for CalDAV", () => {
+  it("returns null for CalDAV and ICS", () => {
     expect(calendarReconnectHref("CALDAV")).toBeNull();
+    expect(calendarReconnectHref("ICS")).toBeNull();
   });
 });
 
