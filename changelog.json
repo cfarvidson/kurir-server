@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.29",
+    "date": "2026-08-24",
+    "changes": [
+      "Releases are now numbered YYYY.MICRO (this is 2026.29) - a year and one serial, shared with the iOS app",
+      "Instances that never installed v2026.08.28 cannot read this update and have to be updated by hand"
+    ]
+  },
+  {
     "version": "2026.08.28",
     "date": "2026-08-24",
     "changes": [

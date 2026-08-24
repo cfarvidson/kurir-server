@@ -4,6 +4,24 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.29] - 2026-08-24
+
+The first release numbered `YYYY.MICRO`: a four-digit year and one serial
+per year, shared with kurir-ios. `2026.29` continues the old serial after
+`v2026.08.28`, and it ranks above that release under component-wise
+comparison (`08 < 29`).
+
+**Instances older than `v2026.08.28` must be updated by hand.** That
+release carries the tolerant manifest parser. An instance that never
+picked it up cannot read a two-component `YYYY.MICRO` manifest: it logs
+a parse failure, reports "no update", and stays there until someone
+pulls a newer image manually.
+
+### Changed
+
+- Version numbers are `YYYY.MICRO`. This is `2026.29`, one greater than
+  the last `YYYY.MM.N` serial (`v2026.08.28`).
+
 ## [v2026.08.28] - 2026-08-24
 
 The last release numbered `YYYY.MM.N`. It carries the tolerant manifest

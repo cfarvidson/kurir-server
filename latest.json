@@ -1,8 +1,8 @@
 {
-  "version": "2026.08.28",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.08.28",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.08.28",
-  "changelog": "iCloud calendars keep their real colours, and the updater can read the next version format",
+  "version": "2026.29",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.29",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.29",
+  "changelog": "Releases are now YYYY.MICRO (this is 2026.29). Instances older than v2026.08.28 cannot read this manifest and must be updated by hand",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-08-24T00:20:00Z"
+  "releasedAt": "2026-08-24T06:37:10Z"
 }
