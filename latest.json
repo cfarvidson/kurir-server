@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-24T09:31:52Z",
   "beta": {
-    "version": "2026.33",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.33",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.33",
-    "changelog": "Calendar apps follow your account timezone instead of the device's",
+    "version": "2026.36",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.36",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.36",
+    "changelog": "Meeting invites in the mobile apps show the answer you already gave, including replies made on the web",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-08-24T13:29:57Z"
+    "releasedAt": "2026-08-25T08:53:29Z"
   }
 }

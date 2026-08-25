@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.36] - 2026-08-25
+
+### Added
+
+- Mobile message payloads (sync and search) carry the user's RSVP answer on
+  meeting invites, computed from the linked calendar event's self attendee
+  the same way the web meeting card does. The native meeting card uses it
+  as its baseline, so replies made on the web show up on iPhone and Mac.
+
 ## [v2026.33] - 2026-08-24
 
 ### Added

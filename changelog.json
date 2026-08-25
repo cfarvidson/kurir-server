@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.36",
+    "date": "2026-08-25",
+    "changes": [
+      "Meeting invites in the mobile apps show the answer you already gave, including replies made on the web"
+    ]
+  },
+  {
     "version": "2026.33",
     "date": "2026-08-24",
     "changes": [
