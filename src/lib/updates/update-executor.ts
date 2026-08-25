@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
+import { checkUpdaterHealth } from "@/lib/updates/updater-health";
+import { UPDATER_REFRESH_COMMAND } from "@/lib/updates/constants";
 
 export interface UpdateResult {
   started: boolean;
@@ -14,6 +16,7 @@ async function callUpdater(
   path: "/apply" | "/rollback",
   logId: string,
   imageRef?: string,
+  toVersion?: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status?: number }> {
   if (!UPDATER_TOKEN) {
     return {
@@ -32,7 +35,11 @@ async function callUpdater(
         "Content-Type": "application/json",
         "X-Updater-Token": UPDATER_TOKEN,
       },
-      body: JSON.stringify(imageRef ? { logId, imageRef } : { logId }),
+      body: JSON.stringify({
+        logId,
+        ...(imageRef ? { imageRef } : {}),
+        ...(toVersion ? { toVersion } : {}),
+      }),
       signal: controller.signal,
     });
 
@@ -100,7 +107,19 @@ export async function startUpdate(
     },
   });
 
-  const result = await callUpdater("/apply", log.id, imageRef);
+  // A sidecar that predates imageRef pinning would pull whatever `:latest`
+  // points at, health-check the old code, and report success — refuse and
+  // tell the operator how to refresh it (kurir-ios#57).
+  const updaterHealth = await checkUpdaterHealth();
+  const result = updaterHealth.stale
+    ? {
+        ok: false as const,
+        error:
+          "Updater sidecar is too old to safely apply updates (it ignores " +
+          "the pinned release image). Refresh it on the server: " +
+          UPDATER_REFRESH_COMMAND,
+      }
+    : await callUpdater("/apply", log.id, imageRef, targetVersion);
   if (!result.ok) {
     await db.updateLog.update({
       where: { id: log.id },
@@ -148,7 +167,13 @@ export async function startRollback(): Promise<UpdateResult> {
     },
   });
 
-  const result = await callUpdater("/rollback", log.id);
+  // Rollback is deliberately not gated on sidecar staleness — it is the
+  // emergency path. Pass the expected version so a new sidecar can verify.
+  const rollbackTarget =
+    lastSuccessful?.fromVersion && lastSuccessful.fromVersion !== "unknown"
+      ? lastSuccessful.fromVersion
+      : undefined;
+  const result = await callUpdater("/rollback", log.id, undefined, rollbackTarget);
   if (!result.ok) {
     await db.updateLog.update({
       where: { id: log.id },
