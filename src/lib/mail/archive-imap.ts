@@ -286,11 +286,36 @@ export async function moveToInboxViaImap(
   // dedup check recognizes the moved-back message — otherwise the reverse
   // move's 'exists' event would re-ingest it as brand-new mail (duplicate
   // row, spurious SSE and push notification).
-  await persistArchiveLocations(
+  const persisted = await persistArchiveLocations(
     connectionId,
     "INBOX",
     result.uidMap,
     messageIdBySourceUid,
     result.anyUidMapMissing,
+  );
+
+  if (!persisted || persisted.messageIds.length === 0) return;
+
+  // TOCTOU compensation (#126), mirror of the archive direction (#61): a
+  // re-archive that landed between the pre-move re-check above and the
+  // repoint flipped `isArchived` back to true, but its forward move computed
+  // from the row's then-current archive folderId and was a no-op — leaving
+  // the message in INBOX while the app shows it archived. The rows are now
+  // repointed at INBOX (where IMAP has them), so re-read the flags and issue
+  // the forward move for any row that flipped mid-move. A re-archive landing
+  // after the repoint sees the INBOX folderId and issues its own move;
+  // `moveToArchiveViaImap`'s pre-move re-check makes the rare overlap
+  // harmless.
+  const rearchivedMidMove = await db.message.findMany({
+    where: { id: { in: persisted.messageIds }, isArchived: true },
+    select: { uid: true },
+  });
+  if (rearchivedMidMove.length === 0) return;
+
+  await moveToArchiveViaImap(
+    userId,
+    connectionId,
+    persisted.folderId,
+    rearchivedMidMove.map((m) => m.uid),
   );
 }
