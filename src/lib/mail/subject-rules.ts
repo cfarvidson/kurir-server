@@ -4,8 +4,12 @@
  *
  * Matching semantics:
  * - A rule matches when the sender falls inside its scope AND the message
- *   subject contains the rule's pattern (both compared case-insensitively;
- *   `scopeValue` and `pattern` are stored normalized lowercase).
+ *   subject contains the rule's pattern (both sides NFC-normalized and
+ *   lowercased via `foldSubjectText`; `scopeValue` and `pattern` are stored
+ *   normalized lowercase). This predicate is THE matcher (kurir-ios#59): the
+ *   create-time retroactive sweep and IMAP ingest (full sync and IDLE) all
+ *   run it, so `%`/`_` are literal characters and a pattern typed on iOS in
+ *   NFD (åäö) matches NFC subjects at the server.
  * - Reply/forward prefixes (Re:, Sv:, Fwd:, …) are irrelevant (kurir-ios#58):
  *   both the subject and the pattern are stripped of leading prefixes before
  *   comparing, so a rule made from "Re: X" matches "X" and vice versa.
@@ -77,6 +81,16 @@ export function stripReplyPrefixes(subject: string): string {
   return subject.trim().replace(REPLY_PREFIXES, "").trim();
 }
 
+/**
+ * Canonical fold applied to both sides before comparing (kurir-ios#59):
+ * NFC-normalize (iOS sends NFD for åäö and friends), then lowercase. Rules
+ * created before this fold may be stored in NFD, so the fold runs at match
+ * time on the pattern too — never assume stored text is already folded.
+ */
+export function foldSubjectText(text: string): string {
+  return text.normalize("NFC").toLowerCase();
+}
+
 /** True when `rule` covers this sender + subject (case-insensitive). */
 export function subjectRuleMatches(
   senderEmail: string,
@@ -87,9 +101,9 @@ export function subjectRuleMatches(
   if (!scopeMatchesSender(senderEmail, rule)) return false;
   // A legacy pattern that was nothing but a prefix strips to "" — treat it
   // as never matching rather than matching everything via includes("").
-  const pattern = stripReplyPrefixes(rule.pattern.toLowerCase());
+  const pattern = stripReplyPrefixes(foldSubjectText(rule.pattern));
   if (!pattern) return false;
-  return stripReplyPrefixes((subject ?? "").toLowerCase()).includes(pattern);
+  return stripReplyPrefixes(foldSubjectText(subject ?? "")).includes(pattern);
 }
 
 /**

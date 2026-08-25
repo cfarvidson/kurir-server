@@ -7,8 +7,10 @@ import {
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
 import {
+  foldSubjectText,
   scopeMatchesSender,
   stripReplyPrefixes,
+  subjectRuleMatches,
 } from "@/lib/mail/subject-rules";
 import {
   SenderCategory,
@@ -980,9 +982,9 @@ export async function createSubjectRuleForUser(
   const scopeValue = input.scopeValue.trim().toLowerCase();
   // Reply/forward prefixes are stripped at creation (kurir-ios#58) so a rule
   // made from "Re: X" is stored as "x" and matches prefix-less mail too. The
-  // sweep below stays consistent: a stripped pattern is a substring of every
-  // prefixed variant, so `contains` still finds "Re: X" messages.
-  const pattern = stripReplyPrefixes(input.pattern.trim().toLowerCase());
+  // stored pattern is NFC-folded (kurir-ios#59) so a rule typed on iOS (NFD
+  // åäö) compares equal to the NFC text the server sees.
+  const pattern = stripReplyPrefixes(foldSubjectText(input.pattern.trim()));
   if (input.status !== "APPROVED" && input.status !== "REJECTED") {
     throw new Error("Rule status must be APPROVED or REJECTED");
   }
@@ -1052,11 +1054,15 @@ export async function createSubjectRuleForUser(
               { domain: { endsWith: "." + rule.scopeValue } },
             ],
           };
-  const matchingMessages = await db.message.findMany({
+  // The subject comparison runs in JS through subjectRuleMatches — the exact
+  // predicate ingest uses — never in SQL (kurir-ios#59): ILIKE treats %/_ as
+  // wildcards and Postgres lower() has no NFC/NFD folding, so a rule could
+  // sweep once at creation and then never match again at ingest. SQL only
+  // pre-filters by sender scope; candidates are fetched and filtered here.
+  const candidates = await db.message.findMany({
     where: {
       emailConnectionId: sender.emailConnectionId,
       isArchived: false,
-      subject: { contains: pattern, mode: "insensitive" },
       sender: scopeWhere,
       OR: [
         { isInScreener: true },
@@ -1065,8 +1071,17 @@ export async function createSubjectRuleForUser(
         { isInPaperTrail: true },
       ],
     },
-    select: { id: true, uid: true, folderId: true },
+    select: {
+      id: true,
+      uid: true,
+      folderId: true,
+      subject: true,
+      sender: { select: { email: true } },
+    },
   });
+  const matchingMessages = candidates.filter(
+    (m) => m.sender != null && subjectRuleMatches(m.sender.email, m.subject, rule),
+  );
 
   if (matchingMessages.length > 0) {
     const ids = matchingMessages.map((m) => m.id);

@@ -716,6 +716,79 @@ describe("subject rules at ingest (kurir-ios#48)", () => {
     );
   });
 
+  it("an NFD subject matches an NFC pattern at ingest (kurir-ios#59)", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: null });
+
+    const nfcRule = {
+      id: "srule-nfc",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "s\u00e4kerhetsdigest", // säkerhetsdigest, NFC
+      status: "APPROVED",
+      category: "FEED",
+    };
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      // Subject with ä decomposed (NFD), as an iCloud/iOS-origin header can be.
+      fakeMsg("news@github.com", "Din sa\u0308kerhetsdigest f\u00f6r maj"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [nfcRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInFeed: true,
+          isInScreener: false,
+          subjectRuleId: "srule-nfc",
+        }),
+      }),
+    );
+  });
+
+  it("an encoded-word subject is decoded before matching and storing (kurir-ios#59)", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: null });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      // "Säkerhetsdigest" as a raw RFC 2047 encoded-word, as stored by a
+      // server that relays the header without decoding.
+      fakeMsg("news@github.com", "=?UTF-8?B?U8Oka2VyaGV0c2RpZ2VzdA==?="),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      {
+        isInbox: true,
+        own: OWN,
+        subjectRules: [
+          {
+            id: "srule-ew",
+            scope: "ADDRESS",
+            scopeValue: "news@github.com",
+            pattern: "s\u00e4kerhetsdigest",
+            status: "APPROVED",
+            category: "FEED",
+          } as any,
+        ],
+      },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInFeed: true,
+          subjectRuleId: "srule-ew",
+          // The decoded subject is what gets stored, so the create-time
+          // sweep matches it later too.
+          subject: "Säkerhetsdigest",
+        }),
+      }),
+    );
+  });
+
   it("retroactive own-sender auto-approve leaves subject-ruled mail in place (kurir-ios#60)", async () => {
     const db = await mockPersistence({ status: "PENDING", category: "IMBOX" });
     vi.mocked(db.sender.update).mockResolvedValue({

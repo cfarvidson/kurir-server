@@ -1,4 +1,5 @@
 import { ImapFlow, FetchMessageObject } from "imapflow";
+import libmime from "libmime";
 import { simpleParser } from "mailparser";
 import { db } from "@/lib/db";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
@@ -124,6 +125,25 @@ export function advanceWatermark(args: {
     return current;
   }
   return Math.max(current, allUids.reduce((a, b) => Math.max(a, b), 0));
+}
+
+/**
+ * Decode a subject as it arrives off the wire (kurir-ios#59): unfold header
+ * continuation lines, then decode RFC 2047 encoded-words. ImapFlow usually
+ * hands us a decoded envelope already — then both steps are no-ops — but a
+ * server relaying the raw header must not leave "=?utf-8?B?...?=" to be
+ * stored and matched literally. Malformed encoded-words fall through as-is.
+ */
+export function decodeSubjectHeader(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const unfolded = raw.replace(/\r?\n[ \t]/g, " ");
+  try {
+    return libmime.decodeWords(unfolded);
+  } catch {
+    return unfolded;
+  }
 }
 
 /**
@@ -560,6 +580,10 @@ export async function processMessage(
   // Parse the full message for body content
   const parsed = await simpleParser(msg.source);
 
+  // Subject as stored and matched everywhere below: unfolded and
+  // encoded-word-decoded (kurir-ios#59), never the raw envelope value.
+  const subject = decodeSubjectHeader(envelope.subject);
+
   // Extract sender info
   const fromHeader = envelope.from?.[0];
   const fromAddress =
@@ -581,7 +605,7 @@ export async function processMessage(
   // (kurir-ios#48); mail without a match keeps following the sender.
   const subjectRule =
     isInbox && !isArchived && subjectRules?.length && !(own && isOwnAddress(fromAddress, own))
-      ? matchSubjectRule(fromAddress, envelope.subject, subjectRules)
+      ? matchSubjectRule(fromAddress, subject, subjectRules)
       : null;
 
   const isInScreener =
@@ -691,7 +715,7 @@ export async function processMessage(
         userId,
         uid: { lt: 0 },
         fromAddress,
-        subject: envelope.subject || null,
+        subject: subject || null,
         ...(snippet ? { snippet } : {}),
         sentAt: {
           gte: new Date(envelope.date.getTime() - 60000),
@@ -725,7 +749,7 @@ export async function processMessage(
       threadId,
       inReplyTo,
       references,
-      subject: envelope.subject || null,
+      subject: subject || null,
       fromAddress,
       fromName,
       toAddresses:
