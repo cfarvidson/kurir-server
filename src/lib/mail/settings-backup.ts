@@ -104,7 +104,9 @@ export async function snapshotSettingsForUser(
     source,
     preferences: {
       theme: user.theme,
-      timezone: user.timezone,
+      // The payload schema wants a concrete zone; an account that never
+      // chose one renders as UTC everywhere, so that is what it exports.
+      timezone: user.timezone ?? "UTC",
       blockRemoteImages: user.blockRemoteImages,
       blockTrackers: user.blockTrackers,
       showImboxBadge: user.showImboxBadge,

@@ -20,6 +20,7 @@ import type { EmailConnection } from "@/components/settings/connection-card";
 import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { DisplayNameField } from "@/components/settings/display-name-field";
+import { TimezoneField } from "@/components/settings/timezone-field";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BadgePreferencesSettings } from "@/components/settings/badge-preferences";
@@ -133,6 +134,7 @@ export default async function SettingsPage() {
       where: { id: userId },
       select: {
         displayName: true,
+        timezone: true,
         role: true,
         createdAt: true,
         blockRemoteImages: true,
@@ -283,6 +285,7 @@ export default async function SettingsPage() {
         <SectionHeading eyebrow="Account" title="Profile" />
         <DefinitionList className="mt-4">
           <DisplayNameField currentName={user?.displayName ?? null} />
+          <TimezoneField current={user?.timezone ?? null} />
           <DefinitionRow label="Account created">
             {user?.createdAt.toLocaleDateString()}
           </DefinitionRow>

@@ -22,7 +22,11 @@ model User {
 
   // Identity (no email/IMAP fields -- those are on EmailConnection)
   displayName String?
-  timezone    String  @default("UTC")
+  // Null = never chosen. The mail layout adopts the browser's zone on the
+  // next visit (TimezoneAdoption); readers fall back to UTC until then.
+  // The old schema defaulted to "UTC" with no UI to change it, which drew
+  // every calendar two hours off in Stockholm (issue #37).
+  timezone    String?
   role        Role    @default(USER)
   theme       String  @default("system") // "light", "dark", or "system"
 
