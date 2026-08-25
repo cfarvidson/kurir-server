@@ -150,6 +150,51 @@ describe("createSubjectRuleForUser", () => {
     );
   });
 
+  it("strips reply/forward prefixes from the pattern (kurir-ios#58)", async () => {
+    mockSourceSender("news@github.com");
+    mockUpsertedRule();
+    dbMock.message.findMany.mockResolvedValue([]);
+    dbMock.message.updateMany.mockResolvedValue({ count: 0 });
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "Re: Fwd: Security digest",
+      status: "APPROVED",
+      category: "FEED",
+    });
+
+    expect(dbMock.subjectRule.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ pattern: "security digest" }),
+      }),
+    );
+    // The sweep queries with the stripped pattern; `contains` still finds
+    // existing "Re: …" messages since the stripped pattern is a substring.
+    expect(dbMock.message.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          subject: { contains: "security digest", mode: "insensitive" },
+        }),
+      }),
+    );
+  });
+
+  it("rejects a pattern that is nothing but a reply prefix", async () => {
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await expect(
+      createSubjectRuleForUser(USER, {
+        senderId: "s1",
+        scope: "ADDRESS",
+        scopeValue: "a@b.com",
+        pattern: "Re: ",
+        status: "REJECTED",
+      }),
+    ).rejects.toThrow("Subject pattern must not be empty");
+  });
+
   it("strips the category on screen-out rules", async () => {
     mockSourceSender("news@github.com");
     mockUpsertedRule({ status: "REJECTED", category: null });
