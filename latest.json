@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-24T09:31:52Z",
   "beta": {
-    "version": "2026.38",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.38",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.38",
-    "changelog": "Your calendar finally shows your own wall-clock time: the account timezone is adopted from your browser on the next visit and can be changed to any zone in Settings",
+    "version": "2026.39",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.39",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.39",
+    "changelog": "Screen by subject: route mail whose subject contains a phrase to Imbox, The Feed, Paper Trail, or straight to the archive - other mail from the same sender keeps following the sender's decision",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-08-25T09:35:09Z"
+    "releasedAt": "2026-08-25T11:58:23Z"
   }
 }

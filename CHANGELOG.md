@@ -4,6 +4,23 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.39] - 2026-08-25
+
+### Added
+
+- Subject screening rules (kurir-ios#48-#50): screen individual emails by
+  what their subject contains. A rule pairs a scope (an exact address, a
+  domain, or `*.domain`) with a case-insensitive "subject contains" phrase
+  and a verdict (Imbox / The Feed / Paper Trail / screen out), and is
+  evaluated per message at ingest - other mail from the same sender keeps
+  following the sender's own decision. Created from an open thread via the
+  new "Screen subject" popover (pre-filled with the message's subject),
+  managed in the Screener's screened list. Creating a rule retroactively
+  re-files existing matching mail, screen-out matches are archived on the
+  IMAP server too, and subject-rule placements outrank later sender-level
+  moves. Mobile clients get create/change/delete actions and a replace-all
+  `subjectRules` sync field; settings backups round-trip the rules.
+
 ## [v2026.38] - 2026-08-25
 
 ### Fixed
