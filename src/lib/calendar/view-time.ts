@@ -39,6 +39,11 @@ const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as cons
 export const VISIBLE_HOUR_START = 7;
 export const VISIBLE_HOUR_END = 21;
 export const FREETIME_MIN_MINUTES = 120;
+/**
+ * The smallest hole the agenda offers as a bookable gap row. Below this a
+ * hole is the walk between meetings, not an opportunity.
+ */
+export const BOOKABLE_GAP_MIN_MINUTES = 15;
 export const HOUR_HEIGHT_PX = 48;
 export const DAY_MINUTES = 24 * 60;
 
