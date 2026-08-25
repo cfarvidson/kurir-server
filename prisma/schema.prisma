@@ -67,6 +67,7 @@ model User {
   mobileTokens      MobileToken[]
   messageTombstones MessageTombstone[]
   domainRules       DomainRule[]
+  subjectRules      SubjectRule[]
   mcpTokens             McpToken[]
   mcpAuthorizationCodes McpAuthorizationCode[]
   mcpConfirmations      McpConfirmation[]
@@ -252,6 +253,7 @@ model EmailConnection {
   syncState         SyncState?
   scheduledMessages ScheduledMessage[]
   domainRules       DomainRule[]
+  subjectRules      SubjectRule[]
   calendarAccounts  CalendarAccount[]
 
   @@unique([userId, email])
@@ -360,6 +362,42 @@ model DomainRule {
   emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
 
   @@unique([emailConnectionId, pattern, includeSubdomains])
+  @@index([emailConnectionId])
+}
+
+// Scope of a subject screening rule: which senders it applies to.
+enum SubjectRuleScope {
+  ADDRESS // exact sender address
+  DOMAIN // exact domain
+  SUBDOMAINS // domain including subdomains (*.domain)
+}
+
+// Subject screening rule: route individual messages whose subject contains
+// `pattern` (case-insensitive), overriding the sender's decision. Unlike
+// sender/domain screening this is evaluated per message at ingest, so other
+// mail from the same sender keeps following the sender's own verdict.
+model SubjectRule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scope      SubjectRuleScope
+  scopeValue String // normalized lowercase address or domain
+  pattern    String // normalized lowercase subject substring
+
+  status   SenderStatus // APPROVED or REJECTED (never PENDING)
+  category SenderCategory? // required when status = APPROVED
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailConnectionId String
+  emailConnection   EmailConnection @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
+
+  // Provenance: messages this rule filed (cleared when the rule is deleted).
+  messages Message[]
+
+  @@unique([emailConnectionId, scope, scopeValue, pattern])
   @@index([emailConnectionId])
 }
 
@@ -489,6 +527,11 @@ model Message {
   senderId String? // Linked after sender detection
   sender   Sender? @relation(fields: [senderId], references: [id], onDelete: SetNull)
 
+  // Provenance: which subject rule filed this message (nulled on rule delete,
+  // placement kept) — the message-level analogue of Sender.decidedByRuleId.
+  subjectRuleId String?
+  subjectRule   SubjectRule? @relation(fields: [subjectRuleId], references: [id], onDelete: SetNull)
+
   attachments Attachment[]
   meeting     MessageMeeting?
 
@@ -503,6 +546,7 @@ model Message {
   @@index([userId, isArchived])
   @@index([userId, isSnoozed, snoozedUntil])
   @@index([userId, isFollowUp])
+  @@index([subjectRuleId])
   @@index([userId, isReplyLater])
   @@index([userId, followUpAt])
   @@index([userId, receivedAt(sort: Desc)])

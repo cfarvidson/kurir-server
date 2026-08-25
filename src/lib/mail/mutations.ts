@@ -6,7 +6,12 @@ import {
 } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
-import { SenderCategory, SenderStatus } from "@prisma/client";
+import { scopeMatchesSender } from "@/lib/mail/subject-rules";
+import {
+  SenderCategory,
+  SenderStatus,
+  SubjectRuleScope,
+} from "@prisma/client";
 
 /**
  * Shared mutation cores for message/sender operations.
@@ -882,6 +887,165 @@ export async function listDomainRulesForUser(userId: string) {
       id: true,
       pattern: true,
       includeSubdomains: true,
+      status: true,
+      category: true,
+      emailConnectionId: true,
+      createdAt: true,
+    },
+  });
+}
+
+// ============================================
+// SUBJECT SCREENING RULES (kurir-ios#48)
+// ============================================
+
+export interface CreateSubjectRuleInput {
+  /** Sender the rule was created from (scopes the connection). */
+  senderId: string;
+  scope: SubjectRuleScope;
+  scopeValue: string;
+  pattern: string;
+  status: SenderStatus; // APPROVED or REJECTED, never PENDING
+  category?: SenderCategory | null;
+}
+
+/**
+ * Create (or re-point) a subject rule. Unlike sender/domain screening the
+ * rule is evaluated per message at ingest, so it never touches the sender's
+ * own decision. Upsert on (emailConnectionId, scope, scopeValue, pattern)
+ * makes replay idempotent.
+ */
+export async function createSubjectRuleForUser(
+  userId: string,
+  input: CreateSubjectRuleInput,
+) {
+  const scopeValue = input.scopeValue.trim().toLowerCase();
+  const pattern = input.pattern.trim().toLowerCase();
+  if (input.status !== "APPROVED" && input.status !== "REJECTED") {
+    throw new Error("Rule status must be APPROVED or REJECTED");
+  }
+  if (input.status === "APPROVED" && !input.category) {
+    throw new Error("Category required for approve rules");
+  }
+  if (!pattern) {
+    throw new Error("Subject pattern must not be empty");
+  }
+  if (input.scope === "SUBDOMAINS" && scopeValue.split(".").length < 2) {
+    throw new Error("Invalid wildcard scope");
+  }
+
+  const sender = await db.sender.findUnique({
+    where: { id: input.senderId },
+    select: { userId: true, email: true, emailConnectionId: true },
+  });
+  if (!sender || sender.userId !== userId) {
+    throw new Error("Sender not found");
+  }
+  if (
+    !scopeMatchesSender(sender.email, {
+      scope: input.scope,
+      scopeValue,
+      pattern,
+    })
+  ) {
+    throw new Error("Scope does not match sender");
+  }
+
+  const category = input.status === "APPROVED" ? input.category! : null;
+  const rule = await db.subjectRule.upsert({
+    where: {
+      emailConnectionId_scope_scopeValue_pattern: {
+        emailConnectionId: sender.emailConnectionId,
+        scope: input.scope,
+        scopeValue,
+        pattern,
+      },
+    },
+    create: {
+      userId,
+      emailConnectionId: sender.emailConnectionId,
+      scope: input.scope,
+      scopeValue,
+      pattern,
+      status: input.status,
+      category,
+    },
+    update: { status: input.status, category },
+  });
+
+  return rule;
+}
+
+/**
+ * Point a subject rule at a (new) category and move every non-archived
+ * message it filed (subjectRuleId provenance) along with it. Also flips a
+ * REJECTED rule to APPROVED; already-archived matches stay archived
+ * (decisions kept, mirroring domain rules).
+ */
+export async function changeSubjectRuleCategoryForUser(
+  userId: string,
+  ruleId: string,
+  category: SenderCategory,
+) {
+  const rule = await db.subjectRule.findUnique({
+    where: { id: ruleId },
+    select: { id: true, userId: true },
+  });
+  if (!rule || rule.userId !== userId) {
+    throw new Error("Rule not found");
+  }
+
+  await db.$transaction([
+    db.subjectRule.update({
+      where: { id: ruleId },
+      data: { status: "APPROVED", category },
+    }),
+    db.message.updateMany({
+      where: { subjectRuleId: ruleId, isArchived: false },
+      data: {
+        isInScreener: false,
+        isInImbox: category === "IMBOX",
+        isInFeed: category === "FEED",
+        isInPaperTrail: category === "PAPER_TRAIL",
+      },
+    }),
+  ]);
+}
+
+/**
+ * Delete a subject rule. Message placements are materialized, so they are
+ * kept — only the provenance link is cleared. New matching mail follows the
+ * sender again. No-op when the rule is already gone (idempotent replay).
+ */
+export async function deleteSubjectRuleForUser(userId: string, ruleId: string) {
+  const rule = await db.subjectRule.findUnique({
+    where: { id: ruleId },
+    select: { id: true, userId: true },
+  });
+  if (!rule) return;
+  if (rule.userId !== userId) {
+    throw new Error("Rule not found");
+  }
+
+  await db.$transaction([
+    db.message.updateMany({
+      where: { subjectRuleId: ruleId },
+      data: { subjectRuleId: null },
+    }),
+    db.subjectRule.delete({ where: { id: ruleId } }),
+  ]);
+}
+
+/** All subject rules for a user, for the screened list. */
+export async function listSubjectRulesForUser(userId: string) {
+  return db.subjectRule.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      scope: true,
+      scopeValue: true,
+      pattern: true,
       status: true,
       category: true,
       emailConnectionId: true,

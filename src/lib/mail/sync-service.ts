@@ -14,14 +14,29 @@ import {
   storedContentToBuffer,
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
+import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
-import type { SenderCategory, SenderStatus } from "@prisma/client";
+import type {
+  SenderCategory,
+  SenderStatus,
+  SubjectRuleScope,
+} from "@prisma/client";
 
 /** Domain screening rule shape needed at sync time (plan 033). */
 export interface SyncDomainRule {
   id: string;
   pattern: string;
   includeSubdomains: boolean;
+  status: SenderStatus;
+  category: SenderCategory | null;
+}
+
+/** Subject screening rule shape needed at sync time (kurir-ios#48). */
+export interface SyncSubjectRule {
+  id: string;
+  scope: SubjectRuleScope;
+  scopeValue: string;
+  pattern: string;
   status: SenderStatus;
   category: SenderCategory | null;
 }
@@ -229,6 +244,7 @@ async function syncMailbox(
   batchSize?: number,
   own?: OwnAddresses,
   domainRules?: SyncDomainRule[],
+  subjectRules?: SyncSubjectRule[],
 ): Promise<SyncResult> {
   const errors: string[] = [];
   let newMessages = 0;
@@ -443,6 +459,7 @@ async function syncMailbox(
                   own,
                   isArchived: archived,
                   domainRules,
+                  subjectRules,
                 },
               );
               newMessages++;
@@ -512,6 +529,7 @@ interface ProcessMessageOptions {
   own?: OwnAddresses;
   isArchived?: boolean;
   domainRules?: SyncDomainRule[];
+  subjectRules?: SyncSubjectRule[];
 }
 
 /**
@@ -524,7 +542,8 @@ export async function processMessage(
   folderId: string,
   options: ProcessMessageOptions,
 ) {
-  const { isInbox, own, isArchived = false, domainRules } = options;
+  const { isInbox, own, isArchived = false, domainRules, subjectRules } =
+    options;
   const envelope = msg.envelope;
   const flags = msg.flags;
 
@@ -555,30 +574,37 @@ export async function processMessage(
     domainRules,
   );
 
-  // Only categorize inbox messages; sent/other folders skip categorization
-  const isInScreener = isInbox && !isArchived && sender.status === "PENDING";
-  const isRejectedInbox =
-    isInbox && !isArchived && sender.status === "REJECTED";
+  // Only categorize inbox messages; sent/other folders skip categorization.
+  // A matching subject rule overrides the sender's decision for this message
+  // (kurir-ios#48); mail without a match keeps following the sender.
+  const subjectRule =
+    isInbox && !isArchived && subjectRules?.length && !(own && isOwnAddress(fromAddress, own))
+      ? matchSubjectRule(fromAddress, envelope.subject, subjectRules)
+      : null;
 
-  // Auto-archive messages from rejected senders
+  const isInScreener =
+    isInbox && !isArchived && !subjectRule && sender.status === "PENDING";
+  const isRejectedInbox =
+    isInbox &&
+    !isArchived &&
+    (subjectRule
+      ? subjectRule.status === "REJECTED"
+      : sender.status === "REJECTED");
+
+  // Auto-archive rejected-sender mail and subject-screened-out mail
   const finalIsArchived = isArchived || isRejectedInbox;
 
   // Category flags must be false for archived messages
-  const isInImbox =
-    isInbox &&
-    !finalIsArchived &&
-    sender.status === "APPROVED" &&
-    sender.category === "IMBOX";
-  const isInFeed =
-    isInbox &&
-    !finalIsArchived &&
-    sender.status === "APPROVED" &&
-    sender.category === "FEED";
+  const category =
+    subjectRule?.status === "APPROVED"
+      ? subjectRule.category
+      : !subjectRule && sender.status === "APPROVED"
+        ? sender.category
+        : null;
+  const isInImbox = isInbox && !finalIsArchived && category === "IMBOX";
+  const isInFeed = isInbox && !finalIsArchived && category === "FEED";
   const isInPaperTrail =
-    isInbox &&
-    !finalIsArchived &&
-    sender.status === "APPROVED" &&
-    sender.category === "PAPER_TRAIL";
+    isInbox && !finalIsArchived && category === "PAPER_TRAIL";
 
   // Check for attachments
   const hasAttachments = parsed.attachments && parsed.attachments.length > 0;
@@ -721,6 +747,7 @@ export async function processMessage(
       isInFeed,
       isInPaperTrail,
       isArchived: finalIsArchived,
+      subjectRuleId: subjectRule?.id ?? null,
       folderId,
       userId,
       emailConnectionId,
@@ -859,7 +886,10 @@ async function moveRejectedToArchive(
       folderId: inboxFolderId,
       isArchived: true,
       uid: { gt: 0 },
-      sender: { status: "REJECTED" },
+      OR: [
+        { sender: { status: "REJECTED" } },
+        { subjectRule: { status: "REJECTED" } },
+      ],
     },
     select: { id: true, uid: true },
   });
@@ -1027,11 +1057,17 @@ export async function syncEmailConnection(
         : [],
     };
 
-    // Domain screening rules, loaded once per sync run (same pattern as
-    // OwnAddresses) so every new sender in this run sees the same rule set.
-    const domainRules = await db.domainRule.findMany({
-      where: { emailConnectionId },
-    });
+    // Domain + subject screening rules, loaded once per sync run (same
+    // pattern as OwnAddresses) so every message in this run sees the same
+    // rule set. Subject rules ordered createdAt asc so full ties in
+    // matchSubjectRule go to the oldest rule.
+    const [domainRules, subjectRules] = await Promise.all([
+      db.domainRule.findMany({ where: { emailConnectionId } }),
+      db.subjectRule.findMany({
+        where: { emailConnectionId },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
 
     const { heartbeatSyncLock } = await import("@/lib/mail/sync-lock");
 
@@ -1047,6 +1083,7 @@ export async function syncEmailConnection(
           options?.batchSize,
           own,
           domainRules,
+          subjectRules,
         );
         console.log(
           `[sync] ${path}: ${result.newMessages} new, ${result.remaining} remaining, ${result.errors.length} errors`,
