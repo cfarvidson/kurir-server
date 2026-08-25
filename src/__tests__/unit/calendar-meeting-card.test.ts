@@ -5,6 +5,7 @@ import {
   meetingOrganizerLabel,
   meetingResponseFromAttendees,
   meetingWhenLabel,
+  serializeMobileMeeting,
 } from "@/lib/calendar/meeting-card";
 
 describe("meetingCardState", () => {
@@ -144,5 +145,56 @@ describe("meetingResponseFromAttendees", () => {
         },
       ]),
     ).toBe("tentative");
+  });
+});
+
+describe("serializeMobileMeeting", () => {
+  const row = (calendarEvent: { attendeesJson: unknown } | null) => ({
+    uid: "uid-1",
+    method: "REQUEST",
+    title: "Standup",
+    startAt: new Date("2026-08-20T09:00:00.000Z"),
+    endAt: new Date("2026-08-20T09:30:00.000Z"),
+    isAllDay: false,
+    location: null,
+    organizerName: null,
+    organizerEmail: null,
+    calendarEventId: calendarEvent ? "evt-1" : null,
+    calendarEvent,
+  });
+
+  it.each([
+    ["ACCEPTED", "accepted"],
+    ["TENTATIVE", "tentative"],
+    ["DECLINED", "declined"],
+  ])("carries the self attendee's %s partstat as response", (partstat, response) => {
+    expect(
+      serializeMobileMeeting(
+        row({
+          attendeesJson: [{ email: "me@x.y", partstat, self: true }],
+        }),
+      )?.response,
+    ).toBe(response);
+  });
+
+  it("serializes needs-action as a null response", () => {
+    expect(
+      serializeMobileMeeting(
+        row({
+          attendeesJson: [
+            { email: "me@x.y", partstat: "NEEDS-ACTION", self: true },
+          ],
+        }),
+      )?.response,
+    ).toBeNull();
+  });
+
+  it("serializes cleanly with a null response when no calendar event is linked", () => {
+    const meeting = serializeMobileMeeting(row(null));
+    expect(meeting).toMatchObject({
+      uid: "uid-1",
+      calendarEventId: null,
+      response: null,
+    });
   });
 });

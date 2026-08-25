@@ -112,6 +112,51 @@ describe("GET /api/mobile/search", () => {
     );
   });
 
+  /// Search shares MESSAGE_SELECT + presentMobileMessages with sync, but
+  /// re-queries separately - pin the meeting response here too so a forked
+  /// select can't silently drop it from one endpoint.
+  it("carries the meeting's RSVP response like sync does", async () => {
+    await mockAuthed();
+    const { searchMessages } = await import("@/lib/mail/search");
+    const { db } = await import("@/lib/db");
+
+    vi.mocked(searchMessages).mockResolvedValue([{ id: "m1" }] as any);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        id: "m1",
+        folder: null,
+        meeting: {
+          uid: "uid-standup",
+          method: "REQUEST",
+          title: "Standup",
+          startAt: new Date("2026-08-20T09:00:00.000Z"),
+          endAt: new Date("2026-08-20T09:30:00.000Z"),
+          isAllDay: false,
+          location: null,
+          organizerName: null,
+          organizerEmail: null,
+          calendarEventId: "evt-1",
+          calendarEvent: {
+            attendeesJson: [
+              { email: "me@x.y", partstat: "TENTATIVE", self: true },
+            ],
+          },
+        },
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/search/route");
+    const res = await GET(makeRequest({ q: "standup" }));
+    const body = await res.json();
+
+    expect(body.messages[0].meeting.response).toBe("tentative");
+    const select = vi.mocked(db.message.findMany).mock.calls[0][0]!
+      .select as any;
+    expect(select.meeting.select.calendarEvent).toEqual({
+      select: { attendeesJson: true },
+    });
+  });
+
   it("flattens folder.specialUse into a flat folderRole", async () => {
     await mockAuthed();
     const { searchMessages } = await import("@/lib/mail/search");

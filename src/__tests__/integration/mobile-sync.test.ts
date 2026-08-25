@@ -340,6 +340,12 @@ describe("GET /api/mobile/sync", () => {
           organizerName: "Ada",
           organizerEmail: "ada@x.y",
           calendarEventId: "evt-1",
+          calendarEvent: {
+            attendeesJson: [
+              { email: "ada@x.y", partstat: "ACCEPTED" },
+              { email: "me@x.y", partstat: "DECLINED", self: true },
+            ],
+          },
         },
       },
       {
@@ -365,6 +371,7 @@ describe("GET /api/mobile/sync", () => {
       organizerName: "Ada",
       organizerEmail: "ada@x.y",
       calendarEventId: "evt-1",
+      response: "declined",
     });
     expect("meeting" in body.messages[1]).toBe(false);
 
@@ -382,6 +389,7 @@ describe("GET /api/mobile/sync", () => {
         organizerName: true,
         organizerEmail: true,
         calendarEventId: true,
+        calendarEvent: { select: { attendeesJson: true } },
       },
     });
   });
