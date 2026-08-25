@@ -715,6 +715,30 @@ describe("subject rules at ingest (kurir-ios#48)", () => {
       }),
     );
   });
+
+  it("retroactive own-sender auto-approve leaves subject-ruled mail in place (kurir-ios#60)", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: "IMBOX" });
+    vi.mocked(db.sender.update).mockResolvedValue({
+      id: "sender-1",
+      status: "APPROVED",
+      category: "IMBOX",
+    } as any);
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("me@example.com", "hello"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN },
+    );
+
+    // The screener sweep must not re-file messages a subject rule placed.
+    expect(db.message.updateMany).toHaveBeenCalledWith({
+      where: { senderId: "sender-1", isInScreener: true, subjectRuleId: null },
+      data: { isInScreener: false, isInImbox: true },
+    });
+  });
 });
 
 describe("processMessage scoping", () => {

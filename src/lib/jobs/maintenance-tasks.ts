@@ -85,7 +85,9 @@ export async function approveOwnPendingSenders(
       data: { status: "APPROVED", category: "IMBOX", decidedAt: new Date() },
     }),
     db.message.updateMany({
-      where: { senderId: { in: ids }, isArchived: false },
+      // Subject-rule placements outrank sender decisions (kurir-ios#48):
+      // mail a subject rule filed keeps its placement.
+      where: { senderId: { in: ids }, isArchived: false, subjectRuleId: null },
       data: {
         isInScreener: false,
         isInImbox: true,
