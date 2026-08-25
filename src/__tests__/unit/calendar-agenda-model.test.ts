@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   agendaRows,
   ALL_DAY_START_MIN,
-  nowRowIndex,
+  nowLineIndex,
 } from "@/components/calendar/agenda-model";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { zonedWallToUtc, type CivilDate } from "@/lib/calendar/view-time";
@@ -186,17 +186,119 @@ describe("agendaRows", () => {
   });
 });
 
-describe("nowRowIndex", () => {
-  it("puts the line before the first row that starts after now, else last", () => {
-    const rows = agendaRows([timed("a", 9, 10), timed("b", 14, 15)], DAY, TZ);
-    // Rows start at 07:00, 09:00, 10:00, 14:00, 15:00.
-    expect(nowRowIndex(rows, 8 * 60)).toBe(1);
-    expect(nowRowIndex(rows, 23 * 60)).toBe(rows.length);
+describe("agendaRows with now", () => {
+  it("clips a free span straddling now to its remaining minutes", () => {
+    // Free 07-09, a 09-10, free 10-21. Now 12:00 is inside the second span.
+    const now = 12 * 60;
+    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ, now);
+    expect(kinds(rows)).toEqual(["free", "a", "free"]);
+    const clipped = rows[2];
+    if (clipped.kind !== "free") throw new Error("expected free row");
+    // The claim starts at now, so creating an event from it does too.
+    expect(clipped.startMin).toBe(now);
+    expect(clipped.minutes).toBe(21 * 60 - now);
+    expect(clipped.timeLabel).toBe("12:00");
+    // The past span keeps its shape - history is not rewritten.
+    const past = rows[0];
+    if (past.kind !== "free") throw new Error("expected free row");
+    expect(past.startMin).toBe(7 * 60);
+    expect(past.minutes).toBe(120);
   });
 
-  it("counts a row starting exactly now as already underway", () => {
-    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ);
-    // Rows: free 07:00, a 09:00, free 10:00.
-    expect(nowRowIndex(rows, 9 * 60)).toBe(2);
+  it("chooses the longest stretch by remaining minutes, not original length", () => {
+    // Holes: 08-13 (5 h) and 14-16 (2 h). At 12:00 only an hour remains of
+    // the big one, so the small one is the day's longest stretch.
+    const rows = agendaRows(
+      [timed("a", 7, 8), timed("b", 13, 14), timed("c", 16, 21)],
+      DAY,
+      TZ,
+      12 * 60,
+    );
+    const spans = rows.flatMap((row) =>
+      row.kind === "free" ? [{ minutes: row.minutes, isLongest: row.isLongest }] : [],
+    );
+    expect(spans).toEqual([
+      { minutes: 60, isLongest: false },
+      { minutes: 120, isLongest: true },
+    ]);
+  });
+
+  it("flags no stretch when the whole day is behind now", () => {
+    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ, 22 * 60);
+    expect(rows.some((row) => row.kind === "free" && row.isLongest)).toBe(false);
+  });
+
+  it("clips a short gap straddling now", () => {
+    // Gaps 11-12 and 14-15. Now 11:20 leaves 40 bookable minutes.
+    const rows = agendaRows(
+      [timed("a", 9, 11), timed("b", 12, 14), timed("c", 15, 17)],
+      DAY,
+      TZ,
+      11 * 60 + 20,
+    );
+    const gaps = rows.flatMap((row) => (row.kind === "gap" ? [row] : []));
+    expect(gaps.map((g) => g.startMin)).toEqual([11 * 60 + 20, 14 * 60]);
+    expect(gaps[0].minutes).toBe(40);
+    expect(gaps[0].timeLabel).toBe("11:20");
+    expect(gaps[0].durationLabel).toBe("40 min");
+  });
+
+  it("marks the ongoing event as current, including one starting exactly now", () => {
+    const during = agendaRows([timed("a", 9, 10)], DAY, TZ, 9 * 60 + 30);
+    const atStart = agendaRows([timed("a", 9, 10)], DAY, TZ, 9 * 60);
+    for (const rows of [during, atStart]) {
+      const event = rows.find((row) => row.kind === "event");
+      expect(event?.kind === "event" && event.isNow).toBe(true);
+    }
+  });
+
+  it("never marks all-day rows or events on other days as current", () => {
+    const rows = agendaRows([allDay("V"), timed("a", 9, 10)], DAY, TZ, 12 * 60);
+    const allDayRow = rows[0];
+    expect(allDayRow.kind === "event" && allDayRow.isNow).toBe(false);
+    const other = agendaRows([timed("a", 9, 10)], DAY, TZ, null);
+    expect(other.some((row) => row.kind === "event" && row.isNow)).toBe(false);
+  });
+
+  it("leaves a day that is not today untouched", () => {
+    const instances = [timed("a", 9, 10), timed("b", 14, 15)];
+    expect(agendaRows(instances, DAY, TZ, null)).toEqual(
+      agendaRows(instances, DAY, TZ),
+    );
+  });
+});
+
+describe("nowLineIndex", () => {
+  it("puts the line at the now boundary before the first row at or after now", () => {
+    const now = 12 * 60;
+    const rows = agendaRows([timed("a", 9, 10), timed("b", 14, 15)], DAY, TZ, now);
+    // Rows: free 07:00, a 09:00, free 12:00 (clipped), b 14:00, free 15:00.
+    expect(nowLineIndex(rows, now)).toBe(2);
+  });
+
+  it("suppresses the line while an event is ongoing", () => {
+    const now = 9 * 60 + 30;
+    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ, now);
+    expect(nowLineIndex(rows, now)).toBeNull();
+  });
+
+  it("sits at the boundary the moment an event ends, not under it earlier", () => {
+    const now = 10 * 60;
+    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ, now);
+    // Rows: free 07:00, a 09:00, free 10:00. The line lands exactly on the
+    // 10:00 boundary, before the free row that starts there.
+    expect(nowLineIndex(rows, now)).toBe(2);
+  });
+
+  it("renders before the first row when now precedes the day, after all-day rows", () => {
+    const now = 6 * 60;
+    const rows = agendaRows([allDay("V"), timed("a", 9, 10)], DAY, TZ, now);
+    expect(nowLineIndex(rows, now)).toBe(1);
+  });
+
+  it("renders after the last row when the day is over", () => {
+    const now = 22 * 60;
+    const rows = agendaRows([timed("a", 9, 10)], DAY, TZ, now);
+    expect(nowLineIndex(rows, now)).toBe(rows.length);
   });
 });

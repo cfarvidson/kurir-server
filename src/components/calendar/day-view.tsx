@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   agendaRows,
-  nowRowIndex,
+  nowLineIndex,
   type AgendaRow,
 } from "@/components/calendar/agenda-model";
 import { nowMinutesOnDay } from "@/components/calendar/grid-model";
@@ -55,14 +55,17 @@ export function DayView({
     return () => window.clearInterval(id);
   }, []);
 
-  const rows = useMemo(
-    () => agendaRows(instances, anchor, timezone),
-    [instances, anchor, timezone],
-  );
-  // The now-line is inserted at its position in the list on today, and
-  // not rendered at all on any other day.
+  // On today the rows themselves know about now: straddling free/gap
+  // spans are clipped to what remains and the ongoing event is flagged.
+  // Any other day gets null and renders untouched.
   const nowMin = nowMinutesOnDay(anchor, timezone, now);
-  const nowAt = nowMin == null ? null : nowRowIndex(rows, nowMin);
+  const rows = useMemo(
+    () => agendaRows(instances, anchor, timezone, nowMin),
+    [instances, anchor, timezone, nowMin],
+  );
+  // The line only appears in unbooked time; while an event is ongoing
+  // its row carries the marking instead and the index is null.
+  const nowAt = nowMin == null ? null : nowLineIndex(rows, nowMin);
 
   // Without a writable calendar the free rows still render as
   // information, just without the claim affordance.
@@ -130,6 +133,15 @@ function EventRow({
         {row.timeLabel != null && row.durationLabel != null && (
           <span className="text-[11px] text-muted-foreground">
             {row.durationLabel}
+          </span>
+        )}
+        {row.isNow && (
+          <span
+            aria-label="Now"
+            className="flex items-center gap-1 text-[11px] font-medium text-primary"
+          >
+            <span className="size-1.5 rounded-full bg-primary" />
+            Now
           </span>
         )}
       </span>
