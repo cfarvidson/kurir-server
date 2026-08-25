@@ -27,6 +27,7 @@ export default async function ImboxDetailPage({
         messageId,
         returnPath,
         threadKey,
+        threadId,
         timezone,
         followUpAt,
         isFollowUp,
@@ -37,6 +38,7 @@ export default async function ImboxDetailPage({
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
           <ReplyLaterButton messageId={messageId} isReplyLater={isReplyLater} />
           <FollowUpButton
@@ -53,6 +55,7 @@ export default async function ImboxDetailPage({
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
         </>
       )}

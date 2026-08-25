@@ -33,6 +33,11 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 // ---------------------------------------------------------------------------
 
 const pendingArchiveKeys = new Set<string>();
+// Thread ids pending archive. For senders with `unthread` set, list rows carry
+// per-message thread keys while `archiveConversation` archives all `threadId`
+// siblings — suppressing by threadId mirrors that server-side expansion so the
+// sibling rows do not linger until the post-action refresh.
+const pendingArchiveThreadIds = new Set<string>();
 const listeners = new Set<() => void>();
 // Monotonic version so `useSyncExternalStore` gets a fresh snapshot value on
 // every mutation (the mutable Set keeps the same identity otherwise).
@@ -43,22 +48,41 @@ function emitChange() {
   for (const listener of listeners) listener();
 }
 
-/** Record a thread key as pending-archive. List rows for it are suppressed. */
-export function recordPendingArchive(threadKey: string): void {
+/** Record a thread key (and its threadId, when known) as pending-archive.
+ *  List rows for the key — and for any row sharing the threadId — are
+ *  suppressed. */
+export function recordPendingArchive(
+  threadKey: string,
+  threadId?: string | null,
+): void {
   pendingArchiveKeys.add(threadKey);
+  if (threadId) pendingArchiveThreadIds.add(threadId);
   emitChange();
 }
 
 /** Clear a pending-archive entry (after the action settles or undo resolves). */
-export function clearPendingArchive(threadKey: string): void {
-  if (pendingArchiveKeys.delete(threadKey)) {
+export function clearPendingArchive(
+  threadKey: string,
+  threadId?: string | null,
+): void {
+  const removedKey = pendingArchiveKeys.delete(threadKey);
+  const removedThreadId = threadId
+    ? pendingArchiveThreadIds.delete(threadId)
+    : false;
+  if (removedKey || removedThreadId) {
     emitChange();
   }
 }
 
-/** Whether a given thread key is currently pending-archive. */
-export function isPendingArchive(threadKey: string): boolean {
-  return pendingArchiveKeys.has(threadKey);
+/** Whether a given thread key (or the row's threadId) is pending-archive. */
+export function isPendingArchive(
+  threadKey: string,
+  threadId?: string | null,
+): boolean {
+  return (
+    pendingArchiveKeys.has(threadKey) ||
+    (!!threadId && pendingArchiveThreadIds.has(threadId))
+  );
 }
 
 /** Subscribe to pending-store changes (for `useSyncExternalStore`). */
@@ -84,7 +108,10 @@ function getServerVersion(): number {
  * for whether a thread key is currently pending-archive. Re-renders the caller
  * whenever the store changes so cold-cache deep-link lists suppress the row.
  */
-export function usePendingArchiveFilter(): (threadKey: string) => boolean {
+export function usePendingArchiveFilter(): (
+  threadKey: string,
+  threadId?: string | null,
+) => boolean {
   const storeVersion = useSyncExternalStore(
     subscribePendingArchive,
     getVersion,
@@ -94,7 +121,8 @@ export function usePendingArchiveFilter(): (threadKey: string) => boolean {
   // dependency arrays, so its identity must change when the store changes —
   // returning the module-level function would leave memoized lists stale.
   return useMemo(
-    () => (threadKey: string) => pendingArchiveKeys.has(threadKey),
+    () => (threadKey: string, threadId?: string | null) =>
+      isPendingArchive(threadKey, threadId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [storeVersion],
   );
@@ -103,6 +131,7 @@ export function usePendingArchiveFilter(): (threadKey: string) => boolean {
 /** Test-only reset of the module-level store. */
 export function __resetPendingArchive(): void {
   pendingArchiveKeys.clear();
+  pendingArchiveThreadIds.clear();
   emitChange();
 }
 
@@ -132,8 +161,11 @@ type InfiniteCache = InfiniteData<CachedPage>;
 export function filterThreadFromMessageCaches(
   queryClient: QueryClient,
   threadKey: string,
+  threadId?: string | null,
 ): void {
   const queries = queryClient.getQueryCache().findAll({ queryKey: ["messages"] });
+  const isArchived = (m: CachedMessage) =>
+    threadKeyOf(m) === threadKey || (!!threadId && m.threadId === threadId);
   for (const query of queries) {
     queryClient.setQueryData<InfiniteCache>(query.queryKey, (old) => {
       if (!old?.pages) return old;
@@ -141,7 +173,7 @@ export function filterThreadFromMessageCaches(
         ...old,
         pages: old.pages.map((page) => ({
           ...page,
-          messages: page.messages.filter((m) => threadKeyOf(m) !== threadKey),
+          messages: page.messages.filter((m) => !isArchived(m)),
         })),
       };
     });
@@ -157,6 +189,10 @@ interface PerformOptimisticArchiveOptions {
   /** Thread collapse key (threadId + unthread state). Falls back to a
    *  cache-derived lookup, then to `messageId`, when absent. */
   threadKey?: string;
+  /** The target message's threadId. For unthreaded senders the thread key is
+   *  per-message, but `archiveConversation` archives all threadId siblings —
+   *  passing it lets the suppression mirror that expansion. */
+  threadId?: string | null;
   returnPath: string;
   queryClient: QueryClient;
   router: { push: (path: string) => void; refresh: () => void };
@@ -231,10 +267,11 @@ export function performOptimisticArchive(
   const toastFn = opts.showUndoToast ?? showUndoToast;
 
   const threadKey = resolveThreadKey(queryClient, messageId, opts.threadKey);
+  const threadId = opts.threadId ?? null;
 
   // 1. Record + filter (so the row is gone everywhere, cold cache or not).
-  recordPendingArchive(threadKey);
-  filterThreadFromMessageCaches(queryClient, threadKey);
+  recordPendingArchive(threadKey, threadId);
+  filterThreadFromMessageCaches(queryClient, threadKey, threadId);
 
   // 3. Fire the action (declared before the toast so Undo can chain on it).
   //    The promise is kept so Undo runs only after archive settles.
@@ -260,14 +297,14 @@ export function performOptimisticArchive(
         .then(() => unarchiveConversation(messageId))
         .then(
           () => {
-            clearPendingArchive(threadKey);
+            clearPendingArchive(threadKey, threadId);
             // A filtered cache will not repopulate from initialData on its own.
             queryClient.invalidateQueries({ queryKey: ["messages"] });
             router.refresh();
           },
           (err) => {
             onError(err);
-            clearPendingArchive(threadKey);
+            clearPendingArchive(threadKey, threadId);
             queryClient.invalidateQueries({ queryKey: ["messages"] });
             router.refresh();
           },
@@ -285,14 +322,14 @@ export function performOptimisticArchive(
       // cache; release the suppression so the store does not grow unbounded.
       // (Undo chains on `archivePromise` independently, so a not-yet-pressed
       // Undo still works — it re-adds the row via unarchive.)
-      clearPendingArchive(threadKey);
+      clearPendingArchive(threadKey, threadId);
       router.refresh();
     },
     (err) => {
       onError(err);
       // Surface the failure and restore the thread.
       toast.error(ERROR_TOAST_LABEL, { id: toastId });
-      clearPendingArchive(threadKey);
+      clearPendingArchive(threadKey, threadId);
       queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     },
@@ -309,6 +346,9 @@ export function performOptimisticArchive(
 export function performOptimisticUnarchive(opts: {
   messageId: string;
   threadKey?: string;
+  /** See `PerformOptimisticArchiveOptions.threadId` — unarchive expands to
+   *  threadId siblings server-side the same way. */
+  threadId?: string | null;
   returnPath: string;
   queryClient: QueryClient;
   router: { push: (path: string) => void; refresh: () => void };
@@ -325,9 +365,10 @@ export function performOptimisticUnarchive(opts: {
   } = opts;
 
   const threadKey = resolveThreadKey(queryClient, messageId, opts.threadKey);
+  const threadId = opts.threadId ?? null;
 
-  recordPendingArchive(threadKey);
-  filterThreadFromMessageCaches(queryClient, threadKey);
+  recordPendingArchive(threadKey, threadId);
+  filterThreadFromMessageCaches(queryClient, threadKey, threadId);
 
   const promise = unarchiveConversation(messageId);
   router.push(returnPath);
@@ -336,13 +377,13 @@ export function performOptimisticUnarchive(opts: {
     () => {
       // Mirror the archive success path — a never-cleared pending key would
       // suppress the thread in every list for the rest of the session.
-      clearPendingArchive(threadKey);
+      clearPendingArchive(threadKey, threadId);
       queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     },
     (err) => {
       onError(err);
-      clearPendingArchive(threadKey);
+      clearPendingArchive(threadKey, threadId);
       queryClient.invalidateQueries({ queryKey: ["messages"] });
       router.refresh();
     },

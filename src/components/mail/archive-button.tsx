@@ -10,12 +10,14 @@ interface ArchiveButtonProps {
   messageId: string;
   returnPath?: string;
   threadKey?: string;
+  threadId?: string | null;
 }
 
 export function ArchiveButton({
   messageId,
   returnPath = "/imbox",
   threadKey,
+  threadId,
 }: ArchiveButtonProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -24,6 +26,7 @@ export function ArchiveButton({
     performOptimisticArchive({
       messageId,
       threadKey,
+      threadId,
       returnPath,
       queryClient,
       router,

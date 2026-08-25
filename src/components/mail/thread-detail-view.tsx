@@ -60,6 +60,7 @@ interface ThreadDetailViewProps {
     messageId: string;
     returnPath: string;
     threadKey: string;
+    threadId: string | null;
     timezone: string;
     followUpAt: Date | null;
     isFollowUp: boolean;
@@ -106,6 +107,10 @@ export async function ThreadDetailView({
   // Thread collapse key so the list components / pending-archive store can drop
   // every sibling row of this thread on optimistic archive.
   const threadKey = threadKeyOf(targetMessage);
+  // The raw threadId as well: for unthreaded senders the key above is
+  // per-message, but archive/unarchive expand to all threadId siblings
+  // server-side, so the optimistic suppression needs both.
+  const threadId = targetMessage.threadId ?? null;
   const userInfo = await getUserInfo(
     session.user.id,
     targetMessage.emailConnectionId,
@@ -288,6 +293,7 @@ export async function ThreadDetailView({
             messageId,
             returnPath,
             threadKey,
+            threadId,
             timezone: userInfo.timezone,
             followUpAt: targetMessage.followUpAt,
             isFollowUp: targetMessage.isFollowUp,
@@ -346,6 +352,7 @@ export async function ThreadDetailView({
           returnPath={returnPath}
           timezone={userInfo.timezone}
           threadKey={threadKey}
+          threadId={threadId}
           showArchive={mobileActions.showArchive}
           showSnooze={mobileActions.showSnooze}
           showFollowUp={mobileActions.showFollowUp}

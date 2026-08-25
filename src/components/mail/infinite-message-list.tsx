@@ -152,7 +152,7 @@ export function InfiniteMessageList({
 
     // Propagate unread status, and drop threads pending optimistic archive.
     return Array.from(threadMap.values())
-      .filter((msg) => !isPendingArchive(threadKeyOf(msg)))
+      .filter((msg) => !isPendingArchive(threadKeyOf(msg), msg.threadId))
       .map((msg) => {
         const key = threadKeyOf(msg);
         if (hasUnread.has(key) && msg.isRead) {

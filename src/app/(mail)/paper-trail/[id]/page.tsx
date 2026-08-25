@@ -26,6 +26,7 @@ export default async function PaperTrailDetailPage({
         messageId,
         returnPath,
         threadKey,
+        threadId,
         timezone,
         followUpAt,
         isFollowUp,
@@ -35,6 +36,7 @@ export default async function PaperTrailDetailPage({
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
           <FollowUpButton
             messageId={messageId}
@@ -50,6 +52,7 @@ export default async function PaperTrailDetailPage({
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
         </>
       )}

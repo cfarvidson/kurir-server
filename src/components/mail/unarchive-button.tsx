@@ -10,12 +10,14 @@ interface UnarchiveButtonProps {
   messageId: string;
   returnPath?: string;
   threadKey?: string;
+  threadId?: string | null;
 }
 
 export function UnarchiveButton({
   messageId,
   returnPath = "/archive",
   threadKey,
+  threadId,
 }: UnarchiveButtonProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export function UnarchiveButton({
     void performOptimisticUnarchive({
       messageId,
       threadKey,
+      threadId,
       returnPath,
       queryClient,
       router,

@@ -20,12 +20,13 @@ export default async function ArchiveDetailPage({
       returnPath="/archive"
       searchQuery={q}
       mobileActions={{ showFollowUp: true }}
-      actions={({ messageId, returnPath, threadKey, followUpAt, isFollowUp }) => (
+      actions={({ messageId, returnPath, threadKey, threadId, followUpAt, isFollowUp }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
             action="unarchive"
           />
           <FollowUpButton
@@ -33,7 +34,12 @@ export default async function ArchiveDetailPage({
             followUpAt={followUpAt}
             isFollowUp={isFollowUp}
           />
-          <UnarchiveButton messageId={messageId} returnPath={returnPath} />
+          <UnarchiveButton
+            messageId={messageId}
+            returnPath={returnPath}
+            threadKey={threadKey}
+            threadId={threadId}
+          />
         </>
       )}
     />
