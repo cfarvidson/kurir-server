@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
     message: { findFirst: vi.fn() },
     emailConnection: { findUnique: vi.fn() },
     domainRule: { findMany: vi.fn().mockResolvedValue([]) },
+    subjectRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -89,6 +90,7 @@ describe("idle-handlers — checkForNewMessages (U4)", () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.message.findFirst).mockReset();
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
     // Highest-UID lookup (orderBy uid desc) reports cached mail so ingest
     // is allowed. Per-UID exists checks return null (new mail).
     vi.mocked(db.message.findFirst).mockImplementation(((args: any) => {

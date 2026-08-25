@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => ({
     contactGroupMember: { deleteMany: vi.fn(), createMany: vi.fn() },
     sender: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     domainRule: { findMany: vi.fn(), upsert: vi.fn() },
+    subjectRule: { findMany: vi.fn(), upsert: vi.fn() },
     message: { findMany: vi.fn() },
     attachment: { create: vi.fn(), findFirst: vi.fn() },
     folder: { findFirst: vi.fn() },
@@ -88,6 +89,7 @@ function payload(
       },
     ],
     domainRules: [],
+    subjectRules: [],
     ...overrides,
   };
 }
@@ -290,6 +292,7 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([]);
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
@@ -332,6 +335,7 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([]);
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
@@ -386,6 +390,7 @@ describe("processDueSettingsBackups", () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([]);
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({

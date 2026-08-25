@@ -63,6 +63,16 @@ function validPayload(
         category: "FEED",
       },
     ],
+    subjectRules: [
+      {
+        connectionEmail: "you@gmail.com",
+        scope: "ADDRESS",
+        scopeValue: "news@github.com",
+        pattern: "security digest",
+        status: "APPROVED",
+        category: "FEED",
+      },
+    ],
     ...overrides,
   };
 }
@@ -72,6 +82,13 @@ describe("parseSettingsBackup", () => {
     const original = validPayload();
     const parsed = parseSettingsBackup(serializeSettingsBackup(original));
     expect(parsed).toEqual(original);
+  });
+
+  it("defaults subjectRules to [] for backups written before they existed", () => {
+    const legacy = { ...validPayload() } as Record<string, unknown>;
+    delete legacy.subjectRules;
+    const parsed = parseSettingsBackup(legacy);
+    expect(parsed.subjectRules).toEqual([]);
   });
 
   it("rejects unknown version", () => {

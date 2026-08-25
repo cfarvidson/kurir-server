@@ -24,6 +24,9 @@ vi.mock("@/lib/mail/mutations", () => ({
   createDomainRuleForUser: vi.fn(),
   changeDomainRuleCategoryForUser: vi.fn(),
   deleteDomainRuleForUser: vi.fn(),
+  createSubjectRuleForUser: vi.fn(),
+  changeSubjectRuleCategoryForUser: vi.fn(),
+  deleteSubjectRuleForUser: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile/auth", () => ({
@@ -350,6 +353,114 @@ describe("POST /api/mobile/actions", () => {
 
     const body = await res.json();
     expect(body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+  });
+
+  it("dispatches the subject-rule actions to their cores", async () => {
+    await mockAuthed();
+    const mutations = await import("@/lib/mail/mutations");
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "createSubjectRule",
+            senderId: "s1",
+            scope: "ADDRESS",
+            scopeValue: "news@github.com",
+            pattern: "security digest",
+            status: "APPROVED",
+            category: "FEED",
+          },
+          {
+            id: "2",
+            type: "createSubjectRule",
+            senderId: "s2",
+            scope: "SUBDOMAINS",
+            scopeValue: "github.com",
+            pattern: "[bot]",
+            status: "REJECTED",
+          },
+          {
+            id: "3",
+            type: "changeSubjectRuleCategory",
+            ruleId: "r1",
+            category: "PAPER_TRAIL",
+          },
+          { id: "4", type: "deleteSubjectRule", ruleId: "r2" },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mutations.createSubjectRuleForUser).toHaveBeenCalledWith("user-1", {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "security digest",
+      status: "APPROVED",
+      category: "FEED",
+    });
+    expect(mutations.createSubjectRuleForUser).toHaveBeenCalledWith("user-1", {
+      senderId: "s2",
+      scope: "SUBDOMAINS",
+      scopeValue: "github.com",
+      pattern: "[bot]",
+      status: "REJECTED",
+      category: null,
+    });
+    expect(mutations.changeSubjectRuleCategoryForUser).toHaveBeenCalledWith(
+      "user-1",
+      "r1",
+      "PAPER_TRAIL",
+    );
+    expect(mutations.deleteSubjectRuleForUser).toHaveBeenCalledWith(
+      "user-1",
+      "r2",
+    );
+
+    const body = await res.json();
+    expect(body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+  });
+
+  it("rejects createSubjectRule with a PENDING status or empty pattern", async () => {
+    await mockAuthed();
+
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const pendingRes = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "createSubjectRule",
+            senderId: "s1",
+            scope: "ADDRESS",
+            scopeValue: "a@b.com",
+            pattern: "x",
+            status: "PENDING",
+          },
+        ],
+      }),
+    );
+    expect(pendingRes.status).toBe(400);
+
+    const emptyRes = await POST(
+      makeRequest({
+        actions: [
+          {
+            id: "1",
+            type: "createSubjectRule",
+            senderId: "s1",
+            scope: "ADDRESS",
+            scopeValue: "a@b.com",
+            pattern: "",
+            status: "REJECTED",
+          },
+        ],
+      }),
+    );
+    expect(emptyRes.status).toBe(400);
   });
 
   it("rejects createDomainRule with a PENDING status", async () => {

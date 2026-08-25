@@ -51,7 +51,7 @@ export async function snapshotSettingsForUser(
   userId: string,
   source: SettingsBackupSource,
 ): Promise<SettingsBackupPayload> {
-  const [user, connections, contacts, groups, senders, rules] =
+  const [user, connections, contacts, groups, senders, rules, subjectRuleRows] =
     await Promise.all([
       db.user.findUnique({
         where: { id: userId },
@@ -87,6 +87,7 @@ export async function snapshotSettingsForUser(
         where: { userId, status: { in: ["APPROVED", "REJECTED"] } },
       }),
       db.domainRule.findMany({ where: { userId } }),
+      db.subjectRule.findMany({ where: { userId } }),
     ]);
 
   if (!user) {
@@ -153,6 +154,16 @@ export async function snapshotSettingsForUser(
         connectionEmail: connectionEmail.get(r.emailConnectionId) ?? "",
         pattern: r.pattern,
         includeSubdomains: r.includeSubdomains,
+        status: r.status as "APPROVED" | "REJECTED",
+        category: r.category,
+      }))
+      .filter((r) => r.connectionEmail !== ""),
+    subjectRules: subjectRuleRows
+      .map((r) => ({
+        connectionEmail: connectionEmail.get(r.emailConnectionId) ?? "",
+        scope: r.scope,
+        scopeValue: r.scopeValue,
+        pattern: r.pattern,
         status: r.status as "APPROVED" | "REJECTED",
         category: r.category,
       }))
@@ -375,6 +386,9 @@ export async function applySettingsBackupForUser(
   for (const r of payload.domainRules) {
     mentioned.add(normalizeEmail(r.connectionEmail));
   }
+  for (const r of payload.subjectRules) {
+    mentioned.add(normalizeEmail(r.connectionEmail));
+  }
   const skippedConnections = [...mentioned].filter((e) => !byEmail.has(e));
 
   const restoredSenderIds: Array<{
@@ -519,6 +533,34 @@ export async function applySettingsBackupForUser(
         includeSubdomains: rule.includeSubdomains,
         status: rule.status,
         category: rule.category,
+      });
+    }
+
+    // Subject rules are restored as configuration only: new mail follows
+    // them at ingest, but no message-level retroactive sweep runs here
+    // (unlike createSubjectRuleForUser, which sweeps on user-driven create).
+    for (const rule of payload.subjectRules) {
+      const connection = byEmail.get(normalizeEmail(rule.connectionEmail));
+      if (!connection) continue;
+      await tx.subjectRule.upsert({
+        where: {
+          emailConnectionId_scope_scopeValue_pattern: {
+            emailConnectionId: connection.id,
+            scope: rule.scope,
+            scopeValue: rule.scopeValue,
+            pattern: rule.pattern,
+          },
+        },
+        create: {
+          emailConnectionId: connection.id,
+          userId,
+          scope: rule.scope,
+          scopeValue: rule.scopeValue,
+          pattern: rule.pattern,
+          status: rule.status,
+          category: rule.category,
+        },
+        update: { status: rule.status, category: rule.category },
       });
     }
 
