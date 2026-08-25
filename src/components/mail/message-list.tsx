@@ -94,7 +94,7 @@ export function MessageList({
   const visibleMessages = useMemo(
     () =>
       messages.filter(
-        (m) => !hiddenIds.has(m.id) && !isPendingArchive(threadKeyOf(m)),
+        (m) => !hiddenIds.has(m.id) && !isPendingArchive(threadKeyOf(m), m.threadId),
       ),
     [messages, hiddenIds, isPendingArchive],
   );

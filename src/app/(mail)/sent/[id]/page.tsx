@@ -21,12 +21,13 @@ export default async function SentDetailPage({
       searchQuery={q}
       isSentView
       mobileActions={{ showArchive: true, showFollowUp: true }}
-      actions={({ messageId, returnPath, threadKey, followUpAt, isFollowUp }) => (
+      actions={({ messageId, returnPath, threadKey, threadId, followUpAt, isFollowUp }) => (
         <>
           <ArchiveKeyboardShortcut
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
           <FollowUpButton
             messageId={messageId}
@@ -37,6 +38,7 @@ export default async function SentDetailPage({
             messageId={messageId}
             returnPath={returnPath}
             threadKey={threadKey}
+            threadId={threadId}
           />
         </>
       )}

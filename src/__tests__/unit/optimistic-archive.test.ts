@@ -106,6 +106,23 @@ describe("pending-archive store", () => {
     recordPendingArchive("thread-deep");
     expect(isPendingArchive("thread-deep")).toBe(true);
   });
+
+  it("suppresses threadId siblings when a threadId is recorded (unthreaded sender)", () => {
+    // Unthreaded senders give each message its own thread key, but
+    // `archiveConversation` archives all `threadId` siblings — recording the
+    // threadId must suppress the sibling rows too.
+    recordPendingArchive("msg-a", "t1");
+    expect(isPendingArchive("msg-a")).toBe(true);
+    // Sibling row: different per-message key, same threadId.
+    expect(isPendingArchive("msg-b", "t1")).toBe(true);
+    // Unrelated rows stay visible.
+    expect(isPendingArchive("msg-b")).toBe(false);
+    expect(isPendingArchive("msg-c", "t2")).toBe(false);
+
+    clearPendingArchive("msg-a", "t1");
+    expect(isPendingArchive("msg-a")).toBe(false);
+    expect(isPendingArchive("msg-b", "t1")).toBe(false);
+  });
 });
 
 describe("filterThreadFromMessageCaches", () => {
@@ -125,6 +142,31 @@ describe("filterThreadFromMessageCaches", () => {
   it("is a no-op when there is no cache", () => {
     const client = new QueryClient();
     expect(() => filterThreadFromMessageCaches(client, "t1")).not.toThrow();
+  });
+
+  it("removes threadId siblings of an unthreaded sender when threadId is given", () => {
+    const client = new QueryClient();
+    // Unthreaded sender: per-message thread keys, shared threadId "t1".
+    seedCache(client, "imbox", [
+      [msg("a", "t1", true), msg("b", "t1", true), msg("c", "t2", true)],
+    ]);
+
+    // Target message "a": its thread key is "a", but archiving expands to all
+    // "t1" siblings server-side — the cache filter must mirror that.
+    filterThreadFromMessageCaches(client, "a", "t1");
+
+    expect(cacheMessageIds(client, "imbox")).toEqual(["c"]);
+  });
+
+  it("without a threadId, only the thread key's own rows are removed (unchanged behaviour)", () => {
+    const client = new QueryClient();
+    seedCache(client, "imbox", [
+      [msg("a", "t1", true), msg("b", "t1", true), msg("c", "t2")],
+    ]);
+
+    filterThreadFromMessageCaches(client, "a");
+
+    expect(cacheMessageIds(client, "imbox")).toEqual(["b", "c"]);
   });
 });
 
@@ -194,6 +236,95 @@ describe("performOptimisticArchive", () => {
     expect(isPendingArchive("t9")).toBe(true);
     expect(cacheMessageIds(client, "imbox")).toEqual([]);
     await settled;
+  });
+
+  it("unthreaded sender: suppresses threadId sibling rows and clears them on settle", async () => {
+    const client = new QueryClient();
+    // Per-message thread keys (unthread), shared threadId "t1".
+    seedCache(client, "imbox", [
+      [msg("a", "t1", true), msg("b", "t1", true), msg("c", "t2", true)],
+    ]);
+    const router = makeRouter();
+    const d = deferred<void>();
+    const archive = vi.fn(() => d.promise);
+
+    const settled = performOptimisticArchive({
+      messageId: "a",
+      threadKey: "a",
+      threadId: "t1",
+      returnPath: "/imbox",
+      queryClient: client,
+      router,
+      archiveConversation: archive,
+      unarchiveConversation: vi.fn(() => Promise.resolve()),
+      showUndoToast: noopToast,
+    });
+
+    // Sibling "b" is suppressed both in the cache and via the pending store
+    // (cold-cache lists check the store with the row's threadId).
+    expect(cacheMessageIds(client, "imbox")).toEqual(["c"]);
+    expect(isPendingArchive("a")).toBe(true);
+    expect(isPendingArchive("b", "t1")).toBe(true);
+    expect(isPendingArchive("c", "t2")).toBe(false);
+
+    d.resolve();
+    await settled;
+
+    // Both the key and the threadId entries are released on settle.
+    expect(isPendingArchive("a")).toBe(false);
+    expect(isPendingArchive("b", "t1")).toBe(false);
+  });
+
+  it("unthreaded sender: error path clears the threadId entry too", async () => {
+    const client = new QueryClient();
+    seedCache(client, "imbox", [[msg("a", "t1", true), msg("b", "t1", true)]]);
+    const router = makeRouter();
+    const archive = vi.fn(() => Promise.reject(new Error("boom")));
+
+    const settled = performOptimisticArchive({
+      messageId: "a",
+      threadKey: "a",
+      threadId: "t1",
+      returnPath: "/imbox",
+      queryClient: client,
+      router,
+      archiveConversation: archive,
+      unarchiveConversation: vi.fn(() => Promise.resolve()),
+      showUndoToast: noopToast,
+      onError: vi.fn(),
+    });
+
+    await expect(settled).resolves.toBeUndefined();
+    // A leaked threadId entry would suppress every sibling for the session.
+    expect(isPendingArchive("a")).toBe(false);
+    expect(isPendingArchive("b", "t1")).toBe(false);
+  });
+
+  it("unthreaded sender: undo clears the threadId entry too", async () => {
+    const client = new QueryClient();
+    seedCache(client, "imbox", [[msg("a", "t1", true), msg("b", "t1", true)]]);
+    const router = makeRouter();
+    const archive = vi.fn(() => Promise.resolve());
+    const unarchive = vi.fn(() => Promise.resolve());
+
+    performOptimisticArchive({
+      messageId: "a",
+      threadKey: "a",
+      threadId: "t1",
+      returnPath: "/imbox",
+      queryClient: client,
+      router,
+      archiveConversation: archive,
+      unarchiveConversation: unarchive,
+      showUndoToast: noopToast,
+    });
+
+    const onUndo = noopToast.mock.calls[0][0].onUndo;
+    onUndo();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(isPendingArchive("a")).toBe(false);
+    expect(isPendingArchive("b", "t1")).toBe(false);
   });
 
   it("idempotent re-archive of an already-archived message: no error toast, no crash", async () => {
@@ -500,6 +631,34 @@ describe("performOptimisticUnarchive", () => {
     // suppress this thread in every list for the rest of the session.
     expect(isPendingArchive("t1")).toBe(false);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["messages"] });
+  });
+
+  it("unthreaded sender: suppresses threadId siblings and clears them on settle", async () => {
+    const client = new QueryClient();
+    seedCache(client, "archive", [
+      [msg("a", "t1", true), msg("b", "t1", true), msg("c", "t2", true)],
+    ]);
+    const router = makeRouter();
+    const d = deferred<void>();
+    const unarchive = vi.fn(() => d.promise);
+
+    const settled = performOptimisticUnarchive({
+      messageId: "a",
+      threadKey: "a",
+      threadId: "t1",
+      returnPath: "/archive",
+      queryClient: client,
+      router,
+      unarchiveConversation: unarchive,
+    });
+
+    expect(cacheMessageIds(client, "archive")).toEqual(["c"]);
+    expect(isPendingArchive("b", "t1")).toBe(true);
+
+    d.resolve();
+    await settled;
+    expect(isPendingArchive("a")).toBe(false);
+    expect(isPendingArchive("b", "t1")).toBe(false);
   });
 
   it("error path: clears pending, invalidates, refreshes, no unhandled rejection", async () => {

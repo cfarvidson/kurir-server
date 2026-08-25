@@ -18,6 +18,7 @@ interface MobileThreadActionsProps {
   returnPath: string;
   timezone?: string;
   threadKey?: string;
+  threadId?: string | null;
   showArchive?: boolean;
   showSnooze?: boolean;
   showFollowUp?: boolean;
@@ -28,6 +29,7 @@ export function MobileThreadActions({
   returnPath,
   timezone = "UTC",
   threadKey,
+  threadId,
   showArchive = true,
   showSnooze = true,
   showFollowUp = true,
@@ -39,6 +41,7 @@ export function MobileThreadActions({
     performOptimisticArchive({
       messageId,
       threadKey,
+      threadId,
       returnPath,
       queryClient,
       router,

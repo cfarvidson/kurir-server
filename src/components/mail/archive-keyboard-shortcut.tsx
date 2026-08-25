@@ -14,6 +14,7 @@ interface ArchiveKeyboardShortcutProps {
   messageId: string;
   returnPath: string;
   threadKey?: string;
+  threadId?: string | null;
   action?: "archive" | "unarchive";
 }
 
@@ -21,6 +22,7 @@ export function ArchiveKeyboardShortcut({
   messageId,
   returnPath,
   threadKey,
+  threadId,
   action = "archive",
 }: ArchiveKeyboardShortcutProps) {
   const router = useRouter();
@@ -36,6 +38,7 @@ export function ArchiveKeyboardShortcut({
         ? performOptimisticUnarchive({
             messageId,
             threadKey,
+            threadId,
             returnPath,
             queryClient,
             router,
@@ -44,6 +47,7 @@ export function ArchiveKeyboardShortcut({
         : performOptimisticArchive({
             messageId,
             threadKey,
+            threadId,
             returnPath,
             queryClient,
             router,
@@ -57,7 +61,7 @@ export function ArchiveKeyboardShortcut({
     settled.finally(() => {
       actingRef.current = false;
     });
-  }, [messageId, returnPath, threadKey, action, router, queryClient]);
+  }, [messageId, returnPath, threadKey, threadId, action, router, queryClient]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
