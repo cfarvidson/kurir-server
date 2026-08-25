@@ -113,10 +113,17 @@ describe("moveToArchiveViaImap", () => {
 
   it("all still archived: moves all UIDs and persists rows from uidMap", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.message.findMany).mockResolvedValue([
-      { id: "m1", uid: 10 },
-      { id: "m2", uid: 11 },
-    ] as never);
+    // Pre-move re-check sees both rows; the post-repoint flag re-read
+    // (isArchived: false) finds nothing flipped.
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === true
+        ? [
+            { id: "m1", uid: 10 },
+            { id: "m2", uid: 11 },
+          ]
+        : []) as never);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
       id: "archive-folder",
     } as never);
@@ -179,10 +186,11 @@ describe("moveToArchiveViaImap", () => {
 
   it("partial undo in a multi-message thread: only still-archived UIDs move + suppress", async () => {
     const { db } = await import("@/lib/db");
-    // Of [10, 11, 12], only 11 is still archived.
-    vi.mocked(db.message.findMany).mockResolvedValue([
-      { id: "m2", uid: 11 },
-    ] as never);
+    // Of [10, 11, 12], only 11 is still archived; nothing flips mid-move.
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === true ? [{ id: "m2", uid: 11 }] : []) as never);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
       id: "archive-folder",
     } as never);
@@ -214,9 +222,10 @@ describe("moveToArchiveViaImap", () => {
     // folder, which is exactly what unarchiveConversation reads to compute its
     // reverse IMAP move. Assert the uidMap-derived persistence.
     const { db } = await import("@/lib/db");
-    vi.mocked(db.message.findMany).mockResolvedValue([
-      { id: "m1", uid: 7 },
-    ] as never);
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === true ? [{ id: "m1", uid: 7 }] : []) as never);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
       id: "archive-folder",
     } as never);
@@ -239,6 +248,101 @@ describe("moveToArchiveViaImap", () => {
       where: { id: "m1" },
       data: { folderId: "archive-folder", uid: 700 },
     });
+  });
+
+  it("undo lands mid-move: rows repointed, flipped row gets a compensating reverse move", async () => {
+    // TOCTOU (#61): an Undo that lands between the pre-move re-check and the
+    // post-move repoint computes its reverse IMAP move from the row's
+    // then-current inbox folderId — a no-op. The flag re-read after the
+    // repoint must catch the flip and issue the reverse move itself.
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === true
+        ? // Pre-move re-check: both rows still archived.
+          [
+            { id: "m1", uid: 10 },
+            { id: "m2", uid: 11 },
+          ]
+        : // Queries for isArchived: false — the post-repoint flag re-read and
+          // the compensating moveToInboxViaImap's own pre-move re-check — see
+          // m1 undone mid-move, its row carrying the archive-side dest UID.
+          [{ id: "m1", uid: 100 }]) as never);
+
+    vi.mocked(db.folder.findFirst).mockImplementation((async (args: {
+      where: { path?: string };
+    }) =>
+      args.where.path === "INBOX"
+        ? { id: "inbox-folder" }
+        : { id: "archive-folder" }) as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [
+        {
+          uidMap: new Map([
+            [10, 100],
+            [11, 101],
+          ]),
+        },
+        { uidMap: new Map([[100, 10]]) },
+      ],
+    });
+
+    const { moveToArchiveViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToArchiveViaImap("user-1", "c1", "inbox-folder", [10, 11]);
+
+    // Flag re-read scoped to exactly the repointed rows.
+    expect(db.message.findMany).toHaveBeenNthCalledWith(2, {
+      where: { id: { in: ["m1", "m2"] }, isArchived: false },
+      select: { uid: true },
+    });
+
+    // Both rows repointed at the archive folder (that is where IMAP has them
+    // at this point), then the flipped row moved back and repointed at INBOX.
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { folderId: "archive-folder", uid: 100 },
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m2" },
+      data: { folderId: "archive-folder", uid: 101 },
+    });
+    expect(client.messageMove).toHaveBeenNthCalledWith(2, [100], "INBOX", {
+      uid: true,
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { folderId: "inbox-folder", uid: 10 },
+    });
+  });
+
+  it("no undo mid-move: flag re-read finds nothing, no reverse move issued", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === true
+        ? [{ id: "m1", uid: 10 }]
+        : // Flag re-read: nothing flipped.
+          []) as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "archive-folder",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [{ uidMap: new Map([[10, 100]]) }],
+    });
+
+    const { moveToArchiveViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToArchiveViaImap("user-1", "c1", "inbox-folder", [10]);
+
+    expect(client.messageMove).toHaveBeenCalledTimes(1);
+    expect(db.message.update).toHaveBeenCalledTimes(1);
   });
 
   it("no uidMap returned: rows untouched, warning logged, no crash", async () => {
