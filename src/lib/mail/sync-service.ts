@@ -199,9 +199,11 @@ async function getOrCreateSender(
       data: { status: "APPROVED", category: "IMBOX", decidedAt: new Date() },
     });
 
-    // Reclassify existing messages (mirrors approveSender() pattern)
+    // Reclassify existing messages (mirrors approveSender() pattern).
+    // Subject-rule placements outrank sender decisions (kurir-ios#48):
+    // mail a subject rule filed keeps its placement.
     await db.message.updateMany({
-      where: { senderId: sender.id, isInScreener: true },
+      where: { senderId: sender.id, isInScreener: true, subjectRuleId: null },
       data: { isInScreener: false, isInImbox: true },
     });
 

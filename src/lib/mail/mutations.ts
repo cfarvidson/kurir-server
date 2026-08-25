@@ -146,7 +146,8 @@ export async function archiveThread(userId: string, messageId: string) {
 }
 
 /**
- * Unarchive a whole thread, re-deriving category placement from the sender.
+ * Unarchive a whole thread, re-deriving category placement from the sender —
+ * except messages a subject rule filed, which follow the rule's category.
  * Snooze/reply-later/follow-up state cleared on archive is intentionally not
  * restored (consistent with historical behavior).
  */
@@ -174,16 +175,57 @@ export async function unarchiveThread(userId: string, messageId: string) {
     : [];
 
   const messageIds = threadMessages.map((m) => m.id);
-  await db.message.updateMany({
-    where: { id: { in: messageIds } },
-    data: {
-      isArchived: false,
-      isInImbox: category === "IMBOX",
-      isInFeed: category === "FEED",
-      isInPaperTrail: category === "PAPER_TRAIL",
-      isInScreener: false,
+
+  // Subject-rule placements outrank sender decisions (kurir-ios#48): a
+  // message a rule filed is unarchived into the rule's category, not the
+  // sender's. A screen-out (REJECTED) rule implies no category, so those
+  // messages fall back to the sender's category — unarchiving is an
+  // explicit user action that overrides the screen-out.
+  const ruledMessages = await db.message.findMany({
+    where: { id: { in: messageIds }, subjectRuleId: { not: null } },
+    select: {
+      id: true,
+      subjectRule: { select: { status: true, category: true } },
     },
   });
+
+  const idsByRuleCategory = new Map<SenderCategory, string[]>();
+  for (const m of ruledMessages) {
+    const rule = m.subjectRule;
+    if (rule?.status !== "APPROVED" || !rule.category) continue;
+    const ids = idsByRuleCategory.get(rule.category) ?? [];
+    ids.push(m.id);
+    idsByRuleCategory.set(rule.category, ids);
+  }
+  const rulePlacedIds = new Set(
+    [...idsByRuleCategory.values()].flat(),
+  );
+  const senderPlacedIds = messageIds.filter((id) => !rulePlacedIds.has(id));
+
+  const unarchiveData = (target: SenderCategory) => ({
+    isArchived: false,
+    isInImbox: target === "IMBOX",
+    isInFeed: target === "FEED",
+    isInPaperTrail: target === "PAPER_TRAIL",
+    isInScreener: false,
+  });
+
+  await db.$transaction([
+    ...(senderPlacedIds.length > 0
+      ? [
+          db.message.updateMany({
+            where: { id: { in: senderPlacedIds } },
+            data: unarchiveData(category),
+          }),
+        ]
+      : []),
+    ...[...idsByRuleCategory].map(([target, ids]) =>
+      db.message.updateMany({
+        where: { id: { in: ids } },
+        data: unarchiveData(target),
+      }),
+    ),
+  ]);
 
   if (archiveMessageUids.length > 0 && archiveFolder) {
     after(() =>

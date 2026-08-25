@@ -125,11 +125,13 @@ describe("approveOwnPendingSenders", () => {
       }),
     });
 
-    // message.updateMany reclassifies non-archived messages into Imbox only.
+    // message.updateMany reclassifies non-archived messages into Imbox only,
+    // leaving subject-ruled placements untouched (kurir-ios#60).
     expect(db.message.updateMany).toHaveBeenCalledWith({
       where: {
         senderId: { in: ["sender-1", "sender-2"] },
         isArchived: false,
+        subjectRuleId: null,
       },
       data: {
         isInScreener: false,

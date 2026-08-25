@@ -13,7 +13,7 @@ const dbMock = {
     updateMany: vi.fn(),
   },
   folder: { findFirst: vi.fn() },
-  message: { findMany: vi.fn(), updateMany: vi.fn() },
+  message: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
   subjectRule: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
@@ -427,6 +427,84 @@ describe("subject-rule precedence over sender decisions (kurir-ios#48)", () => {
         where: expect.objectContaining({ subjectRuleId: null }),
       }),
     );
+  });
+});
+
+describe("unarchiveThread and subject-rule provenance (kurir-ios#60)", () => {
+  it("places rule-filed messages per the rule's category, the rest per the sender", async () => {
+    dbMock.message.findFirst.mockResolvedValue({
+      id: "m1",
+      threadId: "t1",
+      emailConnectionId: "c1",
+      uid: 11,
+      folderId: "f-arch",
+      sender: { category: "IMBOX" },
+    });
+    dbMock.message.findMany
+      .mockResolvedValueOnce([
+        { id: "m1", uid: 11, folderId: "f-arch" },
+        { id: "m2", uid: 12, folderId: "f-arch" },
+      ])
+      .mockResolvedValueOnce([
+        { id: "m2", subjectRule: { status: "APPROVED", category: "FEED" } },
+      ]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+
+    const { unarchiveThread } = await import("@/lib/mail/mutations");
+    await unarchiveThread(USER, "m1");
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1"] } },
+      data: {
+        isArchived: false,
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isInScreener: false,
+      },
+    });
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m2"] } },
+      data: {
+        isArchived: false,
+        isInImbox: false,
+        isInFeed: true,
+        isInPaperTrail: false,
+        isInScreener: false,
+      },
+    });
+  });
+
+  it("screen-out-ruled messages fall back to the sender's category", async () => {
+    // Unarchiving is an explicit user action: a REJECTED rule implies no
+    // category, so its messages are placed per the sender's decision.
+    dbMock.message.findFirst.mockResolvedValue({
+      id: "m1",
+      threadId: null,
+      emailConnectionId: "c1",
+      uid: 11,
+      folderId: "f-arch",
+      sender: { category: "PAPER_TRAIL" },
+    });
+    dbMock.message.findMany.mockResolvedValueOnce([
+      { id: "m1", subjectRule: { status: "REJECTED", category: null } },
+    ]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+
+    const { unarchiveThread } = await import("@/lib/mail/mutations");
+    await unarchiveThread(USER, "m1");
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledTimes(1);
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1"] } },
+      data: {
+        isArchived: false,
+        isInImbox: false,
+        isInFeed: false,
+        isInPaperTrail: true,
+        isInScreener: false,
+      },
+    });
   });
 });
 
