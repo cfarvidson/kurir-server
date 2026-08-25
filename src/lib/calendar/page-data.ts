@@ -1,14 +1,9 @@
 import { db } from "@/lib/db";
 import { listVisibleInstancesForUser } from "@/lib/calendar/query";
 import {
-  WINDOW_BACK,
-  WINDOW_FORWARD,
-} from "@/components/calendar/filmstrip-model";
-import {
-  addDays,
+  dayRangeUtc,
   monthRangeUtc,
   parseDateParam,
-  rangeUtc,
   weekRangeUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -91,11 +86,7 @@ export async function loadCalendarPage(
       ? weekRangeUtc(anchor, timezone)
       : mode === "month"
         ? monthRangeUtc(anchor, timezone)
-        : rangeUtc(
-            addDays(anchor, -WINDOW_BACK),
-            addDays(anchor, WINDOW_FORWARD),
-            timezone,
-          );
+        : dayRangeUtc(anchor, timezone);
 
   const instances =
     accounts.length === 0

@@ -131,10 +131,17 @@ export function placeTimedEvents(
   }));
 }
 
+/**
+ * `minMinutes` defaults to the free-time threshold, which is what every
+ * "claim this" surface wants. The agenda asks for a lower one to find the
+ * short gaps between events - too small to recommend, still big enough to
+ * put a meeting in.
+ */
 export function freetimeMinutes(
   instances: CalendarInstanceDTO[],
   day: CivilDate,
   timeZone: string,
+  minMinutes: number = FREETIME_MIN_MINUTES,
 ): { startMin: number; endMin: number }[] {
   const dayStart = zonedWallToUtc(timeZone, {
     ...day,
@@ -158,7 +165,7 @@ export function freetimeMinutes(
       })),
     dayStart,
     dayEnd,
-    FREETIME_MIN_MINUTES,
+    minMinutes,
   );
   return spans.map((span) => ({
     startMin: minutesFromDayStart(span.startAt, day, timeZone),

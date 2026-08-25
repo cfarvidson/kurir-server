@@ -37,7 +37,6 @@ import {
   formatDayTitle,
   formatMonthTitle,
   formatWeekTitle,
-  sameCivil,
   weekDays,
   zonedParts,
   type CivilDate,
@@ -91,19 +90,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const router = useRouter();
   const pathname = usePathname();
   const [calendarsOpen, setCalendarsOpen] = useState(false);
-  const [prevAnchor, setPrevAnchor] = useState<CivilDate>(payload.anchor);
-  const [visibleDay, setVisibleDay] = useState<CivilDate>(payload.anchor);
-  const [scrollToRequest, setScrollToRequest] = useState<{
-    key: string;
-    nonce: number;
-  } | null>(null);
-  if (!sameCivil(payload.anchor, prevAnchor)) {
-    setPrevAnchor(payload.anchor);
-    setVisibleDay(payload.anchor);
-  }
-  const date = formatDateParam(
-    payload.mode === "day" ? visibleDay : payload.anchor,
-  );
+  const date = formatDateParam(payload.anchor);
   const [dialogOpen, setDialogOpen] = useState(
     payload.openNew && hasWritable(payload),
   );
@@ -132,10 +119,10 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   );
 
   const title = useMemo(() => {
-    if (payload.mode === "day") return formatDayTitle(visibleDay);
+    if (payload.mode === "day") return formatDayTitle(payload.anchor);
     if (payload.mode === "month") return formatMonthTitle(payload.anchor);
     return formatWeekTitle(weekDays(payload.anchor));
-  }, [payload.anchor, payload.mode, visibleDay]);
+  }, [payload.anchor, payload.mode]);
 
   const todayDate = formatDateParam(
     civilFromZoned(new Date(), payload.timezone),
@@ -176,14 +163,8 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     setDialogOpen(true);
   }, []);
 
-  // Day mode scrolls a mounted filmstrip, so `?date=` alone can't move it:
-  // the target day may already be the anchor the user scrolled away from.
-  // The bumped nonce is the nav intent the strip acts on.
   const goToKey = useCallback(
     (key: string) => {
-      if (payload.mode === "day") {
-        setScrollToRequest((prev) => ({ key, nonce: (prev?.nonce ?? 0) + 1 }));
-      }
       router.push(viewHref(payload.mode, key));
     },
     [payload.mode, router],
@@ -199,14 +180,14 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const goPrev = useCallback(() => {
     if (payload.mode === "month") goTo(addMonths(payload.anchor, -1));
     else if (payload.mode === "week") goTo(addDays(payload.anchor, -7));
-    else goTo(addDays(visibleDay, -1));
-  }, [goTo, payload.anchor, payload.mode, visibleDay]);
+    else goTo(addDays(payload.anchor, -1));
+  }, [goTo, payload.anchor, payload.mode]);
 
   const goNext = useCallback(() => {
     if (payload.mode === "month") goTo(addMonths(payload.anchor, 1));
     else if (payload.mode === "week") goTo(addDays(payload.anchor, 7));
-    else goTo(addDays(visibleDay, 1));
-  }, [goTo, payload.anchor, payload.mode, visibleDay]);
+    else goTo(addDays(payload.anchor, 1));
+  }, [goTo, payload.anchor, payload.mode]);
 
   useEffect(() => {
     function handler(event: KeyboardEvent) {
@@ -409,9 +390,6 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               canCreate={writable}
               onSelectSlot={openCreate}
               onEventClick={openEvent}
-              onTimedCommit={handleTimedCommit}
-              onVisibleDayChange={setVisibleDay}
-              scrollToRequest={scrollToRequest ?? undefined}
             />
           ) : (
             <WeekView {...viewProps} />
