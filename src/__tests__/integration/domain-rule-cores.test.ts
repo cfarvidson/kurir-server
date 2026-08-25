@@ -346,7 +346,11 @@ describe("changeDomainRuleCategoryForUser", () => {
       data: { status: "APPROVED", category: "FEED" },
     });
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { sender: { decidedByRuleId: "r1" }, isArchived: false },
+      where: {
+        sender: { decidedByRuleId: "r1" },
+        isArchived: false,
+        subjectRuleId: null,
+      },
       data: {
         isInScreener: false,
         isInImbox: false,

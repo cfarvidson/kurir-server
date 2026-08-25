@@ -34,6 +34,16 @@ const DOMAIN_RULE_SELECT = {
   emailConnectionId: true,
 } as const;
 
+const SUBJECT_RULE_SELECT = {
+  id: true,
+  scope: true,
+  scopeValue: true,
+  pattern: true,
+  status: true,
+  category: true,
+  emailConnectionId: true,
+} as const;
+
 const SENDER_SELECT = {
   id: true,
   updatedAt: true,
@@ -95,8 +105,15 @@ export async function GET(req: NextRequest) {
       }
     : {};
 
-  const [messages, senders, tombstones, connections, user, domainRules] =
-    await Promise.all([
+  const [
+    messages,
+    senders,
+    tombstones,
+    connections,
+    user,
+    domainRules,
+    subjectRules,
+  ] = await Promise.all([
     db.message.findMany({
       where: { userId, ...afterCursor },
       select: MESSAGE_SELECT,
@@ -135,6 +152,12 @@ export async function GET(req: NextRequest) {
       select: DOMAIN_RULE_SELECT,
       orderBy: { createdAt: "asc" },
     }),
+    // Subject screening rules (kurir-ios#50): same replace-all contract.
+    db.subjectRule.findMany({
+      where: { userId },
+      select: SUBJECT_RULE_SELECT,
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const hasMore = messages.length > limit;
@@ -164,6 +187,9 @@ export async function GET(req: NextRequest) {
     // Additive: full replace-all set of domain screening rules (plan 033).
     // Older apps ignore it.
     domainRules,
+    // Additive: full replace-all set of subject screening rules
+    // (kurir-ios#50). Older apps ignore it.
+    subjectRules,
     // Additive: lets the app show admin-only entry points (a web link to
     // /admin). Older apps ignore it.
     role: user?.role ?? "USER",

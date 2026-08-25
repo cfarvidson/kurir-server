@@ -13,6 +13,10 @@ import {
   changeDomainRuleCategory,
   deleteDomainRule,
 } from "@/actions/domain-rules";
+import {
+  changeSubjectRuleCategory,
+  deleteSubjectRule,
+} from "@/actions/subject-rules";
 import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import {
   X,
@@ -22,6 +26,7 @@ import {
   Newspaper,
   Receipt,
   Globe,
+  TextQuote,
 } from "lucide-react";
 
 import type { SenderStatus, SenderCategory } from "@prisma/client";
@@ -50,6 +55,20 @@ function ruleLabel(rule: DomainRule): string {
   return rule.includeSubdomains ? `*.${rule.pattern}` : rule.pattern;
 }
 
+interface SubjectRule {
+  id: string;
+  scope: "ADDRESS" | "DOMAIN" | "SUBDOMAINS";
+  scopeValue: string;
+  pattern: string;
+  status: SenderStatus;
+  category: SenderCategory | null;
+}
+
+/** Display form of a subject-rule scope: address, domain or `*.domain`. */
+function subjectRuleScopeLabel(rule: SubjectRule): string {
+  return rule.scope === "SUBDOMAINS" ? `*.${rule.scopeValue}` : rule.scopeValue;
+}
+
 const CATEGORY_CONFIG = {
   IMBOX: { label: "Imbox", Icon: Inbox, color: "text-imbox" },
   FEED: { label: "The Feed", Icon: Newspaper, color: "text-feed" },
@@ -59,9 +78,11 @@ const CATEGORY_CONFIG = {
 export function ScreenedSenderList({
   senders,
   domainRules = [],
+  subjectRules = [],
 }: {
   senders: ScreenedSender[];
   domainRules?: DomainRule[];
+  subjectRules?: SubjectRule[];
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -118,6 +139,29 @@ export function ScreenedSenderList({
     setProcessingId(ruleId);
     startTransition(async () => {
       await deleteDomainRule(ruleId);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setProcessingId(null);
+      router.refresh();
+    });
+  };
+
+  const handleChangeSubjectRuleCategory = (
+    ruleId: string,
+    category: SenderCategory,
+  ) => {
+    setProcessingId(ruleId);
+    startTransition(async () => {
+      await changeSubjectRuleCategory(ruleId, category);
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setProcessingId(null);
+      router.refresh();
+    });
+  };
+
+  const handleDeleteSubjectRule = (ruleId: string) => {
+    setProcessingId(ruleId);
+    startTransition(async () => {
+      await deleteSubjectRule(ruleId);
       queryClient.invalidateQueries({ queryKey: ["messages"] });
       setProcessingId(null);
       router.refresh();
@@ -206,6 +250,93 @@ export function ScreenedSenderList({
                     })}
                     <button
                       onClick={() => handleDeleteRule(rule.id)}
+                      disabled={isPending}
+                      title="Remove rule"
+                      className="ml-1 rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {subjectRules.length > 0 && (
+        <section>
+          <div className="px-4 py-2 md:px-6">
+            <span className="eyebrow text-muted-foreground/70">
+              Subject rules{" "}
+              <span className="tabular-nums">({subjectRules.length})</span>
+            </span>
+          </div>
+          {subjectRules.map((rule) => {
+            const isProcessing = processingId === rule.id;
+
+            return (
+              <div
+                key={rule.id}
+                className="flex items-center gap-3 border-b border-border px-4 py-3.5 md:px-6"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <TextQuote
+                    className="size-4 shrink-0 text-muted-foreground/60"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">
+                      &ldquo;{rule.pattern}&rdquo;
+                    </div>
+                    <div className="truncate text-sm text-muted-foreground">
+                      {rule.status === "REJECTED"
+                        ? `Screened out from ${subjectRuleScopeLabel(rule)}`
+                        : `From ${subjectRuleScopeLabel(rule)}`}
+                    </div>
+                  </div>
+                </div>
+
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="flex items-center gap-0.5">
+                    {(["IMBOX", "FEED", "PAPER_TRAIL"] as const).map((cat) => {
+                      const c = CATEGORY_CONFIG[cat];
+                      const isActive =
+                        rule.status === "APPROVED" && rule.category === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() =>
+                            handleChangeSubjectRuleCategory(rule.id, cat)
+                          }
+                          disabled={isPending}
+                          title={c.label}
+                          aria-pressed={isActive}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors",
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground/50 hover:bg-muted/50 hover:text-foreground",
+                          )}
+                        >
+                          <c.Icon
+                            className={cn("size-4 shrink-0", c.color)}
+                            aria-hidden="true"
+                          />
+                          <span className="hidden sm:inline">{c.label}</span>
+                          {isActive && (
+                            <Check
+                              className="h-3 w-3 text-primary"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => handleDeleteSubjectRule(rule.id)}
                       disabled={isPending}
                       title="Remove rule"
                       className="ml-1 rounded-md p-1.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"

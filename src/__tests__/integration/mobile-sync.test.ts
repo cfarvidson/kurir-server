@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     emailConnection: { findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     domainRule: { findMany: vi.fn().mockResolvedValue([]) },
+    subjectRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -53,6 +54,7 @@ async function mockEmptyTables() {
   vi.mocked(db.emailConnection.findMany).mockResolvedValue([]);
   vi.mocked(db.user.findUnique).mockResolvedValue(null);
   vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
+  vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
 }
 
 describe("GET /api/mobile/sync", () => {
@@ -429,6 +431,46 @@ describe("GET /api/mobile/sync", () => {
     ]);
     const arg = vi.mocked(db.domainRule.findMany).mock.calls[0][0] as any;
     expect(arg.where).toEqual({ userId: "user-1" });
+  });
+
+  it("returns the full subject-rule set on every sync (replace-all)", async () => {
+    await mockAuthed();
+    await mockEmptyTables();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockResolvedValue([]);
+    vi.mocked(db.subjectRule.findMany).mockResolvedValue([
+      {
+        id: "sr1",
+        scope: "ADDRESS",
+        scopeValue: "news@github.com",
+        pattern: "security digest",
+        status: "APPROVED",
+        category: "FEED",
+        emailConnectionId: "conn-1",
+      },
+    ] as any);
+
+    const { GET } = await import("@/app/api/mobile/sync/route");
+    // Rules are not cursor-filtered — a caught-up cursor still gets them all.
+    const res = await GET(
+      makeRequest({ cursor: "2026-07-01T10:00:00.000Z_b" }),
+    );
+    const body = await res.json();
+
+    expect(body.subjectRules).toEqual([
+      {
+        id: "sr1",
+        scope: "ADDRESS",
+        scopeValue: "news@github.com",
+        pattern: "security digest",
+        status: "APPROVED",
+        category: "FEED",
+        emailConnectionId: "conn-1",
+      },
+    ]);
+    const arg = vi.mocked(db.subjectRule.findMany).mock.calls[0][0] as any;
+    expect(arg.where).toEqual({ userId: "user-1" });
+    expect(arg.orderBy).toEqual({ createdAt: "asc" });
   });
 
   it("never returns message bodies", async () => {

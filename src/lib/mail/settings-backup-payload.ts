@@ -60,6 +60,15 @@ export type SettingsBackupDomainRule = {
   category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null;
 };
 
+export type SettingsBackupSubjectRule = {
+  connectionEmail: string;
+  scope: "ADDRESS" | "DOMAIN" | "SUBDOMAINS";
+  scopeValue: string;
+  pattern: string;
+  status: "APPROVED" | "REJECTED";
+  category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null;
+};
+
 export type SettingsBackupPayload = {
   kind: typeof SETTINGS_BACKUP_KIND;
   version: typeof SETTINGS_BACKUP_VERSION;
@@ -70,6 +79,7 @@ export type SettingsBackupPayload = {
   contactGroups: SettingsBackupGroup[];
   senders: SettingsBackupSender[];
   domainRules: SettingsBackupDomainRule[];
+  subjectRules: SettingsBackupSubjectRule[];
 };
 
 export function serializeSettingsBackup(payload: SettingsBackupPayload): string {
@@ -159,6 +169,20 @@ const payloadSchema = z.object({
       }),
     ),
   ),
+  // Additive (kurir-ios#50): backups written before subject rules existed
+  // simply have none.
+  subjectRules: z
+    .array(
+      decidedSchema.and(
+        z.object({
+          connectionEmail: emailSchema,
+          scope: z.enum(["ADDRESS", "DOMAIN", "SUBDOMAINS"]),
+          scopeValue: z.string().min(1),
+          pattern: z.string().min(1),
+        }),
+      ),
+    )
+    .default([]),
 });
 
 export function parseSettingsBackup(input: unknown): SettingsBackupPayload {

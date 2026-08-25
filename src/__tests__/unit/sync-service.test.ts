@@ -37,6 +37,9 @@ vi.mock("@/lib/db", () => ({
     domainRule: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    subjectRule: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -514,6 +517,203 @@ describe("domain rules at sync (plan 033)", () => {
     expect(db.domainRule.findMany).toHaveBeenCalledWith({
       where: { emailConnectionId: "conn-1" },
     });
+    expect(db.subjectRule.findMany).toHaveBeenCalledTimes(1);
+    expect(db.subjectRule.findMany).toHaveBeenCalledWith({
+      where: { emailConnectionId: "conn-1" },
+      orderBy: { createdAt: "asc" },
+    });
+  });
+});
+
+describe("subject rules at ingest (kurir-ios#48)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const fakeMsg = (from: string, subject: string) =>
+    ({
+      uid: 1,
+      envelope: {
+        messageId: "<test@example.com>",
+        from: [{ address: from, name: "Sender" }],
+        to: [{ address: "me@example.com" }],
+        subject,
+        date: new Date(),
+        inReplyTo: null,
+      },
+      flags: new Set<string>(),
+      internalDate: new Date(),
+      source: Buffer.from("raw email"),
+    }) as any;
+
+  async function mockPersistence(senderState: {
+    status: string;
+    category: string | null;
+  }) {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.sender.upsert).mockResolvedValue({
+      id: "sender-1",
+      ...senderState,
+    } as any);
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(db.message.create).mockResolvedValue({ id: "msg-1" } as any);
+
+    const { simpleParser } = await import("mailparser");
+    vi.mocked(simpleParser).mockResolvedValue({
+      text: "Hello",
+      html: null,
+      attachments: [],
+      references: [],
+    } as any);
+    return db;
+  }
+
+  const OWN = { emails: ["me@example.com"], domains: [] };
+
+  const feedRule = {
+    id: "srule-1",
+    scope: "ADDRESS",
+    scopeValue: "news@github.com",
+    pattern: "security digest",
+    status: "APPROVED",
+    category: "FEED",
+  } as const;
+
+  it("routes a matching message by the rule even though the sender is PENDING", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: null });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "Your Security Digest for May"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [feedRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInScreener: false,
+          isInFeed: true,
+          isInImbox: false,
+          isArchived: false,
+          subjectRuleId: "srule-1",
+        }),
+      }),
+    );
+  });
+
+  it("leaves a non-matching message from the same sender to the sender's decision", async () => {
+    const db = await mockPersistence({ status: "APPROVED", category: "IMBOX" });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "Welcome to GitHub"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [feedRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInImbox: true,
+          isInFeed: false,
+          subjectRuleId: null,
+        }),
+      }),
+    );
+  });
+
+  it("archives a message matching a REJECTED rule even from an APPROVED sender", async () => {
+    const db = await mockPersistence({ status: "APPROVED", category: "IMBOX" });
+
+    const rejectRule = {
+      id: "srule-2",
+      scope: "DOMAIN",
+      scopeValue: "github.com",
+      pattern: "[bot]",
+      status: "REJECTED",
+      category: null,
+    };
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "[bot] dependency bump"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [rejectRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isArchived: true,
+          isInImbox: false,
+          isInScreener: false,
+          subjectRuleId: "srule-2",
+        }),
+      }),
+    );
+  });
+
+  it("an APPROVED subject rule beats a REJECTED sender", async () => {
+    const db = await mockPersistence({ status: "REJECTED", category: null });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "security digest weekly"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [feedRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isInFeed: true,
+          isArchived: false,
+          subjectRuleId: "srule-1",
+        }),
+      }),
+    );
+  });
+
+  it("own-address mail ignores subject rules", async () => {
+    const db = await mockPersistence({ status: "APPROVED", category: "IMBOX" });
+
+    const ownRule = {
+      id: "srule-3",
+      scope: "ADDRESS",
+      scopeValue: "me@example.com",
+      pattern: "test",
+      status: "REJECTED",
+      category: null,
+    };
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("me@example.com", "test message"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN, subjectRules: [ownRule as any] },
+    );
+
+    expect(db.message.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isArchived: false,
+          isInImbox: true,
+          subjectRuleId: null,
+        }),
+      }),
+    );
   });
 });
 

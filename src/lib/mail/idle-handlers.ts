@@ -341,11 +341,16 @@ async function ingestNewMessages(
     },
   });
 
-  // Domain screening rules: IDLE-ingested messages create senders too, so
-  // they must see the same rules as a full sync run (plan 033).
-  const domainRules = await db.domainRule.findMany({
-    where: { emailConnectionId: connectionId },
-  });
+  // Domain + subject screening rules: IDLE-ingested messages must see the
+  // same rules as a full sync run (plan 033 / kurir-ios#48). Subject rules
+  // ordered createdAt asc so full ties go to the oldest rule.
+  const [domainRules, subjectRules] = await Promise.all([
+    db.domainRule.findMany({ where: { emailConnectionId: connectionId } }),
+    db.subjectRule.findMany({
+      where: { emailConnectionId: connectionId },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
 
   try {
     for await (const msg of client.fetch(
@@ -390,6 +395,7 @@ async function ingestNewMessages(
           isInbox: true,
           own,
           domainRules,
+          subjectRules,
         });
       } catch (err) {
         // A concurrent sync can insert the same [folderId, uid] between our

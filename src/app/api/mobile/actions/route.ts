@@ -22,6 +22,9 @@ import {
   createDomainRuleForUser,
   changeDomainRuleCategoryForUser,
   deleteDomainRuleForUser,
+  createSubjectRuleForUser,
+  changeSubjectRuleCategoryForUser,
+  deleteSubjectRuleForUser,
 } from "@/lib/mail/mutations";
 
 /**
@@ -148,6 +151,27 @@ const actionSchema = z.discriminatedUnion("type", [
     type: z.literal("deleteDomainRule"),
     ruleId: z.string().min(1),
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("createSubjectRule"),
+    senderId: z.string().min(1),
+    scope: z.enum(["ADDRESS", "DOMAIN", "SUBDOMAINS"]),
+    scopeValue: z.string().min(1),
+    pattern: z.string().min(1),
+    status: z.enum(["APPROVED", "REJECTED"]),
+    category: z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]).optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("changeSubjectRuleCategory"),
+    ruleId: z.string().min(1),
+    category: z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("deleteSubjectRule"),
+    ruleId: z.string().min(1),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -263,6 +287,26 @@ export async function POST(req: NextRequest) {
           break;
         case "deleteDomainRule":
           await deleteDomainRuleForUser(userId, action.ruleId);
+          break;
+        case "createSubjectRule":
+          await createSubjectRuleForUser(userId, {
+            senderId: action.senderId,
+            scope: action.scope,
+            scopeValue: action.scopeValue,
+            pattern: action.pattern,
+            status: action.status,
+            category: action.category ?? null,
+          });
+          break;
+        case "changeSubjectRuleCategory":
+          await changeSubjectRuleCategoryForUser(
+            userId,
+            action.ruleId,
+            action.category,
+          );
+          break;
+        case "deleteSubjectRule":
+          await deleteSubjectRuleForUser(userId, action.ruleId);
           break;
       }
       results.push({ id: action.id, ok: true });

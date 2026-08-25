@@ -14,6 +14,7 @@ import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
 import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
+import { ScreenSubjectMenu } from "@/components/screener/screen-subject-menu";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
@@ -253,10 +254,17 @@ export async function ThreadDetailView({
         {targetMessage.sender && !isSentView && (
           <>
             {targetMessage.sender.email.includes("@") && (
-              <ScreenDomainMenu
-                senderId={targetMessage.sender.id}
-                domain={targetMessage.sender.email.split("@")[1]}
-              />
+              <>
+                <ScreenSubjectMenu
+                  senderId={targetMessage.sender.id}
+                  senderEmail={targetMessage.sender.email}
+                  defaultPattern={targetMessage.subject || ""}
+                />
+                <ScreenDomainMenu
+                  senderId={targetMessage.sender.id}
+                  domain={targetMessage.sender.email.split("@")[1]}
+                />
+              </>
             )}
             <UnthreadToggle
               senderId={targetMessage.sender.id}
