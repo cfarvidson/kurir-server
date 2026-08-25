@@ -114,12 +114,36 @@ export async function moveToArchiveViaImap(
   // archive folder using the COPYUID map, so a later `unarchiveConversation`
   // (which computes its reverse move from `folderId`) can still issue the
   // reverse IMAP move after the deferred archive move has completed.
-  await persistArchiveLocations(
+  const persisted = await persistArchiveLocations(
     connectionId,
     result.archivePath,
     result.uidMap,
     messageIdBySourceUid,
     result.anyUidMapMissing,
+  );
+
+  if (!persisted || persisted.messageIds.length === 0) return;
+
+  // TOCTOU compensation (#61): an Undo that landed between the pre-move
+  // re-check above and the repoint flipped `isArchived` back to false, but its
+  // reverse move computed from the row's then-current inbox folderId and was a
+  // no-op — leaving the message in the IMAP archive folder while the app shows
+  // it unarchived. The rows are now repointed at the archive folder (where
+  // IMAP has them), so re-read the flags and issue the reverse move for any
+  // row that flipped mid-move. An Undo landing after the repoint sees the
+  // archive folderId and issues its own reverse move; `moveToInboxViaImap`'s
+  // pre-move re-check makes the rare overlap harmless.
+  const undoneMidMove = await db.message.findMany({
+    where: { id: { in: persisted.messageIds }, isArchived: false },
+    select: { uid: true },
+  });
+  if (undoneMidMove.length === 0) return;
+
+  await moveToInboxViaImap(
+    userId,
+    connectionId,
+    persisted.folderId,
+    undoneMidMove.map((m) => m.uid),
   );
 }
 
@@ -128,6 +152,10 @@ export async function moveToArchiveViaImap(
  * COPYUID uidMap returned by `messageMove`. If the server returned no uidMap
  * (no UIDPLUS support, or a failed batch), leave the affected rows as-is and
  * log a warning — the next sync reconciles their location.
+ *
+ * Returns the destination folder row id and the ids of the repointed rows so
+ * the caller can run the mid-move undo compensation check; undefined when
+ * nothing was repointed.
  */
 async function persistArchiveLocations(
   connectionId: string,
@@ -135,7 +163,7 @@ async function persistArchiveLocations(
   uidMap: Map<number, number>,
   messageIdBySourceUid: Map<number, string>,
   anyUidMapMissing: boolean,
-) {
+): Promise<{ folderId: string; messageIds: string[] } | undefined> {
   if (uidMap.size === 0) {
     console.warn(
       `[imap] No COPYUID uidMap returned for archive move on ${archivePath}; ` +
@@ -160,9 +188,11 @@ async function persistArchiveLocations(
   }
 
   const updates = [];
+  const repointedIds: string[] = [];
   for (const [sourceUid, destUid] of uidMap) {
     const messageId = messageIdBySourceUid.get(sourceUid);
     if (!messageId) continue;
+    repointedIds.push(messageId);
     updates.push(
       db.message.update({
         where: { id: messageId },
@@ -178,6 +208,8 @@ async function persistArchiveLocations(
         `those rows left unchanged (next sync reconciles).`,
     );
   }
+
+  return { folderId: archiveFolder.id, messageIds: repointedIds };
 }
 
 export async function moveToInboxViaImap(
