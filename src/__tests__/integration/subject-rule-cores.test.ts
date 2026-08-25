@@ -175,6 +175,159 @@ describe("createSubjectRuleForUser", () => {
   });
 });
 
+describe("retroactive sweep on create (kurir-ios#49)", () => {
+  it("moves existing matching classified messages to the rule's category", async () => {
+    mockSourceSender("news@github.com");
+    mockUpsertedRule({ status: "APPROVED", category: "FEED" });
+    dbMock.message.findMany.mockResolvedValue([
+      { id: "m1", uid: 11, folderId: "f-inbox" },
+      { id: "m2", uid: 12, folderId: "f-inbox" },
+    ]);
+    dbMock.message.updateMany.mockResolvedValue({ count: 2 });
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "security digest",
+      status: "APPROVED",
+      category: "FEED",
+    });
+
+    // The sweep only considers non-archived, currently classified mail
+    // whose subject contains the pattern and whose sender is in scope.
+    expect(dbMock.message.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          emailConnectionId: "c1",
+          isArchived: false,
+          subject: { contains: "security digest", mode: "insensitive" },
+          sender: { email: "news@github.com" },
+          OR: [
+            { isInScreener: true },
+            { isInImbox: true },
+            { isInFeed: true },
+            { isInPaperTrail: true },
+          ],
+        }),
+      }),
+    );
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1", "m2"] } },
+      data: {
+        isInScreener: false,
+        isInImbox: false,
+        isInFeed: true,
+        isInPaperTrail: false,
+        subjectRuleId: "srule-1",
+      },
+    });
+  });
+
+  it("matches subdomain scopes against the sender domain", async () => {
+    mockSourceSender("bot@mail.github.com");
+    mockUpsertedRule({
+      scope: "SUBDOMAINS",
+      scopeValue: "github.com",
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+    dbMock.message.findMany.mockResolvedValue([]);
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "SUBDOMAINS",
+      scopeValue: "github.com",
+      pattern: "digest",
+      status: "APPROVED",
+      category: "PAPER_TRAIL",
+    });
+
+    expect(dbMock.message.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sender: {
+            OR: [
+              { domain: "github.com" },
+              { domain: { endsWith: ".github.com" } },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("screen-out rules archive matches and defer the IMAP inbox move", async () => {
+    mockSourceSender("news@github.com");
+    mockUpsertedRule({ status: "REJECTED", category: null });
+    dbMock.message.findMany.mockResolvedValue([
+      { id: "m1", uid: 11, folderId: "f-inbox" },
+      { id: "m2", uid: -5, folderId: "f-inbox" }, // local row: no IMAP move
+      { id: "m3", uid: 7, folderId: "f-other" }, // other folder: no IMAP move
+    ]);
+    dbMock.message.updateMany.mockResolvedValue({ count: 3 });
+    dbMock.folder.findFirst.mockResolvedValue({ id: "f-inbox" });
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "digest",
+      status: "REJECTED",
+    });
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1", "m2", "m3"] } },
+      data: {
+        isInScreener: false,
+        isInImbox: false,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isArchived: true,
+        isSnoozed: false,
+        snoozedUntil: null,
+        subjectRuleId: "srule-1",
+      },
+    });
+
+    const { after } = await import("next/server");
+    expect(after).toHaveBeenCalledTimes(1);
+    const { moveToArchiveViaImap } = await import("@/lib/mail/archive-imap");
+    vi.mocked(moveToArchiveViaImap).mockResolvedValue(undefined);
+    const deferred = vi.mocked(after).mock.calls[0][0] as () => Promise<void>;
+    await deferred();
+    expect(moveToArchiveViaImap).toHaveBeenCalledWith(
+      USER,
+      "c1",
+      "f-inbox",
+      [11],
+    );
+  });
+
+  it("does nothing extra when nothing matches", async () => {
+    mockSourceSender("news@github.com");
+    mockUpsertedRule();
+    dbMock.message.findMany.mockResolvedValue([]);
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      pattern: "digest",
+      status: "APPROVED",
+      category: "FEED",
+    });
+
+    expect(dbMock.message.updateMany).not.toHaveBeenCalled();
+    const { after } = await import("next/server");
+    expect(after).not.toHaveBeenCalled();
+  });
+});
+
 describe("changeSubjectRuleCategoryForUser", () => {
   it("re-points the rule and moves its non-archived messages", async () => {
     dbMock.subjectRule.findUnique.mockResolvedValue({

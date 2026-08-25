@@ -973,6 +973,95 @@ export async function createSubjectRuleForUser(
     update: { status: input.status, category },
   });
 
+  // Retroactive sweep (kurir-ios#49): re-file existing matching messages at
+  // the message level. Unlike the domain-rule sweep (PENDING senders only),
+  // decided senders' mail moves too — the rule outranks the sender decision.
+  // Only currently classified mail is touched: archived mail stays archived
+  // (decisions kept) and sent/other-folder rows carry no placement flags.
+  const scopeWhere =
+    rule.scope === "ADDRESS"
+      ? { email: rule.scopeValue }
+      : rule.scope === "DOMAIN"
+        ? { domain: rule.scopeValue }
+        : {
+            OR: [
+              { domain: rule.scopeValue },
+              { domain: { endsWith: "." + rule.scopeValue } },
+            ],
+          };
+  const matchingMessages = await db.message.findMany({
+    where: {
+      emailConnectionId: sender.emailConnectionId,
+      isArchived: false,
+      subject: { contains: pattern, mode: "insensitive" },
+      sender: scopeWhere,
+      OR: [
+        { isInScreener: true },
+        { isInImbox: true },
+        { isInFeed: true },
+        { isInPaperTrail: true },
+      ],
+    },
+    select: { id: true, uid: true, folderId: true },
+  });
+
+  if (matchingMessages.length > 0) {
+    const ids = matchingMessages.map((m) => m.id);
+    if (rule.status === "APPROVED") {
+      await db.message.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          isInScreener: false,
+          isInImbox: rule.category === "IMBOX",
+          isInFeed: rule.category === "FEED",
+          isInPaperTrail: rule.category === "PAPER_TRAIL",
+          subjectRuleId: rule.id,
+        },
+      });
+    } else {
+      const inboxFolder = await db.folder.findFirst({
+        where: {
+          emailConnectionId: sender.emailConnectionId,
+          specialUse: "inbox",
+        },
+        select: { id: true },
+      });
+      const inboxUids = inboxFolder
+        ? matchingMessages
+            .filter((m) => m.folderId === inboxFolder.id && m.uid > 0)
+            .map((m) => m.uid)
+        : [];
+
+      await db.message.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          isInScreener: false,
+          isInImbox: false,
+          isInFeed: false,
+          isInPaperTrail: false,
+          isArchived: true,
+          isSnoozed: false,
+          snoozedUntil: null,
+          subjectRuleId: rule.id,
+        },
+      });
+
+      if (inboxUids.length > 0 && inboxFolder) {
+        const connectionId = sender.emailConnectionId;
+        after(() =>
+          moveToArchiveViaImap(
+            userId,
+            connectionId,
+            inboxFolder.id,
+            inboxUids,
+          ).catch((err) =>
+            console.error("IMAP archive move (subject rule) failed:", err),
+          ),
+        );
+      }
+    }
+  }
+
   return rule;
 }
 
