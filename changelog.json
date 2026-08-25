@@ -1,5 +1,17 @@
 [
   {
+    "version": "2026.41",
+    "date": "2026-08-25",
+    "changes": [
+      "Calendar: the web day view adopts the day agenda design, free time is clipped at now, and an ongoing event is marked as current instead of getting a line under it",
+      "Calendar: the calendars sidebar is replaced by the Calendars dialog on desktop",
+      "Subject rules match reliably: one unicode-safe matcher for creation sweep and ingest (accented characters, literal % and _, encoded-word subjects), and rules match across Re:/Fwd: prefixes",
+      "Sender-level moves no longer re-file mail a subject rule placed; unarchive follows the rule's category",
+      "Archive undo races closed: an undo or re-archive landing mid-move gets a compensating IMAP move, and unthreaded-sender sibling rows disappear immediately on archive",
+      "The updater verifies the running version and flags a stale sidecar instead of reporting false success"
+    ]
+  },
+  {
     "version": "2026.39",
     "date": "2026-08-25",
     "changes": [
@@ -439,7 +451,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -490,7 +504,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",

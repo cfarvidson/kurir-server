@@ -4,6 +4,39 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.41] - 2026-08-25
+
+### Added
+
+- The web day view adopts the iOS day agenda design (kurir-ios#54), and the
+  now line reflects actual time (kurir-ios#64 mirror, #120): a free or gap
+  span straddling now is clipped to its remaining minutes, "longest stretch"
+  is chosen by what remains, and an ongoing event is marked as current
+  instead of getting a line under it. Other days render untouched.
+- The calendars aside is gone; the Calendars dialog from the masthead serves
+  desktop too (kurir-ios#56).
+
+### Fixed
+
+- Subject rules match reliably (kurir-ios#59): the creation sweep and ingest
+  share one unicode-safe matcher - `%` and `_` are literal, both sides are
+  NFC-normalized and case-folded (a pattern typed on iOS with åäö matches at
+  ingest), and encoded-word subjects are decoded before matching and storing.
+  The IDLE ingest path is covered by integration tests.
+- Sender-level moves no longer re-file mail a subject rule placed
+  (kurir-ios#60): the own-sender auto-approve during sync, the
+  `approveOwnPendingSenders` maintenance task, and unarchive all respect
+  subject-rule provenance; unarchive places rule-filed messages per the
+  rule's category.
+- Subject rules match across reply/forward prefixes (kurir-ios#58).
+- Archive undo races closed (#61, #126): an undo or re-archive landing in
+  the middle of the deferred IMAP move now gets a compensating reverse move
+  instead of stranding the message in the wrong IMAP folder.
+- Optimistic archive suppresses unthreaded-sender sibling rows immediately
+  (#62), mirroring the server-side thread expansion.
+- The updater verifies the running version after an update and flags a stale
+  sidecar instead of reporting false success (kurir-ios#57).
+
 ## [v2026.39] - 2026-08-25
 
 ### Added
