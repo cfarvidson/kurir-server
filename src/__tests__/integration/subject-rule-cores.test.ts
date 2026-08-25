@@ -171,13 +171,11 @@ describe("createSubjectRuleForUser", () => {
         create: expect.objectContaining({ pattern: "security digest" }),
       }),
     );
-    // The sweep queries with the stripped pattern; `contains` still finds
-    // existing "Re: …" messages since the stripped pattern is a substring.
+    // The sweep never filters by subject in SQL (kurir-ios#59) — matching
+    // happens in JS through the shared predicate.
     expect(dbMock.message.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          subject: { contains: "security digest", mode: "insensitive" },
-        }),
+        where: expect.not.objectContaining({ subject: expect.anything() }),
       }),
     );
   });
@@ -221,12 +219,26 @@ describe("createSubjectRuleForUser", () => {
 });
 
 describe("retroactive sweep on create (kurir-ios#49)", () => {
+  const sweepRow = (
+    id: string,
+    subject: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    id,
+    uid: 11,
+    folderId: "f-inbox",
+    subject,
+    sender: { email: "news@github.com" },
+    ...overrides,
+  });
+
   it("moves existing matching classified messages to the rule's category", async () => {
     mockSourceSender("news@github.com");
     mockUpsertedRule({ status: "APPROVED", category: "FEED" });
     dbMock.message.findMany.mockResolvedValue([
-      { id: "m1", uid: 11, folderId: "f-inbox" },
-      { id: "m2", uid: 12, folderId: "f-inbox" },
+      sweepRow("m1", "Your security digest"),
+      sweepRow("m2", "Re: Security Digest", { uid: 12 }),
+      sweepRow("m-other", "Welcome to GitHub"),
     ]);
     dbMock.message.updateMany.mockResolvedValue({ count: 2 });
 
@@ -240,14 +252,13 @@ describe("retroactive sweep on create (kurir-ios#49)", () => {
       category: "FEED",
     });
 
-    // The sweep only considers non-archived, currently classified mail
-    // whose subject contains the pattern and whose sender is in scope.
+    // The sweep fetches candidates by sender scope + placement only; the
+    // subject comparison runs in JS via the shared predicate (kurir-ios#59).
     expect(dbMock.message.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
+        where: {
           emailConnectionId: "c1",
           isArchived: false,
-          subject: { contains: "security digest", mode: "insensitive" },
           sender: { email: "news@github.com" },
           OR: [
             { isInScreener: true },
@@ -255,6 +266,10 @@ describe("retroactive sweep on create (kurir-ios#49)", () => {
             { isInFeed: true },
             { isInPaperTrail: true },
           ],
+        },
+        select: expect.objectContaining({
+          subject: true,
+          sender: { select: { email: true } },
         }),
       }),
     );
@@ -268,6 +283,44 @@ describe("retroactive sweep on create (kurir-ios#49)", () => {
         subjectRuleId: "srule-1",
       },
     });
+  });
+
+  it("sweep and ingest agree: % and _ are literal, unicode folds (kurir-ios#59)", async () => {
+    const NFC_STORED = "50% p\u00e5sl_g"; // pasl_g with a composed a-ring
+    mockSourceSender("news@github.com");
+    mockUpsertedRule({
+      status: "APPROVED",
+      category: "FEED",
+      pattern: NFC_STORED,
+    });
+    dbMock.message.findMany.mockResolvedValue([
+      // Literal match, with the subject's a-ring in NFD as iOS-origin text is.
+      sweepRow("m-literal", "Nu: 50% pa\u030asl_g!"),
+      // ILIKE would have matched these via % and _ wildcards - must not.
+      sweepRow("m-wild-percent", "Nu: 50 kr p\u00e5sl_g!"),
+      sweepRow("m-wild-underscore", "Nu: 50% p\u00e5slXg!"),
+    ]);
+    dbMock.message.updateMany.mockResolvedValue({ count: 1 });
+
+    const { createSubjectRuleForUser } = await import("@/lib/mail/mutations");
+    await createSubjectRuleForUser(USER, {
+      senderId: "s1",
+      scope: "ADDRESS",
+      scopeValue: "news@github.com",
+      // NFD pattern as typed on iOS; stored NFC-folded.
+      pattern: "50% Pa\u030asl_g",
+      status: "APPROVED",
+      category: "FEED",
+    });
+
+    expect(dbMock.subjectRule.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ pattern: NFC_STORED }),
+      }),
+    );
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["m-literal"] } } }),
+    );
   });
 
   it("matches subdomain scopes against the sender domain", async () => {
@@ -306,11 +359,11 @@ describe("retroactive sweep on create (kurir-ios#49)", () => {
 
   it("screen-out rules archive matches and defer the IMAP inbox move", async () => {
     mockSourceSender("news@github.com");
-    mockUpsertedRule({ status: "REJECTED", category: null });
+    mockUpsertedRule({ status: "REJECTED", category: null, pattern: "digest" });
     dbMock.message.findMany.mockResolvedValue([
-      { id: "m1", uid: 11, folderId: "f-inbox" },
-      { id: "m2", uid: -5, folderId: "f-inbox" }, // local row: no IMAP move
-      { id: "m3", uid: 7, folderId: "f-other" }, // other folder: no IMAP move
+      sweepRow("m1", "Your digest"),
+      sweepRow("m2", "digest again", { uid: -5 }), // local row: no IMAP move
+      sweepRow("m3", "a digest", { uid: 7, folderId: "f-other" }), // other folder: no IMAP move
     ]);
     dbMock.message.updateMany.mockResolvedValue({ count: 3 });
     dbMock.folder.findFirst.mockResolvedValue({ id: "f-inbox" });
