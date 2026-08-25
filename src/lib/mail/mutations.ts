@@ -6,7 +6,10 @@ import {
 } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
-import { scopeMatchesSender } from "@/lib/mail/subject-rules";
+import {
+  scopeMatchesSender,
+  stripReplyPrefixes,
+} from "@/lib/mail/subject-rules";
 import {
   SenderCategory,
   SenderStatus,
@@ -933,7 +936,11 @@ export async function createSubjectRuleForUser(
   input: CreateSubjectRuleInput,
 ) {
   const scopeValue = input.scopeValue.trim().toLowerCase();
-  const pattern = input.pattern.trim().toLowerCase();
+  // Reply/forward prefixes are stripped at creation (kurir-ios#58) so a rule
+  // made from "Re: X" is stored as "x" and matches prefix-less mail too. The
+  // sweep below stays consistent: a stripped pattern is a substring of every
+  // prefixed variant, so `contains` still finds "Re: X" messages.
+  const pattern = stripReplyPrefixes(input.pattern.trim().toLowerCase());
   if (input.status !== "APPROVED" && input.status !== "REJECTED") {
     throw new Error("Rule status must be APPROVED or REJECTED");
   }

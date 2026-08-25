@@ -6,6 +6,9 @@
  * - A rule matches when the sender falls inside its scope AND the message
  *   subject contains the rule's pattern (both compared case-insensitively;
  *   `scopeValue` and `pattern` are stored normalized lowercase).
+ * - Reply/forward prefixes (Re:, Sv:, Fwd:, …) are irrelevant (kurir-ios#58):
+ *   both the subject and the pattern are stripped of leading prefixes before
+ *   comparing, so a rule made from "Re: X" matches "X" and vice versa.
  * - Scopes: ADDRESS = exact sender address, DOMAIN = exact domain,
  *   SUBDOMAINS = the domain itself and arbitrarily deep subdomains.
  * - Precedence: a matching subject rule beats the sender's own decision
@@ -60,6 +63,20 @@ export function scopeMatchesSender(
   }
 }
 
+// Stacked leading reply/forward prefixes: "Re: Fwd:x" etc., case-insensitive,
+// with or without whitespace around the colon. The token must end at the
+// colon, so "revenue: x" is untouched.
+const REPLY_PREFIXES = /^(?:(?:re|sv|fwd|fw|vb|aw|vs)\s*:\s*)+/i;
+
+/**
+ * Strip leading reply/forward prefixes from a subject or pattern
+ * (kurir-ios#58). New patterns are stored stripped; the matcher also strips
+ * at match time so pre-#58 rules with a "re: …" pattern keep working.
+ */
+export function stripReplyPrefixes(subject: string): string {
+  return subject.trim().replace(REPLY_PREFIXES, "").trim();
+}
+
 /** True when `rule` covers this sender + subject (case-insensitive). */
 export function subjectRuleMatches(
   senderEmail: string,
@@ -68,7 +85,11 @@ export function subjectRuleMatches(
 ): boolean {
   if (!rule.pattern) return false;
   if (!scopeMatchesSender(senderEmail, rule)) return false;
-  return (subject ?? "").toLowerCase().includes(rule.pattern.toLowerCase());
+  // A legacy pattern that was nothing but a prefix strips to "" — treat it
+  // as never matching rather than matching everything via includes("").
+  const pattern = stripReplyPrefixes(rule.pattern.toLowerCase());
+  if (!pattern) return false;
+  return stripReplyPrefixes((subject ?? "").toLowerCase()).includes(pattern);
 }
 
 /**
