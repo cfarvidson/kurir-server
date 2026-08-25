@@ -12,6 +12,7 @@ import {
   wrap,
 } from "@/lib/mcp/tools/helpers";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
+import { isValidTimeZone } from "@/lib/timezone";
 
 const THEMES = ["light", "dark", "system"] as const;
 
@@ -501,11 +502,3 @@ async function bulkApproveOldSenders(
   );
 }
 
-function isValidTimeZone(tz: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}

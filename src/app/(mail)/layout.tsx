@@ -6,6 +6,7 @@ import { PullToRefresh } from "@/components/mail/pull-to-refresh";
 import { KeyboardShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { CommandPaletteShell } from "@/components/mail/command-palette-shell";
 import { BackGestureBlocker } from "@/components/layout/back-gesture-blocker";
+import { TimezoneAdoption } from "@/components/layout/timezone-adoption";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
 import {
@@ -43,16 +44,15 @@ export default async function MailLayout({
       paperTrailUnreadCount,
       badgePreferences,
     },
-    userTheme,
+    userPrefs,
   ] = await Promise.all([
     getSidebarCounts(session.user.id),
-    db.user
-      .findUnique({
-        where: { id: session.user.id },
-        select: { theme: true },
-      })
-      .then((u) => u?.theme ?? "system"),
+    db.user.findUnique({
+      where: { id: session.user.id },
+      select: { theme: true, timezone: true },
+    }),
   ]);
+  const userTheme = userPrefs?.theme ?? "system";
 
   return (
     <Providers defaultTheme={userTheme} userId={session.user.id}>
@@ -86,6 +86,9 @@ export default async function MailLayout({
           isAdmin={session.user.role === "ADMIN"}
         />
         <AutoSync />
+        {/* Null zone = the account has never chosen one; adopt what this
+            browser reports (issue #37). Renders nothing once a zone exists. */}
+        {!userPrefs?.timezone && <TimezoneAdoption />}
         <BackGestureBlocker />
         <KeyboardShortcuts />
         <CommandPaletteShell />
