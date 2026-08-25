@@ -387,7 +387,10 @@ export async function approveSenderForUser(
       },
     }),
     db.message.updateMany({
-      where: { senderId, isArchived: false },
+      // Subject-rule placements outrank sender decisions (kurir-ios#48):
+      // mail a subject rule filed keeps its placement when the sender is
+      // later decided or moved. Same guard on every sender-level move below.
+      where: { senderId, isArchived: false, subjectRuleId: null },
       data: {
         isInScreener: false,
         isInImbox: category === "IMBOX",
@@ -425,7 +428,12 @@ export async function rejectSenderForUser(userId: string, senderId: string) {
   // Fetch inbox UIDs for IMAP move (parallelize independent queries)
   const [inboxMessages, inboxFolder] = await Promise.all([
     db.message.findMany({
-      where: { senderId, isArchived: false, uid: { gt: 0 } },
+      where: {
+        senderId,
+        isArchived: false,
+        uid: { gt: 0 },
+        subjectRuleId: null,
+      },
       select: { uid: true, folderId: true },
     }),
     db.folder.findFirst({
@@ -453,7 +461,7 @@ export async function rejectSenderForUser(userId: string, senderId: string) {
       },
     }),
     db.message.updateMany({
-      where: { senderId, isArchived: false },
+      where: { senderId, isArchived: false, subjectRuleId: null },
       data: {
         isInScreener: false,
         isInImbox: false,
@@ -558,6 +566,7 @@ export async function undoScreenActionForUser(
       senderId,
       isArchived: true,
       uid: { gt: 0 },
+      subjectRuleId: null,
       ...(inboxFolder ? { NOT: { folderId: inboxFolder.id } } : {}),
     },
     select: { uid: true, folderId: true },
@@ -573,7 +582,7 @@ export async function undoScreenActionForUser(
       },
     }),
     db.message.updateMany({
-      where: { senderId },
+      where: { senderId, subjectRuleId: null },
       data: {
         isArchived: false,
         isInScreener: true,
@@ -634,7 +643,7 @@ export async function changeSenderCategoryForUser(
       data: { category },
     }),
     db.message.updateMany({
-      where: { senderId, isArchived: false },
+      where: { senderId, isArchived: false, subjectRuleId: null },
       data: {
         isInScreener: false,
         isInImbox: category === "IMBOX",
@@ -842,7 +851,11 @@ export async function changeDomainRuleCategoryForUser(
       data: { status: "APPROVED", category },
     }),
     db.message.updateMany({
-      where: { sender: { decidedByRuleId: ruleId }, isArchived: false },
+      where: {
+        sender: { decidedByRuleId: ruleId },
+        isArchived: false,
+        subjectRuleId: null,
+      },
       data: {
         isInScreener: false,
         isInImbox: category === "IMBOX",
@@ -975,9 +988,10 @@ export async function createSubjectRuleForUser(
 
   // Retroactive sweep (kurir-ios#49): re-file existing matching messages at
   // the message level. Unlike the domain-rule sweep (PENDING senders only),
-  // decided senders' mail moves too — the rule outranks the sender decision.
-  // Only currently classified mail is touched: archived mail stays archived
-  // (decisions kept) and sent/other-folder rows carry no placement flags.
+  // APPROVED senders' mail moves too — the rule outranks the sender
+  // decision. Only currently classified mail is touched: archived mail
+  // (including rejected-sender mail, which is archived) stays archived, and
+  // sent/other-folder rows carry no placement flags.
   const scopeWhere =
     rule.scope === "ADDRESS"
       ? { email: rule.scopeValue }
@@ -1179,7 +1193,11 @@ export async function bulkApproveOldSendersForUser(
       },
     }),
     db.message.updateMany({
-      where: { senderId: { in: senderIds }, isArchived: false },
+      where: {
+        senderId: { in: senderIds },
+        isArchived: false,
+        subjectRuleId: null,
+      },
       data: {
         isInScreener: false,
         isInImbox: true,

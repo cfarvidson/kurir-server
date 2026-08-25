@@ -13,6 +13,8 @@ import {
   SubjectRuleScope,
 } from "@prisma/client";
 
+// Unlike the domain-rule twin this skips /contacts: subject rules never
+// approve a sender, so they never create contacts.
 function revalidateScreenerSurfaces() {
   updateTag("sidebar-counts");
   revalidatePath("/screener");

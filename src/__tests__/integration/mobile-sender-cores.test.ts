@@ -92,7 +92,7 @@ describe("undoScreenActionForUser", () => {
       data: { status: "PENDING", category: null, decidedAt: null },
     });
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { senderId: "s1" },
+      where: { senderId: "s1", subjectRuleId: null },
       data: {
         isArchived: false,
         isInScreener: true,
@@ -135,7 +135,7 @@ describe("changeSenderCategoryForUser", () => {
       data: { category: "FEED" },
     });
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { senderId: "s1", isArchived: false },
+      where: { senderId: "s1", isArchived: false, subjectRuleId: null },
       data: {
         isInScreener: false,
         isInImbox: false,

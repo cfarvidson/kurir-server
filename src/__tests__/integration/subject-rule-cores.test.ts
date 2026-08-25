@@ -370,6 +370,66 @@ describe("changeSubjectRuleCategoryForUser", () => {
   });
 });
 
+describe("subject-rule precedence over sender decisions (kurir-ios#48)", () => {
+  it("approving a sender never re-files subject-ruled mail", async () => {
+    dbMock.sender.findUnique.mockResolvedValue({
+      userId: USER,
+      email: "news@github.com",
+      displayName: null,
+    });
+
+    const { approveSenderForUser } = await import("@/lib/mail/mutations");
+    await approveSenderForUser(USER, "s1", "IMBOX");
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subjectRuleId: null }),
+      }),
+    );
+  });
+
+  it("rejecting a sender never archives subject-ruled mail", async () => {
+    dbMock.sender.findUnique.mockResolvedValue({
+      userId: USER,
+      emailConnectionId: "c1",
+    });
+    dbMock.message.findMany.mockResolvedValue([]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+
+    const { rejectSenderForUser } = await import("@/lib/mail/mutations");
+    await rejectSenderForUser(USER, "s1");
+
+    expect(dbMock.message.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subjectRuleId: null }),
+      }),
+    );
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subjectRuleId: null }),
+      }),
+    );
+  });
+
+  it("changing a sender's category never re-files subject-ruled mail", async () => {
+    dbMock.sender.findUnique.mockResolvedValue({
+      userId: USER,
+      status: "APPROVED",
+    });
+
+    const { changeSenderCategoryForUser } = await import(
+      "@/lib/mail/mutations"
+    );
+    await changeSenderCategoryForUser(USER, "s1", "FEED");
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subjectRuleId: null }),
+      }),
+    );
+  });
+});
+
 describe("deleteSubjectRuleForUser", () => {
   it("clears provenance and deletes; placements are kept", async () => {
     dbMock.subjectRule.findUnique.mockResolvedValue({
