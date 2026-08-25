@@ -6,6 +6,7 @@ import {
   checkForUpdates,
   isRunningAheadOfStable,
 } from "@/lib/updates/version-checker";
+import { checkUpdaterHealth } from "@/lib/updates/updater-health";
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [settings, history] = await Promise.all([
+  const [settings, history, updater] = await Promise.all([
     db.systemSettings.upsert({
       where: { id: "singleton" },
       create: {},
@@ -24,6 +25,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    checkUpdaterHealth(),
   ]);
 
   const updateChannel = settings.updateChannel === "beta" ? "beta" : "stable";
@@ -42,6 +44,7 @@ export async function GET() {
     lastUpdateCheck: settings.lastUpdateCheck?.toISOString() ?? null,
     updateMode: settings.updateMode,
     updateChannel,
+    updater,
     history: history.map((h) => ({
       id: h.id,
       createdAt: h.createdAt.toISOString(),

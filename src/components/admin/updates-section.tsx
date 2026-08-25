@@ -13,8 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { FileText } from "lucide-react";
+import { FileText, TriangleAlert } from "lucide-react";
 import changelog from "@/../changelog.json";
+import { UPDATER_REFRESH_COMMAND } from "@/lib/updates/constants";
 
 interface ChangelogEntry {
   version: string;
@@ -32,6 +33,12 @@ interface UpdateStatus {
   lastUpdateCheck: string | null;
   updateMode: string;
   updateChannel: "stable" | "beta";
+  updater: {
+    configured: boolean;
+    reachable: boolean;
+    protocolVersion: number | null;
+    stale: boolean;
+  } | null;
   history: UpdateLogEntry[];
 }
 
@@ -230,6 +237,27 @@ export function UpdatesSection({
       </div>
 
       <div className="mt-4 space-y-3">
+        {/* Stale or unreachable updater sidecar (kurir-ios#57) */}
+        {status.updater?.configured &&
+          (status.updater.stale || !status.updater.reachable) && (
+            <div className="rounded-lg border border-orange-300 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-900/20">
+              <div className="flex items-center gap-2 text-sm font-medium text-orange-800 dark:text-orange-400">
+                <TriangleAlert className="h-4 w-4" />
+                {status.updater.stale
+                  ? "Updater sidecar is out of date"
+                  : "Updater sidecar is unreachable"}
+              </div>
+              <p className="mt-1 text-xs text-orange-800/80 dark:text-orange-400/80">
+                {status.updater.stale
+                  ? "It cannot pin release images, so an update may silently reinstall the old version. Refresh it on the server:"
+                  : "Updates cannot be applied until it is running again. Start it on the server:"}
+              </p>
+              <code className="mt-2 block rounded bg-orange-100 px-2 py-1.5 font-mono text-xs text-orange-900 dark:bg-orange-900/40 dark:text-orange-300">
+                {UPDATER_REFRESH_COMMAND}
+              </code>
+            </div>
+          )}
+
         {/* Current Version & Update Status */}
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-start justify-between">

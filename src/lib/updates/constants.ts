@@ -10,3 +10,15 @@ export const HEALTH_CHECK_TIMEOUT_MS = 60_000;
 
 /** Health check poll interval (ms) */
 export const HEALTH_CHECK_INTERVAL_MS = 5_000;
+
+/**
+ * Minimum updater-sidecar protocol version the app requires. Sidecars older
+ * than this ignore `imageRef` pinning and skip running-version verification,
+ * so an update can silently restart into the old code. Must match
+ * PROTOCOL_VERSION in docker/updater/updater-server.py.
+ */
+export const REQUIRED_UPDATER_PROTOCOL = 2;
+
+/** Exact command an operator runs on the host to refresh a stale sidecar. */
+export const UPDATER_REFRESH_COMMAND =
+  "docker compose pull updater && docker compose up -d updater";

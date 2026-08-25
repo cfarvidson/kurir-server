@@ -19,11 +19,18 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+# Bumped when the updater gains capabilities the app depends on. The app
+# refuses to start updates against a sidecar older than it requires and
+# shows the operator how to refresh it.
+#   2 = pull_pinned (imageRef pinning) + running-version verification
+PROTOCOL_VERSION = 2
+
 APP_URL = os.environ.get("KURIR_INTERNAL_URL", "http://app:3000")
 UPDATER_TOKEN = os.environ.get("UPDATER_TOKEN", "")
 WORKDIR = os.environ.get("WORKDIR", "/workdir")
 COMPOSE_FILE = os.environ.get("COMPOSE_FILE", "docker-compose.yml")
 APP_SERVICE = os.environ.get("APP_SERVICE", "app")
+UPDATER_SERVICE = os.environ.get("UPDATER_SERVICE", "updater")
 SKIP_PULL = os.environ.get("SKIP_PULL", "").lower() in ("1", "true", "yes")
 MAX_HEALTH_ATTEMPTS = int(os.environ.get("MAX_HEALTH_ATTEMPTS", "24"))
 HEALTH_INTERVAL = int(os.environ.get("HEALTH_INTERVAL_SECONDS", "5"))
@@ -213,6 +220,33 @@ def restore_rollback(previous_image: str) -> None:
     )
 
 
+def fetch_app_version() -> str | None:
+    """Return the version reported by the running app's /api/up, or None."""
+    try:
+        with urllib.request.urlopen(HEALTH_ENDPOINT, timeout=5) as resp:
+            body = json.loads(resp.read())
+            version = body.get("version")
+            return version if isinstance(version, str) and version else None
+    except Exception as exc:
+        log(f"fetch_app_version failed: {exc}")
+        return None
+
+
+def refresh_updater_image() -> None:
+    """Best-effort pull of the updater's own image after a successful update.
+
+    Only pulls — recreating our own container from inside it would kill the
+    compose client mid-recreate and can leave the updater stopped. The
+    operator (or the app's Admin warning) runs
+    `docker compose up -d updater` to actually swap to the pulled image.
+    """
+    try:
+        log("refreshing updater image (pull only; recreate is up to the operator)")
+        run_compose("pull", UPDATER_SERVICE, check=False)
+    except Exception as exc:
+        log(f"refresh_updater_image failed: {exc}")
+
+
 def wait_healthy() -> bool:
     for attempt in range(1, MAX_HEALTH_ATTEMPTS + 1):
         try:
@@ -226,7 +260,12 @@ def wait_healthy() -> bool:
     return False
 
 
-def do_update(log_id: str, rollback: bool, image_ref: str | None = None) -> None:
+def do_update(
+    log_id: str,
+    rollback: bool,
+    image_ref: str | None = None,
+    to_version: str | None = None,
+) -> None:
     global _current_log_id
     try:
         log(f"=== {'rollback' if rollback else 'update'} starting (logId={log_id}) ===")
@@ -255,8 +294,33 @@ def do_update(log_id: str, rollback: bool, image_ref: str | None = None) -> None
         time.sleep(5)  # give the container a moment to bind :3000
 
         if wait_healthy():
+            # A 200 from /api/up only proves *something* is running — verify
+            # the running version actually matches the target before claiming
+            # success (a stale image can restart into the old code).
+            running = fetch_app_version() if to_version else None
+            if to_version and running != to_version and not (rollback and running is None):
+                # On rollback a missing version is tolerated: the previous
+                # release may predate the /api/up version field. On update the
+                # target always reports a version, so missing == old code.
+                mismatch = (
+                    f"version mismatch after restart: running "
+                    f"{running or 'unknown'}, expected {to_version}"
+                )
+                log(mismatch + "; attempting automatic rollback")
+                if previous and not rollback:
+                    try:
+                        restore_rollback(previous)
+                        run_compose("up", "-d", APP_SERVICE, check=False)
+                    except Exception as exc:
+                        log(f"rollback-on-failure errored: {exc}")
+                report_status(log_id, "failed", error=mismatch)
+                log("=== update failed ===")
+                return
+
             report_status(log_id, "success")
             log("=== update succeeded ===")
+            if not rollback:
+                refresh_updater_image()
             return
 
         # Health failed — attempt automatic rollback if we have a previous image
@@ -313,7 +377,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":
-            self._send(200, {"ok": True})
+            self._send(200, {"ok": True, "protocolVersion": PROTOCOL_VERSION})
             return
         self._send(404, {"error": "not found"})
 
@@ -336,6 +400,10 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(image_ref, str) or not image_ref:
             image_ref = None
 
+        to_version = body.get("toVersion")
+        if not isinstance(to_version, str) or not to_version:
+            to_version = None
+
         with _state_lock:
             if _current_log_id is not None:
                 self._send(
@@ -347,7 +415,9 @@ class Handler(BaseHTTPRequestHandler):
 
         rollback = self.path == "/rollback"
         threading.Thread(
-            target=do_update, args=(log_id, rollback, image_ref), daemon=True
+            target=do_update,
+            args=(log_id, rollback, image_ref, to_version),
+            daemon=True,
         ).start()
         self._send(202, {"accepted": True, "logId": log_id, "rollback": rollback})
 
