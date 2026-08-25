@@ -51,6 +51,7 @@ export const MESSAGE_SELECT = {
       organizerName: true,
       organizerEmail: true,
       calendarEventId: true,
+      calendarEvent: { select: { attendeesJson: true } },
     },
   },
 } as const;
@@ -80,6 +81,7 @@ type MobileMeetingRow = {
   organizerName: string | null;
   organizerEmail: string | null;
   calendarEventId: string | null;
+  calendarEvent?: { attendeesJson: unknown } | null;
 };
 
 /**

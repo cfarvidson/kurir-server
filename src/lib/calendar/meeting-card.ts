@@ -164,6 +164,7 @@ export type MobileMessageMeeting = {
   organizerName: string | null;
   organizerEmail: string | null;
   calendarEventId: string | null;
+  response: MeetingRsvpResponse | null;
 };
 
 export function serializeMessageMeeting(
@@ -201,6 +202,7 @@ export function serializeMobileMeeting(
     organizerName: base.organizerName,
     organizerEmail: base.organizerEmail,
     calendarEventId: base.calendarEventId,
+    response: base.response,
   };
 }
 
