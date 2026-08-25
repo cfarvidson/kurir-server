@@ -384,10 +384,17 @@ describe("moveToInboxViaImap", () => {
 
   it("all still unarchived: reverse move + suppression + rows repointed at INBOX", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.message.findMany).mockResolvedValue([
-      { id: "m1", uid: 100 },
-      { id: "m2", uid: 101 },
-    ] as never);
+    // Pre-move re-check sees both rows; the post-repoint flag re-read
+    // (isArchived: true) finds nothing flipped.
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === false
+        ? [
+            { id: "m1", uid: 100 },
+            { id: "m2", uid: 101 },
+          ]
+        : []) as never);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
       id: "inbox-folder",
     } as never);
@@ -447,9 +454,11 @@ describe("moveToInboxViaImap", () => {
 
   it("partial re-archive: only still-unarchived UIDs move and suppress", async () => {
     const { db } = await import("@/lib/db");
-    vi.mocked(db.message.findMany).mockResolvedValue([
-      { id: "m2", uid: 101 },
-    ] as never);
+    // Of [100, 101], only 101 is still unarchived; nothing flips mid-move.
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === false ? [{ id: "m2", uid: 101 }] : []) as never);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
       id: "inbox-folder",
     } as never);
@@ -468,6 +477,106 @@ describe("moveToInboxViaImap", () => {
       uid: true,
     });
     expect(suppressEcho).toHaveBeenCalledTimes(1);
+    expect(db.message.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-archive lands mid-move: rows repointed, flipped row gets a compensating archive move", async () => {
+    // TOCTOU (#126), mirror of the archive direction (#61): a re-archive that
+    // lands between the pre-move re-check and the post-move repoint computes
+    // its forward IMAP move from the row's then-current archive folderId — a
+    // no-op. The flag re-read after the repoint must catch the flip and issue
+    // the forward move itself.
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean; id?: unknown };
+    }) => {
+      if (args.where.isArchived === false) {
+        // The #61 re-read inside the compensating archive move ("id" in
+        // where) finds nothing flipped back; the pre-move re-check of the
+        // inbox move sees both rows.
+        return args.where.id ? [] : [
+          { id: "m1", uid: 100 },
+          { id: "m2", uid: 101 },
+        ];
+      }
+      // Queries for isArchived: true — the post-repoint flag re-read and the
+      // compensating moveToArchiveViaImap's own pre-move re-check — see m1
+      // re-archived mid-move, its row carrying the INBOX-side dest UID.
+      return [{ id: "m1", uid: 10 }];
+    }) as never);
+
+    vi.mocked(db.folder.findFirst).mockImplementation((async (args: {
+      where: { path?: string };
+    }) =>
+      args.where.path === "INBOX"
+        ? { id: "inbox-folder" }
+        : { id: "archive-folder" }) as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [
+        {
+          uidMap: new Map([
+            [100, 10],
+            [101, 11],
+          ]),
+        },
+        { uidMap: new Map([[10, 200]]) },
+      ],
+    });
+
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToInboxViaImap("user-1", "c1", "archive-folder", [100, 101]);
+
+    // Flag re-read scoped to exactly the repointed rows.
+    expect(db.message.findMany).toHaveBeenNthCalledWith(2, {
+      where: { id: { in: ["m1", "m2"] }, isArchived: true },
+      select: { uid: true },
+    });
+
+    // Both rows repointed at INBOX (that is where IMAP has them at this
+    // point), then the flipped row moved forward and repointed at Archive.
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { folderId: "inbox-folder", uid: 10 },
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m2" },
+      data: { folderId: "inbox-folder", uid: 11 },
+    });
+    expect(client.messageMove).toHaveBeenNthCalledWith(2, [10], "Archive", {
+      uid: true,
+    });
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { folderId: "archive-folder", uid: 200 },
+    });
+  });
+
+  it("no re-archive mid-move: flag re-read finds nothing, no forward move issued", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean };
+    }) =>
+      args.where.isArchived === false
+        ? [{ id: "m1", uid: 100 }]
+        : // Flag re-read: nothing flipped.
+          []) as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "inbox-folder",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    const { client } = await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [{ uidMap: new Map([[100, 10]]) }],
+    });
+
+    const { moveToInboxViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToInboxViaImap("user-1", "c1", "archive-folder", [100]);
+
+    expect(client.messageMove).toHaveBeenCalledTimes(1);
     expect(db.message.update).toHaveBeenCalledTimes(1);
   });
 
