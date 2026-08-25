@@ -298,7 +298,6 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               type="button"
               variant="ghost"
               size="sm"
-              className="md:hidden"
               onClick={() => setCalendarsOpen(true)}
             >
               Calendars
@@ -372,9 +371,6 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
         <CalendarEmpty />
       ) : (
         <div className="flex min-h-0 flex-1">
-          <aside className="hidden w-56 shrink-0 overflow-auto border-r border-border p-3 md:block">
-            <CalendarList accounts={payload.accounts} />
-          </aside>
           {payload.mode === "month" ? (
             <MonthView
               anchor={payload.anchor}
