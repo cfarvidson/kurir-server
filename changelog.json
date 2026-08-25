@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.38",
+    "date": "2026-08-25",
+    "changes": [
+      "Your calendar finally shows your own wall-clock time: the account timezone is adopted from your browser on the next visit and can be changed to any zone in Settings"
+    ]
+  },
+  {
     "version": "2026.36",
     "date": "2026-08-25",
     "changes": [
@@ -423,7 +430,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -474,7 +483,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",

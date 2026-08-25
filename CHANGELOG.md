@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.38] - 2026-08-25
+
+### Fixed
+
+- Every calendar surface drew the wrong wall-clock time because the account
+  timezone was an unreachable `UTC` default (#37). The column is now
+  nullable (null = never chosen): the mail layout adopts the zone the
+  browser reports on the next visit, and Settings -> Account -> Profile
+  gets a Timezone field that accepts any IANA zone - an explicit UTC
+  included, which adoption never overwrites. The apps inherit the adopted
+  zone through mobile calendar sync with no client change.
+
 ## [v2026.36] - 2026-08-25
 
 ### Added
