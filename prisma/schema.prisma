@@ -77,6 +77,25 @@ model User {
   calendarEventInstances CalendarEventInstance[]
   messageMeetings        MessageMeeting[]
   calendarTombstones     CalendarTombstone[]
+
+  draftGenerationCredential DraftGenerationCredential?
+}
+
+// One subscription credential per user for generated reply drafts.
+// `encryptedSecret` is AES-256-GCM (same ENCRYPTION_KEY as IMAP passwords):
+// Claude Code stores the setup-token string, Grok Build a JSON blob with
+// access+refresh so the server can rotate without the client. Never returned
+// to clients and never part of the settings backup payload.
+model DraftGenerationCredential {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider        String // "claudeCode" | "grokBuild"
+  encryptedSecret String @db.Text
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Bearer-token session for native mobile clients (iOS). One row per device

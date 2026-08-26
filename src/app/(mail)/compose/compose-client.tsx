@@ -45,6 +45,7 @@ import { safeInternalPath } from "@/lib/mail/compose-origin";
 import { toast } from "sonner";
 import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
+import { GenerateDraftButton } from "@/components/mail/generate-draft-button";
 import { resolveDraftContext } from "@/lib/mail/draft-context";
 
 const UNDO_DELAY_MS = 5000;
@@ -730,6 +731,16 @@ export function ComposeClientPage({
           <>
             {!isEditingScheduled && (
               <DraftStatusIndicator status={draftStatus} />
+            )}
+            {!isEditingScheduled && draftType !== "FORWARD" && (
+              <GenerateDraftButton
+                type={draftType}
+                contextMessageId={draftContextId}
+                to={to}
+                hasBody={body.trim().length > 0}
+                disabled={scheduling || isSending}
+                onGenerated={(draft) => setBody(draft.body)}
+              />
             )}
             <Button
               variant="ghost"
