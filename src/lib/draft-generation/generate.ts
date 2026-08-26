@@ -18,27 +18,54 @@ import {
   loadDraftGenerationSecret,
   rotateDraftGenerationSecret,
 } from "@/lib/draft-generation/credential";
-import { buildInferenceRequest } from "@/lib/draft-generation/prompt";
+import {
+  buildInferenceRequest,
+  parseGeneratedDraft,
+} from "@/lib/draft-generation/prompt";
 import { defaultInferenceAdapter } from "@/lib/draft-generation/providers";
+import {
+  buildMailboxTools,
+  MAX_TOOL_CALLS,
+} from "@/lib/draft-generation/tools";
 import {
   DraftGenerationError,
   type InferenceAdapter,
 } from "@/lib/draft-generation/types";
 
 /**
- * Generate a draft body and upsert it as a normal Draft row through the
- * existing saver, so it shows up in Drafts on web, iPhone, and Mac. Shared
- * verbatim by the web server action and `/api/mobile/draft-generation/generate`.
+ * Generate a draft body from the mail context. Shared verbatim by the web
+ * server action and `/api/mobile/draft-generation/generate`.
+ *
+ * Two delivery modes, keyed on whether the request carries an `instruction`
+ * field at all (kurir-server#133):
+ *
+ * - Field absent — an old client, or any one-tap caller. Exactly the old
+ *   contract: the body is upserted as a normal Draft row through the
+ *   existing saver, BODY_EXISTS guards typed text, no tools are offered.
+ * - Field present (the compose assistant panel, even with an empty string) —
+ *   the body comes back to the caller and the Draft row is not touched.
+ *   Versions live in the open composer; inserting one goes through the
+ *   composer's ordinary draft autosave. Bounded mailbox tools are offered,
+ *   and NEW mail may come back with a proposed subject.
  */
+
+export const MAX_INSTRUCTION_CHARS = 2000;
 
 export const generateDraftSchema = z.object({
   type: z.nativeEnum(DraftType),
   contextMessageId: z.string().min(1),
   to: z.string().optional(),
   replace: z.boolean().optional(),
+  instruction: z.string().max(MAX_INSTRUCTION_CHARS).optional(),
+  tone: z.enum(["auto", "formal", "friendly", "direct"]).optional(),
 });
 
 export type GenerateDraftInput = z.infer<typeof generateDraftSchema>;
+
+/** What the caller gets back, per delivery mode. */
+export type GenerateDraftResult =
+  | { mode: "draft"; draft: Awaited<ReturnType<typeof saveDraftForUser>> }
+  | { mode: "panel"; body: string; subject?: string };
 
 const currentMessageSelect = {
   id: true,
@@ -56,7 +83,8 @@ export async function generateDraftForUser(
   userId: string,
   input: GenerateDraftInput,
   infer: InferenceAdapter = defaultInferenceAdapter,
-) {
+): Promise<GenerateDraftResult> {
+  const isPanel = input.instruction !== undefined;
   if (isDemoInstance()) {
     throw new DraftGenerationError(
       "DEMO_INSTANCE",
@@ -124,11 +152,11 @@ export async function generateDraftForUser(
     correspondent = to;
   }
 
-  const existing = await getDraftForUser(
-    userId,
-    input.type,
-    input.contextMessageId,
-  );
+  // Panel mode never writes the Draft row, so there is nothing to conflict
+  // with — the user inserts a version explicitly.
+  const existing = isPanel
+    ? null
+    : await getDraftForUser(userId, input.type, input.contextMessageId);
   if (existing && existing.body.trim() !== "" && !input.replace) {
     throw new DraftGenerationError(
       "BODY_EXISTS",
@@ -137,12 +165,29 @@ export async function generateDraftForUser(
   }
 
   const pack = await buildContextPack(userId, correspondent, own, current);
-  const body = await infer({
+  const raw = await infer({
     provider: credential.provider,
     secret: credential.secret,
-    request: buildInferenceRequest(pack),
+    request: buildInferenceRequest(pack, {
+      instruction: input.instruction,
+      tone: input.tone,
+      // A subject is only ever proposed for new mail the user left untitled.
+      wantSubject: isPanel && input.type === "NEW",
+      tools: isPanel ? buildMailboxTools(userId) : undefined,
+      maxToolCalls: MAX_TOOL_CALLS,
+    }),
     rotateSecret: (next) => rotateDraftGenerationSecret(userId, next),
   });
+
+  if (isPanel) {
+    const parsed = parseGeneratedDraft(raw);
+    return {
+      mode: "panel",
+      body: parsed.body,
+      ...(parsed.subject ? { subject: parsed.subject } : {}),
+    };
+  }
+  const body = raw;
 
   // Generate fills the body; existing headers and attachments stay as they
   // were. A missing REPLY row gets its to/subject from the same reply-header
@@ -174,7 +219,7 @@ export async function generateDraftForUser(
         "The message being replied to no longer exists.",
       );
     }
-    return saveDraftForUser(userId, prepared.input);
+    return { mode: "draft", draft: await saveDraftForUser(userId, prepared.input) };
   }
-  return saveDraftForUser(userId, saveInput);
+  return { mode: "draft", draft: await saveDraftForUser(userId, saveInput) };
 }

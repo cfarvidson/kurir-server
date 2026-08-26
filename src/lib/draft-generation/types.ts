@@ -35,9 +35,29 @@ export type DraftGenerationStatus = {
   provider: DraftGenerationProvider | null;
 };
 
+/** Register the mail is written in. `auto` matches the user's own voice. */
+export type DraftTone = "auto" | "formal" | "friendly" | "direct";
+
+/**
+ * One tool the model may call while drafting. `run` executes server-side,
+ * already scoped to the requesting user, and its string result goes back to
+ * the model verbatim. Both providers map this onto their native tool-use API.
+ */
+export type InferenceTool = {
+  name: string;
+  description: string;
+  /** JSON Schema for the tool input, as both provider APIs expect it. */
+  inputSchema: Record<string, unknown>;
+  run: (input: Record<string, unknown>) => Promise<string>;
+};
+
 export type InferenceRequest = {
   system: string;
   user: string;
+  /** Optional agentic retrieval. Absent = the old single-shot call. */
+  tools?: InferenceTool[];
+  /** Hard cap on tool round-trips; at the cap the model must answer. */
+  maxToolCalls?: number;
 };
 
 /**

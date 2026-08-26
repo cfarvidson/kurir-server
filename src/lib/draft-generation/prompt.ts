@@ -1,11 +1,18 @@
 import type { ContextPack } from "@/lib/draft-generation/context";
-import type { InferenceRequest } from "@/lib/draft-generation/types";
+import type {
+  DraftTone,
+  InferenceRequest,
+} from "@/lib/draft-generation/types";
 
 /**
  * The locked prompt rules: write as the user, in the incoming language,
  * answer the latest mail, prior mail from the sender is relationship facts,
  * the user's sent mail is voice, no invented commitments, no quoted original,
  * body only. Tests assert facts (which mail is present), not wording.
+ *
+ * The compose assistant (#133) adds two authoritative inputs on top: what
+ * the user wants the mail to say, and the register to say it in. Neither
+ * loosens the locked rules — an instruction steers content, never truth.
  */
 
 const SYSTEM_PROMPT = [
@@ -18,6 +25,32 @@ const SYSTEM_PROMPT = [
   "- Do not quote the original message back and do not add a subject line.",
   "- Return only the reply body as plain text; simple markdown is allowed.",
 ].join("\n");
+
+/**
+ * Tone lines are fixed; `auto` adds nothing so the default output keeps
+ * matching the user's own voice from the context pack.
+ */
+const TONE_LINES: Record<DraftTone, string | null> = {
+  auto: null,
+  formal:
+    "Write in a formal, professional register: complete sentences, no slang, a polite close.",
+  friendly:
+    "Write warmly and personally, the way you would to someone you like working with.",
+  direct:
+    "Write briefly and directly: get to the point in the first sentence and keep it short.",
+};
+
+/**
+ * Subject protocol for new mail: one delimiter line separates a proposed
+ * subject from the body. Parsing failure degrades to body-only, never an
+ * error, so a model that ignores the protocol still produces a usable draft.
+ */
+export const BODY_DELIMITER = "%%%BODY%%%";
+
+const SUBJECT_INSTRUCTIONS = [
+  "This is a new mail and the user has not written a subject line.",
+  `Start your answer with "SUBJECT: " followed by a single-line subject, then a line containing exactly ${BODY_DELIMITER}, then the mail body.`,
+].join(" ");
 
 function entrySection(
   title: string,
@@ -32,8 +65,43 @@ function entrySection(
   return parts;
 }
 
-export function buildInferenceRequest(pack: ContextPack): InferenceRequest {
+export type PromptOptions = {
+  /** What the user wants the mail to say. Empty/absent = infer as before. */
+  instruction?: string;
+  tone?: DraftTone;
+  /** Ask for a subject through the delimiter protocol (NEW, empty subject). */
+  wantSubject?: boolean;
+  /** Offered when the generation may go looking for its own context. */
+  tools?: InferenceRequest["tools"];
+  maxToolCalls?: number;
+};
+
+export function buildInferenceRequest(
+  pack: ContextPack,
+  options: PromptOptions = {},
+): InferenceRequest {
+  const instruction = (options.instruction ?? "").trim();
+  const toneLine = TONE_LINES[options.tone ?? "auto"];
+
+  const system = [SYSTEM_PROMPT];
+  if (toneLine) system.push(toneLine);
+  if (instruction) {
+    system.push(
+      "The user has said what this mail should say. Follow it: it outranks your reading of the correspondence for content, but never licenses inventing facts.",
+    );
+  }
+  if (options.tools?.length) {
+    system.push(
+      "You may search and read the user's own mail for context the drafted mail needs. Use it only when the mail depends on facts you do not already have, then answer.",
+    );
+  }
+  if (options.wantSubject) system.push(SUBJECT_INSTRUCTIONS);
+
   const parts: string[] = [];
+  if (instruction) {
+    parts.push("# What the user wants this mail to say");
+    parts.push(instruction);
+  }
   if (pack.current) {
     parts.push(`# Latest mail from ${pack.current.from}`);
     parts.push(`Subject: ${pack.current.subject}`);
@@ -53,5 +121,34 @@ export function buildInferenceRequest(pack: ContextPack): InferenceRequest {
       ? "Write the user's reply to the latest mail."
       : `Write a new mail from the user to ${pack.correspondent}.`,
   );
-  return { system: SYSTEM_PROMPT, user: parts.join("\n\n") };
+
+  const request: InferenceRequest = {
+    system: system.join("\n"),
+    user: parts.join("\n\n"),
+  };
+  if (options.tools?.length) {
+    request.tools = options.tools;
+    request.maxToolCalls = options.maxToolCalls ?? 0;
+  }
+  return request;
+}
+
+/**
+ * Split the model's answer on the subject protocol. Anything that does not
+ * match exactly is treated as a body — a missing or malformed subject line
+ * must never cost the user their draft.
+ */
+export function parseGeneratedDraft(raw: string): {
+  subject?: string;
+  body: string;
+} {
+  const index = raw.indexOf(BODY_DELIMITER);
+  if (index === -1) return { body: raw.trim() };
+  const head = raw.slice(0, index).trim();
+  const tail = raw.slice(index + BODY_DELIMITER.length).trim();
+  // The delimiter itself never reaches the composer, whatever went wrong.
+  if (!tail) return { body: head.replace(/^SUBJECT:.*$/im, "").trim() };
+  const match = /^SUBJECT:\s*(.+)$/im.exec(head);
+  if (!match) return { body: tail };
+  return { subject: match[1].trim(), body: tail };
 }

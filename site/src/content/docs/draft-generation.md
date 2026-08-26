@@ -49,14 +49,18 @@ Kurir refreshes the Grok session automatically when it expires, so this is a one
 
 ## Writing drafts
 
-Once connected, a **Generate draft** button (sparkles icon in the apps) appears in the composer - both when replying and when writing a new mail to someone.
+Once connected, a **Generate draft** button (sparkles icon in the apps) appears in the composer - both when replying and when writing a new mail to someone. It opens the compose assistant.
 
-- Tap it and Kurir builds a context pack from the thread and your history with the recipient, asks your provider for a draft, and fills the composer.
-- If the draft already has text, Kurir asks before replacing it.
-- Generation runs server-side, so the same button works identically on web, iPhone, and Mac.
-- While it's generating, the button becomes a cancel button.
+- **Say what the mail should say.** A few sentences is enough: *"Say I can't make Tuesday, offer Thursday."* Leave it empty and Kurir infers the reply from the thread, exactly as before.
+- **Pick a tone.** Auto (matches the voice of your own earlier mail), Formal, Friendly, or Direct. The choice is remembered on that device.
+- **Generate.** Kurir builds a context pack from the thread and your history with the recipient, and the model can additionally search and read your own mail when the draft depends on facts outside that thread - so *"the invoice thread from March"* gets its numbers right. That lookup is bounded, runs on your server, and can only ever reach your own mailbox.
+- **Flip between versions.** Every round is kept while the composer is open (1/3, 2/3, …), so you can generate again and go back to the best one. Your instruction and tone are reused and stay editable between rounds.
+- **Insert the one you want.** Nothing reaches the composer until you insert it, so generation never overwrites what you typed. For a new mail with an empty subject line, Kurir also proposes a subject; a subject you already typed is left alone.
+- Generation runs server-side, so the assistant works identically on web, iPhone, and Mac. While it's running the button becomes a cancel button, and versions are gone when you close the composer - nothing is stored.
 
 The result is a draft, not an outbox: read it, edit it, and send it yourself.
+
+The compose assistant needs server **v2026.45 or later**. Against an older server the apps say "Update the server" rather than quietly dropping your instruction.
 
 ## Disconnect
 
