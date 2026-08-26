@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.44",
+    "date": "2026-08-26",
+    "changes": [
+      "Generate reply drafts with your Claude Code or Grok Build subscription: paste the token once in Settings and the composer's Generate draft button writes an editable draft from the mail being answered plus recent correspondence with that sender",
+      "The token is stored encrypted server-side with the same key as IMAP passwords, is never echoed to clients or included in settings backups, and pay-per-token Console/xAI API keys are refused",
+      "New mobile API under /api/mobile/draft-generation so the iPhone and Mac apps share the same credential and the same generated drafts as the web"
+    ]
+  },
+  {
     "version": "2026.41",
     "date": "2026-08-25",
     "changes": [

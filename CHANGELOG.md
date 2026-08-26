@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.44] - 2026-08-26
+
+### Added
+
+- Generated reply drafts (#130): paste a Claude Code setup-token
+  (`claude setup-token`) or a Grok Build session in Settings, and the
+  composer's Generate draft button writes an editable draft from the mail
+  being answered plus recent correspondence with that sender (8 from the
+  sender + 5 own-sent, quote-stripped and truncated). The body lands on the
+  normal Draft row, so it appears in Drafts on web, iPhone, and Mac.
+- The credential is stored encrypted with the same key as IMAP passwords,
+  is never echoed to clients, and is excluded from settings backups.
+  Pay-per-token API keys (`sk-ant-api…`, `xai-…`) are refused so the
+  feature can never start a metered bill. Disabled on the demo instance,
+  and generation is rate limited tighter than ordinary mail actions.
+- New mobile API under `/api/mobile/draft-generation` (status, save,
+  remove, generate) — the native apps are thin clients of the same module
+  as the web composer.
+
 ## [v2026.41] - 2026-08-25
 
 ### Added

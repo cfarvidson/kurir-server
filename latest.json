@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-24T09:31:52Z",
   "beta": {
-    "version": "2026.41",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.41",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.41",
-    "changelog": "Web day agenda with a true now line, unicode-safe subject rules, and race-proof archive undo",
+    "version": "2026.44",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.44",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.44",
+    "changelog": "Generate reply drafts with a Claude Code or Grok Build subscription token",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-08-25T15:36:26Z"
+    "releasedAt": "2026-08-26T12:49:51Z"
   }
 }
