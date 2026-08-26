@@ -1,7 +1,7 @@
 ---
 title: FAQ
 description: Frequently asked questions about Kurir, including licensing, privacy, provider support, and more.
-order: 9
+order: 10
 ---
 
 # Frequently Asked Questions
