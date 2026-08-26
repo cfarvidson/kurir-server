@@ -1,5 +1,5 @@
 ---
-import { APP_STORE_IOS } from "../lib/store";
+import { APP_STORE_IOS, APP_STORE_MAC } from "../lib/store";
 
 const base = import.meta.env.BASE_URL;
 ---
@@ -42,7 +42,7 @@ const base = import.meta.env.BASE_URL;
           <span
             class="text-xs font-semibold uppercase tracking-[0.15em] text-accent"
           >
-            Paid &middot; coming to the Mac App Store
+            Paid &middot; on the Mac App Store
           </span>
           <h3 class="mt-3 text-2xl font-bold text-ink">The Mac app</h3>
         </div>
@@ -53,8 +53,19 @@ const base = import.meta.env.BASE_URL;
             local store, and actions queue when you're offline.
           </p>
           <p class="mt-3 leading-relaxed text-ink-light">
-            Search, shortcuts, and the sidebar you already know. Paid, like
-            the iPhone app, and what funds the rest of Kurir.
+            Search, shortcuts, a full native calendar, and the sidebar you
+            already know. Paid, like the iPhone app, and what funds the rest
+            of Kurir.
+          </p>
+          <p class="mt-5">
+            <a
+              href={APP_STORE_MAC}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent"
+            >
+              Get the Mac app
+            </a>
           </p>
         </div>
       </div>
@@ -86,8 +97,8 @@ const base = import.meta.env.BASE_URL;
           <p class="mt-3 leading-relaxed text-ink-light">
             Real Swift, not a wrapped web page. Offline-first — every list
             and thread reads instantly from a local store, and actions queue
-            up when you're off the grid. Push notifications the moment mail
-            lands in your Imbox.
+            up when you're off the grid. A native calendar with RSVP built
+            in, and push notifications the moment mail lands in your Imbox.
           </p>
           <p class="mt-3 leading-relaxed text-ink-light">
             The native apps are the only part of Kurir you can pay for, and
