@@ -13,7 +13,13 @@ import {
   type SettingsCalendarAccount,
 } from "@/components/settings/calendar-accounts";
 import { listMcpConnections } from "@/actions/mcp-tokens";
-import { ChevronRight, PlusCircle, Shield } from "lucide-react";
+import {
+  BookOpen,
+  ChevronRight,
+  ExternalLink,
+  PlusCircle,
+  Shield,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { EmailConnection } from "@/components/settings/connection-card";
@@ -32,6 +38,7 @@ import { SettingsBackupPanel } from "@/components/settings/settings-backup";
 import { DraftGenerationSettings } from "@/components/settings/draft-generation";
 import { getDraftGenerationStatus } from "@/lib/draft-generation/credential";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
+import { DOCS_URL } from "@/lib/docs";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import {
   Stat,
@@ -493,6 +500,27 @@ export default async function SettingsPage() {
 
   const systemContent = (
     <div className="space-y-10 md:space-y-12">
+      {/* Documentation */}
+      <section>
+        <a
+          href={DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="group flex items-center justify-between gap-3 border-b border-border py-3.5 transition-colors hover:bg-accent/40"
+        >
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Documentation</p>
+              <p className="text-xs text-muted-foreground">
+                Guides for setup, screening, and the apps
+              </p>
+            </div>
+          </div>
+          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        </a>
+      </section>
+
       {/* Admin link */}
       {isAdmin && (
         <section>

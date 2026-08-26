@@ -11,6 +11,7 @@ import type {
   DraftGenerationProvider,
   DraftGenerationStatus,
 } from "@/lib/draft-generation/types";
+import { DOCS_DRAFT_GENERATION_URL } from "@/lib/docs";
 
 const PROVIDERS: {
   value: DraftGenerationProvider;
@@ -143,6 +144,17 @@ export function DraftGenerationSettings({
           {provider === "claudeCode"
             ? "Run `claude setup-token` in a terminal and paste its output. Anthropic Console API keys (sk-ant-api…) are refused — they bill per token."
             : "Sign in with `grok login` and paste the contents of ~/.grok/auth.json. xAI API keys (xai-…) are refused — they bill per token."}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          <a
+            href={DOCS_DRAFT_GENERATION_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Setup guide
+          </a>{" "}
+          — how to mint a token for either provider.
         </p>
       </div>
 
