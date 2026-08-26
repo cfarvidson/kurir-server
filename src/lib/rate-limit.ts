@@ -129,6 +129,17 @@ export async function rateLimitSend(userId: string): Promise<RateLimitResult> {
 }
 
 /**
+ * Rate limit draft generation (subscription inference calls).
+ * Tighter than ordinary CRUD so a tight loop cannot drain a seat:
+ * 10 per 10 minutes per user.
+ */
+export async function rateLimitDraftGeneration(
+  userId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`draftgen:${userId}`, 10, 600);
+}
+
+/**
  * Rate limit mobile login attempts (passkey options + verify + refresh).
  * 20 per 10 minutes per IP.
  */

@@ -29,6 +29,8 @@ import { ImagePrivacySettings } from "@/components/settings/image-privacy-settin
 import { getBadgePreferences } from "@/actions/badge-preferences";
 import { getSettingsBackupState } from "@/actions/settings-backup";
 import { SettingsBackupPanel } from "@/components/settings/settings-backup";
+import { DraftGenerationSettings } from "@/components/settings/draft-generation";
+import { getDraftGenerationStatus } from "@/lib/draft-generation/credential";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import {
@@ -128,6 +130,7 @@ export default async function SettingsPage() {
     own,
     mcpConnections,
     settingsBackup,
+    draftGeneration,
     rawCalendarAccounts,
   ] = await Promise.all([
     db.user.findUnique({
@@ -183,6 +186,7 @@ export default async function SettingsPage() {
     getOwnAddresses(userId),
     listMcpConnections(),
     getSettingsBackupState(),
+    getDraftGenerationStatus(userId),
     db.calendarAccount.findMany({
       where: { userId },
       orderBy: { displayName: "asc" },
@@ -456,6 +460,17 @@ export default async function SettingsPage() {
         />
         <div className="mt-4">
           <SettingsBackupPanel initial={settingsBackup} />
+        </div>
+      </section>
+
+      <section>
+        <SectionHeading
+          eyebrow="Mail"
+          title="Draft generation"
+          description="Generate reply drafts in the composer with your Claude Code or Grok Build subscription. The token is stored encrypted on the server and works on web, iPhone, and Mac."
+        />
+        <div className="mt-4">
+          <DraftGenerationSettings initial={draftGeneration} />
         </div>
       </section>
     </div>

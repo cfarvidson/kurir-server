@@ -18,6 +18,7 @@ import { createScheduledMessage } from "@/actions/scheduled-messages";
 import { toast } from "sonner";
 import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
+import { GenerateDraftButton } from "@/components/mail/generate-draft-button";
 import { DraftType } from "@prisma/client";
 import { replyDraftSubject } from "@/lib/mail/draft-presentation";
 
@@ -629,6 +630,13 @@ export function ReplyComposer({
               <DraftStatusIndicator status={draftStatus} />
             </div>
             <div className="flex items-center gap-1">
+              <GenerateDraftButton
+                type="REPLY"
+                contextMessageId={messageId}
+                hasBody={body.trim().length > 0}
+                disabled={sendingRef.current || scheduling}
+                onGenerated={(draft) => setBody(draft.body)}
+              />
               <SchedulePicker
                 onSchedule={handleScheduleSend}
                 userTimezone={userTimezone}
