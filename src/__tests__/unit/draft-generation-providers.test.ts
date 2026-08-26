@@ -154,3 +154,207 @@ describe("generateWithGrokBuild", () => {
     ).rejects.toMatchObject({ code: "USAGE_LIMITED" });
   });
 });
+
+/**
+ * The agentic retrieval loop (#133): each provider's native tool-use API,
+ * the executor round-trip, and the hard cap that forces an answer.
+ */
+describe("the tool-use loop", () => {
+  const searched: string[] = [];
+
+  const tools = () => [
+    {
+      name: "search_mail",
+      description: "search",
+      inputSchema: { type: "object" as const },
+      run: async (input: Record<string, unknown>) => {
+        searched.push(String(input.query ?? ""));
+        return "one hit";
+      },
+    },
+  ];
+
+  beforeEach(() => {
+    searched.length = 0;
+  });
+
+  it("Claude executes a tool_use block and hands the result back", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          content: [
+            {
+              type: "tool_use",
+              id: "tu-1",
+              name: "search_mail",
+              input: { query: "invoice March" },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { content: [{ type: "text", text: "final draft" }] }),
+      );
+
+    const text = await generateWithClaudeCode("sk-ant-oat01-abc", {
+      ...request,
+      tools: tools(),
+      maxToolCalls: 6,
+    });
+
+    expect(text).toBe("final draft");
+    expect(searched).toEqual(["invoice March"]);
+    const second = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(second.tools[0].name).toBe("search_mail");
+    expect(second.messages[2].content[0]).toMatchObject({
+      type: "tool_result",
+      tool_use_id: "tu-1",
+      content: "one hit",
+    });
+  });
+
+  it("Claude stops calling tools at the cap and is forced to answer", async () => {
+    const toolUse = jsonResponse(200, {
+      content: [
+        { type: "tool_use", id: "tu", name: "search_mail", input: { query: "q" } },
+      ],
+    });
+    fetchMock.mockImplementation(async () => {
+      const call = fetchMock.mock.calls.length;
+      return call <= 2
+        ? toolUse.clone()
+        : jsonResponse(200, { content: [{ type: "text", text: "answer" }] });
+    });
+
+    const text = await generateWithClaudeCode("sk-ant-oat01-abc", {
+      ...request,
+      tools: tools(),
+      maxToolCalls: 2,
+    });
+
+    expect(text).toBe("answer");
+    expect(searched).toHaveLength(2);
+    const last = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body));
+    expect(last.tool_choice).toEqual({ type: "none" });
+  });
+
+  it("Claude offers no tools when the request has none", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { content: [{ type: "text", text: "plain" }] }),
+    );
+    await generateWithClaudeCode("sk-ant-oat01-abc", request);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.tools).toBeUndefined();
+    expect(body.tool_choice).toBeUndefined();
+  });
+
+  it("Grok executes a function call and hands the result back", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          choices: [
+            {
+              message: {
+                content: null,
+                tool_calls: [
+                  {
+                    id: "tc-1",
+                    function: {
+                      name: "search_mail",
+                      arguments: '{"query":"invoice March"}',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { choices: [{ message: { content: "final draft" } }] }),
+      );
+
+    const text = await generateWithGrokBuild(
+      JSON.stringify({ access: "acc-1", refresh: "ref-1" }),
+      { ...request, tools: tools(), maxToolCalls: 6 },
+      vi.fn(),
+    );
+
+    expect(text).toBe("final draft");
+    expect(searched).toEqual(["invoice March"]);
+    const second = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(second.tools[0].function.name).toBe("search_mail");
+    expect(second.messages.at(-1)).toMatchObject({
+      role: "tool",
+      tool_call_id: "tc-1",
+      content: "one hit",
+    });
+  });
+
+  it("Grok refreshes mid-loop, persists the rotation, and carries on", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          choices: [
+            {
+              message: {
+                tool_calls: [
+                  { id: "tc-1", function: { name: "search_mail", arguments: "{}" } },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(401, {}))
+      .mockResolvedValueOnce(
+        jsonResponse(200, { access_token: "acc-2", refresh_token: "ref-2" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { choices: [{ message: { content: "after refresh" } }] }),
+      );
+    const rotate = vi.fn(async (_next: string) => {});
+
+    const text = await generateWithGrokBuild(
+      JSON.stringify({ access: "acc-1", refresh: "ref-1" }),
+      { ...request, tools: tools(), maxToolCalls: 6 },
+      rotate,
+    );
+
+    expect(text).toBe("after refresh");
+    expect(parseGrokSession(rotate.mock.calls[0][0])).toEqual({
+      access: "acc-2",
+      refresh: "ref-2",
+    });
+  });
+
+  it("Grok stops calling tools at the cap and is forced to answer", async () => {
+    fetchMock.mockImplementation(async () => {
+      const call = fetchMock.mock.calls.length;
+      return call <= 1
+        ? jsonResponse(200, {
+            choices: [
+              {
+                message: {
+                  tool_calls: [
+                    { id: "tc", function: { name: "search_mail", arguments: "{}" } },
+                  ],
+                },
+              },
+            ],
+          })
+        : jsonResponse(200, { choices: [{ message: { content: "answer" } }] });
+    });
+
+    const text = await generateWithGrokBuild(
+      JSON.stringify({ access: "acc-1", refresh: "ref-1" }),
+      { ...request, tools: tools(), maxToolCalls: 1 },
+      vi.fn(),
+    );
+
+    expect(text).toBe("answer");
+    expect(searched).toHaveLength(1);
+    const last = JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body));
+    expect(last.tool_choice).toBe("none");
+  });
+});

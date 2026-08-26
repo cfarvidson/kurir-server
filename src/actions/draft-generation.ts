@@ -68,9 +68,12 @@ export async function removeDraftGenerationToken(): Promise<DraftGenerationStatu
   return status;
 }
 
-export async function generateDraft(
-  input: GenerateDraftInput,
-): Promise<
+/**
+ * Panel mode (an `instruction` field on the request) answers with the body
+ * itself and leaves the Draft row alone; the composer owns the versions.
+ * One-tap keeps answering with the upserted draft.
+ */
+export type GenerateDraftActionResult =
   | {
       ok: true;
       draft: {
@@ -83,8 +86,12 @@ export async function generateDraft(
         body: string;
       };
     }
-  | DraftGenerationActionError
-> {
+  | { ok: true; body: string; subject?: string }
+  | DraftGenerationActionError;
+
+export async function generateDraft(
+  input: GenerateDraftInput,
+): Promise<GenerateDraftActionResult> {
   const userId = await requireUserId();
   const limit = await rateLimitDraftGeneration(userId);
   if (!limit.allowed) {
@@ -95,7 +102,15 @@ export async function generateDraft(
     };
   }
   try {
-    const draft = await generateDraftForUser(userId, input);
+    const result = await generateDraftForUser(userId, input);
+    if (result.mode === "panel") {
+      return {
+        ok: true,
+        body: result.body,
+        ...(result.subject ? { subject: result.subject } : {}),
+      };
+    }
+    const { draft } = result;
     return {
       ok: true,
       draft: {

@@ -92,7 +92,7 @@ describe("generateDraftForUser", () => {
 
   it("sends the current mail and prior correspondent mail to the adapter and stores exactly its text", async () => {
     const adapter = stubAdapter("Sure — Thursday works. See you at noon!");
-    const draft = await generateDraftForUser(
+    const result = await generateDraftForUser(
       "user-1",
       { type: "REPLY", contextMessageId: "msg-1" },
       adapter,
@@ -107,7 +107,10 @@ describe("generateDraftForUser", () => {
       create: Record<string, unknown>;
     };
     expect(upsert.create.body).toBe("Sure — Thursday works. See you at noon!");
-    expect(draft.body).toBe("Sure — Thursday works. See you at noon!");
+    expect(result).toMatchObject({
+      mode: "draft",
+      draft: { body: "Sure — Thursday works. See you at noon!" },
+    });
   });
 
   it("fills to and subject for a missing REPLY row from the reply conventions", async () => {

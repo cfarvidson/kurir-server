@@ -205,6 +205,64 @@ describe("/api/mobile/draft-generation/generate", () => {
     expect(db.draft.upsert).not.toHaveBeenCalled();
   });
 
+  it("an instruction switches the response to { body } and leaves the draft alone", async () => {
+    await mockAuthed();
+    vi.mocked(db.draftGenerationCredential.findUnique).mockResolvedValue({
+      provider: "claudeCode",
+      encryptedSecret: encrypt("sk-ant-oat01-test"),
+    } as never);
+    vi.mocked(db.message.findFirst).mockResolvedValue({
+      id: "m1",
+      subject: "S",
+      fromAddress: "ada@x.y",
+      fromName: null,
+      replyTo: null,
+      toAddresses: [],
+      receivedAt: new Date("2026-08-25T09:00:00Z"),
+      textBody: "hello",
+      htmlBody: null,
+    } as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ content: [{ type: "text", text: "assistant body" }] }),
+        { status: 200 },
+      ),
+    );
+
+    const { POST } = await import(
+      "@/app/api/mobile/draft-generation/generate/route"
+    );
+    const res = await POST(
+      makeRequest({
+        type: "REPLY",
+        contextMessageId: "m1",
+        instruction: "Say yes",
+        tone: "direct",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ body: "assistant body" });
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+    vi.mocked(globalThis.fetch).mockRestore();
+  });
+
+  it("rejects an instruction past the cap with 400", async () => {
+    await mockAuthed();
+    const { POST } = await import(
+      "@/app/api/mobile/draft-generation/generate/route"
+    );
+    const res = await POST(
+      makeRequest({
+        type: "REPLY",
+        contextMessageId: "m1",
+        instruction: "x".repeat(5000),
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("generate for a FORWARD is 400", async () => {
     await mockAuthed();
     vi.mocked(db.draftGenerationCredential.findUnique).mockResolvedValue({

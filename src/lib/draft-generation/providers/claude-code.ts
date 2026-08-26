@@ -1,6 +1,8 @@
+import { runInferenceTool } from "@/lib/draft-generation/tools";
 import {
   DraftGenerationError,
   type InferenceRequest,
+  type InferenceTool,
 } from "@/lib/draft-generation/types";
 
 /**
@@ -9,6 +11,11 @@ import {
  * Console billing path. A setup-token is only honored when the request
  * carries Claude Code's OAuth beta header and identifies as Claude Code in
  * the first system block, so both are pinned here.
+ *
+ * When the request offers tools (the compose assistant, #133) this runs
+ * Anthropic's native tool-use loop: execute every `tool_use` block, hand the
+ * results back as `tool_result`, repeat. At `maxToolCalls` the next request
+ * goes out with `tool_choice: none`, so the model must answer.
  */
 
 export const CLAUDE_CODE_MODEL = "claude-sonnet-5";
@@ -20,12 +27,45 @@ const CLAUDE_CODE_IDENTITY =
 const MAX_TOKENS = 1024;
 const TIMEOUT_MS = 60_000;
 
-export async function generateWithClaudeCode(
+type ContentBlock = {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+};
+
+type MessagesPayload = { content?: ContentBlock[] };
+
+async function callMessages(
   token: string,
   request: InferenceRequest,
-): Promise<string> {
+  messages: unknown[],
+  tools: InferenceTool[],
+  forceAnswer: boolean,
+): Promise<MessagesPayload> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const body: Record<string, unknown> = {
+    model: CLAUDE_CODE_MODEL,
+    max_tokens: MAX_TOKENS,
+    system: [
+      { type: "text", text: CLAUDE_CODE_IDENTITY },
+      { type: "text", text: request.system },
+    ],
+    messages,
+  };
+  if (tools.length > 0) {
+    body.tools = tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema,
+    }));
+    // Keep the definitions on the forced round — the transcript still holds
+    // tool_use blocks — and close the door with tool_choice instead.
+    body.tool_choice = forceAnswer ? { type: "none" } : { type: "auto" };
+  }
+
   let response: Response;
   try {
     response = await fetch(MESSAGES_URL, {
@@ -37,15 +77,7 @@ export async function generateWithClaudeCode(
         "anthropic-beta": OAUTH_BETA,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: CLAUDE_CODE_MODEL,
-        max_tokens: MAX_TOKENS,
-        system: [
-          { type: "text", text: CLAUDE_CODE_IDENTITY },
-          { type: "text", text: request.system },
-        ],
-        messages: [{ role: "user", content: request.user }],
-      }),
+      body: JSON.stringify(body),
     });
   } finally {
     clearTimeout(timeout);
@@ -75,20 +107,61 @@ export async function generateWithClaudeCode(
       `Claude request failed with status ${response.status}.`,
     );
   }
+  return (await response.json()) as MessagesPayload;
+}
 
-  const payload = (await response.json()) as {
-    content?: { type: string; text?: string }[];
-  };
-  const text = (payload.content ?? [])
+function textOf(blocks: ContentBlock[]): string {
+  return blocks
     .filter((block) => block.type === "text" && block.text)
     .map((block) => block.text)
     .join("")
     .trim();
-  if (!text) {
-    throw new DraftGenerationError(
-      "GENERATION_FAILED",
-      "Claude returned an empty draft.",
+}
+
+export async function generateWithClaudeCode(
+  token: string,
+  request: InferenceRequest,
+): Promise<string> {
+  const tools = request.tools ?? [];
+  const maxToolCalls = tools.length > 0 ? (request.maxToolCalls ?? 0) : 0;
+  const messages: unknown[] = [{ role: "user", content: request.user }];
+  let used = 0;
+
+  for (;;) {
+    const forceAnswer = used >= maxToolCalls;
+    const payload = await callMessages(
+      token,
+      request,
+      messages,
+      tools,
+      forceAnswer,
     );
+    const blocks = payload.content ?? [];
+    const toolUses = forceAnswer
+      ? []
+      : blocks.filter((block) => block.type === "tool_use");
+
+    if (toolUses.length === 0) {
+      const text = textOf(blocks);
+      if (!text) {
+        throw new DraftGenerationError(
+          "GENERATION_FAILED",
+          "Claude returned an empty draft.",
+        );
+      }
+      return text;
+    }
+
+    messages.push({ role: "assistant", content: blocks });
+    const results = [];
+    for (const use of toolUses) {
+      used += 1;
+      results.push({
+        type: "tool_result",
+        tool_use_id: use.id,
+        content: await runInferenceTool(tools, use.name, use.input ?? {}),
+      });
+    }
+    messages.push({ role: "user", content: results });
   }
-  return text;
 }

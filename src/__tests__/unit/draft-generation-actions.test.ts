@@ -90,19 +90,41 @@ describe("draft-generation actions", () => {
 
   it("generate returns the draft body the composer applies", async () => {
     vi.mocked(generateDraftForUser).mockResolvedValue({
-      type: "REPLY",
-      contextMessageId: "m1",
-      to: "ada@x.y",
-      cc: "",
-      bcc: "",
-      subject: "Re-subject",
-      body: "generated body",
+      mode: "draft",
+      draft: {
+        type: "REPLY",
+        contextMessageId: "m1",
+        to: "ada@x.y",
+        cc: "",
+        bcc: "",
+        subject: "Re-subject",
+        body: "generated body",
+      },
     } as never);
     const result = await generateDraft({
       type: "REPLY",
       contextMessageId: "m1",
     });
     expect(result).toMatchObject({ ok: true, draft: { body: "generated body" } });
+  });
+
+  it("panel mode answers with the body and subject, never a draft", async () => {
+    vi.mocked(generateDraftForUser).mockResolvedValue({
+      mode: "panel",
+      body: "a version",
+      subject: "The March invoice",
+    } as never);
+    const result = await generateDraft({
+      type: "NEW",
+      contextMessageId: "new-1",
+      to: "ada@x.y",
+      instruction: "Ask about the March invoice",
+    });
+    expect(result).toEqual({
+      ok: true,
+      body: "a version",
+      subject: "The March invoice",
+    });
   });
 
   it("generate maps module errors to { ok: false, code } for the confirm flow", async () => {
