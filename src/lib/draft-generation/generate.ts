@@ -85,6 +85,7 @@ export async function generateDraftForUser(
   infer: InferenceAdapter = defaultInferenceAdapter,
 ): Promise<GenerateDraftResult> {
   const isPanel = input.instruction !== undefined;
+  const instructed = (input.instruction ?? "").trim() !== "";
   if (isDemoInstance()) {
     throw new DraftGenerationError(
       "DEMO_INSTANCE",
@@ -171,9 +172,13 @@ export async function generateDraftForUser(
     request: buildInferenceRequest(pack, {
       instruction: input.instruction,
       tone: input.tone,
-      // A subject is only ever proposed for new mail the user left untitled.
+      // A subject is only ever proposed for new mail; clients apply it only
+      // when their subject field is empty.
       wantSubject: isPanel && input.type === "NEW",
-      tools: isPanel ? buildMailboxTools(userId) : undefined,
+      // Tools are the instructed path's ceiling. An empty instruction is the
+      // one-tap flow reproduced, and must stay as fast and as narrow as it
+      // was — seeded context pack only.
+      tools: instructed ? buildMailboxTools(userId) : undefined,
       maxToolCalls: MAX_TOOL_CALLS,
     }),
     rotateSecret: (next) => rotateDraftGenerationSecret(userId, next),
@@ -187,7 +192,6 @@ export async function generateDraftForUser(
       ...(parsed.subject ? { subject: parsed.subject } : {}),
     };
   }
-  const body = raw;
 
   // Generate fills the body; existing headers and attachments stay as they
   // were. A missing REPLY row gets its to/subject from the same reply-header
@@ -202,13 +206,13 @@ export async function generateDraftForUser(
         subject: existing.subject,
         emailConnectionId: existing.emailConnectionId ?? undefined,
         attachmentIds: existing.attachmentIds,
-        body,
+        body: raw,
       }
     : {
         type: input.type,
         contextMessageId: input.contextMessageId,
         to: input.type === "REPLY" ? (replyTo ?? "") : (input.to ?? ""),
-        body,
+        body: raw,
       };
 
   if (input.type === "REPLY") {

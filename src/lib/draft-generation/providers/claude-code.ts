@@ -1,3 +1,4 @@
+import { runInferenceTool } from "@/lib/draft-generation/tools";
 import {
   DraftGenerationError,
   type InferenceRequest,
@@ -117,22 +118,6 @@ function textOf(blocks: ContentBlock[]): string {
     .trim();
 }
 
-async function runTool(
-  tools: InferenceTool[],
-  name: string | undefined,
-  input: Record<string, unknown> | undefined,
-): Promise<string> {
-  const tool = tools.find((candidate) => candidate.name === name);
-  if (!tool) return `No tool named ${name}.`;
-  try {
-    return await tool.run(input ?? {});
-  } catch {
-    // A failing lookup must not kill the generation — the model can answer
-    // from the seeded context pack instead.
-    return `The ${tool.name} tool failed.`;
-  }
-}
-
 export async function generateWithClaudeCode(
   token: string,
   request: InferenceRequest,
@@ -174,7 +159,7 @@ export async function generateWithClaudeCode(
       results.push({
         type: "tool_result",
         tool_use_id: use.id,
-        content: await runTool(tools, use.name, use.input),
+        content: await runInferenceTool(tools, use.name, use.input ?? {}),
       });
     }
     messages.push({ role: "user", content: results });

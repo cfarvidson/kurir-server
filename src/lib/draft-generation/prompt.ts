@@ -48,8 +48,18 @@ const TONE_LINES: Record<DraftTone, string | null> = {
 export const BODY_DELIMITER = "%%%BODY%%%";
 
 const SUBJECT_INSTRUCTIONS = [
-  "This is a new mail and the user has not written a subject line.",
+  "Propose a subject line for this new mail.",
   `Start your answer with "SUBJECT: " followed by a single-line subject, then a line containing exactly ${BODY_DELIMITER}, then the mail body.`,
+].join(" ");
+
+/**
+ * New mail has no incoming mail whose language to match, so the language
+ * rule needs its own line: follow the instruction's language, or the prior
+ * correspondence when there is no instruction.
+ */
+const NEW_MAIL_LANGUAGE = [
+  "There is no mail being answered here.",
+  "Write in the language the user wrote their instruction in; with no instruction, match the language of the earlier correspondence.",
 ].join(" ");
 
 function entrySection(
@@ -84,6 +94,7 @@ export function buildInferenceRequest(
   const toneLine = TONE_LINES[options.tone ?? "auto"];
 
   const system = [SYSTEM_PROMPT];
+  if (!pack.current) system.push(NEW_MAIL_LANGUAGE);
   if (toneLine) system.push(toneLine);
   if (instruction) {
     system.push(
@@ -143,7 +154,15 @@ export function parseGeneratedDraft(raw: string): {
   body: string;
 } {
   const index = raw.indexOf(BODY_DELIMITER);
-  if (index === -1) return { body: raw.trim() };
+  if (index === -1) {
+    // Half-compliance: the subject line without the delimiter. Take the
+    // line as the subject rather than leaking it into the body.
+    const lead = /^SUBJECT:\s*(.+)(?:\r?\n|$)/i.exec(raw.trimStart());
+    if (!lead) return { body: raw.trim() };
+    const body = raw.trimStart().slice(lead[0].length).trim();
+    if (!body) return { body: raw.trim() };
+    return { subject: lead[1].trim(), body };
+  }
   const head = raw.slice(0, index).trim();
   const tail = raw.slice(index + BODY_DELIMITER.length).trim();
   // The delimiter itself never reaches the composer, whatever went wrong.

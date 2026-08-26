@@ -2,6 +2,7 @@ import {
   parseGrokSession,
   serializeGrokSession,
 } from "@/lib/draft-generation/grok-session";
+import { runInferenceTool } from "@/lib/draft-generation/tools";
 import {
   DraftGenerationError,
   type InferenceRequest,
@@ -121,7 +122,7 @@ async function refreshSession(refreshToken: string): Promise<{
   };
 }
 
-async function readMessage(response: Response): Promise<ChatMessage> {
+async function readChatMessage(response: Response): Promise<ChatMessage> {
   if (response.status === 429) {
     throw new DraftGenerationError(
       "USAGE_LIMITED",
@@ -158,22 +159,6 @@ function parseArguments(raw: string | undefined): Record<string, unknown> {
   }
 }
 
-async function runTool(
-  tools: InferenceTool[],
-  call: ToolCall,
-): Promise<string> {
-  const name = call.function?.name;
-  const tool = tools.find((candidate) => candidate.name === name);
-  if (!tool) return `No tool named ${name}.`;
-  try {
-    return await tool.run(parseArguments(call.function?.arguments));
-  } catch {
-    // A failing lookup must not kill the generation — the model can answer
-    // from the seeded context pack instead.
-    return `The ${tool.name} tool failed.`;
-  }
-}
-
 export async function generateWithGrokBuild(
   secret: string,
   request: InferenceRequest,
@@ -197,7 +182,7 @@ export async function generateWithGrokBuild(
     if (access) {
       const first = await chatOnce(access, messages, tools, forceAnswer);
       if (first.status !== 401 && first.status !== 403) {
-        return readMessage(first);
+        return readChatMessage(first);
       }
       if (refreshed) throw freshSessionError();
     }
@@ -217,7 +202,7 @@ export async function generateWithGrokBuild(
     if (retried.status === 401 || retried.status === 403) {
       throw freshSessionError();
     }
-    return readMessage(retried);
+    return readChatMessage(retried);
   };
 
   let used = 0;
@@ -247,7 +232,11 @@ export async function generateWithGrokBuild(
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: await runTool(tools, call),
+        content: await runInferenceTool(
+          tools,
+          call.function?.name,
+          parseArguments(call.function?.arguments),
+        ),
       });
     }
   }

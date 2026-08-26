@@ -64,6 +64,25 @@ async function readMessage(userId: string, id: string): Promise<string> {
   return `${header}\n\n${body || "(no text)"}`;
 }
 
+/**
+ * Run one tool the model asked for. Shared by both provider adapters: an
+ * unknown name or a failing lookup answers the model instead of killing the
+ * generation, which can still be written from the seeded context pack.
+ */
+export async function runInferenceTool(
+  tools: InferenceTool[],
+  name: string | undefined,
+  input: Record<string, unknown>,
+): Promise<string> {
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (!tool) return `No tool named ${name}.`;
+  try {
+    return await tool.run(input);
+  } catch {
+    return `The ${tool.name} tool failed.`;
+  }
+}
+
 /** The tool set offered to a panel generation, bound to one user. */
 export function buildMailboxTools(userId: string): InferenceTool[] {
   return [

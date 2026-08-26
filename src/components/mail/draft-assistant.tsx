@@ -149,6 +149,29 @@ export function DraftAssistant({
     setOpen(false);
   };
 
+  /**
+   * The whole panel is drivable from the keyboard (Cmd/Ctrl+Enter generates,
+   * +Shift inserts, Alt+arrows flip versions). Alt rather than Cmd for the
+   * pager: Cmd+[ / Cmd+] are the browser's own back and forward.
+   */
+  const panelKeyDown = (e: React.KeyboardEvent) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) insert();
+      else if (!busy) void generate();
+      return;
+    }
+    if (!e.altKey || versions.length === 0) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setIndex((i) => Math.max(0, i - 1));
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setIndex((i) => Math.min(versions.length - 1, i + 1));
+    }
+  };
+
   return (
     <Popover
       open={open}
@@ -173,7 +196,12 @@ export function DraftAssistant({
           Generate draft
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" side="top" className="w-96 space-y-3">
+      <PopoverContent
+        align="start"
+        side="top"
+        className="w-96 space-y-3"
+        onKeyDown={panelKeyDown}
+      >
         <div>
           <label
             htmlFor="draft-assistant-instruction"
@@ -187,12 +215,6 @@ export function DraftAssistant({
             rows={3}
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                if (!busy) void generate();
-              }
-            }}
             placeholder="Say I can't make Tuesday and offer Thursday instead. Leave empty to let it infer."
             className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm"
           />

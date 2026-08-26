@@ -142,6 +142,28 @@ describe("what the adapter is handed", () => {
     expect(vi.mocked(adapter).mock.calls[0][0].request.tools).toBeUndefined();
   });
 
+  it("offers no tools for an empty instruction — that is one-tap reproduced", async () => {
+    const adapter = stubAdapter();
+    await generateDraftForUser("user-1", reply({ instruction: "  " }), adapter);
+    expect(vi.mocked(adapter).mock.calls[0][0].request.tools).toBeUndefined();
+  });
+
+  it("new mail gets its own language rule; a reply does not", async () => {
+    const newAdapter = stubAdapter();
+    await generateDraftForUser(
+      "user-1",
+      { type: "NEW", contextMessageId: "new-1", to: "ada@x.y", instruction: "hi" },
+      newAdapter,
+    );
+    const replyAdapter = stubAdapter();
+    await generateDraftForUser("user-1", reply({ instruction: "hi" }), replyAdapter);
+
+    const newSystem = vi.mocked(newAdapter).mock.calls[0][0].request.system;
+    const replySystem = vi.mocked(replyAdapter).mock.calls[0][0].request.system;
+    expect(newSystem).not.toBe(replySystem);
+    expect(newSystem.length).toBeGreaterThan(replySystem.length);
+  });
+
   it("each tone produces a different system prompt; auto is the default", async () => {
     const systems = new Map<string, string>();
     for (const tone of ["auto", "formal", "friendly", "direct"] as const) {
@@ -194,6 +216,28 @@ describe("subject for new mail", () => {
       subject: "The March invoice",
       body: "Hi Ada,\n\nAbout March…",
     });
+  });
+
+  it("a subject line without the delimiter is still taken off the body", async () => {
+    const result = await generateDraftForUser(
+      "user-1",
+      newMail({ instruction: "Ask about the March invoice" }),
+      stubAdapter("SUBJECT: The March invoice\nHi Ada,\n\nAbout March…"),
+    );
+    expect(result).toEqual({
+      mode: "panel",
+      subject: "The March invoice",
+      body: "Hi Ada,\n\nAbout March…",
+    });
+  });
+
+  it("a subject line with nothing after it stays a body, never an empty draft", async () => {
+    const result = await generateDraftForUser(
+      "user-1",
+      newMail({ instruction: "Ask about the March invoice" }),
+      stubAdapter("SUBJECT: The March invoice"),
+    );
+    expect(result).toEqual({ mode: "panel", body: "SUBJECT: The March invoice" });
   });
 
   it("an answer that ignores the protocol degrades to body-only", async () => {
