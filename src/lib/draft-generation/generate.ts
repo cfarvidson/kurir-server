@@ -47,6 +47,7 @@ const currentMessageSelect = {
   fromName: true,
   replyTo: true,
   toAddresses: true,
+  receivedAt: true,
   textBody: true,
   htmlBody: true,
 } as const;
@@ -86,6 +87,7 @@ export async function generateDraftForUser(
     subject: string | null;
     fromAddress: string;
     fromName: string | null;
+    receivedAt: Date;
     textBody: string | null;
     htmlBody: string | null;
   } | null = null;

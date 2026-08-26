@@ -119,18 +119,37 @@ describe("buildContextPack", () => {
     vi.clearAllMocks();
   });
 
-  it("queries capped correspondent mail and own-sent mail, excluding the current message", async () => {
+  const currentMessage = {
+    id: "msg-current",
+    subject: "Latest",
+    fromAddress: "Ada@x.y",
+    fromName: "Ada",
+    receivedAt: new Date("2026-08-10T10:00:00Z"),
+    textBody: "The newest mail",
+    htmlBody: null,
+  };
+
+  it("queries capped, strictly earlier correspondent mail and own-sent mail", async () => {
     vi.mocked(db.message.findMany).mockImplementation(((args: {
-      where: { toAddresses?: unknown };
+      where: { OR?: unknown };
     }) =>
       Promise.resolve(
-        args.where.toAddresses
+        args.where.OR
           ? [
               {
                 subject: "My earlier answer",
                 receivedAt: new Date("2026-08-01T10:00:00Z"),
                 textBody: "I said hello before",
                 htmlBody: null,
+                // Stored mixed-case recipient still matches the correspondent.
+                toAddresses: ["ADA@X.Y"],
+              },
+              {
+                subject: "To someone else",
+                receivedAt: new Date("2026-07-30T10:00:00Z"),
+                textBody: "Unrelated sent mail",
+                htmlBody: null,
+                toAddresses: ["bob@x.y"],
               },
             ]
           : [
@@ -143,20 +162,13 @@ describe("buildContextPack", () => {
             ],
       )) as never);
 
-    const pack = await buildContextPack("user-1", "Ada@x.y", own, {
-      id: "msg-current",
-      subject: "Latest",
-      fromAddress: "Ada@x.y",
-      fromName: "Ada",
-      textBody: "The newest mail",
-      htmlBody: null,
-    });
+    const pack = await buildContextPack("user-1", "Ada@x.y", own, currentMessage);
 
     const calls = vi.mocked(db.message.findMany).mock.calls.map(
       (c) => c[0] as { where: Record<string, unknown>; take: number },
     );
-    const fromCall = calls.find((c) => !("toAddresses" in c.where))!;
-    const sentCall = calls.find((c) => "toAddresses" in c.where)!;
+    const fromCall = calls.find((c) => "fromAddress" in c.where)!;
+    const sentCall = calls.find((c) => "OR" in c.where)!;
 
     expect(fromCall.take).toBe(CONTEXT_FROM_SENDER_CAP);
     expect(fromCall.where.fromAddress).toEqual({
@@ -164,12 +176,16 @@ describe("buildContextPack", () => {
       mode: "insensitive",
     });
     expect(fromCall.where.id).toEqual({ not: "msg-current" });
-
-    expect(sentCall.take).toBe(CONTEXT_OWN_SENT_CAP);
-    expect(sentCall.where.toAddresses).toEqual({
-      hasSome: ["Ada@x.y", "ada@x.y"],
+    // "Earlier" is literal — replying to an old mail must not pull newer
+    // thread mail into the prompt as "earlier".
+    expect(fromCall.where.receivedAt).toEqual({
+      lt: currentMessage.receivedAt,
     });
+
     expect(sentCall.where.id).toEqual({ not: "msg-current" });
+    expect(sentCall.where.receivedAt).toEqual({
+      lt: currentMessage.receivedAt,
+    });
 
     expect(pack.current).toEqual({
       subject: "Latest",
@@ -183,6 +199,7 @@ describe("buildContextPack", () => {
         body: "Prior mail from the sender",
       },
     ]);
+    // Case-insensitive recipient match in; other recipients out; cap 5.
     expect(pack.ownSent).toEqual([
       {
         subject: "My earlier answer",
@@ -192,6 +209,25 @@ describe("buildContextPack", () => {
     ]);
   });
 
+  it("caps own-sent mail after the recipient filter", async () => {
+    vi.mocked(db.message.findMany).mockImplementation(((args: {
+      where: { OR?: unknown };
+    }) =>
+      Promise.resolve(
+        args.where.OR
+          ? Array.from({ length: 9 }, (_, i) => ({
+              subject: `Sent ${i}`,
+              receivedAt: new Date(2026, 0, 9 - i),
+              textBody: `body ${i}`,
+              htmlBody: null,
+              toAddresses: ["ada@x.y"],
+            }))
+          : [],
+      )) as never);
+    const pack = await buildContextPack("user-1", "ada@x.y", own, null);
+    expect(pack.ownSent).toHaveLength(CONTEXT_OWN_SENT_CAP);
+  });
+
   it("builds a pack from the current message alone when there is no prior mail", async () => {
     vi.mocked(db.message.findMany).mockResolvedValue([] as never);
     const pack = await buildContextPack("user-1", "new@x.y", own, {
@@ -199,6 +235,7 @@ describe("buildContextPack", () => {
       subject: "First contact",
       fromAddress: "new@x.y",
       fromName: null,
+      receivedAt: new Date("2026-08-10T10:00:00Z"),
       textBody: "Hi!",
       htmlBody: null,
     });

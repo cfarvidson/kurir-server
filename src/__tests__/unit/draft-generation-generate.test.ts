@@ -31,6 +31,7 @@ const contextMessage = {
   fromName: "Ada",
   replyTo: null,
   toAddresses: ["me@own.io"],
+  receivedAt: new Date("2026-08-25T09:00:00Z"),
   textBody: "Does Thursday at noon work for lunch?",
   htmlBody: null,
   isInImbox: true,
@@ -69,10 +70,10 @@ describe("generateDraftForUser", () => {
     mockOwnConnections();
     vi.mocked(db.message.findFirst).mockResolvedValue(contextMessage as never);
     vi.mocked(db.message.findMany).mockImplementation(((args: {
-      where: { toAddresses?: unknown };
+      where: { OR?: unknown };
     }) =>
       Promise.resolve(
-        args.where.toAddresses
+        args.where.OR
           ? []
           : [
               {
@@ -297,7 +298,7 @@ describe("generateDraftForUser", () => {
     const fromCall = vi
       .mocked(db.message.findMany)
       .mock.calls.map((c) => c[0] as { where: Record<string, unknown> })
-      .find((c) => !("toAddresses" in c.where))!;
+      .find((c) => "fromAddress" in c.where)!;
     expect(fromCall.where.fromAddress).toEqual({
       equals: "ada@x.y",
       mode: "insensitive",

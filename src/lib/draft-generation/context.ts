@@ -82,6 +82,12 @@ const contextSelect = {
   htmlBody: true,
 } as const;
 
+/**
+ * `toAddresses` has no case-insensitive array operator, so own-sent mail is
+ * scanned newest-first and filtered in JS. Bounded so one query stays cheap.
+ */
+const OWN_SENT_SCAN_CAP = 100;
+
 function toEntry(row: {
   subject: string | null;
   receivedAt: Date;
@@ -109,19 +115,24 @@ export async function buildContextPack(
     subject: string | null;
     fromAddress: string;
     fromName: string | null;
+    receivedAt: Date;
     textBody: string | null;
     htmlBody: string | null;
   } | null,
 ): Promise<ContextPack> {
-  const excludeCurrent = current ? { id: { not: current.id } } : {};
-  const toVariants = [...new Set([correspondent, correspondent.toLowerCase()])];
-  const [fromRows, sentRows] = await Promise.all([
+  // "Earlier" is literal: when replying to an older mail in a thread, mail
+  // newer than it must not enter the prompt under an "earlier" heading.
+  const earlierThanCurrent = current
+    ? { id: { not: current.id }, receivedAt: { lt: current.receivedAt } }
+    : {};
+  const correspondentLower = correspondent.toLowerCase();
+  const [fromRows, sentScan] = await Promise.all([
     db.message.findMany({
       where: {
         userId,
         isDeleted: false,
         fromAddress: { equals: correspondent, mode: "insensitive" },
-        ...excludeCurrent,
+        ...earlierThanCurrent,
       },
       orderBy: { receivedAt: "desc" },
       take: CONTEXT_FROM_SENDER_CAP,
@@ -131,18 +142,22 @@ export async function buildContextPack(
       where: {
         userId,
         isDeleted: false,
-        toAddresses: { hasSome: toVariants },
         OR: [
           { folder: { specialUse: "sent" } },
           { fromAddress: { in: own.emails, mode: "insensitive" } },
         ],
-        ...excludeCurrent,
+        ...earlierThanCurrent,
       },
       orderBy: { receivedAt: "desc" },
-      take: CONTEXT_OWN_SENT_CAP,
-      select: contextSelect,
+      take: OWN_SENT_SCAN_CAP,
+      select: { ...contextSelect, toAddresses: true },
     }),
   ]);
+  const sentRows = sentScan
+    .filter((row) =>
+      row.toAddresses.some((a) => a.toLowerCase() === correspondentLower),
+    )
+    .slice(0, CONTEXT_OWN_SENT_CAP);
   return {
     correspondent,
     current: current
