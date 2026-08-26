@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.45",
+    "date": "2026-08-26",
+    "changes": [
+      "Compose assistant: the sparkles button now opens a panel where you say what the mail should say, pick a tone (Auto, Formal, Friendly, Direct), generate, flip between versions, and insert the one you want - nothing touches the composer until you insert",
+      "An instructed generation can search and read your own mail for the context it needs, bounded to 6 lookups per draft and scoped to your account, so a mail about a thread outside the current one still gets its facts right",
+      "New mail with an empty subject line can come back with a proposed subject, and a subject you already typed is never overwritten",
+      "Settings links to the documentation site at kurir.io/docs, including a setup guide from the Draft generation section"
+    ]
+  },
+  {
     "version": "2026.44",
     "date": "2026-08-26",
     "changes": [

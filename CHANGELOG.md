@@ -4,6 +4,34 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.45] - 2026-08-26
+
+### Added
+
+- Compose assistant (#133): the composer's sparkles button opens a panel
+  instead of firing blindly. Say what the mail should say, pick a tone
+  (Auto, Formal, Friendly, Direct), generate, flip between versions, and
+  insert the one you want. Nothing reaches the composer until you insert,
+  so generation never overwrites typed text, and versions are gone when
+  the composer closes.
+- Instructed generations can go looking for their own context: two bounded,
+  user-scoped tools let the model search the mailbox and read a message, so
+  a mail about "the invoice thread from March" gets its facts right. Capped
+  at 6 lookups per generation, and both provider adapters run their API's
+  native tool-use loop. An empty instruction stays the old one-tap path -
+  seeded context pack only, same speed as before.
+- New mail with an empty subject line can come back with a proposed
+  subject; a subject you already typed is left alone.
+- Settings links to the documentation site (#132): a Documentation row to
+  kurir.io/docs, and a setup-guide link from the Draft generation section
+  to kurir.io/docs/draft-generation.
+
+### Compatibility
+
+- An app without the assistant keeps the old contract byte for byte. An app
+  with it against an older server says "Update the server" rather than
+  silently dropping the instruction.
+
 ## [v2026.44] - 2026-08-26
 
 ### Added
