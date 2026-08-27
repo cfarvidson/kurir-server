@@ -9,6 +9,12 @@ const SRC: Record<KurirMascotPose, string> = {
   "paper-trail": "/mascot-paper-trail.png",
 };
 
+const SRC_DARK: Record<Exclude<KurirMascotPose, "icon">, string> = {
+  imbox: "/mascot-imbox-dark.png",
+  feed: "/mascot-feed-dark.png",
+  "paper-trail": "/mascot-paper-trail-dark.png",
+};
+
 /** The Kurir courier mascot. Decorative by default (`alt=""`). */
 export function KurirMascot({
   pose = "icon",
@@ -20,12 +26,30 @@ export function KurirMascot({
   alt?: string;
 }) {
   const isIcon = pose === "icon";
+  if (isIcon) {
+    return (
+      <img
+        src={SRC.icon}
+        alt={alt}
+        className={cn("rounded-2xl", className)}
+        draggable={false}
+      />
+    );
+  }
   return (
-    <img
-      src={SRC[pose]}
-      alt={alt}
-      className={cn(isIcon && "rounded-2xl", className)}
-      draggable={false}
-    />
+    <>
+      <img
+        src={SRC[pose]}
+        alt={alt}
+        className={cn("dark:hidden", className)}
+        draggable={false}
+      />
+      <img
+        src={SRC_DARK[pose]}
+        alt={alt}
+        className={cn("hidden dark:block", className)}
+        draggable={false}
+      />
+    </>
   );
 }
