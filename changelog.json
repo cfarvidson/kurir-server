@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.48",
+    "date": "2026-08-27",
+    "changes": [
+      "Imbox, The Feed, and Paper Trail each have their own courier pose on empty states, without the terracotta tile",
+      "Dark mode uses cream-halo cutouts so the figure still reads on dark paper",
+      "The native iPhone and Mac app icon is now the courier close-up, with a darker clay field for iOS 18 dark appearance"
+    ]
+  },
+  {
     "version": "2026.47",
     "date": "2026-08-27",
     "changes": [

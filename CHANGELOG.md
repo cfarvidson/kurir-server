@@ -4,6 +4,21 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.48] - 2026-08-27
+
+### Added
+
+- Per-list courier poses: Imbox delivers a letter, The Feed reads a
+  newspaper, Paper Trail sorts receipts. Empty states use full-body
+  cutouts with no terracotta tile.
+- Dark-mode cutouts with a cream halo so hair and sandals still read
+  on dark paper.
+
+### Changed
+
+- The native iPhone and Mac app icon is the courier close-up. iOS 18
+  dark appearance uses a deeper clay field.
+
 ## [v2026.47] - 2026-08-27
 
 ### Added
