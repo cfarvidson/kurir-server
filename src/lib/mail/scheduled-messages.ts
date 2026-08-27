@@ -8,6 +8,7 @@ import {
   appendToImapSent,
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
+import { assignThreadId } from "@/lib/mail/thread-assign";
 import { rateLimitSend } from "@/lib/rate-limit";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { isDemoInstance } from "@/lib/demo";
@@ -434,32 +435,17 @@ export async function deliverScheduledNowForUser(
     const textBody = decrypt(msg.textBody);
     const htmlBody = msg.htmlBody ? decrypt(msg.htmlBody) : null;
 
-    // Resolve thread context
-    let threadId: string | null = null;
+    // Resolve thread context via the shared implementation (root fallback +
+    // anchor back-fill), same as the direct and scheduled send paths.
     const refList = msg.references
       ? msg.references.split(" ").filter(Boolean)
       : [];
-    if (msg.inReplyToMessageId || refList.length > 0) {
-      const relatedIds = [...refList];
-      if (
-        msg.inReplyToMessageId &&
-        !relatedIds.includes(msg.inReplyToMessageId)
-      ) {
-        relatedIds.push(msg.inReplyToMessageId);
-      }
-      const existingThread = await db.message.findFirst({
-        where: {
-          userId,
-          OR: [
-            { messageId: { in: relatedIds } },
-            { threadId: { in: relatedIds } },
-          ],
-          threadId: { not: null },
-        },
-        select: { threadId: true },
-      });
-      threadId = existingThread?.threadId || relatedIds[0] || null;
-    }
+    const threadId = await assignThreadId({
+      userId,
+      messageId: result.messageId || null,
+      inReplyTo: msg.inReplyToMessageId || null,
+      references: refList,
+    });
 
     const fromAddress =
       msg.emailConnection.sendAsEmail || msg.emailConnection.email;
