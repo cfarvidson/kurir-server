@@ -102,6 +102,7 @@ export async function SearchResults({
     return (
       <EmptyState
         icon={emptyIcon || <BookUser />}
+        showMascot={false}
         title="No results found"
         description={`No messages or contacts match “${query}”`}
       />

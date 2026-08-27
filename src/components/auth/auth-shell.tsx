@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { KurirMascot } from "@/components/mascot";
 
 /**
  * Editorial auth layout. Flat paper (bg-background), no gradient hero, no
@@ -28,6 +29,7 @@ export function AuthShell({
             is pinned to the bottom corner as an editorial footer. */}
         <aside className="relative flex flex-col justify-center px-6 pt-12 pb-8 lg:px-12 lg:py-16">
           <div>
+            <KurirMascot className="mb-6 h-20 w-20" />
             <p className="eyebrow text-muted-foreground">Email for humans</p>
             <h1 className="mt-3 font-serif text-display font-semibold tracking-tight text-foreground">
               Kurir
