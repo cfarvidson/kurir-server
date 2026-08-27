@@ -174,7 +174,13 @@ describe("thread repair gating", () => {
 
   const REPAIR_CALL = {
     where: { userId: "user-1" },
-    select: { id: true, messageId: true, threadId: true, inReplyTo: true },
+    select: {
+      id: true,
+      messageId: true,
+      threadId: true,
+      inReplyTo: true,
+      references: true,
+    },
   };
 
   function mockCredentials() {
