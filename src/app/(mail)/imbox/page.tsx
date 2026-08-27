@@ -59,7 +59,7 @@ async function PaginatedImbox({ userId }: { userId: string }) {
   const result = await getMessages(userId, "imbox", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Inbox />} {...emptyCopy("imbox")} />;
+    return <EmptyState mascot="imbox" {...emptyCopy("imbox")} />;
   }
 
   return (

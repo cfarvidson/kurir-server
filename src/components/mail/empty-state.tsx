@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
-import { KurirMascot } from "@/components/mascot";
+import { KurirMascot, type KurirMascotPose } from "@/components/mascot";
 
 /**
  * Editorial empty state. A Playfair headline carries the moment — this is one
  * of the few intentional places (alongside the open-message subject) where the
- * serif earns its keep. List empties show the courier mascot; search keeps a
- * quiet muted glyph.
+ * serif earns its keep. Imbox / The Feed / Paper Trail show a courier pose
+ * with no tile background. Other lists keep a quiet muted glyph.
  */
 export function EmptyState({
   icon,
@@ -13,7 +13,7 @@ export function EmptyState({
   title,
   description,
   className,
-  showMascot = true,
+  mascot,
 }: {
   icon?: React.ReactNode;
   /** Optional small-caps kicker above the headline, matching PageMasthead. */
@@ -21,8 +21,8 @@ export function EmptyState({
   title: string;
   description?: React.ReactNode;
   className?: string;
-  /** Courier mascot above the title. Off for search / error glyphs. */
-  showMascot?: boolean;
+  /** Full-body courier pose. Omit for search / other lists. */
+  mascot?: Exclude<KurirMascotPose, "icon">;
 }) {
   return (
     <div
@@ -31,8 +31,8 @@ export function EmptyState({
         className,
       )}
     >
-      {showMascot ? (
-        <KurirMascot className="mb-5 h-20 w-20" />
+      {mascot ? (
+        <KurirMascot pose={mascot} className="mb-5 h-28 w-auto" />
       ) : (
         icon && (
           <div

@@ -58,7 +58,7 @@ async function PaginatedFeed({ userId }: { userId: string }) {
   const result = await getMessages(userId, "feed", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Newspaper />} {...emptyCopy("feed")} />;
+    return <EmptyState mascot="feed" {...emptyCopy("feed")} />;
   }
 
   return (
