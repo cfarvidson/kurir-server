@@ -31,5 +31,8 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `07-imbox.png` | Delivering a letter (Imbox empty) |
 | `08-feed.png` | Reading a newspaper (The Feed empty) |
 | `09-paper-trail.png` | Sorting receipts (Paper Trail empty) |
+| `07-imbox-dark.png` | Imbox cutout with cream halo for dark mode |
+| `08-feed-dark.png` | The Feed cutout with cream halo for dark mode |
+| `09-paper-trail-dark.png` | Paper Trail cutout with cream halo for dark mode |
 
 The same sheet lives in `kurir-ios` at `docs/design/mascot/`.
