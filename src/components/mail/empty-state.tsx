@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
+import { KurirMascot } from "@/components/mascot";
 
 /**
  * Editorial empty state. A Playfair headline carries the moment — this is one
  * of the few intentional places (alongside the open-message subject) where the
- * serif earns its keep. The icon is a quiet muted glyph, not a tinted circle:
- * depth comes from type and spacing, not decoration.
+ * serif earns its keep. List empties show the courier mascot; search keeps a
+ * quiet muted glyph.
  */
 export function EmptyState({
   icon,
@@ -12,6 +13,7 @@ export function EmptyState({
   title,
   description,
   className,
+  showMascot = true,
 }: {
   icon?: React.ReactNode;
   /** Optional small-caps kicker above the headline, matching PageMasthead. */
@@ -19,6 +21,8 @@ export function EmptyState({
   title: string;
   description?: React.ReactNode;
   className?: string;
+  /** Courier mascot above the title. Off for search / error glyphs. */
+  showMascot?: boolean;
 }) {
   return (
     <div
@@ -27,13 +31,17 @@ export function EmptyState({
         className,
       )}
     >
-      {icon && (
-        <div
-          aria-hidden="true"
-          className="mb-5 text-muted-foreground/35 [&_svg]:h-7 [&_svg]:w-7"
-        >
-          {icon}
-        </div>
+      {showMascot ? (
+        <KurirMascot className="mb-5 h-20 w-20" />
+      ) : (
+        icon && (
+          <div
+            aria-hidden="true"
+            className="mb-5 text-muted-foreground/35 [&_svg]:h-7 [&_svg]:w-7"
+          >
+            {icon}
+          </div>
+        )
       )}
       {eyebrow && (
         <p className="eyebrow mb-2 text-muted-foreground/70">{eyebrow}</p>
