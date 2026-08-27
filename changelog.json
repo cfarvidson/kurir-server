@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.47",
+    "date": "2026-08-27",
+    "changes": [
+      "The courier mascot - a round chibi courier in cream tunic and terracotta sash - now greets you on the sign-in screen and fills the empty mailbox and empty search results",
+      "Favicon, apple-touch-icon, and the PWA icons are the courier close-up instead of the serif K; the K lettermark stays the sidebar mark",
+      "kurir.io uses the courier as its mark and shows the full-body running figure in the hero"
+    ]
+  },
+  {
     "version": "2026.45",
     "date": "2026-08-26",
     "changes": [
@@ -470,9 +479,7 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": [
-      "Fix paragraph breaks in the compose markdown preview"
-    ]
+    "changes": ["Fix paragraph breaks in the compose markdown preview"]
   },
   {
     "version": "2026.04.26.3",
@@ -523,9 +530,7 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": [
-      "Fix updater status callback blocked by auth middleware"
-    ]
+    "changes": ["Fix updater status callback blocked by auth middleware"]
   },
   {
     "version": "2026.04.10",

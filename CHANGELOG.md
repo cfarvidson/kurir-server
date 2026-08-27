@@ -4,6 +4,23 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.47] - 2026-08-27
+
+### Added
+
+- The courier mascot (#136): a round chibi courier in cream tunic and
+  terracotta sash is now the product's face. She greets you on the
+  sign-in screen, fills the empty mailbox and empty search results, and
+  is the figure on kurir.io. The K lettermark stays the sidebar mark on
+  the web client and the app icon.
+
+### Changed
+
+- Favicon, apple-touch-icon, and the PWA icons (192 and 512) are the
+  courier close-up instead of the serif K.
+- kurir.io swaps the serif K in the header, footer, and favicon for the
+  courier, and the hero shows the full-body running figure.
+
 ## [v2026.45] - 2026-08-26
 
 ### Added
