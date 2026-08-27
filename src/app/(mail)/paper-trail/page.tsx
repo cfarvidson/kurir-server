@@ -58,7 +58,7 @@ async function PaginatedPaperTrail({ userId }: { userId: string }) {
   const result = await getMessages(userId, "paper-trail", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Receipt />} {...emptyCopy("paper-trail")} />;
+    return <EmptyState mascot="paper-trail" {...emptyCopy("paper-trail")} />;
   }
 
   return (

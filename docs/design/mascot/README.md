@@ -28,5 +28,8 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `04-wave.png` | Standing, waving |
 | `05-portrait-front.png` | Chest-up, looking at camera |
 | `06-full-body-cutout.png` | Full-body run, terracotta knocked out |
+| `07-imbox.png` | Delivering a letter (Imbox empty) |
+| `08-feed.png` | Reading a newspaper (The Feed empty) |
+| `09-paper-trail.png` | Sorting receipts (Paper Trail empty) |
 
 The same sheet lives in `kurir-ios` at `docs/design/mascot/`.
