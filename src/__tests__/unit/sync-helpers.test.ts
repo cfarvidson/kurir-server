@@ -31,8 +31,8 @@ vi.mock("@/lib/mail/auth-helpers", () => ({
 import {
   extractAttachmentParts,
   extractDomain,
-  createSnippet,
 } from "@/lib/mail/sync-service";
+import { createSnippet } from "@/lib/mail/snippet";
 
 describe("extractDomain", () => {
   it("extracts domain from email address", () => {

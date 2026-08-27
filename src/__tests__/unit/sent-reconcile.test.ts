@@ -126,7 +126,7 @@ describe("sent reconciliation dedup (Message-ID, uid-sign agnostic)", () => {
   it("reconciles a second IMAP copy in the same folder instead of inserting a duplicate", async () => {
     const db = await baseMocks();
     // First copy already synced with a real (positive) uid.
-    vi.mocked(db.message.findFirst).mockImplementation(async (args: any) => {
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
       const w = args?.where ?? {};
       if (typeof w.messageId === "string" && w.OR) {
         return { id: "existing-1", uid: 77, folderId: "sent-folder" } as any;
@@ -164,7 +164,7 @@ describe("sent reconciliation dedup (Message-ID, uid-sign agnostic)", () => {
   it("re-runs thread assignment when reconciling a local placeholder", async () => {
     const db = await baseMocks();
     await mockParsed({ references: ["<anchor@x>"] });
-    vi.mocked(db.message.findFirst).mockImplementation(async (args: any) => {
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
       const w = args?.where ?? {};
       // Thread resolve: a related message with a threadId exists.
       if (w.OR?.[0]?.messageId?.in) {
@@ -212,7 +212,7 @@ describe("content fallback with the shared snippet computation", () => {
       path: "Sent",
     } as any);
     let storedSnippet: string | null = null;
-    vi.mocked(db.message.create).mockImplementation(async (args: any) => {
+    (vi.mocked(db.message.create).mockImplementation as any)(async (args: any) => {
       storedSnippet = args.data.snippet;
       return { id: "local-1", ...args.data } as any;
     });
@@ -234,7 +234,7 @@ describe("content fallback with the shared snippet computation", () => {
     // snippet the content-fallback lookup queries with.
     await mockParsed({ text: multiline });
     let queriedSnippet: string | undefined;
-    vi.mocked(db.message.findFirst).mockImplementation(async (args: any) => {
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
       const w = args?.where ?? {};
       if (w.uid?.lt === 0 && w.fromAddress) {
         queriedSnippet = w.snippet;
@@ -303,7 +303,7 @@ describe("\\Sent-less servers", () => {
       userId: "user-1",
     } as any);
     vi.mocked(db.folder.findUnique).mockResolvedValue(null);
-    vi.mocked(db.folder.create).mockImplementation(
+    (vi.mocked(db.folder.create).mockImplementation as any)(
       async (args: any) =>
         ({
           id: `folder-${args.data.path}`,
@@ -367,7 +367,7 @@ describe("\\Sent-less servers", () => {
       userId: "user-1",
     } as any);
     vi.mocked(db.folder.findUnique).mockResolvedValue(null);
-    vi.mocked(db.folder.create).mockImplementation(
+    (vi.mocked(db.folder.create).mockImplementation as any)(
       async (args: any) =>
         ({
           id: `folder-${args.data.path}`,

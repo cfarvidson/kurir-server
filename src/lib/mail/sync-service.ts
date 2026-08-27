@@ -18,8 +18,6 @@ import { matchDomainRule } from "@/lib/mail/domain-rules";
 import { assignThreadId, repairThreadIds } from "@/lib/mail/thread-assign";
 import { createSnippet } from "@/lib/mail/snippet";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
-
-export { createSnippet };
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
   SenderCategory,
