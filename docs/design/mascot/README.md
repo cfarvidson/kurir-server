@@ -2,7 +2,7 @@
 
 Round chibi courier. Cream tunic, terracotta sash, dark curly hair, cream envelope. The K lettermark stays the app icon and sidebar mark; this character is the mascot.
 
-Canonical production crop: `00-canonical-closeup.png` (also `/mascot.png` and `site/public/mascot.png`).
+Canonical production crop: `00-canonical-closeup.png` (also `/mascot.png` and `site/public/mascot.png`). kurir.io hero uses `06-full-body-cutout.png` as `site/public/mascot-hero.png`.
 
 ## Locked traits
 
@@ -27,5 +27,6 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `03-standing-deliver.png` | Standing, holding the envelope out |
 | `04-wave.png` | Standing, waving |
 | `05-portrait-front.png` | Chest-up, looking at camera |
+| `06-full-body-cutout.png` | Full-body run, terracotta knocked out |
 
 The same sheet lives in `kurir-ios` at `docs/design/mascot/`.

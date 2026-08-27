@@ -12,10 +12,12 @@ This file describes intent; the CSS holds the exact values.
 - **Product**: Kurir — "Email for Humans". A calm, focused inbox.
 - **Feel**: warm, paper-like, editorial. Generous whitespace, quiet chrome, content
   first. The interface should disappear behind the message.
-- **Mark**: the serif K on terracotta is the app icon and sidebar mark.
+- **Mark**: the serif K on terracotta is the app icon and the web/native
+  sidebar mark. kurir.io's header and favicon use the mascot close-up.
 - **Mascot**: a round chibi courier in a cream tunic with a terracotta sash,
   holding a cream envelope. Canonical sheet: `docs/design/mascot/`. Used on
-  auth, list empty states, and kurir.io. Search empties keep a quiet glyph.
+  auth, list empty states, and kurir.io (header close-up, hero full-body).
+  Search empties keep a quiet glyph.
 - **Anti-goals**: cold blue-grey SaaS dashboards, purple-gradient-on-white AI slop,
   Inter-everywhere flatness, avatar circles, decorative icons-in-a-grid.
 
