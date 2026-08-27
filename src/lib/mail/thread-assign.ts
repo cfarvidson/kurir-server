@@ -96,7 +96,8 @@ export async function assignThreadId(opts: {
  * Walk reply chains to unify threadIds across entire conversations.
  *
  * A parent link resolves through inReplyTo first, then through references
- * (ordered oldest → newest, so the nearest known ancestor wins). When the
+ * (the RFC orders them oldest → newest, so the walk scans from the end to
+ * let the nearest known ancestor win). When the
  * topmost reachable message still references mail we do not have — common on
  * boxes that only sync INBOX/Sent/Archive — its already-assigned threadId is
  * the thread key, and a subtree whose key is unknown is left untouched rather
