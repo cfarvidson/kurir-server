@@ -7,6 +7,7 @@ import { convertMarkdownToEmailHtml } from "./markdown-to-email";
 import { loadAttachmentsForSend } from "./attachment-helpers";
 import { buildSmtpAuth } from "./auth-helpers";
 import { parseRecipients } from "./recipients";
+import { assignThreadId } from "./thread-assign";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -161,28 +162,15 @@ async function processSingleMessage(
       ? msg.references.split(" ").filter(Boolean)
       : [];
 
-    let threadId: string | null = null;
-    if (msg.inReplyToMessageId || refList.length > 0) {
-      const relatedIds = [...refList];
-      if (
-        msg.inReplyToMessageId &&
-        !relatedIds.includes(msg.inReplyToMessageId)
-      ) {
-        relatedIds.push(msg.inReplyToMessageId);
-      }
-      const existingThread = await db.message.findFirst({
-        where: {
-          userId: msg.userId,
-          OR: [
-            { messageId: { in: relatedIds } },
-            { threadId: { in: relatedIds } },
-          ],
-          threadId: { not: null },
-        },
-        select: { threadId: true },
-      });
-      threadId = existingThread?.threadId || relatedIds[0] || null;
-    }
+    // Shared with the direct-send path: resolves against known related
+    // messages, falls back to our own Message-ID for fresh conversations,
+    // and back-fills null/divergent threadIds on the anchor.
+    const threadId = await assignThreadId({
+      userId: msg.userId,
+      messageId: result.messageId || null,
+      inReplyTo: msg.inReplyToMessageId || null,
+      references: refList,
+    });
 
     const fromAddress =
       msg.emailConnection.sendAsEmail || msg.emailConnection.email;

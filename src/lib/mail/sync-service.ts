@@ -15,6 +15,7 @@ import {
   storedContentToBuffer,
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
+import { assignThreadId, repairThreadIds } from "@/lib/mail/thread-assign";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
@@ -643,51 +644,14 @@ export async function processMessage(
     : [];
   const inReplyTo = envelope.inReplyTo || null;
 
-  let threadId: string | null = null;
-
-  const relatedIds = [...references];
-  if (inReplyTo && !relatedIds.includes(inReplyTo)) {
-    relatedIds.push(inReplyTo);
-  }
-
-  if (relatedIds.length > 0) {
-    const existingThreadMsg = await db.message.findFirst({
-      where: {
-        userId,
-        OR: [
-          { messageId: { in: relatedIds } },
-          { threadId: { in: relatedIds } },
-        ],
-        threadId: { not: null },
-      },
-      select: { threadId: true },
-    });
-
-    if (existingThreadMsg?.threadId) {
-      threadId = existingThreadMsg.threadId;
-    } else {
-      threadId = references[0] || inReplyTo;
-    }
-  }
-
-  if (!threadId) {
-    threadId = envelope.messageId || null;
-  }
-
-  // Unify threadId across all related messages in the conversation
-  if (threadId && relatedIds.length > 0) {
-    await db.message.updateMany({
-      where: {
-        userId,
-        OR: [
-          { messageId: { in: relatedIds } },
-          { inReplyTo: { in: relatedIds } },
-        ],
-        NOT: { threadId },
-      },
-      data: { threadId },
-    });
-  }
+  // Shared with the send paths: resolve against related messages, fall back
+  // to the conversation root / own Message-ID, and unify the conversation.
+  const threadId = await assignThreadId({
+    userId,
+    messageId: envelope.messageId || null,
+    inReplyTo,
+    references,
+  });
 
   // Check for locally-created duplicate (negative UID from sent replies)
   if (envelope.messageId) {
@@ -844,55 +808,6 @@ export async function processMessage(
   }
 
   return message;
-}
-
-/**
- * Walk inReplyTo chains to unify threadIds across entire conversations.
- */
-async function repairThreadIds(userId: string) {
-  const messages = await db.message.findMany({
-    where: { userId },
-    select: { id: true, messageId: true, threadId: true, inReplyTo: true },
-  });
-
-  const byMessageId = new Map<string, (typeof messages)[number]>();
-  for (const m of messages) {
-    if (m.messageId) byMessageId.set(m.messageId, m);
-  }
-
-  function findRootMessageId(msg: (typeof messages)[number]): string | null {
-    const visited = new Set<string>();
-    let current = msg;
-    while (current.inReplyTo && byMessageId.has(current.inReplyTo)) {
-      if (visited.has(current.inReplyTo)) break;
-      visited.add(current.inReplyTo);
-      current = byMessageId.get(current.inReplyTo)!;
-    }
-    return current.messageId;
-  }
-
-  const fixes: { id: string; threadId: string }[] = [];
-  for (const msg of messages) {
-    const rootMessageId = findRootMessageId(msg);
-    if (rootMessageId && msg.threadId !== rootMessageId) {
-      fixes.push({ id: msg.id, threadId: rootMessageId });
-    }
-  }
-
-  if (fixes.length > 0) {
-    const byThreadId = new Map<string, string[]>();
-    for (const { id, threadId } of fixes) {
-      if (!byThreadId.has(threadId)) byThreadId.set(threadId, []);
-      byThreadId.get(threadId)!.push(id);
-    }
-    for (const [threadId, ids] of byThreadId) {
-      await db.message.updateMany({
-        where: { id: { in: ids } },
-        data: { threadId },
-      });
-    }
-    console.log(`[sync] Repaired threadIds for ${fixes.length} messages`);
-  }
 }
 
 /**

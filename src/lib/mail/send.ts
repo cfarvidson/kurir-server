@@ -14,6 +14,7 @@ import {
   createLocalSentMessage,
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
+import { assignThreadId } from "@/lib/mail/thread-assign";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -179,26 +180,15 @@ export async function sendMailForUser(
     }),
   });
 
-  // Compute threadId from references/inReplyTo if part of a thread
-  let threadId: string | null = null;
-  if (inReplyTo || (references && references.length > 0)) {
-    const relatedIds = [...(references || [])];
-    if (inReplyTo && !relatedIds.includes(inReplyTo)) {
-      relatedIds.push(inReplyTo);
-    }
-    const existingThread = await db.message.findFirst({
-      where: {
-        userId,
-        OR: [
-          { messageId: { in: relatedIds } },
-          { threadId: { in: relatedIds } },
-        ],
-        threadId: { not: null },
-      },
-      select: { threadId: true },
-    });
-    threadId = existingThread?.threadId || relatedIds[0] || null;
-  }
+  // Thread like ingest: reuse a related thread, root-fall-back to our own
+  // Message-ID, and back-fill the conversation so a null-threadId anchor
+  // joins the reply's thread.
+  const threadId = await assignThreadId({
+    userId,
+    messageId: result.messageId || null,
+    inReplyTo: inReplyTo || null,
+    references: references || [],
+  });
 
   await createLocalSentMessage({
     userId,
