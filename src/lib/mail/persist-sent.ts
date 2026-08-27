@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { withImapConnection } from "./imap-client";
+import { createSnippet } from "./snippet";
 import MailComposer from "nodemailer/lib/mail-composer";
 
 /** Generate a unique negative UID for locally-created messages (must fit INT4: max 2,147,483,647). */
@@ -87,10 +88,6 @@ export async function appendToImapSent(opts: {
   return appended === true;
 }
 
-/** Create a snippet from message text. */
-export function createSnippet(text: string): string {
-  return text.length > 150 ? text.substring(0, 150) + "..." : text;
-}
 
 /**
  * Persist a sent message to the database with a negative UID placeholder.

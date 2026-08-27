@@ -16,6 +16,7 @@ import {
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
 import { assignThreadId, repairThreadIds } from "@/lib/mail/thread-assign";
+import { createSnippet } from "@/lib/mail/snippet";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
@@ -154,22 +155,6 @@ export function extractDomain(email: string): string {
   return email.split("@")[1] || email;
 }
 
-/**
- * Create a preview snippet from email body
- */
-export function createSnippet(
-  text: string | undefined,
-  maxLength = 150,
-): string | null {
-  if (!text) return null;
-  const cleaned = text
-    .replace(/\s+/g, " ")
-    .replace(/^[\s>]+/gm, "")
-    .trim();
-  return cleaned.length > maxLength
-    ? cleaned.substring(0, maxLength) + "..."
-    : cleaned;
-}
 
 /**
  * Get or create a sender record scoped to an email connection.
@@ -653,25 +638,33 @@ export async function processMessage(
     references,
   });
 
-  // Check for locally-created duplicate (negative UID from sent replies)
+  // Reconcile an existing row for this mail instead of inserting a duplicate:
+  // our own local placeholder (negative uid) from a send, or a second IMAP
+  // copy already synced into this folder (server-side save-to-Sent plus our
+  // own append) — the Message-ID match must not depend on the uid sign.
+  // Reconciliation also re-runs thread assignment: the existing row's
+  // send-time threadId predates what ingest knows now, so freezing it kept
+  // sent mail out of threads that later converged.
   if (envelope.messageId) {
-    const localDuplicate = await db.message.findFirst({
+    const existing = await db.message.findFirst({
       where: {
         userId,
         messageId: envelope.messageId,
-        uid: { lt: 0 },
+        OR: [{ uid: { lt: 0 } }, { folderId }],
       },
     });
-    if (localDuplicate) {
+    if (existing) {
       const updated = await db.message.update({
-        where: { id: localDuplicate.id },
-        data: { uid: msg.uid, folderId },
+        where: { id: existing.id },
+        data: { uid: msg.uid, folderId, threadId, inReplyTo, references },
       });
       return updated;
     }
   }
 
-  // Fallback dedup by content for negative-UID records
+  // Fallback dedup by content for negative-UID records. Both sides of the
+  // snippet comparison use the shared createSnippet — the stored row was
+  // written by persist-sent with the same function.
   if (envelope.date) {
     const snippet = createSnippet(parsed.text);
     const localByContent = await db.message.findFirst({
@@ -693,13 +686,28 @@ export async function processMessage(
       const newMessageId = envelope.messageId || undefined;
       const updated = await db.message.update({
         where: { id: localByContent.id },
-        data: { uid: msg.uid, folderId, messageId: newMessageId },
+        data: {
+          uid: msg.uid,
+          folderId,
+          messageId: newMessageId,
+          threadId,
+          inReplyTo,
+          references,
+        },
       });
       if (oldMessageId && newMessageId && oldMessageId !== newMessageId) {
+        // The MTA rewrote the Message-ID: repoint replies and thread keys
+        // that referenced the send-time id at the delivered one.
         await db.message.updateMany({
           where: { userId, inReplyTo: oldMessageId },
           data: { inReplyTo: newMessageId },
         });
+        if (threadId) {
+          await db.message.updateMany({
+            where: { userId, threadId: oldMessageId },
+            data: { threadId },
+          });
+        }
       }
       return updated;
     }
@@ -944,14 +952,18 @@ export async function syncEmailConnection(
 
     const toSync: { path: string; specialUse?: string }[] = [{ path: "INBOX" }];
 
-    for (const mb of mailboxes) {
-      if (
-        mb.specialUse === "\\Sent" ||
-        mb.path.toLowerCase().includes("sent")
-      ) {
-        toSync.push({ path: mb.path, specialUse: mb.specialUse });
-        break;
-      }
+    // Prefer the advertised \Sent mailbox; fall back to a name match and
+    // label it \Sent so specialUse lands in the DB — without it a
+    // \Sent-less server gets no IMAP append, no UIDNEXT poll, and no
+    // folderRole on clients (kurir-server#138).
+    const sentBox =
+      mailboxes.find((mb) => mb.specialUse === "\\Sent") ||
+      mailboxes.find((mb) => mb.path.toLowerCase().includes("sent"));
+    if (sentBox) {
+      toSync.push({
+        path: sentBox.path,
+        specialUse: sentBox.specialUse || "\\Sent",
+      });
     }
 
     for (const mb of mailboxes) {
