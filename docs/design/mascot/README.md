@@ -40,6 +40,8 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `16-groups.png` | Open-arm welcome with an envelope (Groups empty) |
 | `17-sender.png` | Looking into an empty satchel (sender threads empty) |
 | `18-calendar.png` | Holding a calendar tablet (Calendar connect) |
+| `19-snoozed.png` | Sleeping with envelope and crescent moon (Snoozed empty) |
+| `20-follow-up.png` | Shading eyes, waiting for a reply (Follow-up empty) |
 | `07-imbox-dark.png` | Imbox cutout with cream halo for dark mode |
 | `08-feed-dark.png` | The Feed cutout with cream halo for dark mode |
 | `09-paper-trail-dark.png` | Paper Trail cutout with cream halo for dark mode |
@@ -52,5 +54,7 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `16-groups-dark.png` | Groups cutout with cream halo |
 | `17-sender-dark.png` | Sender cutout with cream halo |
 | `18-calendar-dark.png` | Calendar cutout with cream halo |
+| `19-snoozed-dark.png` | Snoozed cutout with cream halo |
+| `20-follow-up-dark.png` | Follow-up cutout with cream halo |
 
 The same sheet lives in `kurir-ios` at `docs/design/mascot/`.
