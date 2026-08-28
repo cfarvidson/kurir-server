@@ -61,7 +61,7 @@ export function GroupList({ groups, contactEmailOptions }: GroupListProps) {
 
       {groups.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-          <KurirMascot pose="icon" className="h-24 w-24" />
+          <KurirMascot pose="groups" className="h-24 w-auto" />
           <div>
             <p className="font-medium">No groups yet</p>
             <p className="text-sm text-muted-foreground">

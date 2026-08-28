@@ -33,7 +33,7 @@ export function ScheduledMessageList({
   if (messages.length === 0) {
     return (
       <EmptyState
-        mascot="icon"
+        mascot="scheduled"
         title="No scheduled messages"
         description="Messages you schedule to send later will appear here."
       />

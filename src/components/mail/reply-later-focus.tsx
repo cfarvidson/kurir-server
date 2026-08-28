@@ -42,7 +42,7 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
   const queue = items.filter((it) => !clearedIds.has(it.id));
 
   if (queue.length === 0) {
-    return <EmptyState mascot="icon" {...emptyCopy("reply-later")} />;
+    return <EmptyState mascot="reply-later" {...emptyCopy("reply-later")} />;
   }
 
   const safeIndex = Math.min(index, queue.length - 1);

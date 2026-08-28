@@ -13,10 +13,10 @@ import {
   X,
   Plus,
   CircleDashed,
-  BookUser,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddContactDialog } from "@/components/contacts/add-contact-dialog";
+import { KurirMascot } from "@/components/mascot";
 
 interface ContactEmail {
   id: string;
@@ -236,10 +236,7 @@ export function ContactList({ contacts }: ContactListProps) {
             >
               {contacts.length === 0 && !search && filter === "ALL" ? (
                 <>
-                  <BookUser
-                    aria-hidden="true"
-                    className="h-7 w-7 text-muted-foreground/35"
-                  />
+                  <KurirMascot pose="contacts" className="h-24 w-auto" />
                   <p className="mt-4 text-sm font-medium">No contacts yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Add one or approve senders in the Screener.

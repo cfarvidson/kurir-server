@@ -68,7 +68,7 @@ export function DraftsList({
   if (drafts.length === 0) {
     return (
       <EmptyState
-        mascot="icon"
+        mascot="drafts"
         title="No drafts"
         description="Mail you start writing shows up here."
       />
