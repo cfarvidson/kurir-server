@@ -4,6 +4,24 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.49] - 2026-08-28
+
+### Added
+
+- Courier mascot on remaining empty states (#141): Sent, archive, snoozed,
+  scheduled, drafts, follow-up, reply-later, files, contacts, groups,
+  calendar connect, and a real Screener empty state.
+
+### Fixed
+
+- Send paths now share ingest's thread assignment (#137): new mail gets its
+  own Message-ID as threadId, replies unify with a null-threadId anchor
+  immediately, and repair is References-aware so replies stay in their
+  thread.
+- Sent-folder sync (#138): reconciliation dedupes by Message-ID instead of
+  uid sign, repairs threading, and servers without \Sent get that mailbox
+  labeled so append and poll work.
+
 ## [v2026.48] - 2026-08-27
 
 ### Added

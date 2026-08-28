@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.49",
+    "date": "2026-08-28",
+    "changes": [
+      "Courier mascot on remaining empty states: Sent, archive, snoozed, scheduled, drafts, follow-up, reply-later, files, contacts, groups, calendar connect, and a real Screener empty state",
+      "Send paths thread like ingest: new mail gets a threadId immediately, replies unify with their anchor, and repair walks References so replies stay in their thread",
+      "Sent-folder sync no longer duplicates on IMAP copy, repairs threading, and labels name-fallback Sent mailboxes so servers without \\Sent still append and poll"
+    ]
+  },
+  {
     "version": "2026.48",
     "date": "2026-08-27",
     "changes": [
