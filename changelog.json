@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.51",
+    "date": "2026-08-28",
+    "changes": [
+      "Snoozed and Follow-up empty states get dedicated courier poses"
+    ]
+  },
+  {
     "version": "2026.50",
     "date": "2026-08-28",
     "changes": [

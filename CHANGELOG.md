@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.51] - 2026-08-28
+
+### Added
+
+- Dedicated courier poses for Snoozed and Follow-up empty states (#144).
+  Snoozed sleeps with an envelope and a crescent moon. Follow-up shades
+  his eyes waiting for a reply. Cream-halo dark variants match the other
+  list cutouts.
+
 ## [v2026.50] - 2026-08-28
 
 ### Added

@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.50",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.50",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.50",
-    "changelog": "Dedicated courier poses on remaining empty states: Screener, scheduled, drafts, files, contacts, groups, sender threads, and calendar",
+    "version": "2026.51",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.51",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.51",
+    "changelog": "Snoozed and Follow-up empty states get dedicated courier poses",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-08-28T11:56:17Z"
+    "releasedAt": "2026-08-28T12:24:57Z"
   }
 }
