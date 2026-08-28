@@ -417,7 +417,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     // still restore the queue while this is on screen. (#141)
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <KurirMascot pose="icon" className="h-28 w-auto" />
+        <KurirMascot pose="screener" className="h-28 w-auto" />
         <h2 className="mt-4 font-serif text-headline font-semibold text-foreground">
           Screener clear
         </h2>

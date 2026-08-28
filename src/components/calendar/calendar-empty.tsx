@@ -16,7 +16,7 @@ export function CalendarEmpty() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <KurirMascot pose="icon" className="mb-5 h-28 w-auto" />
+      <KurirMascot pose="calendar" className="mb-5 h-28 w-auto" />
       <h2 className="font-serif text-title text-foreground">
         Connect a calendar
       </h2>
