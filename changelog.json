@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.50",
+    "date": "2026-08-28",
+    "changes": [
+      "Dedicated courier poses on remaining empty states: Screener, scheduled, drafts, files, contacts, groups, sender threads, and calendar"
+    ]
+  },
+  {
     "version": "2026.49",
     "date": "2026-08-28",
     "changes": [

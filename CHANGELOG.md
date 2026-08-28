@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.50] - 2026-08-28
+
+### Added
+
+- Dedicated courier poses for remaining empty states (#142): Screener,
+  scheduled, reply later, drafts, files, contacts, groups, sender
+  threads, and calendar connect. Each has a full-body cutout with a
+  cream halo in dark mode.
+
 ## [v2026.49] - 2026-08-28
 
 ### Added
