@@ -13,7 +13,9 @@ export type KurirMascotPose =
   | "contacts"
   | "groups"
   | "sender"
-  | "calendar";
+  | "calendar"
+  | "snoozed"
+  | "follow-up";
 
 const SRC: Record<KurirMascotPose, string> = {
   icon: "/mascot.png",
@@ -29,6 +31,8 @@ const SRC: Record<KurirMascotPose, string> = {
   groups: "/mascot-groups.png",
   sender: "/mascot-sender.png",
   calendar: "/mascot-calendar.png",
+  snoozed: "/mascot-snoozed.png",
+  "follow-up": "/mascot-follow-up.png",
 };
 
 const SRC_DARK: Record<Exclude<KurirMascotPose, "icon">, string> = {
@@ -44,6 +48,8 @@ const SRC_DARK: Record<Exclude<KurirMascotPose, "icon">, string> = {
   groups: "/mascot-groups-dark.png",
   sender: "/mascot-sender-dark.png",
   calendar: "/mascot-calendar-dark.png",
+  snoozed: "/mascot-snoozed-dark.png",
+  "follow-up": "/mascot-follow-up-dark.png",
 };
 
 /** The Kurir courier mascot. Decorative by default (`alt=""`). */
