@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { SquarePen, Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { DraftType } from "@prisma/client";
 import { deleteDraft } from "@/actions/drafts";
@@ -68,7 +68,7 @@ export function DraftsList({
   if (drafts.length === 0) {
     return (
       <EmptyState
-        icon={<SquarePen />}
+        mascot="icon"
         title="No drafts"
         description="Mail you start writing shows up here."
       />

@@ -59,7 +59,7 @@ async function PaginatedArchive({ userId }: { userId: string }) {
   const result = await getMessages(userId, "archive", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Archive />} {...emptyCopy("archive")} />;
+    return <EmptyState mascot="icon" {...emptyCopy("archive")} />;
   }
 
   return (

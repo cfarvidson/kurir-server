@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, X, Check } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { SenderStatus, SenderCategory } from "@prisma/client";
+import { KurirMascot } from "@/components/mascot";
 import { ScreenerView } from "@/components/screener/screener-view";
 import { ScreenerHintBanner } from "@/components/screener/screener-hint-banner";
 import { SkippedSenderList } from "@/components/screener/skipped-sender-list";
@@ -168,10 +169,7 @@ export function ScreenerContent({
       {/* Content */}
       {totalResults === 0 && !isSearching ? (
         <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-          <Check
-            className="h-8 w-8 text-muted-foreground/40"
-            strokeWidth={1.5}
-          />
+          <KurirMascot pose="icon" className="h-28 w-auto" />
           <h2 className="mt-4 font-serif text-headline font-semibold text-foreground">
             All clear
           </h2>

@@ -556,7 +556,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
       <div className="flex-1 overflow-auto">
         {conversations.length === 0 ? (
           <EmptyState
-            icon={<Mail />}
+            mascot="icon"
             title="No conversations yet"
             description={`Messages with ${displayName} will appear here.`}
           />

@@ -59,7 +59,7 @@ async function PaginatedFollowUp({ userId }: { userId: string }) {
   const result = await getMessages(userId, "follow-up", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Bell />} {...emptyCopy("follow-up")} />;
+    return <EmptyState mascot="icon" {...emptyCopy("follow-up")} />;
   }
 
   return (

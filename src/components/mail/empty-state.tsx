@@ -4,8 +4,9 @@ import { KurirMascot, type KurirMascotPose } from "@/components/mascot";
 /**
  * Editorial empty state. A Playfair headline carries the moment — this is one
  * of the few intentional places (alongside the open-message subject) where the
- * serif earns its keep. Imbox / The Feed / Paper Trail show a courier pose
- * with no tile background. Other lists keep a quiet muted glyph.
+ * serif earns its keep. Imbox / The Feed / Paper Trail show their courier pose
+ * with no tile background; other views show the theme-neutral icon tile, which
+ * needs no dark-mode artwork. Search-miss states keep a quiet muted glyph.
  */
 export function EmptyState({
   icon,
@@ -21,8 +22,11 @@ export function EmptyState({
   title: string;
   description?: React.ReactNode;
   className?: string;
-  /** Full-body courier pose. Omit for search / other lists. */
-  mascot?: Exclude<KurirMascotPose, "icon">;
+  /**
+   * Courier pose: a list pose on the mail lists, the icon tile everywhere
+   * else. Omit for search-miss states.
+   */
+  mascot?: KurirMascotPose;
 }) {
   return (
     <div

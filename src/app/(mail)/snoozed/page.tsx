@@ -56,7 +56,7 @@ async function PaginatedSnoozed({ userId }: { userId: string }) {
   const result = await getMessages(userId, "snoozed", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<AlarmClock />} {...emptyCopy("snoozed")} />;
+    return <EmptyState mascot="icon" {...emptyCopy("snoozed")} />;
   }
 
   return (

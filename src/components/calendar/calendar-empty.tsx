@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CalDavDialog } from "@/components/calendar/caldav-dialog";
 import { IcsDialog } from "@/components/calendar/ics-dialog";
+import { KurirMascot } from "@/components/mascot";
 
 const GOOGLE_HREF = "/api/calendar/oauth/start?provider=google&redirect=/calendar";
 const OUTLOOK_HREF =
@@ -15,6 +16,7 @@ export function CalendarEmpty() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <KurirMascot pose="icon" className="mb-5 h-28 w-auto" />
       <h2 className="font-serif text-title text-foreground">
         Connect a calendar
       </h2>

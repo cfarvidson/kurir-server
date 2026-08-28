@@ -6,6 +6,7 @@ import { Users, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { deleteGroup } from "@/actions/contact-groups";
+import { KurirMascot } from "@/components/mascot";
 import {
   GroupEditor,
   type ContactEmailOption,
@@ -60,7 +61,7 @@ export function GroupList({ groups, contactEmailOptions }: GroupListProps) {
 
       {groups.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-          <Users className="h-8 w-8 text-muted-foreground/50" />
+          <KurirMascot pose="icon" className="h-24 w-24" />
           <div>
             <p className="font-medium">No groups yet</p>
             <p className="text-sm text-muted-foreground">

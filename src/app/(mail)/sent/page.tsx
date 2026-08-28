@@ -84,7 +84,7 @@ async function PaginatedSent({ userId }: { userId: string }) {
   const result = await getMessages(userId, "sent", 50);
 
   if (!result || result.messages.length === 0) {
-    return <EmptyState icon={<Send />} {...emptyCopy("sent")} />;
+    return <EmptyState mascot="icon" {...emptyCopy("sent")} />;
   }
 
   return (

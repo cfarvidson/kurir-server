@@ -44,6 +44,7 @@ export default async function FilesPage({
         {files.length === 0 ? (
           <EmptyState
             icon={<Paperclip />}
+            mascot={query || group ? undefined : "icon"}
             title="No files"
             description={
               query || group

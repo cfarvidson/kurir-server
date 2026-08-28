@@ -9,7 +9,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
-  CheckCircle2,
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { clearReplyLater } from "@/actions/reply-later";
@@ -43,7 +42,7 @@ export function ReplyLaterFocus({ items }: { items: ReplyLaterItem[] }) {
   const queue = items.filter((it) => !clearedIds.has(it.id));
 
   if (queue.length === 0) {
-    return <EmptyState icon={<CheckCircle2 />} {...emptyCopy("reply-later")} />;
+    return <EmptyState mascot="icon" {...emptyCopy("reply-later")} />;
   }
 
   const safeIndex = Math.min(index, queue.length - 1);

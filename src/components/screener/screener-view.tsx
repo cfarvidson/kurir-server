@@ -19,6 +19,7 @@ import {
 } from "@/lib/mail/domain-rules";
 import { badgeUpdate } from "@/components/layout/sidebar";
 import { ScreenerKeyboardHandler } from "@/components/screener/screener-keyboard-handler";
+import { KurirMascot } from "@/components/mascot";
 import { dismissScreenerHint } from "@/components/screener/screener-hint-banner";
 import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { toast } from "sonner";
@@ -411,7 +412,20 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
   };
 
   if (!currentSender) {
-    return null;
+    // Queue drained locally (last decision made, refresh not landed yet).
+    // Show the cleared state instead of a blank area; the undo toast can
+    // still restore the queue while this is on screen. (#141)
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <KurirMascot pose="icon" className="h-28 w-auto" />
+        <h2 className="mt-4 font-serif text-headline font-semibold text-foreground">
+          Screener clear
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No new senders to screen.
+        </p>
+      </div>
+    );
   }
 
   const cachedBody = latestMessage ? bodyCache[latestMessage.id] : undefined;
