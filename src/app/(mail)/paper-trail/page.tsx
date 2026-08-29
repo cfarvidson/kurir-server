@@ -11,12 +11,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function PaperTrailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -24,7 +25,7 @@ export default async function PaperTrailPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
@@ -32,7 +33,7 @@ export default async function PaperTrailPage({
       <PageMasthead
         eyebrow="Records"
         title="Paper Trail"
-        actions={<SearchInput />}
+        actions={<SearchInput list="paper-trail" />}
       />
 
       <div className="flex-1 overflow-auto">
@@ -40,7 +41,9 @@ export default async function PaperTrailPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("paper-trail")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("paper-trail", scope),
+            )}
             basePath="/paper-trail"
             list="paper-trail"
             emptyIcon={<Receipt />}

@@ -84,6 +84,17 @@ describe("MessageRow chrome", () => {
     ).toBeDefined();
   });
 
+  it("shows a list label on mixed search hits", () => {
+    render(
+      <MessageRow
+        message={{ ...base, listLabel: "Archive" }}
+        basePath="/imbox"
+        showArchiveAction={false}
+      />,
+    );
+    expect(screen.getByText("Archive")).toBeDefined();
+  });
+
   it("clamps the snippet to two lines", () => {
     const { container } = render(
       <MessageRow

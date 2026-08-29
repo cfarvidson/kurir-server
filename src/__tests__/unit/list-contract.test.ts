@@ -9,6 +9,8 @@ import {
   showsSearch,
   searchCategoryFilter,
   searchActionProps,
+  searchCategoryForScope,
+  listLabelForSearchHit,
   uniqueBlockSenderIds,
   bulkReadMarksRead,
   swipeActions,
@@ -166,6 +168,42 @@ describe("searchActionProps", () => {
       showArchiveAction: false,
       showUnarchiveAction: false,
     });
+  });
+});
+
+describe("searchCategoryForScope", () => {
+  it("defaults to unscoped all-mail search", () => {
+    expect(searchCategoryForScope("imbox", undefined)).toBeNull();
+    expect(searchCategoryForScope("imbox", null)).toBeNull();
+    expect(searchCategoryForScope("archive", "")).toBeNull();
+    expect(searchCategoryForScope("sent", "all")).toBeNull();
+  });
+
+  it("keeps this-list scoping when scope is list", () => {
+    expect(searchCategoryForScope("imbox", "list")).toBe("imbox");
+    expect(searchCategoryForScope("paper-trail", "list")).toBe("paper-trail");
+    expect(searchCategoryForScope("follow-up", "list")).toBe("follow-up");
+  });
+});
+
+describe("listLabelForSearchHit", () => {
+  it("labels mixed all-mail hits with the list they live in", () => {
+    expect(listLabelForSearchHit({ isInImbox: true })).toBe("Imbox");
+    expect(listLabelForSearchHit({ isInFeed: true })).toBe("The Feed");
+    expect(listLabelForSearchHit({ isInPaperTrail: true })).toBe("Paper Trail");
+    expect(listLabelForSearchHit({ isArchived: true })).toBe("Archive");
+    expect(listLabelForSearchHit({ isSnoozed: true })).toBe("Snoozed");
+    expect(listLabelForSearchHit({ isFollowUp: true })).toBe("Follow-up");
+    expect(listLabelForSearchHit({ isSent: true })).toBe("Sent");
+    expect(
+      listLabelForSearchHit({ isInImbox: true, isSnoozed: true }),
+    ).toBe("Snoozed");
+    expect(
+      listLabelForSearchHit({ isInImbox: true, isFollowUp: true }),
+    ).toBe("Follow-up");
+    expect(
+      listLabelForSearchHit({ isArchived: true, isSent: true }),
+    ).toBe("Archive");
   });
 });
 

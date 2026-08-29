@@ -172,6 +172,52 @@ export function showsSearch(list: MailListId): boolean {
   return list !== "reply-later";
 }
 
+export const SEARCHABLE_LIST_LABELS: Record<SearchCategory, string> = {
+  imbox: "Imbox",
+  feed: "The Feed",
+  "paper-trail": "Paper Trail",
+  archive: "Archive",
+  snoozed: "Snoozed",
+  "follow-up": "Follow-up",
+  sent: "Sent",
+};
+
+/** Default search is all mail. `scope=list` keeps today's category filter. */
+export function searchCategoryForScope(
+  list: SearchCategory,
+  scope: string | undefined | null,
+): SearchCategory | null {
+  return scope === "list" ? list : null;
+}
+
+export type SearchHitFlags = {
+  isSnoozed?: boolean;
+  isFollowUp?: boolean;
+  isArchived?: boolean;
+  isInImbox?: boolean;
+  isInFeed?: boolean;
+  isInPaperTrail?: boolean;
+  isSent?: boolean;
+};
+
+/** Overlay lists win so mixed all-mail hits can tell Imbox from Archive. */
+export function listForSearchHit(hit: SearchHitFlags): SearchCategory | null {
+  if (hit.isSnoozed) return "snoozed";
+  if (hit.isFollowUp && !hit.isArchived) return "follow-up";
+  if (hit.isArchived) return "archive";
+  if (hit.isInImbox) return "imbox";
+  if (hit.isInFeed) return "feed";
+  if (hit.isInPaperTrail) return "paper-trail";
+  if (hit.isSent) return "sent";
+  return null;
+}
+
+export function listLabelForSearchHit(hit: SearchHitFlags): string | null {
+  const id = listForSearchHit(hit);
+  if (!id) return null;
+  return SEARCHABLE_LIST_LABELS[id];
+}
+
 export function searchCategoryFilter(
   category: SearchCategory | null,
 ): Prisma.Sql {
