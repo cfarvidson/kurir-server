@@ -39,8 +39,11 @@ function ContactResultRow({ contact }: { contact: ContactSearchResult }) {
   const cat = categoryConfig[contact.category ?? "IMBOX"];
   const CatIcon = cat.icon;
 
-  const content = (
-    <>
+  return (
+    <Link
+      href={`/from/${encodeURIComponent(contact.email)}`}
+      className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60"
+    >
       <BookUser className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="truncate text-sm font-medium">{name}</span>
       <span className="truncate text-xs text-muted-foreground">
@@ -48,24 +51,7 @@ function ContactResultRow({ contact }: { contact: ContactSearchResult }) {
       </span>
       <CatIcon className={cn("ml-auto h-3.5 w-3.5 shrink-0", cat.color)} />
       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />
-    </>
-  );
-
-  if (contact.contactId) {
-    return (
-      <Link
-        href={`/contacts/${contact.contactId}`}
-        className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60"
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground">
-      {content}
-    </div>
+    </Link>
   );
 }
 
@@ -116,7 +102,7 @@ export async function SearchResults({
       {/* Contact results */}
       {contacts.length > 0 && (
         <div className="border-b px-4 py-3 md:px-6">
-          <h3 className="eyebrow mb-1 text-muted-foreground">Contacts</h3>
+          <h3 className="eyebrow mb-1 text-muted-foreground">People</h3>
           <div>
             {contacts.map((contact) => (
               <ContactResultRow key={contact.id} contact={contact} />
