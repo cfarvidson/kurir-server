@@ -10,14 +10,14 @@ import { getMessages } from "@/lib/mail/messages";
 import {
   emptyCopy,
   searchActionProps,
-  searchCategoryFilter,
-  searchCategoryForScope,
+  type MailSearchQuery,
 } from "@/lib/mail/list-contract";
+import { searchFilterSql } from "@/lib/mail/search";
 
 export default async function PaperTrailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; scope?: string }>;
+  searchParams: Promise<MailSearchQuery>;
 }) {
   const session = await auth();
 
@@ -25,8 +25,8 @@ export default async function PaperTrailPage({
     redirect("/login");
   }
 
-  const { q, scope } = await searchParams;
-  const isSearching = !!(q && q.length >= 2);
+  const params = await searchParams;
+  const isSearching = !!(params.q && params.q.length >= 2);
 
   return (
     <div className="flex h-full flex-col">
@@ -40,10 +40,8 @@ export default async function PaperTrailPage({
         {isSearching ? (
           <SearchResults
             userId={session.user.id}
-            query={q!}
-            categoryFilter={searchCategoryFilter(
-              searchCategoryForScope("paper-trail", scope),
-            )}
+            query={params.q!}
+            categoryFilter={searchFilterSql("paper-trail", params)}
             basePath="/paper-trail"
             list="paper-trail"
             emptyIcon={<Receipt />}

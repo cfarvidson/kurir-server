@@ -6,8 +6,14 @@ import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SEARCHABLE_LIST_LABELS,
+  searchQueryHref,
   type SearchCategory,
 } from "@/lib/mail/list-contract";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function SearchInput({ list }: { list?: SearchCategory }) {
   const router = useRouter();
@@ -20,22 +26,18 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
   const isTypingRef = useRef(false);
   const thisList = searchParams.get("scope") === "list";
 
-  // Sync input when URL changes externally (browser back/forward),
-  // but NOT while the user is actively typing
   useEffect(() => {
     if (!isTypingRef.current) {
       setValue(searchParams.get("q") ?? "");
     }
   }, [searchParams]);
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
-  // Listen for global "/" shortcut to focus search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -55,23 +57,12 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const hrefFor = useCallback(
-    (query: string, scoped: boolean) => {
-      const params = new URLSearchParams();
-      if (query.length >= 2) params.set("q", query);
-      if (scoped) params.set("scope", "list");
-      const qs = params.toString();
-      return qs ? `${pathname}?${qs}` : pathname;
-    },
-    [pathname],
-  );
-
-  const updateUrl = useCallback(
-    (query: string, scoped = thisList) => {
+  const replaceWith = useCallback(
+    (patch: Record<string, string | null>) => {
       isTypingRef.current = false;
-      router.replace(hrefFor(query, scoped));
+      router.replace(searchQueryHref(pathname, searchParams, patch));
     },
-    [router, hrefFor, thisList],
+    [router, pathname, searchParams],
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,7 +71,10 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
     isTypingRef.current = true;
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => updateUrl(newValue), 500);
+    timerRef.current = setTimeout(
+      () => replaceWith({ q: newValue.length >= 2 ? newValue : null }),
+      500,
+    );
   };
 
   const handleClear = () => {
@@ -132,22 +126,251 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
         )}
       </div>
       {showChips && list && (
-        <div className="flex gap-1.5">
+        <div className="flex max-w-md flex-wrap justify-end gap-1.5">
           <ScopeChip
             selected={!thisList}
-            onClick={() => updateUrl(value, false)}
+            onClick={() => replaceWith({ scope: null })}
           >
             All mail
           </ScopeChip>
           <ScopeChip
             selected={thisList}
-            onClick={() => updateUrl(value, true)}
+            onClick={() => replaceWith({ scope: "list" })}
           >
             {SEARCHABLE_LIST_LABELS[list]}
           </ScopeChip>
+          <SearchFilterChips
+            searchParams={searchParams}
+            onPatch={replaceWith}
+          />
         </div>
       )}
     </div>
+  );
+}
+
+function SearchFilterChips({
+  searchParams,
+  onPatch,
+}: {
+  searchParams: URLSearchParams;
+  onPatch: (patch: Record<string, string | null>) => void;
+}) {
+  const from = searchParams.get("from");
+  const domain = searchParams.get("domain");
+  const hasAttachment = searchParams.get("hasAttachment") === "true";
+  const after = searchParams.get("after");
+  const before = searchParams.get("before");
+  const listChip = searchParams.get("list");
+
+  return (
+    <>
+      <TextFilterChip
+        idle="From"
+        value={from}
+        placeholder="sender@example.com"
+        onApply={(next) => onPatch({ from: next })}
+        onClear={() => onPatch({ from: null })}
+      />
+      <TextFilterChip
+        idle="Domain"
+        value={domain}
+        placeholder="example.com"
+        onApply={(next) => onPatch({ domain: next })}
+        onClear={() => onPatch({ domain: null })}
+      />
+      <ScopeChip
+        selected={hasAttachment}
+        onClick={() =>
+          onPatch({ hasAttachment: hasAttachment ? null : "true" })
+        }
+      >
+        Has attachment
+      </ScopeChip>
+      <DateFilterChip
+        after={after}
+        before={before}
+        onPatch={onPatch}
+      />
+      <ListFilterChip value={listChip} onPatch={onPatch} />
+    </>
+  );
+}
+
+function TextFilterChip({
+  idle,
+  value,
+  placeholder,
+  onApply,
+  onClear,
+}: {
+  idle: string;
+  value: string | null;
+  placeholder: string;
+  onApply: (value: string | null) => void;
+  onClear: () => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  return (
+    <Popover
+      onOpenChange={(open) => {
+        if (open) setDraft(value ?? "");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-pressed={Boolean(value)}
+          className={chipClass(Boolean(value))}
+        >
+          {value ?? idle}
+          {value ? (
+            <span
+              role="button"
+              aria-label={`Clear ${idle}`}
+              className="ml-1"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClear();
+              }}
+            >
+              ×
+            </span>
+          ) : null}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 space-y-2">
+        <input
+          autoFocus
+          value={draft}
+          placeholder={placeholder}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onApply(draft.trim() || null);
+          }}
+          className="h-9 w-full rounded-md border border-border bg-transparent px-2 text-sm"
+        />
+        <button
+          type="button"
+          className="text-sm font-medium text-foreground"
+          onClick={() => onApply(draft.trim() || null)}
+        >
+          Apply
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DateFilterChip({
+  after,
+  before,
+  onPatch,
+}: {
+  after: string | null;
+  before: string | null;
+  onPatch: (patch: Record<string, string | null>) => void;
+}) {
+  const selected = Boolean(after || before);
+  const title = dateChipTitle(after, before);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-pressed={selected}
+          className={chipClass(selected)}
+        >
+          {title}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48 space-y-1">
+        <button
+          type="button"
+          className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
+          onClick={() =>
+            onPatch({ after: daysAgoISO(7), before: null })
+          }
+        >
+          Last 7 days
+        </button>
+        <button
+          type="button"
+          className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
+          onClick={() =>
+            onPatch({ after: daysAgoISO(30), before: null })
+          }
+        >
+          Last 30 days
+        </button>
+        <button
+          type="button"
+          className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
+          onClick={() => onPatch({ after: thisYearISO(), before: null })}
+        >
+          This year
+        </button>
+        {selected && (
+          <button
+            type="button"
+            className="block w-full rounded px-2 py-1 text-left text-sm text-destructive hover:bg-muted"
+            onClick={() => onPatch({ after: null, before: null })}
+          >
+            Clear
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ListFilterChip({
+  value,
+  onPatch,
+}: {
+  value: string | null;
+  onPatch: (patch: Record<string, string | null>) => void;
+}) {
+  const selected = Boolean(value);
+  const title = value && value in SEARCHABLE_LIST_LABELS
+    ? SEARCHABLE_LIST_LABELS[value as SearchCategory]
+    : "List";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-pressed={selected}
+          className={chipClass(selected)}
+        >
+          {title}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48 space-y-1">
+        {(Object.keys(SEARCHABLE_LIST_LABELS) as SearchCategory[]).map(
+          (id) => (
+            <button
+              key={id}
+              type="button"
+              className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
+              onClick={() => onPatch({ list: id, scope: null })}
+            >
+              {SEARCHABLE_LIST_LABELS[id]}
+            </button>
+          ),
+        )}
+        {selected && (
+          <button
+            type="button"
+            className="block w-full rounded px-2 py-1 text-left text-sm text-destructive hover:bg-muted"
+            onClick={() => onPatch({ list: null })}
+          >
+            Clear
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -165,14 +388,37 @@ function ScopeChip({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={cn(
-        "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
-        selected
-          ? "border-foreground bg-foreground text-background"
-          : "border-border text-muted-foreground hover:text-foreground",
-      )}
+      className={chipClass(selected)}
     >
       {children}
     </button>
   );
+}
+
+function chipClass(selected: boolean) {
+  return cn(
+    "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+    selected
+      ? "border-foreground bg-foreground text-background"
+      : "border-border text-muted-foreground hover:text-foreground",
+  );
+}
+
+function daysAgoISO(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+}
+
+function thisYearISO(): string {
+  return new Date(new Date().getFullYear(), 0, 1).toISOString();
+}
+
+function dateChipTitle(after: string | null, before: string | null): string {
+  if (!after && !before) return "Date";
+  if (after && before) {
+    return `${after.slice(0, 10)} - ${before.slice(0, 10)}`;
+  }
+  if (after) return `After ${after.slice(0, 10)}`;
+  return "Date";
 }

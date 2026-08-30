@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
-import { searchMessages } from "@/lib/mail/search";
+import {
+  mergeSearchFilters,
+  parseSearchDate,
+  searchMessages,
+} from "@/lib/mail/search";
 import {
   searchCategoryFilter,
   type SearchCategory,
@@ -13,12 +17,12 @@ import {
 } from "@/lib/mobile/message-select";
 
 /**
- * GET /api/mobile/search?q=<query>&category=<list>&limit=50
+ * GET /api/mobile/search?q=<query>&category=<list>&from=&domain=&hasAttachment=&after=&before=&limit=50
  *
  * Full-text search across the user's mail, optionally scoped to a list
- * category. Delegates to the same FTS query as the web client. Returns
- * full sync-shaped message metadata so the app can upsert hits that
- * aren't in its local store yet.
+ * category and chip filters. Delegates to the same FTS query as the web
+ * client. Returns full sync-shaped message metadata so the app can upsert
+ * hits that aren't in its local store yet.
  */
 
 const MAX_LIMIT = 50;
@@ -60,10 +64,30 @@ export async function GET(req: NextRequest) {
     MAX_LIMIT,
   );
 
+  const afterRaw = req.nextUrl.searchParams.get("after");
+  const beforeRaw = req.nextUrl.searchParams.get("before");
+  const after = parseSearchDate(afterRaw);
+  const before = parseSearchDate(beforeRaw);
+  if (afterRaw && !after) {
+    return NextResponse.json({ error: "Invalid after" }, { status: 400 });
+  }
+  if (beforeRaw && !before) {
+    return NextResponse.json({ error: "Invalid before" }, { status: 400 });
+  }
+
+  const hasAttachment =
+    req.nextUrl.searchParams.get("hasAttachment") === "true";
+
   const hits = await searchMessages(
     userId,
     q,
-    searchCategoryFilter(category),
+    mergeSearchFilters(searchCategoryFilter(category), {
+      from: req.nextUrl.searchParams.get("from"),
+      domain: req.nextUrl.searchParams.get("domain"),
+      hasAttachment,
+      after,
+      before,
+    }),
     limit,
   );
   if (hits.length === 0) {

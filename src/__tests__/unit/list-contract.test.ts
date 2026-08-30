@@ -184,6 +184,14 @@ describe("searchCategoryForScope", () => {
     expect(searchCategoryForScope("paper-trail", "list")).toBe("paper-trail");
     expect(searchCategoryForScope("follow-up", "list")).toBe("follow-up");
   });
+
+  it("applies the list chip only in All mail", () => {
+    expect(searchCategoryForScope("imbox", undefined, "archive")).toBe(
+      "archive",
+    );
+    expect(searchCategoryForScope("imbox", "list", "archive")).toBe("imbox");
+    expect(searchCategoryForScope("imbox", undefined, "nope")).toBeNull();
+  });
 });
 
 describe("listLabelForSearchHit", () => {
