@@ -42,6 +42,13 @@ describe("search_mail", () => {
         hasAttachments: true,
         snoozedUntil: null,
         followUpAt: null,
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isArchived: false,
+        isSnoozed: false,
+        isFollowUp: false,
+        isSent: false,
       },
     ]);
 
