@@ -3,6 +3,7 @@
 Round chibi courier. Cream tunic, terracotta sash, dark curly hair, cream envelope. The K lettermark stays the app icon and sidebar mark; this character is the mascot.
 
 Canonical production crop: `00-canonical-closeup.png` (also `/mascot.png` and `site/public/mascot.png`). kurir.io hero uses `06-full-body-cutout.png` as `site/public/mascot-hero.png`.
+The 24-32px chrome mark (`/logo.png`, Mac `KurirLogo`) is the tighter face-and-envelope crop in `21-sidebar-mark.png`.
 
 ## Locked traits
 
@@ -42,6 +43,7 @@ Seed every new pose from `00-canonical-closeup.png` via image-to-image. Do not g
 | `18-calendar.png` | Holding a calendar tablet (Calendar connect) |
 | `19-snoozed.png` | Sleeping with envelope and crescent moon (Snoozed empty) |
 | `20-follow-up.png` | Shading eyes, waiting for a reply (Follow-up empty) |
+| `21-sidebar-mark.png` | Tighter face-and-envelope crop for the 24-32px chrome mark |
 | `07-imbox-dark.png` | Imbox cutout with cream halo for dark mode |
 | `08-feed-dark.png` | The Feed cutout with cream halo for dark mode |
 | `09-paper-trail-dark.png` | Paper Trail cutout with cream halo for dark mode |
