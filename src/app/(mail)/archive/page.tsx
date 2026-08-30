@@ -11,12 +11,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function ArchivePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -24,7 +25,7 @@ export default async function ArchivePage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
@@ -32,7 +33,7 @@ export default async function ArchivePage({
       <PageMasthead
         eyebrow="Mailbox"
         title="Archive"
-        actions={<SearchInput />}
+        actions={<SearchInput list="archive" />}
       />
 
       {/* Content */}
@@ -41,7 +42,9 @@ export default async function ArchivePage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("archive")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("archive", scope),
+            )}
             basePath="/archive"
             list="archive"
             emptyIcon={<Archive />}

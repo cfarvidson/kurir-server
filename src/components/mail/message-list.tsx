@@ -51,6 +51,7 @@ export interface MessageItem {
   snoozedUntil?: Date | null;
   followUpAt?: Date | null;
   isFollowUp?: boolean;
+  listLabel?: string | null;
   sender?: {
     id?: string;
     displayName: string | null;
@@ -334,6 +335,9 @@ export function MessageRow({
 
       {/* Content */}
       <div className="min-w-0 flex-1">
+        {message.listLabel && (
+          <p className="eyebrow text-muted-foreground">{message.listLabel}</p>
+        )}
         <div className="flex items-center gap-1.5 md:gap-2">
           <span
             className={cn(

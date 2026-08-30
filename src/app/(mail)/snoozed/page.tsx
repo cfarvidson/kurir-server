@@ -11,12 +11,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function SnoozedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -24,12 +25,16 @@ export default async function SnoozedPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
     <div className="flex h-full flex-col">
-      <PageMasthead eyebrow="Later" title="Snoozed" actions={<SearchInput />} />
+      <PageMasthead
+        eyebrow="Later"
+        title="Snoozed"
+        actions={<SearchInput list="snoozed" />}
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
@@ -37,7 +42,9 @@ export default async function SnoozedPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("snoozed")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("snoozed", scope),
+            )}
             basePath="/snoozed"
             list="snoozed"
             showSnoozedUntil

@@ -14,6 +14,12 @@ export const SEARCH_SELECT_COLUMNS = [
   "hasAttachments",
   "snoozedUntil",
   "followUpAt",
+  "isInImbox",
+  "isInFeed",
+  "isInPaperTrail",
+  "isArchived",
+  "isSnoozed",
+  "isFollowUp",
 ] as const;
 
 export interface MessageSearchResult {
@@ -29,6 +35,13 @@ export interface MessageSearchResult {
   hasAttachments: boolean;
   snoozedUntil: Date | null;
   followUpAt: Date | null;
+  isInImbox: boolean;
+  isInFeed: boolean;
+  isInPaperTrail: boolean;
+  isArchived: boolean;
+  isSnoozed: boolean;
+  isFollowUp: boolean;
+  isSent: boolean;
 }
 
 function searchSelectSql(): Prisma.Sql {
@@ -65,7 +78,13 @@ export async function searchMessages(
   if (!prefixQuery) return [];
 
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
-    SELECT ${searchSelectSql()}
+    SELECT ${searchSelectSql()},
+      EXISTS (
+        SELECT 1 FROM "Folder" f
+        WHERE f.id = "Message"."folderId" AND (
+          f."specialUse" = 'sent' OR f.path ILIKE '%sent%'
+        )
+      ) AS "isSent"
     FROM "Message"
     WHERE "userId" = ${userId}
       AND "search_vector" @@ to_tsquery('english', ${prefixQuery})

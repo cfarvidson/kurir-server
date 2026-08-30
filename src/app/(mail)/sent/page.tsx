@@ -12,6 +12,7 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 async function getSentFolder(userId: string) {
@@ -30,7 +31,7 @@ async function getSentFolder(userId: string) {
 export default async function SentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -38,7 +39,7 @@ export default async function SentPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
@@ -46,7 +47,7 @@ export default async function SentPage({
       <PageMasthead
         eyebrow="Outbound"
         title="Sent"
-        actions={<SearchInput />}
+        actions={<SearchInput list="sent" />}
       />
 
       <div className="flex-1 overflow-auto">
@@ -54,7 +55,9 @@ export default async function SentPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("sent")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("sent", scope),
+            )}
             basePath="/sent"
             list="sent"
             emptyIcon={<Send />}

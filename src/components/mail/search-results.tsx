@@ -15,7 +15,10 @@ import {
 } from "@/lib/mail/search-contacts";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
-import type { MailListId } from "@/lib/mail/list-contract";
+import {
+  listLabelForSearchHit,
+  type MailListId,
+} from "@/lib/mail/list-contract";
 
 const categoryConfig = {
   IMBOX: { label: "Imbox", icon: Inbox, color: "text-imbox" },
@@ -131,7 +134,10 @@ export async function SearchResults({
             </div>
           )}
           <MessageList
-            messages={messages}
+            messages={messages.map((message) => ({
+              ...message,
+              listLabel: listLabelForSearchHit(message),
+            }))}
             basePath={basePath}
             list={list}
             showArchiveAction={showArchiveAction}

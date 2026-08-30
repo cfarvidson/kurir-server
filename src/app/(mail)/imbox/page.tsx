@@ -12,12 +12,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function ImboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -25,12 +26,16 @@ export default async function ImboxPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
     <div className="flex h-full flex-col">
-      <PageMasthead eyebrow="Mailbox" title="Imbox" actions={<SearchInput />} />
+      <PageMasthead
+        eyebrow="Mailbox"
+        title="Imbox"
+        actions={<SearchInput list="imbox" />}
+      />
 
       {/* Push notification discovery banner */}
       <PushNotificationBanner />
@@ -41,7 +46,9 @@ export default async function ImboxPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("imbox")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("imbox", scope),
+            )}
             basePath="/imbox"
             list="imbox"
             emptyIcon={<Inbox />}

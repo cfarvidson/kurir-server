@@ -11,12 +11,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -24,7 +25,7 @@ export default async function FeedPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
@@ -32,7 +33,7 @@ export default async function FeedPage({
       <PageMasthead
         eyebrow="The Feed"
         title="Feed"
-        actions={<SearchInput />}
+        actions={<SearchInput list="feed" />}
       />
 
       <div className="flex-1 overflow-auto">
@@ -40,7 +41,9 @@ export default async function FeedPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("feed")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("feed", scope),
+            )}
             basePath="/feed"
             list="feed"
             emptyIcon={<Newspaper />}

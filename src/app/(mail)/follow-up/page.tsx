@@ -11,12 +11,13 @@ import {
   emptyCopy,
   searchActionProps,
   searchCategoryFilter,
+  searchCategoryForScope,
 } from "@/lib/mail/list-contract";
 
 export default async function FollowUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const session = await auth();
 
@@ -24,7 +25,7 @@ export default async function FollowUpPage({
     redirect("/login");
   }
 
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const isSearching = !!(q && q.length >= 2);
 
   return (
@@ -32,7 +33,7 @@ export default async function FollowUpPage({
       <PageMasthead
         eyebrow="Triage"
         title="Follow Up"
-        actions={<SearchInput />}
+        actions={<SearchInput list="follow-up" />}
       />
 
       {/* Content */}
@@ -41,7 +42,9 @@ export default async function FollowUpPage({
           <SearchResults
             userId={session.user.id}
             query={q!}
-            categoryFilter={searchCategoryFilter("follow-up")}
+            categoryFilter={searchCategoryFilter(
+              searchCategoryForScope("follow-up", scope),
+            )}
             basePath="/follow-up"
             list="follow-up"
             emptyIcon={<Bell />}
