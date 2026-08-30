@@ -291,9 +291,9 @@ describe("subject for new mail", () => {
   it("replies are never asked for a subject", async () => {
     const adapter = stubAdapter();
     await generateDraftForUser("user-1", reply({ instruction: "hi" }), adapter);
-    expect(vi.mocked(adapter).mock.calls[0][0].request.system).not.toContain(
-      BODY_DELIMITER,
-    );
+    const system = vi.mocked(adapter).mock.calls[0][0].request.system;
+    expect(system).not.toContain(BODY_DELIMITER);
+    expect(system).toContain("Do not add a subject line.");
   });
 
   it("asks for a subject only on panel NEW, never on one-tap NEW", async () => {
@@ -319,14 +319,14 @@ describe("subject for new mail", () => {
       newMail({ instruction: "Ask about March" }),
       panel,
     );
-    expect(vi.mocked(panel).mock.calls[0][0].request.system).toContain(
-      BODY_DELIMITER,
-    );
+    const panelSystem = vi.mocked(panel).mock.calls[0][0].request.system;
+    expect(panelSystem).toContain(BODY_DELIMITER);
+    expect(panelSystem).not.toContain("Do not add a subject line.");
 
     const oneTap = stubAdapter();
     await generateDraftForUser("user-1", newMail(), oneTap);
-    expect(vi.mocked(oneTap).mock.calls[0][0].request.system).not.toContain(
-      BODY_DELIMITER,
-    );
+    const oneTapSystem = vi.mocked(oneTap).mock.calls[0][0].request.system;
+    expect(oneTapSystem).not.toContain(BODY_DELIMITER);
+    expect(oneTapSystem).toContain("Do not add a subject line.");
   });
 });

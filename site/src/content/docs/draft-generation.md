@@ -1,12 +1,12 @@
 ---
 title: Draft Generation
-description: Let Kurir write reply drafts with your existing Claude Pro/Max or SuperGrok subscription - no API key, no per-token billing.
+description: Let Kurir write drafts (replies and new mail) with your existing Claude Pro/Max or SuperGrok subscription - no API key, no per-token billing.
 order: 6
 ---
 
 # Draft Generation
 
-Kurir can write email drafts for you - replies that pick up the tone and context of your earlier correspondence with the recipient, generated on your own server and dropped straight into the composer. It works in the web app, the iPhone app, and the Mac app, from one server-side setup.
+Kurir can write email drafts for you - replies and new mail that pick up the tone and context of your earlier correspondence with the recipient, generated on your own server and dropped straight into the composer. It works in the web app, the iPhone app, and the Mac app, from one server-side setup.
 
 The feature deliberately runs on **subscription credentials only**: a Claude Pro/Max seat (via Claude Code) or a SuperGrok seat (via Grok Build). Pay-per-token API keys (`sk-ant-api…`, `xai-…`) are rejected on paste, so connecting Kurir can never silently start a metered bill. You use the subscription you already pay for.
 

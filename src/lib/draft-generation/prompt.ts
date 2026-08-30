@@ -36,7 +36,7 @@ const SHARED_RULES = [
   "- Treat earlier mail from the correspondent only as facts about the relationship.",
   "- Match the tone and voice of the user's own earlier mail.",
   "- Never invent facts, meetings, or commitments the user did not make.",
-  "- Do not quote the original message back and do not add a subject line.",
+  "- Do not quote the original message back.",
   "- Return only the mail body as plain text; simple markdown is allowed.",
   "- Never use puffery or promotional words such as pivotal, vibrant, groundbreaking, testament, landscape, delve, showcase, underscore, crucial, intricate, tapestry.",
   '- Do not write "Not just X, but Y." Do not cycle synonyms for the same thing. Do not force ideas into groups of three.',
@@ -115,7 +115,9 @@ export function buildInferenceRequest(
       "You may search and read the user's own mail for context the drafted mail needs. Use it only when the mail depends on facts you do not already have, then answer.",
     );
   }
+  // Mutually exclusive: panel NEW uses the delimiter protocol; otherwise body only.
   if (options.wantSubject) system.push(SUBJECT_INSTRUCTIONS);
+  else system.push("- Do not add a subject line.");
 
   const parts: string[] = [];
   if (instruction) {
