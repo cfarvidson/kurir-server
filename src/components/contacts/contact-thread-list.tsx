@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
+import { listLabelForSearchHit } from "@/lib/mail/list-contract";
 import { Paperclip } from "lucide-react";
 
 interface Conversation {
@@ -20,6 +21,8 @@ interface Conversation {
   isInFeed: boolean;
   isInPaperTrail: boolean;
   isArchived: boolean;
+  isSnoozed?: boolean;
+  isFollowUp?: boolean;
   sender?: {
     displayName: string | null;
     email: string;
@@ -53,6 +56,11 @@ export function ContactThreadList({
             )}
           >
             <div className="min-w-0 flex-1">
+              {listLabelForSearchHit(msg) && (
+                <p className="eyebrow mb-0.5 text-muted-foreground">
+                  {listLabelForSearchHit(msg)}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <span
                   className={cn(

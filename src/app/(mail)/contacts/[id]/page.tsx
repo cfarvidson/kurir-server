@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
-import { getThreadCounts, collapseToThreads } from "@/lib/mail/threads";
+import { conversationsForEmails } from "@/lib/mail/person-history";
 import { ContactDetail } from "@/components/contacts/contact-detail";
 
 async function getContact(userId: string, contactId: string) {
@@ -18,34 +18,6 @@ async function getContact(userId: string, contactId: string) {
       },
     },
   });
-}
-
-async function getConversations(userId: string, emailAddresses: string[]) {
-  if (emailAddresses.length === 0) return [];
-
-  const messages = await db.message.findMany({
-    where: {
-      userId,
-      OR: [
-        { fromAddress: { in: emailAddresses } },
-        { toAddresses: { hasSome: emailAddresses } },
-      ],
-    },
-    include: {
-      sender: { select: { displayName: true, email: true, unthread: true } },
-      attachments: { select: { id: true } },
-    },
-    orderBy: { receivedAt: "desc" },
-  });
-
-  const collapsed = collapseToThreads(messages);
-  const threadCounts = await getThreadCounts(userId, collapsed);
-
-  return collapsed.map((msg) => ({
-    ...msg,
-    threadCount: threadCounts.get(msg.id) ?? 1,
-    hasAttachments: msg.attachments.length > 0,
-  }));
 }
 
 export default async function ContactDetailPage({
@@ -68,7 +40,7 @@ export default async function ContactDetailPage({
   }
 
   const emailAddresses = contact.emails.map((e) => e.email);
-  const conversations = await getConversations(userId, emailAddresses);
+  const conversations = await conversationsForEmails(userId, emailAddresses);
 
   // Serialize for the client component
   const contactData = {
