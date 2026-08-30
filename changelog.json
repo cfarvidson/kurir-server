@@ -1,5 +1,16 @@
 [
   {
+    "version": "2026.53",
+    "date": "2026-08-30",
+    "changes": [
+      "Search covers all mail from every list, with an All mail / this-list chip",
+      "People appear first in search results, with all-history person view",
+      "Search filter chips: From, domain, attachment, date, list",
+      "Sidebar courier mark stays square and readable",
+      "New-mail Generate draft writes a new mail (not a reply) and avoids AI tells"
+    ]
+  },
+  {
     "version": "2026.51",
     "date": "2026-08-28",
     "changes": [
@@ -511,7 +522,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -562,7 +575,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",

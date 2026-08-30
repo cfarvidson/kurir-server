@@ -4,8 +4,20 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.53] - 2026-08-30
+
+### Added
+
+- Search covers all mail from every list by default, with an
+  All mail / this-list chip; hits show which list they live in (#102)
+- People appear first in search results, matching on name, email, and
+  domain, with an all-history person view including Archive (#103)
+- Search filter chips for From, domain, attachment, date, and list (#105)
+
 ### Fixed
 
+- The sidebar courier mark keeps its square shape and reads at small
+  size (#101)
 - New-mail Generate draft writes a new mail to the correspondent, not a
   reply to a latest mail that does not exist (#146). An empty instruction
   still infers from earlier correspondence with that person; with none,
