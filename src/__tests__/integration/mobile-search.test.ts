@@ -25,9 +25,13 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/mail/search", () => ({
-  searchMessages: vi.fn(),
-}));
+vi.mock("@/lib/mail/search", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/mail/search")>();
+  return {
+    ...actual,
+    searchMessages: vi.fn(),
+  };
+});
 
 function makeRequest(params: Record<string, string> = {}) {
   const searchParams = new URLSearchParams(params);
@@ -249,5 +253,42 @@ describe("GET /api/mobile/search", () => {
     const res = await GET(makeRequest({ q: "invoice", category: "nope" }));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Invalid category" });
+  });
+
+  it("passes From and hasAttachment constraints", async () => {
+    await mockAuthed();
+    const { searchMessages, mergeSearchFilters } = await import(
+      "@/lib/mail/search"
+    );
+    const { searchCategoryFilter } = await import("@/lib/mail/list-contract");
+    vi.mocked(searchMessages).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/mobile/search/route");
+    await GET(
+      makeRequest({
+        q: "invoice",
+        from: "maya@x.com",
+        hasAttachment: "true",
+      }),
+    );
+    expect(searchMessages).toHaveBeenCalledWith(
+      "user-1",
+      "invoice",
+      mergeSearchFilters(searchCategoryFilter(null), {
+        from: "maya@x.com",
+        hasAttachment: true,
+        after: null,
+        before: null,
+        domain: null,
+      }),
+      50,
+    );
+  });
+
+  it("returns 400 for an invalid after date", async () => {
+    await mockAuthed();
+    const { GET } = await import("@/app/api/mobile/search/route");
+    const res = await GET(makeRequest({ q: "invoice", after: "nope" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid after" });
   });
 });

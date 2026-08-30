@@ -11,9 +11,9 @@ import { getMessages } from "@/lib/mail/messages";
 import {
   emptyCopy,
   searchActionProps,
-  searchCategoryFilter,
-  searchCategoryForScope,
+  type MailSearchQuery,
 } from "@/lib/mail/list-contract";
+import { searchFilterSql } from "@/lib/mail/search";
 
 async function getSentFolder(userId: string) {
   return db.folder.findFirst({
@@ -31,7 +31,7 @@ async function getSentFolder(userId: string) {
 export default async function SentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; scope?: string }>;
+  searchParams: Promise<MailSearchQuery>;
 }) {
   const session = await auth();
 
@@ -39,8 +39,8 @@ export default async function SentPage({
     redirect("/login");
   }
 
-  const { q, scope } = await searchParams;
-  const isSearching = !!(q && q.length >= 2);
+  const params = await searchParams;
+  const isSearching = !!(params.q && params.q.length >= 2);
 
   return (
     <div className="flex h-full flex-col">
@@ -54,10 +54,8 @@ export default async function SentPage({
         {isSearching ? (
           <SearchResults
             userId={session.user.id}
-            query={q!}
-            categoryFilter={searchCategoryFilter(
-              searchCategoryForScope("sent", scope),
-            )}
+            query={params.q!}
+            categoryFilter={searchFilterSql("sent", params)}
             basePath="/sent"
             list="sent"
             emptyIcon={<Send />}

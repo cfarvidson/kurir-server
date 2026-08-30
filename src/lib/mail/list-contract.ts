@@ -182,12 +182,50 @@ export const SEARCHABLE_LIST_LABELS: Record<SearchCategory, string> = {
   sent: "Sent",
 };
 
-/** Default search is all mail. `scope=list` keeps today's category filter. */
+export function isSearchCategory(value: string): value is SearchCategory {
+  return Object.prototype.hasOwnProperty.call(SEARCHABLE_LIST_LABELS, value);
+}
+
+/**
+ * Default search is all mail. `scope=list` keeps today's category filter.
+ * The list chip (`list=archive`) only applies in All mail so the two
+ * never both write category.
+ */
 export function searchCategoryForScope(
   list: SearchCategory,
   scope: string | undefined | null,
+  listChip?: string | undefined | null,
 ): SearchCategory | null {
-  return scope === "list" ? list : null;
+  if (scope === "list") return list;
+  if (listChip && isSearchCategory(listChip)) return listChip;
+  return null;
+}
+
+export type MailSearchQuery = {
+  q?: string;
+  scope?: string;
+  from?: string;
+  domain?: string;
+  hasAttachment?: string;
+  after?: string;
+  before?: string;
+  list?: string;
+};
+
+/** Build a search URL. `scope=list` drops the list chip so they never fight. */
+export function searchQueryHref(
+  pathname: string,
+  current: URLSearchParams,
+  patch: Record<string, string | null>,
+): string {
+  const params = new URLSearchParams(current.toString());
+  for (const [key, value] of Object.entries(patch)) {
+    if (value == null || value === "") params.delete(key);
+    else params.set(key, value);
+  }
+  if (params.get("scope") === "list") params.delete("list");
+  const qs = params.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
 }
 
 export type SearchHitFlags = {
