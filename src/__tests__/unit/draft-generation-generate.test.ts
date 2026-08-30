@@ -228,6 +228,104 @@ describe("generateDraftForUser", () => {
     ).rejects.toMatchObject({ code: "NO_CORRESPONDENT" });
   });
 
+  it("NEW with an empty instruction and prior correspondence still generates", async () => {
+    const adapter = stubAdapter("Inferred new mail");
+    const result = await generateDraftForUser(
+      "user-1",
+      {
+        type: "NEW",
+        contextMessageId: "uuid-1",
+        to: "ada@x.y",
+        instruction: "",
+      },
+      adapter,
+    );
+    expect(adapter).toHaveBeenCalled();
+    expect(result).toEqual({ mode: "panel", body: "Inferred new mail" });
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
+  it("NEW with an empty instruction and no prior correspondence refuses with NOTHING_TO_INFER", async () => {
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const adapter = stubAdapter();
+    await expect(
+      generateDraftForUser(
+        "user-1",
+        {
+          type: "NEW",
+          contextMessageId: "uuid-1",
+          to: "ada@x.y",
+          instruction: "",
+        },
+        adapter,
+      ),
+    ).rejects.toMatchObject({ code: "NOTHING_TO_INFER" });
+    expect(adapter).not.toHaveBeenCalled();
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
+  it("one-tap NEW with no prior correspondence refuses and leaves the Draft row alone", async () => {
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const adapter = stubAdapter();
+    await expect(
+      generateDraftForUser(
+        "user-1",
+        { type: "NEW", contextMessageId: "uuid-1", to: "ada@x.y" },
+        adapter,
+      ),
+    ).rejects.toMatchObject({ code: "NOTHING_TO_INFER" });
+    expect(adapter).not.toHaveBeenCalled();
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
+  it("NEW with an instruction and no prior correspondence still generates", async () => {
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const adapter = stubAdapter("Asked-for body");
+    const result = await generateDraftForUser(
+      "user-1",
+      {
+        type: "NEW",
+        contextMessageId: "uuid-1",
+        to: "ada@x.y",
+        instruction: "Ask about the March invoice",
+      },
+      adapter,
+    );
+    expect(result).toEqual({ mode: "panel", body: "Asked-for body" });
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
+  it("NEW treats the user's own sent mail as prior correspondence", async () => {
+    vi.mocked(db.message.findMany).mockImplementation(((args: {
+      where: { OR?: unknown };
+    }) =>
+      Promise.resolve(
+        args.where.OR
+          ? [
+              {
+                subject: "My last note",
+                receivedAt: new Date("2026-08-20T00:00:00Z"),
+                textBody: "Thanks for lunch last week",
+                htmlBody: null,
+                toAddresses: ["ada@x.y"],
+              },
+            ]
+          : [],
+      )) as never);
+    const adapter = stubAdapter("Inferred from own sent");
+    const result = await generateDraftForUser(
+      "user-1",
+      {
+        type: "NEW",
+        contextMessageId: "uuid-1",
+        to: "ada@x.y",
+        instruction: "",
+      },
+      adapter,
+    );
+    expect(result).toEqual({ mode: "panel", body: "Inferred from own sent" });
+  });
+
   it("FORWARD refuses with UNSUPPORTED_TYPE", async () => {
     await expect(
       generateDraftForUser(

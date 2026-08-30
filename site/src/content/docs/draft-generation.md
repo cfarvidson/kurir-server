@@ -51,7 +51,7 @@ Kurir refreshes the Grok session automatically when it expires, so this is a one
 
 Once connected, a **Generate draft** button (sparkles icon in the apps) appears in the composer - both when replying and when writing a new mail to someone. It opens the compose assistant.
 
-- **Say what the mail should say.** A few sentences is enough: *"Say I can't make Tuesday, offer Thursday."* Leave it empty and Kurir infers the reply from the thread, exactly as before.
+- **Say what the mail should say.** A few sentences is enough: *"Say I can't make Tuesday, offer Thursday."* Leave it empty and Kurir infers from earlier mail with that person, exactly as before. On a new mail with no earlier correspondence, say what it should say - Kurir will not invent one.
 - **Pick a tone.** Auto (matches the voice of your own earlier mail), Formal, Friendly, or Direct. The choice is remembered on that device.
 - **Generate.** Kurir builds a context pack from the thread and your history with the recipient, and the model can additionally search and read your own mail when the draft depends on facts outside that thread - so *"the invoice thread from March"* gets its numbers right. That lookup is bounded, runs on your server, and can only ever reach your own mailbox.
 - **Flip between versions.** Every round is kept while the composer is open (1/3, 2/3, …), so you can generate again and go back to the best one. Your instruction and tone are reused and stay editable between rounds.

@@ -43,8 +43,13 @@ const TONE_STORAGE_KEY = "kurir.draft-tone";
 
 function storedTone(): DraftTone {
   if (typeof window === "undefined") return "auto";
-  const raw = window.localStorage.getItem(TONE_STORAGE_KEY);
-  return TONES.some((t) => t.value === raw) ? (raw as DraftTone) : "auto";
+  try {
+    const raw = window.localStorage.getItem(TONE_STORAGE_KEY);
+    return TONES.some((t) => t.value === raw) ? (raw as DraftTone) : "auto";
+  } catch {
+    // Private mode / storage disabled: stay on Auto for this composer.
+    return "auto";
+  }
 }
 
 interface DraftAssistantProps {

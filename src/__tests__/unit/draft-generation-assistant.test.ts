@@ -148,7 +148,7 @@ describe("what the adapter is handed", () => {
     expect(vi.mocked(adapter).mock.calls[0][0].request.tools).toBeUndefined();
   });
 
-  it("new mail gets its own language rule; a reply does not", async () => {
+  it("new mail is a new mail to the correspondent, not an answer to a latest mail", async () => {
     const newAdapter = stubAdapter();
     await generateDraftForUser(
       "user-1",
@@ -160,8 +160,47 @@ describe("what the adapter is handed", () => {
 
     const newSystem = vi.mocked(newAdapter).mock.calls[0][0].request.system;
     const replySystem = vi.mocked(replyAdapter).mock.calls[0][0].request.system;
-    expect(newSystem).not.toBe(replySystem);
-    expect(newSystem.length).toBeGreaterThan(replySystem.length);
+    expect(newSystem).toContain("This is a new mail, not a reply");
+    expect(newSystem).not.toContain("You draft email replies");
+    expect(newSystem).not.toContain("answers the latest mail");
+    expect(replySystem).toContain("You draft email replies");
+    expect(replySystem).toContain("answers the latest mail");
+  });
+
+  it("NEW and REPLY system prompts both carry the unslop constraints", async () => {
+    const newAdapter = stubAdapter();
+    await generateDraftForUser(
+      "user-1",
+      { type: "NEW", contextMessageId: "new-1", to: "ada@x.y", instruction: "hi" },
+      newAdapter,
+    );
+    const replyAdapter = stubAdapter();
+    await generateDraftForUser("user-1", reply({ instruction: "hi" }), replyAdapter);
+
+    for (const system of [
+      vi.mocked(newAdapter).mock.calls[0][0].request.system,
+      vi.mocked(replyAdapter).mock.calls[0][0].request.system,
+    ]) {
+      expect(system).toContain("Not a template, not a press release");
+      expect(system).toContain("pivotal");
+      expect(system).toContain("vibrant");
+      expect(system).toContain("groundbreaking");
+      expect(system).toContain("testament");
+      expect(system).toContain("landscape");
+      expect(system).toContain("delve");
+      expect(system).toContain("showcase");
+      expect(system).toContain("underscore");
+      expect(system).toContain("Not just X, but Y");
+      expect(system).toContain("em dashes");
+      expect(system).toContain("I hope this helps!");
+      expect(system).toContain("Let me know if you have any questions");
+      expect(system).toContain("Of course!");
+      expect(system).toContain("Certainly!");
+      expect(system).toContain("In order to");
+      expect(system).toContain("It is important to note that");
+      expect(system).toContain("Vary sentence length");
+      expect(system).toContain("First person");
+    }
   });
 
   it("each tone produces a different system prompt; auto is the default", async () => {
@@ -253,6 +292,40 @@ describe("subject for new mail", () => {
     const adapter = stubAdapter();
     await generateDraftForUser("user-1", reply({ instruction: "hi" }), adapter);
     expect(vi.mocked(adapter).mock.calls[0][0].request.system).not.toContain(
+      BODY_DELIMITER,
+    );
+  });
+
+  it("asks for a subject only on panel NEW, never on one-tap NEW", async () => {
+    vi.mocked(db.message.findMany).mockImplementation(((args: {
+      where: { OR?: unknown };
+    }) =>
+      Promise.resolve(
+        args.where.OR
+          ? []
+          : [
+              {
+                subject: "Last week",
+                receivedAt: new Date("2026-08-20T00:00:00Z"),
+                textBody: "Earlier note from Ada",
+                htmlBody: null,
+              },
+            ],
+      )) as never);
+
+    const panel = stubAdapter();
+    await generateDraftForUser(
+      "user-1",
+      newMail({ instruction: "Ask about March" }),
+      panel,
+    );
+    expect(vi.mocked(panel).mock.calls[0][0].request.system).toContain(
+      BODY_DELIMITER,
+    );
+
+    const oneTap = stubAdapter();
+    await generateDraftForUser("user-1", newMail(), oneTap);
+    expect(vi.mocked(oneTap).mock.calls[0][0].request.system).not.toContain(
       BODY_DELIMITER,
     );
   });

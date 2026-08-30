@@ -263,6 +263,29 @@ describe("/api/mobile/draft-generation/generate", () => {
     expect(res.status).toBe(400);
   });
 
+  it("NEW with empty instruction and no correspondence is 400 NOTHING_TO_INFER", async () => {
+    await mockAuthed();
+    vi.mocked(db.draftGenerationCredential.findUnique).mockResolvedValue({
+      provider: "claudeCode",
+      encryptedSecret: encrypt("sk-ant-oat01-test"),
+    } as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
+    const { POST } = await import(
+      "@/app/api/mobile/draft-generation/generate/route"
+    );
+    const res = await POST(
+      makeRequest({
+        type: "NEW",
+        contextMessageId: "new-1",
+        to: "ada@x.y",
+        instruction: "",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("NOTHING_TO_INFER");
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
   it("generate for a FORWARD is 400", async () => {
     await mockAuthed();
     vi.mocked(db.draftGenerationCredential.findUnique).mockResolvedValue({
