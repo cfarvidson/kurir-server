@@ -47,6 +47,9 @@ import {
  *   Versions live in the open composer; inserting one goes through the
  *   composer's ordinary draft autosave. Bounded mailbox tools are offered,
  *   and NEW mail may come back with a proposed subject.
+ *
+ * New mail with an empty instruction and no prior correspondence with that
+ * person is refused (NOTHING_TO_INFER) rather than inventing a mail.
  */
 
 export const MAX_INSTRUCTION_CHARS = 2000;
@@ -166,6 +169,17 @@ export async function generateDraftForUser(
   }
 
   const pack = await buildContextPack(userId, correspondent, own, current);
+  if (
+    input.type === "NEW" &&
+    !instructed &&
+    pack.fromCorrespondent.length === 0 &&
+    pack.ownSent.length === 0
+  ) {
+    throw new DraftGenerationError(
+      "NOTHING_TO_INFER",
+      "There is no earlier mail with this person. Say what this mail should say.",
+    );
+  }
   const raw = await infer({
     provider: credential.provider,
     secret: credential.secret,

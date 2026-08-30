@@ -4,6 +4,20 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+### Fixed
+
+- New-mail Generate draft writes a new mail to the correspondent, not a
+  reply to a latest mail that does not exist (#146). An empty instruction
+  still infers from earlier correspondence with that person; with none,
+  the composer is told to say what the mail should say instead of inventing
+  one.
+
+### Changed
+
+- Generated mail is steered away from AI tells (puffery, em dashes,
+  chatbot leftovers, filler) in the locked system prompt. Auto tone still
+  matches the user's own sent mail.
+
 ## [v2026.51] - 2026-08-28
 
 ### Added

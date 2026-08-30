@@ -5,25 +5,45 @@ import type {
 } from "@/lib/draft-generation/types";
 
 /**
- * The locked prompt rules: write as the user, in the incoming language,
- * answer the latest mail, prior mail from the sender is relationship facts,
- * the user's sent mail is voice, no invented commitments, no quoted original,
- * body only. Tests assert facts (which mail is present), not wording.
+ * Locked prompt rules. Tests assert facts (NEW vs REPLY framing, unslop
+ * constraints present), not that a live model obeys them.
  *
  * The compose assistant (#133) adds two authoritative inputs on top: what
  * the user wants the mail to say, and the register to say it in. Neither
- * loosens the locked rules — an instruction steers content, never truth.
+ * loosens the locked rules - an instruction steers content, never truth.
+ * Unslop does not license a new voice: auto still matches the user's own
+ * sent mail; Formal / Friendly / Direct still do what they do today.
  */
 
-const SYSTEM_PROMPT = [
-  "You draft email replies as the mailbox owner (\"the user\"). Follow every rule:",
+const REPLY_LEAD = [
+  'You draft email replies as the mailbox owner ("the user"). Follow every rule:',
   "- Write in the same language as the mail being answered.",
   "- Write a real reply that answers the latest mail, not a summary of it.",
+].join("\n");
+
+/**
+ * New mail has no incoming mail to answer. The model is writing to the
+ * correspondent, not replying to a latest mail.
+ */
+const NEW_LEAD = [
+  'You draft a new email from the mailbox owner ("the user") to the correspondent. This is a new mail, not a reply. Follow every rule:',
+  "- Write in the language the user wrote their instruction in; with no instruction, match the language of the earlier correspondence.",
+  "- Prior correspondence is relationship and voice, not a license to ignore the instruction.",
+].join("\n");
+
+const SHARED_RULES = [
+  "- Write as the mailbox owner, in their voice. Not a template, not a press release.",
   "- Treat earlier mail from the correspondent only as facts about the relationship.",
   "- Match the tone and voice of the user's own earlier mail.",
   "- Never invent facts, meetings, or commitments the user did not make.",
-  "- Do not quote the original message back and do not add a subject line.",
-  "- Return only the reply body as plain text; simple markdown is allowed.",
+  "- Do not quote the original message back.",
+  "- Return only the mail body as plain text; simple markdown is allowed.",
+  "- Never use puffery or promotional words such as pivotal, vibrant, groundbreaking, testament, landscape, delve, showcase, underscore, crucial, intricate, tapestry.",
+  '- Do not write "Not just X, but Y." Do not cycle synonyms for the same thing. Do not force ideas into groups of three.',
+  "- Do not use em dashes. Periods or commas only.",
+  '- Do not use chatbot leftovers such as "I hope this helps!", "Let me know if you have any questions", "Of course!", "Certainly!".',
+  '- Do not use filler such as "In order to" or "It is important to note that", and do not pile up hedges.',
+  "- Vary sentence length. Be specific. First person is fine when it fits the user's own sent mail.",
 ].join("\n");
 
 /**
@@ -50,16 +70,6 @@ export const BODY_DELIMITER = "%%%BODY%%%";
 const SUBJECT_INSTRUCTIONS = [
   "Propose a subject line for this new mail.",
   `Start your answer with "SUBJECT: " followed by a single-line subject, then a line containing exactly ${BODY_DELIMITER}, then the mail body.`,
-].join(" ");
-
-/**
- * New mail has no incoming mail whose language to match, so the language
- * rule needs its own line: follow the instruction's language, or the prior
- * correspondence when there is no instruction.
- */
-const NEW_MAIL_LANGUAGE = [
-  "There is no mail being answered here.",
-  "Write in the language the user wrote their instruction in; with no instruction, match the language of the earlier correspondence.",
 ].join(" ");
 
 function entrySection(
@@ -93,8 +103,7 @@ export function buildInferenceRequest(
   const instruction = (options.instruction ?? "").trim();
   const toneLine = TONE_LINES[options.tone ?? "auto"];
 
-  const system = [SYSTEM_PROMPT];
-  if (!pack.current) system.push(NEW_MAIL_LANGUAGE);
+  const system = [pack.current ? REPLY_LEAD : NEW_LEAD, SHARED_RULES];
   if (toneLine) system.push(toneLine);
   if (instruction) {
     system.push(
@@ -106,7 +115,9 @@ export function buildInferenceRequest(
       "You may search and read the user's own mail for context the drafted mail needs. Use it only when the mail depends on facts you do not already have, then answer.",
     );
   }
+  // Mutually exclusive: panel NEW uses the delimiter protocol; otherwise body only.
   if (options.wantSubject) system.push(SUBJECT_INSTRUCTIONS);
+  else system.push("- Do not add a subject line.");
 
   const parts: string[] = [];
   if (instruction) {
