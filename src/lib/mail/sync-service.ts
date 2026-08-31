@@ -21,6 +21,7 @@ import {
   kickSignatureBackfill,
   recordSenderSignature,
 } from "@/lib/mail/signature-store";
+import { kickRankRecompute } from "@/lib/mail/person-rank-store";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
@@ -1079,9 +1080,11 @@ export async function syncEmailConnection(
     }
 
     // One-shot signature backfill for senders synced before extraction
-    // existed. Detached: returns at once and never blocks or fails the sync.
+    // existed, and the whole-mailbox Rank pass (kurir-ios#117). Both
+    // detached: they return at once and never block or fail the sync.
     if (!hasRemaining) {
       kickSignatureBackfill(userId);
+      kickRankRecompute(userId);
     }
 
     // Move rejected-sender messages out of IMAP inbox

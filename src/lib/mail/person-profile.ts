@@ -1,10 +1,15 @@
 import { db } from "@/lib/db";
 import {
   computePersonStats,
+  rankOf,
   rankPeople,
+  type PersonRank,
   type PersonStats,
-  type RankedPerson,
 } from "@/lib/mail/person-stats";
+import {
+  kickRankRecompute,
+  readPersonRank,
+} from "@/lib/mail/person-rank-store";
 import {
   mergeContactDetails,
   type MergedProfileDetails,
@@ -49,32 +54,26 @@ const RANK_COLUMNS = {
 } as const;
 
 /**
- * Rank position needs every counterpart, i.e. a pass over the whole
- * mailbox. That pass is cached per user for a minute so opening threads in
- * a row does not re-read the table each time; a minute of decay is
- * invisible in the score. Per process; the next card materialises this.
+ * Rank position comes from the materialised PersonRank table
+ * (kurir-ios#117), written after each completed sync. A user whose table is
+ * still empty (first start after the upgrade, or a sync that never
+ * completed) gets one live pass over the mailbox and a detached recompute
+ * so the next call reads the table.
  */
-export const RANKING_CACHE_MS = 60_000;
-const rankingCache = new Map<string, { at: number; ranked: RankedPerson[] }>();
-
-export function resetRankingCache(): void {
-  rankingCache.clear();
-}
-
-async function rankingForUser(
+async function rankFor(
   userId: string,
+  email: string,
   own: OwnAddresses,
   now: Date,
-): Promise<RankedPerson[]> {
-  const hit = rankingCache.get(userId);
-  if (hit && now.getTime() - hit.at < RANKING_CACHE_MS) return hit.ranked;
+): Promise<PersonRank> {
+  const materialised = await readPersonRank(userId, email);
+  if (materialised) return materialised;
   const rows = await db.message.findMany({
     where: { userId, isDraft: false },
     select: RANK_COLUMNS,
   });
-  const ranked = rankPeople(rows, own, now);
-  rankingCache.set(userId, { at: now.getTime(), ranked });
-  return ranked;
+  kickRankRecompute(userId);
+  return rankOf(email, rankPeople(rows, own, now));
 }
 
 export async function getPersonProfile(
@@ -121,7 +120,7 @@ export async function getPersonProfile(
     }),
   ]);
 
-  const ranking = await rankingForUser(userId, own, now);
+  const rank = await rankFor(userId, email, own, now);
 
   const timeZone = isValidTimeZone(options.timeZone)
     ? options.timeZone
@@ -148,7 +147,7 @@ export async function getPersonProfile(
     own,
     now,
     timeZone,
-    ranking,
+    rank,
   });
 
   return {

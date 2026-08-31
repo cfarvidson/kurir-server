@@ -1,30 +1,38 @@
 {
-  "_comment": "Shared parity fixture for person stats and Rank. Committed identically in kurir-server (src/__tests__/fixtures/person-rank.json) and kurir-ios (Kurir/Tests/Fixtures/person-rank.json). Edit both copies together. Medians are in seconds; histogram keys are hours in `timezone`. Scores were hand-computed with score = sum over exchanged messages of 0.5^(ageDays/90) * (2 if reply else 1) at `now`.",
+  "_comment": "Shared parity fixture for person stats, Rank, Network and ranked people search. Committed identically in kurir-server (src/__tests__/fixtures/person-rank.json) and kurir-ios (Kurir/Tests/Fixtures/person-rank.json). Edit both copies together. Medians are in seconds; histogram keys are hours in `timezone`. Scores were hand-computed with score = sum over exchanged messages of 0.5^(ageDays/90) * (2 if reply else 1) at `now`. Network strength = sum over shared threads of 0.5^(ageDays(latest message in thread)/90); a same-domain neighbour with no shared thread carries its own Rank score as strength. People search: prefix match on a display-name token, the address local part, a domain label, or the whole address; ordered by score desc, then name.",
   "now": "2026-08-31T12:00:00Z",
   "own": ["me@example.com"],
   "timezone": "Europe/Stockholm",
+  "names": {
+    "anna@acme.se": "Anna Andersson",
+    "bob@globex.com": "Alva Berg",
+    "carl@initech.io": "Carl Carlsson",
+    "dan@acme.se": "Dan Danielsson"
+  },
   "messages": [
-    { "id": "a1", "from": "anna@acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-29T08:15:00Z", "messageId": "<a1@acme>", "inReplyTo": null },
-    { "id": "a2", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-08-29T10:15:00Z", "messageId": "<a2@me>", "inReplyTo": "<a1@acme>" },
-    { "id": "a3", "from": "Anna@Acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-29T13:15:00Z", "messageId": "<a3@acme>", "inReplyTo": "<a2@me>" },
-    { "id": "a4", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-08-30T13:15:00Z", "messageId": "<a4@me>", "inReplyTo": "<a3@acme>" },
-    { "id": "a5", "from": "anna@acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-30T19:15:00Z", "messageId": "<a5@acme>", "inReplyTo": "<a4@me>" },
-    { "id": "a6", "from": "anna@acme.se", "to": ["me@example.com"], "cc": ["bob@globex.com"], "receivedAt": "2026-08-31T06:30:00Z", "messageId": "<a6@acme>", "inReplyTo": null },
-    { "id": "a7", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-05-01T09:00:00Z", "messageId": "<a7@me>", "inReplyTo": null },
+    { "id": "a1", "threadId": "ta1", "from": "anna@acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-29T08:15:00Z", "messageId": "<a1@acme>", "inReplyTo": null },
+    { "id": "a2", "threadId": "ta1", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-08-29T10:15:00Z", "messageId": "<a2@me>", "inReplyTo": "<a1@acme>" },
+    { "id": "a3", "threadId": "ta1", "from": "Anna@Acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-29T13:15:00Z", "messageId": "<a3@acme>", "inReplyTo": "<a2@me>" },
+    { "id": "a4", "threadId": "ta1", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-08-30T13:15:00Z", "messageId": "<a4@me>", "inReplyTo": "<a3@acme>" },
+    { "id": "a5", "threadId": "ta1", "from": "anna@acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-30T19:15:00Z", "messageId": "<a5@acme>", "inReplyTo": "<a4@me>" },
+    { "id": "a6", "threadId": "ta6", "from": "anna@acme.se", "to": ["me@example.com"], "cc": ["bob@globex.com"], "receivedAt": "2026-08-31T06:30:00Z", "messageId": "<a6@acme>", "inReplyTo": null },
+    { "id": "a7", "threadId": "ta7", "from": "me@example.com", "to": ["anna@acme.se"], "cc": [], "receivedAt": "2026-05-01T09:00:00Z", "messageId": "<a7@me>", "inReplyTo": null },
 
-    { "id": "b1", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-03-01T15:00:00Z", "messageId": "<b1@globex>", "inReplyTo": null },
-    { "id": "b2", "from": "me@example.com", "to": ["bob@globex.com"], "cc": [], "receivedAt": "2026-03-01T16:00:00Z", "messageId": "<b2@me>", "inReplyTo": "<b1@globex>" },
-    { "id": "b3", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-03-03T16:00:00Z", "messageId": "<b3@globex>", "inReplyTo": "<b2@me>" },
-    { "id": "b4", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-06-15T15:00:00Z", "messageId": "<b4@globex>", "inReplyTo": null },
-    { "id": "b5", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-06-16T15:00:00Z", "messageId": "<b5@globex>", "inReplyTo": "<b4@globex>" },
-    { "id": "b6", "from": "me@example.com", "to": ["bob@globex.com", "carl@initech.io"], "cc": [], "receivedAt": "2026-07-01T07:00:00Z", "messageId": "<b6@me>", "inReplyTo": null },
+    { "id": "b1", "threadId": "tb1", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-03-01T15:00:00Z", "messageId": "<b1@globex>", "inReplyTo": null },
+    { "id": "b2", "threadId": "tb1", "from": "me@example.com", "to": ["bob@globex.com"], "cc": [], "receivedAt": "2026-03-01T16:00:00Z", "messageId": "<b2@me>", "inReplyTo": "<b1@globex>" },
+    { "id": "b3", "threadId": "tb1", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-03-03T16:00:00Z", "messageId": "<b3@globex>", "inReplyTo": "<b2@me>" },
+    { "id": "b4", "threadId": "tb4", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-06-15T15:00:00Z", "messageId": "<b4@globex>", "inReplyTo": null },
+    { "id": "b5", "threadId": "tb4", "from": "bob@globex.com", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-06-16T15:00:00Z", "messageId": "<b5@globex>", "inReplyTo": "<b4@globex>" },
+    { "id": "b6", "threadId": "tb6", "from": "me@example.com", "to": ["bob@globex.com", "carl@initech.io"], "cc": [], "receivedAt": "2026-07-01T07:00:00Z", "messageId": "<b6@me>", "inReplyTo": null },
 
-    { "id": "c1", "from": "carl@initech.io", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-30T22:30:00Z", "messageId": "<c1@initech>", "inReplyTo": null },
-    { "id": "c2", "from": "me@example.com", "to": ["carl@initech.io"], "cc": [], "receivedAt": "2025-12-20T10:00:00Z", "messageId": "<c2@me>", "inReplyTo": null },
+    { "id": "c1", "threadId": "tc1", "from": "carl@initech.io", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-30T22:30:00Z", "messageId": "<c1@initech>", "inReplyTo": null },
+    { "id": "c2", "threadId": "tc2", "from": "me@example.com", "to": ["carl@initech.io"], "cc": [], "receivedAt": "2025-12-20T10:00:00Z", "messageId": "<c2@me>", "inReplyTo": null },
 
-    { "id": "n1", "from": "news@list.org", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-31T05:00:00Z", "messageId": "<n1@list>", "inReplyTo": null }
+    { "id": "n1", "threadId": "tn1", "from": "news@list.org", "to": ["me@example.com"], "cc": [], "receivedAt": "2026-08-31T05:00:00Z", "messageId": "<n1@list>", "inReplyTo": null },
+
+    { "id": "d1", "threadId": "td1", "from": "dan@acme.se", "to": ["me@example.com"], "cc": [], "receivedAt": "2025-09-01T10:00:00Z", "messageId": "<d1@acme>", "inReplyTo": null }
   ],
-  "expectedRank": ["anna@acme.se", "bob@globex.com", "carl@initech.io", "news@list.org"],
+  "expectedRank": ["anna@acme.se", "bob@globex.com", "carl@initech.io", "news@list.org", "dan@acme.se"],
   "expected": {
     "anna@acme.se": {
       "sentToThem": 3,
@@ -36,7 +44,7 @@
       "histogram": { "8": 1, "10": 1, "15": 1, "21": 1 },
       "score": 10.29,
       "position": 1,
-      "of": 4
+      "of": 5
     },
     "bob@globex.com": {
       "sentToThem": 2,
@@ -48,7 +56,7 @@
       "histogram": { "16": 1, "17": 3 },
       "score": 3.52,
       "position": 2,
-      "of": 4
+      "of": 5
     },
     "carl@initech.io": {
       "sentToThem": 2,
@@ -60,7 +68,7 @@
       "histogram": { "0": 1 },
       "score": 1.76,
       "position": 3,
-      "of": 4
+      "of": 5
     },
     "news@list.org": {
       "sentToThem": 0,
@@ -72,7 +80,51 @@
       "histogram": { "7": 1 },
       "score": 1.0,
       "position": 4,
-      "of": 4
+      "of": 5
+    },
+    "dan@acme.se": {
+      "sentToThem": 0,
+      "receivedFromThem": 1,
+      "firstAt": "2025-09-01T10:00:00Z",
+      "lastAt": "2025-09-01T10:00:00Z",
+      "medianTheirReplySeconds": null,
+      "medianYourReplySeconds": null,
+      "histogram": { "12": 1 },
+      "score": 0.06,
+      "position": 5,
+      "of": 5
     }
+  },
+  "expectedNetwork": {
+    "anna@acme.se": [
+      { "email": "bob@globex.com", "kind": "sharedThread", "sharedThreads": 1, "strength": 1.0 },
+      { "email": "dan@acme.se", "kind": "domain", "sharedThreads": 0, "strength": 0.06 }
+    ],
+    "bob@globex.com": [
+      { "email": "anna@acme.se", "kind": "sharedThread", "sharedThreads": 1, "strength": 1.0 },
+      { "email": "carl@initech.io", "kind": "sharedThread", "sharedThreads": 1, "strength": 0.62 }
+    ],
+    "carl@initech.io": [
+      { "email": "bob@globex.com", "kind": "sharedThread", "sharedThreads": 1, "strength": 0.62 }
+    ],
+    "dan@acme.se": [
+      { "email": "anna@acme.se", "kind": "domain", "sharedThreads": 0, "strength": 10.29 }
+    ],
+    "news@list.org": []
+  },
+  "expectedPeopleSearch": {
+    "a": ["anna@acme.se", "bob@globex.com", "dan@acme.se"],
+    "an": ["anna@acme.se"],
+    "be": ["bob@globex.com"],
+    "ca": ["carl@initech.io"],
+    "li": ["news@list.org"],
+    "dan": ["dan@acme.se"],
+    "bob@": ["bob@globex.com"],
+    "acme": ["anna@acme.se", "dan@acme.se"],
+    "erg": []
+  },
+  "expectedDomainTypeahead": {
+    "acm": { "domain": "acme.se", "people": ["anna@acme.se", "dan@acme.se"] },
+    "ann": null
   }
 }
