@@ -127,6 +127,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
       setLoading(true);
       try {
         const params = new URLSearchParams({ email });
+        // Histogram buckets in the browser's zone, not the account's.
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz) params.set("tz", tz);
         const q = query.trim();
         if (q) params.set("q", q);
         const res = await fetch(`/api/contacts/context?${params}`, {

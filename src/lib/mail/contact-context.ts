@@ -9,6 +9,8 @@ export interface ContactContextOptions {
    * searched, Archive included. Blank means the full history.
    */
   q?: string | null;
+  /** IANA zone for the arrival histogram (kurir-ios#116); account zone otherwise. */
+  tz?: string | null;
 }
 
 /** Conversations shown in the pane (the old thread column showed 5). */
@@ -80,7 +82,7 @@ export async function getContactContext(
     }),
     // Signature details, statistics and Rank (kurir-ios#116); the same
     // profile /api/contacts/profile serves to mobile.
-    getPersonProfile(userId, email),
+    getPersonProfile(userId, email, { timeZone: options.tz }),
   ]);
 
   const collapsed = collapseToThreads(recentMessages);

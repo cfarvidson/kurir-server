@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContactContext } from "@/lib/mail/contact-context";
 import { getRequestUserId } from "@/lib/mobile/auth";
+import { isValidTimeZone } from "@/lib/mail/person-profile";
 
 /**
  * Person pane data for an arbitrary address (kurir-ios#115). `q` filters
@@ -17,8 +18,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "email required" }, { status: 400 });
   }
   const q = request.nextUrl.searchParams.get("q");
+  const tz = request.nextUrl.searchParams.get("tz");
+  if (tz && !isValidTimeZone(tz)) {
+    return NextResponse.json({ error: "Invalid tz" }, { status: 400 });
+  }
 
-  const context = await getContactContext(userId, email, { q });
+  const context = await getContactContext(userId, email, { q, tz });
   return NextResponse.json({
     email,
     sender: context.sender
