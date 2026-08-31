@@ -13,10 +13,12 @@ import {
   TOAST_SHELL_CLASS,
   TOAST_SHELL_STYLE,
 } from "@/components/ui/toast-config";
+import { PersonPane } from "@/components/mail/person-pane";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSidebarCounts } from "@/lib/mail/sidebar-counts";
+import { getOwnAddresses } from "@/lib/mail/user-emails";
 
 export default async function MailLayout({
   children,
@@ -45,12 +47,14 @@ export default async function MailLayout({
       badgePreferences,
     },
     userPrefs,
+    ownAddresses,
   ] = await Promise.all([
     getSidebarCounts(session.user.id),
     db.user.findUnique({
       where: { id: session.user.id },
       select: { theme: true, timezone: true },
     }),
+    getOwnAddresses(session.user.id),
   ]);
   const userTheme = userPrefs?.theme ?? "system";
 
@@ -70,9 +74,14 @@ export default async function MailLayout({
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />
-          <main className="flex-1 overflow-auto overscroll-contain touch-pan-y pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
-            <PullToRefresh>{children}</PullToRefresh>
-          </main>
+          <div className="flex min-h-0 flex-1">
+            <main className="flex-1 overflow-auto overscroll-contain touch-pan-y pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+              <PullToRefresh>{children}</PullToRefresh>
+            </main>
+            {/* Persistent person column (kurir-ios#115): follows the
+                focused row / open thread on the mail lists, lg+ only. */}
+            <PersonPane ownEmails={ownAddresses.emails} />
+          </div>
         </div>
         <MobileTabBar
           screenerCount={screenerCount}
