@@ -8,6 +8,7 @@ import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { PersonPaneFocusSync } from "@/components/mail/person-pane-focus-sync";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import { filterBlockedSenderRows } from "@/lib/mail/filter-blocked-senders";
@@ -377,16 +378,20 @@ export function InfiniteMessageList({
   );
 
   const keyboardHandler = (
-    <ListKeyboardHandler
-      threads={threads}
-      basePath={basePath}
-      onArchived={handleArchived}
-      onToggleSelect={toggleSelection}
-      showSnoozeAction={showSnoozeAction}
-      showFollowUpAction={showFollowUpAction}
-      showArchiveAction={barActionSet.archive}
-      showUnarchiveAction={barActionSet.unarchive}
-    />
+    <>
+      <ListKeyboardHandler
+        threads={threads}
+        basePath={basePath}
+        onArchived={handleArchived}
+        onToggleSelect={toggleSelection}
+        showSnoozeAction={showSnoozeAction}
+        showFollowUpAction={showFollowUpAction}
+        showArchiveAction={barActionSet.archive}
+        showUnarchiveAction={barActionSet.unarchive}
+      />
+      {/* Person pane follows the focus ring (kurir-ios#115) */}
+      <PersonPaneFocusSync rows={threads} />
+    </>
   );
 
   if (showSections) {

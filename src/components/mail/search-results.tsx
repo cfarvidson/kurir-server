@@ -131,6 +131,7 @@ export async function SearchResults({
             showSnoozedUntil={showSnoozedUntil}
             showFollowUpAction={showFollowUpAction}
             showUnarchiveAction={showUnarchiveAction}
+            keyboardNavigation
           />
         </div>
       )}

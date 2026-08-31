@@ -9,7 +9,7 @@ import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
-import { ContactSidebar } from "@/components/mail/contact-sidebar";
+import { PersonPaneTarget } from "@/components/mail/person-pane-focus-sync";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
@@ -302,7 +302,9 @@ export async function ThreadDetailView({
         </div>
       </div>
 
-      {/* Thread + optional contact sidebar */}
+      {/* The layout's persistent person pane shows the counterpart
+          (kurir-ios#115); no contact column of our own. */}
+      <PersonPaneTarget email={contactEmail} />
       <div className="flex min-h-0 flex-1">
         <div className="flex-1 overflow-auto pb-16 md:pb-0" data-thread-scroll>
           <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-8">
@@ -337,12 +339,6 @@ export async function ThreadDetailView({
             </div>
           </div>
         </div>
-        {contactEmail && (
-          <ContactSidebar
-            userId={session.user.id}
-            contactEmail={contactEmail}
-          />
-        )}
       </div>
 
       {/* Mobile bottom action bar */}

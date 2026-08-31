@@ -27,6 +27,9 @@ import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
+import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
+import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
+import { PersonPaneFocusSync } from "@/components/mail/person-pane-focus-sync";
 import {
   primaryLine,
   swipeActions,
@@ -69,6 +72,11 @@ interface MessageListProps {
   showSnoozeAction?: boolean;
   showSnoozedUntil?: boolean;
   showFollowUpAction?: boolean;
+  /**
+   * j/k focus ring + the person pane following it (kurir-ios#115). Opt-in:
+   * search results turn it on; lists with their own handler leave it off.
+   */
+  keyboardNavigation?: boolean;
 }
 
 export function MessageList({
@@ -80,11 +88,14 @@ export function MessageList({
   showSnoozeAction = false,
   showSnoozedUntil = false,
   showFollowUpAction = false,
+  keyboardNavigation = false,
 }: MessageListProps) {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   // Suppress rows for threads optimistically archived from the detail view
   // (cold-cache / deep-link safety; mirrors InfiniteMessageList).
   const isPendingArchive = usePendingArchiveFilter();
+  const focusedIndex = useKeyboardNavigationStore((s) => s.focusedIndex);
+  const registerList = useKeyboardNavigationStore((s) => s.registerList);
 
   const handleArchived = useCallback((messageId?: string) => {
     if (messageId) {
@@ -100,10 +111,32 @@ export function MessageList({
     [messages, hiddenIds, isPendingArchive],
   );
 
+  useEffect(() => {
+    if (!keyboardNavigation) return;
+    registerList(
+      visibleMessages.map((m) => m.id),
+      basePath,
+    );
+  }, [keyboardNavigation, visibleMessages, basePath, registerList]);
+
   return (
     <div>
+      {keyboardNavigation && (
+        <>
+          <ListKeyboardHandler
+            threads={visibleMessages}
+            basePath={basePath}
+            onArchived={handleArchived}
+            showSnoozeAction={showSnoozeAction}
+            showFollowUpAction={showFollowUpAction}
+            showArchiveAction={showArchiveAction}
+            showUnarchiveAction={showUnarchiveAction}
+          />
+          <PersonPaneFocusSync rows={visibleMessages} />
+        </>
+      )}
       <AnimatePresence mode="popLayout">
-        {visibleMessages.map((message) => (
+        {visibleMessages.map((message, index) => (
           <motion.div
             key={message.id}
             exit={{ opacity: 0 }}
@@ -119,6 +152,7 @@ export function MessageList({
               showSnoozedUntil={showSnoozedUntil}
               showFollowUpAction={showFollowUpAction}
               onArchived={handleArchived}
+              isFocused={keyboardNavigation && index === focusedIndex}
             />
           </motion.div>
         ))}
