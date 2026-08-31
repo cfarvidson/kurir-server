@@ -94,8 +94,10 @@ export function Sidebar({
 
   return (
     <div className="hidden h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
+      {/* Logo. shrink-0 on the fixed rows: in a short window the flex
+          column would otherwise compress them (mashed header, oversized
+          logo) instead of letting the nav scroll. */}
+      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-6">
         <KurirLogo className="h-8 w-8" />
         <span className="font-serif text-2xl font-semibold tracking-tight">
           Kurir
@@ -110,7 +112,7 @@ export function Sidebar({
       </div>
 
       {/* Compose button */}
-      <div className="p-4">
+      <div className="shrink-0 p-4">
         <Button asChild className="group w-full">
           <Link href={`/compose?from=${encodeURIComponent(pathname)}`}>
             <PenSquare className="h-4 w-4" />
@@ -123,7 +125,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
         {navigation.map((item) => {
           // Hide Scheduled when there are no pending scheduled messages
           if (item.badgeKey === "scheduled" && badgeCounts.scheduled === 0)
@@ -179,7 +181,7 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="shrink-0 border-t border-sidebar-border p-3">
         <Link
           href="/settings"
           className={cn(
