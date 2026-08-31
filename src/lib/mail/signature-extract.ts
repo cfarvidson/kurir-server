@@ -11,7 +11,9 @@
  * 2. The signature is the block after the last `-- ` delimiter; failing that,
  *    the lines after the last closing phrase ("Best regards", "Mvh", ...)
  *    within the final 12 lines; failing that, the last short paragraph when
- *    there is body text above it. A one-paragraph mail has no signature.
+ *    there is body text above it and the paragraph carries an anchor (an
+ *    email/URL, a company suffix, or a labelled phone). A one-paragraph
+ *    mail has no signature.
  * 3. Phones are digit runs of 7-15 digits that start with `+`, `00`, or `0`,
  *    or follow a label (Tel, Mob, Phone, M, ...), excluding dates and lines
  *    about org/VAT/bank numbers. Deduped on the last nine digits, max three.
@@ -54,7 +56,7 @@ const PHONE_LABEL_BEFORE = /(?:^|[\s|•·])(tel|tfn|telefon|telephone|phone|ph|
 const NOT_A_PHONE_LINE = /org\.?\s*nr|organisationsnummer|org\.?\s*no|\bvat\b|moms|reg\.?\s*no|\biban\b|bankgiro|plusgiro|\bbg\s*:|\bpg\s*:|invoice|faktura|kundnr|customer\s*(?:no|id)|order\s*(?:no|#|nr)|account\s*(?:no|number)|konto/i;
 const DATE_LIKE = [/^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/, /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/];
 
-const TITLE_WORDS = /(chef\b|ansvarig|ledare\b|utvecklare|konsult\b|säljare|ingenjör|rektor|lärare|förvaltare|mäklare|redovisnings|ekonom\b|jurist|advokat|handläggare|rådgivare|kommunikatör|grundare|ordförande|controller|assistent|koordinator|specialist|strateg\b|analytiker|arkitekt|designer|manager|director|engineer|developer|consultant|founder|partner\b|owner|officer|president|analyst|architect|coordinator|assistant|associate|advisor|adviser|recruiter|editor|teacher|professor|doctor|scientist|researcher|producer|programmer|accountant|attorney|lawyer|nurse|physician|therapist|\bhead of\b|\blead\b|\bvp\b|\bceo\b|\bcto\b|\bcfo\b|\bcoo\b|\bcmo\b|\bcio\b|\bchief\b|\bsales\b|\bmarketing\b|\bproduct\b|\bproject\b|\bcustomer success\b|\bstudent\b|\bintern\b|praktikant)/i;
+const TITLE_WORDS = /(chef\b|ansvarig|ledare\b|utvecklare|konsult\b|säljare|ingenjör|rektor|lärare|förvaltare|mäklare|redovisnings|ekonom\b|jurist|advokat|handläggare|rådgivare|kommunikatör|grundare|ordförande|controller|assistent|koordinator|specialist|strateg\b|analytiker|arkitekt|designer|manager|director|engineer|developer|consultant|founder|partner\b|owner|officer|president|analyst|architect|coordinator|assistant|associate|advisor|adviser|recruiter|editor|teacher|professor|doctor|scientist|researcher|producer|programmer|accountant|attorney|lawyer|nurse|physician|therapist|\bhead of\b|\bvp\b|\bvd\b|\bceo\b|\bcto\b|\bcfo\b|\bcoo\b|\bcmo\b|\bcio\b|\bchief\b|\bstudent\b|\bintern\b|praktikant)/i;
 const COMPANY_SUFFIX = /(^|[\s,])(AB|Inc\.?|LLC|Ltd\.?|GmbH|AG|AS|ASA|Oy|ApS|A\/S|S\.A\.|SAS|BV|B\.V\.|PLC|Corp\.?|Corporation|Co\.|Company|Group|Holding|Holdings|Partners|Studio|Studios|Agency|Solutions|Technologies|Consulting|Ventures|Capital|Labs|Kommun|Region|Universitet|University|Skola|School|Förskola|Förening|Föreningen|Stiftelsen|Institutet|Institute|Foundation|Bank)(?=$|[\s,.)])/;
 const TITLE_COMPANY_SPLIT = /^(.+?)(?:,\s+|\s+at\s+|\s+@\s+|\s+hos\s+|\s+på\s+)(.+)$/i;
 const SEGMENT_SPLIT = /\s*(?:\||•|·|‧|⋅|\s[–—-]\s|\s\/\s)\s*/;
@@ -128,20 +130,31 @@ export function signatureBlock(ownText: string): string[] {
     }
   }
 
-  // 3. Last short paragraph, only when there is body text above it.
+  // 3. Last short paragraph, only when there is body text above it and the
+  //    paragraph itself looks like a card: two to six short lines, one of
+  //    them an email/URL, a company suffix, or a labelled phone. Without
+  //    that anchor a trailing "Call me at 070-... tomorrow." is prose.
   let start = all.length;
   while (start > 0 && all[start - 1].trim() !== "") start--;
   const paragraph = all.slice(start);
   const hasBodyAbove = all.slice(0, start).some((l) => l.trim() !== "");
   if (
     hasBodyAbove &&
-    paragraph.length >= 1 &&
+    paragraph.length >= 2 &&
     paragraph.length <= 6 &&
-    paragraph.every((l) => l.trim().length <= 60)
+    paragraph.every((l) => l.trim().length <= 60) &&
+    paragraph.some((l) => isSignatureAnchor(l))
   ) {
     return paragraph;
   }
   return [];
+}
+
+function isSignatureAnchor(line: string): boolean {
+  const s = line.trim();
+  if (/@|https?:|www\./i.test(s)) return true;
+  if (COMPANY_SUFFIX.test(s)) return true;
+  return PHONE_LABEL_BEFORE.test(s.split(/\d/)[0] ?? "") && phonesIn(s).length > 0;
 }
 
 function digitsOf(s: string): string {
@@ -190,6 +203,7 @@ function isPlainTextSegment(segment: string): boolean {
   if (/@|https?:|www\./i.test(s)) return false;
   if (digitsOf(s).length > 2) return false;
   if (!/[A-Za-zÀ-ÖØ-öø-ÿ]{2}/.test(s)) return false;
+  if (s.split(/\s+/).length > 6) return false; // a sentence, not a card line
   if (isClosing(s) || SENT_FROM.test(s)) return false;
   return true;
 }
@@ -271,58 +285,5 @@ export function mergeSignatureDetails(
     phones: dedupePhones([...extracted.phones, ...existing.phones]),
     title: extracted.title ?? existing.title,
     company: extracted.company ?? existing.company,
-  };
-}
-
-export type ProfileSource = "contact" | "signature";
-
-export interface SourcedValue {
-  value: string;
-  source: ProfileSource;
-}
-
-export interface ContactDetails {
-  name?: string;
-  phones: string[];
-  title?: string;
-  company?: string;
-}
-
-export interface MergedProfileDetails {
-  name: SourcedValue | null;
-  phones: SourcedValue[];
-  title: SourcedValue | null;
-  company: SourcedValue | null;
-}
-
-/** Contact record values win; the signature fills the gaps. */
-export function mergeContactDetails(
-  contact: ContactDetails | null,
-  signature: SignatureDetails,
-): MergedProfileDetails {
-  const pick = (
-    fromContact: string | undefined,
-    fromSignature: string | undefined,
-  ): SourcedValue | null => {
-    if (fromContact && fromContact.trim()) {
-      return { value: fromContact.trim(), source: "contact" };
-    }
-    if (fromSignature && fromSignature.trim()) {
-      return { value: fromSignature.trim(), source: "signature" };
-    }
-    return null;
-  };
-  const phones: SourcedValue[] =
-    contact && contact.phones.length > 0
-      ? contact.phones.map((value) => ({ value, source: "contact" as const }))
-      : signature.phones.map((value) => ({
-          value,
-          source: "signature" as const,
-        }));
-  return {
-    name: pick(contact?.name, undefined),
-    phones,
-    title: pick(contact?.title, signature.title),
-    company: pick(contact?.company, signature.company),
   };
 }

@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   extractSignature,
   mergeSignatureDetails,
-  mergeContactDetails,
   stripQuotedAndForwarded,
 } from "@/lib/mail/signature-extract";
+import { mergeContactDetails } from "@/lib/mail/person-details";
 
 describe("stripQuotedAndForwarded", () => {
   it("cuts at a > quote block", () => {
@@ -141,6 +141,26 @@ describe("extractSignature", () => {
       phones: [],
       title: undefined,
       company: undefined,
+    });
+  });
+
+  it("does not treat a trailing prose paragraph as a signature", () => {
+    expect(extractSignature("Hi Bob,\n\nCall me at 070-123 45 67 tomorrow.")).toEqual({
+      phones: [],
+      title: undefined,
+      company: undefined,
+    });
+    expect(
+      extractSignature("Hi,\n\nLet's discuss the project tomorrow.\nI'll bring the sales numbers."),
+    ).toEqual({ phones: [], title: undefined, company: undefined });
+  });
+
+  it("accepts an unlabelled trailing card when it carries an anchor line", () => {
+    const text = ["Hi,", "", "Talk soon.", "", "Eva Lind", "VD", "Acme AB", "Mob: 070-111 22 33", "eva@acme.se"].join("\n");
+    expect(extractSignature(text)).toEqual({
+      phones: ["070-111 22 33"],
+      title: "VD",
+      company: "Acme AB",
     });
   });
 

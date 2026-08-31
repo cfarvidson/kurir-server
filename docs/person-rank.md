@@ -50,6 +50,11 @@ collected in one pass over all mail: a message from `O` credits every
 distinct non-own To/Cc address; any other message credits its sender only.
 The pane shows it as "#3 of the 41 people you mail most".
 
+On the server that pass reads every message row of the user, so the ranking
+is cached per user for one minute in process (`RANKING_CACHE_MS`); the
+per-person numbers are computed from the person's own rows on every call.
+The next card, which needs scores for sorting, should materialise them.
+
 Rank is the input to network sorting and ranked search (the next card), so
 it is defined once here and mirrored, not re-derived, on the client.
 
@@ -59,9 +64,14 @@ it is defined once here and mirrored, not re-derived, on the client.
 trailing signature block of plain-text bodies from other people (never the
 user's own). Sync runs it inline per stored body; senders synced before
 extraction existed are covered by `pnpm backfill-signatures <email>|--all`
-and by a detached one-shot kick after each completed sync. Values are stored
-on `Sender` (`signaturePhones`, `signatureTitle`, `signatureCompany`,
+and by a detached one-shot kick after each completed sync, which scans the
+five newest bodies of every sender not yet stamped. Values are stored on
+`Sender` (`signaturePhones`, `signatureTitle`, `signatureCompany`,
 `signatureExtractedAt`; migration `0022_sender_signature.sql`).
+`signatureExtractedAt` is the `receivedAt` of the newest body scanned: sync
+walks folders newest-first, so an older body only fills gaps while a newer
+one overwrites. Senders are per connection; the profile folds every row for
+the address.
 
 When a Contact record is linked to the address, its values win and the
 signature only fills gaps (`mergeContactDetails`). Today Contact carries a

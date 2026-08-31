@@ -21,7 +21,10 @@ describe("formatResponseTime", () => {
 
 describe("formatRank", () => {
   it("reads as a position among the people you mail most", () => {
-    expect(formatRank(3, 41)).toBe("#3 of the 41 people you mail most");
+    expect(formatRank(3, 41)).toEqual({
+      badge: "#3",
+      tail: "of the 41 people you mail most",
+    });
     expect(formatRank(null, 41)).toBeNull();
     expect(formatRank(1, 0)).toBeNull();
   });

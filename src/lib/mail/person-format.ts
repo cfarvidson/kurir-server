@@ -1,5 +1,13 @@
 /** Presentation helpers for the person profile (pure, client-safe). */
 
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 /** "45m", "3h", "2d 4h", "3w" - coarse on purpose; a median is not a stopwatch. */
 export function formatResponseTime(seconds: number | null): string | null {
   if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return null;
@@ -19,10 +27,13 @@ export function formatResponseTime(seconds: number | null): string | null {
   return `${Math.floor(days / 7)}w`;
 }
 
-/** "#3 of the people you mail most" / null when unranked. */
-export function formatRank(position: number | null, of: number): string | null {
+/** { badge: "#3", tail: "of the 41 people you mail most" }; null when unranked. */
+export function formatRank(
+  position: number | null,
+  of: number,
+): { badge: string; tail: string } | null {
   if (position === null || of === 0) return null;
-  return `#${position} of the ${of} people you mail most`;
+  return { badge: `#${position}`, tail: `of the ${of} people you mail most` };
 }
 
 /** Bar heights as 0-1 fractions of the busiest hour. */

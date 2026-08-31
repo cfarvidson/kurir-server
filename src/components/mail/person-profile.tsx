@@ -1,21 +1,14 @@
 import { Phone, Briefcase, Building2 } from "lucide-react";
 import type { PersonProfile } from "@/lib/mail/person-profile";
 import type { PersonStats } from "@/lib/mail/person-stats";
-import type { SourcedValue } from "@/lib/mail/signature-extract";
+import type { SourcedValue } from "@/lib/mail/person-details";
 import {
+  formatDate,
   formatRank,
   formatResponseTime,
   histogramFractions,
 } from "@/lib/mail/person-format";
 import { cn } from "@/lib/utils";
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
 
 function SourceTag({ source }: { source: SourcedValue["source"] }) {
   if (source !== "signature") return null;
@@ -78,9 +71,9 @@ export function PersonProfileHeader({
     <div className={cn("space-y-1", className)} data-testid="person-profile-header">
       {profile.title && <DetailRow icon={Briefcase} item={profile.title} />}
       {profile.company && <DetailRow icon={Building2} item={profile.company} />}
-      {profile.phones.map((phone) => (
+      {profile.phones.map((phone, index) => (
         <DetailRow
-          key={phone.value}
+          key={`${index}-${phone.value}`}
           icon={Phone}
           item={phone}
           href={`tel:${phone.value.replace(/[^\d+]/g, "")}`}
@@ -153,7 +146,7 @@ export function PersonStatsSection({
             {fractions.map((fraction, hour) => (
               <div
                 key={hour}
-                className="flex-1 rounded-t-[1px] bg-primary/70"
+                className="flex-1 rounded-t-xs bg-primary/70"
                 style={{
                   height: `${Math.max(fraction * 100, fraction > 0 ? 8 : 0)}%`,
                   minHeight: fraction > 0 ? 2 : 0,
@@ -174,8 +167,10 @@ export function PersonStatsSection({
 
       {rank && (
         <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{rank.split(" ")[0]}</span>{" "}
-          {rank.slice(rank.indexOf(" ") + 1)}
+          <span className="font-medium tabular-nums text-foreground">
+            {rank.badge}
+          </span>{" "}
+          {rank.tail}
         </p>
       )}
     </div>

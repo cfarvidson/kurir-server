@@ -127,11 +127,17 @@ function localHour(date: Date, timeZone: string): number {
 }
 
 export function computePersonStats(input: {
+  /** Messages involving the person (a superset, e.g. all mail, is fine). */
   messages: PersonStatsMessage[];
   email: string;
   own: OwnAddresses;
   now: Date;
   timeZone: string;
+  /**
+   * Ranking over ALL of the user's mail. When omitted it is derived from
+   * `messages`, which is only correct if `messages` is the whole mailbox.
+   */
+  ranking?: RankedPerson[];
 }): PersonStats {
   const { messages, own, now, timeZone } = input;
   const email = norm(input.email);
@@ -178,7 +184,7 @@ export function computePersonStats(input: {
     hourHistogram[localHour(m.receivedAt, timeZone)] += 1;
   }
 
-  const ranked = rankPeople(messages, own, now);
+  const ranked = input.ranking ?? rankPeople(messages, own, now);
   const index = ranked.findIndex((r) => r.email === email);
 
   return {

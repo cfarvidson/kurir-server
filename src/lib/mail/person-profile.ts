@@ -1,13 +1,19 @@
 import { db } from "@/lib/db";
 import {
   computePersonStats,
+  rankPeople,
   type PersonStats,
+  type RankedPerson,
 } from "@/lib/mail/person-stats";
 import {
   mergeContactDetails,
   type MergedProfileDetails,
+} from "@/lib/mail/person-details";
+import {
+  mergeSignatureDetails,
+  type SignatureDetails,
 } from "@/lib/mail/signature-extract";
-import { getOwnAddresses } from "@/lib/mail/user-emails";
+import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
 
 /**
  * The person profile served to web and mobile (kurir-ios#116): contact
@@ -33,6 +39,44 @@ export function isValidTimeZone(tz: string | null | undefined): tz is string {
   }
 }
 
+const RANK_COLUMNS = {
+  fromAddress: true,
+  toAddresses: true,
+  ccAddresses: true,
+  receivedAt: true,
+  messageId: true,
+  inReplyTo: true,
+} as const;
+
+/**
+ * Rank position needs every counterpart, i.e. a pass over the whole
+ * mailbox. That pass is cached per user for a minute so opening threads in
+ * a row does not re-read the table each time; a minute of decay is
+ * invisible in the score. Per process; the next card materialises this.
+ */
+export const RANKING_CACHE_MS = 60_000;
+const rankingCache = new Map<string, { at: number; ranked: RankedPerson[] }>();
+
+export function resetRankingCache(): void {
+  rankingCache.clear();
+}
+
+async function rankingForUser(
+  userId: string,
+  own: OwnAddresses,
+  now: Date,
+): Promise<RankedPerson[]> {
+  const hit = rankingCache.get(userId);
+  if (hit && now.getTime() - hit.at < RANKING_CACHE_MS) return hit.ranked;
+  const rows = await db.message.findMany({
+    where: { userId, isDraft: false },
+    select: RANK_COLUMNS,
+  });
+  const ranked = rankPeople(rows, own, now);
+  rankingCache.set(userId, { at: now.getTime(), ranked });
+  return ranked;
+}
+
 export async function getPersonProfile(
   userId: string,
   rawEmail: string,
@@ -40,10 +84,12 @@ export async function getPersonProfile(
 ): Promise<PersonProfile> {
   const email = rawEmail.trim().toLowerCase();
   const now = options.now ?? new Date();
+  const variants = [...new Set([rawEmail.trim(), email])];
 
-  const [sender, linked, user, own, rows] = await Promise.all([
-    // Senders are per connection; prefer the row that has been scanned.
-    db.sender.findFirst({
+  const [senders, linked, user, own, involved] = await Promise.all([
+    // Senders are per connection: fold every row's details, scanned-newest
+    // first, so a phone stored on a sibling connection is not lost.
+    db.sender.findMany({
       where: { userId, email: { equals: email, mode: "insensitive" } },
       select: {
         displayName: true,
@@ -60,18 +106,22 @@ export async function getPersonProfile(
     }),
     db.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
     getOwnAddresses(userId),
+    // Everything the person is on: enough for counts, medians, histogram.
     db.message.findMany({
-      where: { userId, isDraft: false },
-      select: {
-        fromAddress: true,
-        toAddresses: true,
-        ccAddresses: true,
-        receivedAt: true,
-        messageId: true,
-        inReplyTo: true,
+      where: {
+        userId,
+        isDraft: false,
+        OR: [
+          { fromAddress: { equals: email, mode: "insensitive" } },
+          { toAddresses: { hasSome: variants } },
+          { ccAddresses: { hasSome: variants } },
+        ],
       },
+      select: RANK_COLUMNS,
     }),
   ]);
+
+  const ranking = await rankingForUser(userId, own, now);
 
   const timeZone = isValidTimeZone(options.timeZone)
     ? options.timeZone
@@ -79,26 +129,37 @@ export async function getPersonProfile(
       ? user.timezone
       : "UTC";
 
+  let signature: SignatureDetails = { phones: [] };
+  for (const sender of [...senders].reverse()) {
+    signature = mergeSignatureDetails(signature, {
+      phones: sender.signaturePhones,
+      title: sender.signatureTitle ?? undefined,
+      company: sender.signatureCompany ?? undefined,
+    });
+  }
   const details = mergeContactDetails(
     linked ? { name: linked.contact.name, phones: [] } : null,
-    {
-      phones: sender?.signaturePhones ?? [],
-      title: sender?.signatureTitle ?? undefined,
-      company: sender?.signatureCompany ?? undefined,
-    },
+    signature,
   );
 
-  const stats = computePersonStats({ messages: rows, email, own, now, timeZone });
+  const stats = computePersonStats({
+    messages: involved,
+    email,
+    own,
+    now,
+    timeZone,
+    ranking,
+  });
 
   return {
     email,
     displayName:
       details.name?.value ||
-      sender?.displayName ||
+      senders.find((s) => s.displayName)?.displayName ||
       email.split("@")[0] ||
       email,
     ...details,
-    signatureExtractedAt: sender?.signatureExtractedAt ?? null,
+    signatureExtractedAt: senders[0]?.signatureExtractedAt ?? null,
     timeZone,
     stats,
   };

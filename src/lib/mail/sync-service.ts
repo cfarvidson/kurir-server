@@ -804,9 +804,11 @@ export async function processMessage(
   });
 
   // Signature details for the person pane (kurir-ios#116): from other
-  // people's bodies only, never the user's own sent copies. Never fails sync.
-  if (parsed.text && !(own && isOwnAddress(fromAddress, own))) {
-    await recordSenderSignature(sender, parsed.text);
+  // people's bodies only, never the user's own sent copies. Without an own
+  // address list only inbox mail qualifies. Never fails sync.
+  const fromSomeoneElse = own ? !isOwnAddress(fromAddress, own) : isInbox;
+  if (parsed.text && fromSomeoneElse) {
+    await recordSenderSignature(sender, parsed.text, message.receivedAt);
   }
 
   // Auto-cancel/clear follow-up reminders when an incoming reply arrives

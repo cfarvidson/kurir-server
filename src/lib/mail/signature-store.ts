@@ -16,6 +16,10 @@ import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
  *   (`signatureExtractedAt IS NULL`) over their most recent bodies, in small
  *   batches. `kickSignatureBackfill` starts it once per process per user,
  *   detached from the sync that triggered it.
+ *
+ * `signatureExtractedAt` is the `receivedAt` of the newest body scanned so
+ * far (null = never scanned). Sync walks folders newest-first, so a body
+ * older than that stamp only fills gaps; a newer body's values win.
  */
 
 interface SenderSignatureRow {
@@ -23,9 +27,10 @@ interface SenderSignatureRow {
   signaturePhones: string[];
   signatureTitle: string | null;
   signatureCompany: string | null;
+  signatureExtractedAt: Date | null;
 }
 
-function stored(sender: SenderSignatureRow): SignatureDetails {
+export function signatureDetailsOf(sender: SenderSignatureRow): SignatureDetails {
   return {
     phones: sender.signaturePhones,
     title: sender.signatureTitle ?? undefined,
@@ -33,18 +38,38 @@ function stored(sender: SenderSignatureRow): SignatureDetails {
   };
 }
 
-async function saveMerged(
+/**
+ * Fold one body's extraction into the stored details, honouring the
+ * newest-wins rule via the stored stamp. Pure; returns what to persist.
+ */
+export function foldSignature(
+  sender: SenderSignatureRow,
+  extracted: SignatureDetails,
+  receivedAt: Date,
+): { details: SignatureDetails; extractedAt: Date } {
+  const existing = signatureDetailsOf(sender);
+  const stamp = sender.signatureExtractedAt;
+  const newer = !stamp || receivedAt.getTime() >= stamp.getTime();
+  return {
+    details: newer
+      ? mergeSignatureDetails(existing, extracted)
+      : mergeSignatureDetails(extracted, existing),
+    extractedAt: newer ? receivedAt : stamp,
+  };
+}
+
+async function save(
   senderId: string,
-  merged: SignatureDetails,
-  now: Date,
+  details: SignatureDetails,
+  extractedAt: Date,
 ): Promise<void> {
   await db.sender.update({
     where: { id: senderId },
     data: {
-      signaturePhones: merged.phones,
-      signatureTitle: merged.title ?? null,
-      signatureCompany: merged.company ?? null,
-      signatureExtractedAt: now,
+      signaturePhones: details.phones,
+      signatureTitle: details.title ?? null,
+      signatureCompany: details.company ?? null,
+      signatureExtractedAt: extractedAt,
     },
   });
 }
@@ -53,12 +78,11 @@ async function saveMerged(
 export async function recordSenderSignature(
   sender: SenderSignatureRow,
   bodyText: string,
-  now: Date = new Date(),
+  receivedAt: Date,
 ): Promise<void> {
   try {
-    const extracted = extractSignature(bodyText);
-    const merged = mergeSignatureDetails(stored(sender), extracted);
-    await saveMerged(sender.id, merged, now);
+    const folded = foldSignature(sender, extractSignature(bodyText), receivedAt);
+    await save(sender.id, folded.details, folded.extractedAt);
   } catch (err) {
     console.error(`[signature] sender ${sender.id}: extraction failed`, err);
   }
@@ -69,7 +93,6 @@ export interface BackfillOptions {
   messagesPerSender?: number;
   /** Pause between batches so a sync running alongside keeps the DB. */
   pauseMs?: number;
-  now?: () => Date;
 }
 
 /** Scan every unprocessed sender for `userId`. Returns senders processed. */
@@ -77,12 +100,7 @@ export async function backfillSignatures(
   userId: string,
   options: BackfillOptions = {},
 ): Promise<number> {
-  const {
-    batchSize = 50,
-    messagesPerSender = 5,
-    pauseMs = 50,
-    now = () => new Date(),
-  } = options;
+  const { batchSize = 50, messagesPerSender = 5, pauseMs = 50 } = options;
   const own = await getOwnAddresses(userId);
   let processed = 0;
 
@@ -95,6 +113,7 @@ export async function backfillSignatures(
         signaturePhones: true,
         signatureTitle: true,
         signatureCompany: true,
+        signatureExtractedAt: true,
       },
       orderBy: [{ messageCount: "desc" }, { id: "asc" }],
       take: batchSize,
@@ -102,29 +121,24 @@ export async function backfillSignatures(
     if (senders.length === 0) break;
 
     for (const sender of senders) {
-      const stamp = now();
       if (isOwnAddress(sender.email, own)) {
         // Mark as scanned so it never comes back; never profile the user.
-        await saveMerged(sender.id, stored(sender), stamp);
+        await save(sender.id, signatureDetailsOf(sender), new Date());
         processed++;
         continue;
       }
       const bodies = await db.message.findMany({
-        where: {
-          userId,
-          senderId: sender.id,
-          textBody: { not: null },
-        },
-        select: { textBody: true },
+        where: { userId, senderId: sender.id, textBody: { not: null } },
+        select: { textBody: true, receivedAt: true },
         orderBy: { receivedAt: "desc" },
         take: messagesPerSender,
       });
       // Oldest first so the newest mail's values win in the merge.
-      let merged = stored(sender);
-      for (const body of bodies.reverse()) {
-        merged = mergeSignatureDetails(merged, extractSignature(body.textBody));
+      let details = signatureDetailsOf(sender);
+      for (const body of [...bodies].reverse()) {
+        details = mergeSignatureDetails(details, extractSignature(body.textBody));
       }
-      await saveMerged(sender.id, merged, stamp);
+      await save(sender.id, details, bodies[0]?.receivedAt ?? new Date());
       processed++;
     }
 
