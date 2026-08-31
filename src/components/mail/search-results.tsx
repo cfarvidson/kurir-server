@@ -13,10 +13,13 @@ import {
   searchContacts,
   type ContactSearchResult,
 } from "@/lib/mail/search-contacts";
+import { searchFiles } from "@/lib/mail/search-files";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
+import { SearchFilesGroup } from "@/components/mail/search-files-group";
 import {
   listLabelForSearchHit,
+  MESSAGE_SEARCH_MIN_LENGTH,
   type MailListId,
 } from "@/lib/mail/list-contract";
 
@@ -69,6 +72,10 @@ interface SearchResultsProps {
   list?: MailListId;
 }
 
+/**
+ * People / Messages / Files (kurir-ios#117). People answer from the first
+ * character, ordered by Rank; message and file hits need two characters.
+ */
 export async function SearchResults({
   userId,
   query,
@@ -82,17 +89,23 @@ export async function SearchResults({
   showUnarchiveAction,
   list,
 }: SearchResultsProps) {
-  const [messages, contacts] = await Promise.all([
-    searchMessages(userId, query, categoryFilter),
+  const fullSearch = query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
+  const [messages, contacts, files] = await Promise.all([
+    fullSearch ? searchMessages(userId, query, categoryFilter) : [],
     searchContacts(userId, query),
+    fullSearch ? searchFiles(userId, query) : [],
   ]);
 
-  if (messages.length === 0 && contacts.length === 0) {
+  if (messages.length === 0 && contacts.length === 0 && files.length === 0) {
     return (
       <EmptyState
         icon={emptyIcon || <BookUser />}
-        title="No results found"
-        description={`No messages or contacts match “${query}”`}
+        title={fullSearch ? "No results found" : "Keep typing"}
+        description={
+          fullSearch
+            ? `No people, messages or files match “${query}”`
+            : `No people match “${query}”; messages and files search from two characters`
+        }
       />
     );
   }
@@ -135,6 +148,9 @@ export async function SearchResults({
           />
         </div>
       )}
+
+      {/* File results */}
+      {files.length > 0 && <SearchFilesGroup files={files} />}
     </div>
   );
 }
