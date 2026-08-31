@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { collapseToThreads, getThreadCounts } from "@/lib/mail/threads";
 import { getPersonProfile } from "@/lib/mail/person-profile";
+import { loadPersonNetwork } from "@/lib/mail/person-network";
+import { getOwnAddresses } from "@/lib/mail/user-emails";
 
 export interface ContactContextOptions {
   /**
@@ -53,7 +55,7 @@ export async function getContactContext(
   options: ContactContextOptions = {},
 ) {
   const limit = CONTACT_CONTEXT_THREAD_LIMIT;
-  const [sender, dateRange, recentMessages, profile] = await Promise.all([
+  const [sender, dateRange, recentMessages, profile, network] = await Promise.all([
     db.sender.findFirst({
       where: { userId, email },
     }),
@@ -83,6 +85,9 @@ export async function getContactContext(
     // Signature details, statistics and Rank (kurir-ios#116); the same
     // profile /api/contacts/profile serves to mobile.
     getPersonProfile(userId, email, { timeZone: options.tz }),
+    // Network (kurir-ios#117): shared-thread and same-domain people by
+    // strength. The full list; the pane caps at NETWORK_LIMIT with Show all.
+    getOwnAddresses(userId).then((own) => loadPersonNetwork(userId, email, own)),
   ]);
 
   const collapsed = collapseToThreads(recentMessages);
@@ -92,6 +97,7 @@ export async function getContactContext(
   return {
     sender,
     profile,
+    network,
     firstEmailAt: dateRange._min.receivedAt,
     lastEmailAt: dateRange._max.receivedAt,
     recentThreads: threads.map((t) => ({

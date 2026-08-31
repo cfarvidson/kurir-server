@@ -40,5 +40,7 @@ export async function GET(request: NextRequest) {
     recentThreads: context.recentThreads,
     // Signature details, stats and Rank (kurir-ios#116)
     profile: context.profile,
+    // Network by strength (kurir-ios#117)
+    network: context.network,
   });
 }
