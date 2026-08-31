@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.55",
+    "date": "2026-08-31",
+    "changes": [
+      "Person pane is a persistent right column that follows the focused message, with search inside the person's conversations",
+      "Person profile with phone, title, and company lifted from signatures, plus email statistics and Rank",
+      "Network with strength replaces related senders; people in search and compose are ordered by Rank; search gains a Files group"
+    ]
+  },
+  {
     "version": "2026.54",
     "date": "2026-08-31",
     "changes": [

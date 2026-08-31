@@ -4,6 +4,33 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.55] - 2026-08-31
+
+### Added
+
+- The person pane is a persistent right column on wide windows that
+  follows the focused message in every list and in search; with a thread
+  open it shows the counterpart and folds the old contact column in. A
+  search field inside the pane filters that person's conversations across
+  all lists, including Archive (#115)
+- Person profile built from the mail itself: phone numbers, title, and
+  company lifted from signatures (a Contact record's own values win),
+  sent/received counts, first and last contact, median response time in
+  both directions, a time-of-day histogram, and Rank, a recency-weighted
+  volume score with the person's position among everyone you mail (#116)
+- Rank everywhere: Related senders becomes Network, sorted by strength
+  with the number of shared threads; People in search are ordered by Rank
+  and appear on the first typed character; search gains a Files group;
+  compose suggestions draw from every address ever seen in From/To/Cc/Bcc,
+  ordered by Rank, with domain and company typeahead (#117)
+
+### Changed
+
+- Rank is materialised per user in a `PersonRank` table, recomputed after
+  each completed sync (`pnpm recompute-rank` runs it on demand); signature
+  details are extracted during sync and backfilled once for existing mail
+  (`pnpm backfill-signatures`)
+
 ## [v2026.54] - 2026-08-31
 
 ### Fixed
