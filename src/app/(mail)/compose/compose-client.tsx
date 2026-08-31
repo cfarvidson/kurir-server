@@ -54,6 +54,8 @@ interface ContactSuggestion {
   id: string;
   email: string;
   displayName: string | null;
+  /** Set when the query hit the domain or company, not the person (kurir-ios#117). */
+  domainHint?: string | null;
 }
 
 function useContactSearch(query: string) {
@@ -928,7 +930,8 @@ export function ComposeClientPage({
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          {contact.displayName ? (
+                          {contact.displayName &&
+                          contact.displayName !== contact.email ? (
                             <>
                               <div className="truncate font-medium">
                                 {contact.displayName}
@@ -941,6 +944,11 @@ export function ComposeClientPage({
                             <div className="truncate">{contact.email}</div>
                           )}
                         </div>
+                        {contact.domainHint && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            at {contact.domainHint}
+                          </span>
+                        )}
                         <BookUser className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                       </button>
                     ))

@@ -1,106 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { getRequestUserId } from "@/lib/mobile/auth";
+import { findPeople } from "@/lib/mail/people-search";
 
+/** Suggestions per request (compose dropdown, contact link dialog). */
+export const CONTACT_SUGGESTION_LIMIT = 8;
+
+/**
+ * GET /api/contacts/search?q=<text>
+ *
+ * Recipient autosuggest (kurir-ios#117): Contact records merged with every
+ * address the user has exchanged mail with (From/To/Cc/Bcc, from the
+ * materialised Rank), ordered by Rank, own addresses excluded. A query
+ * without "@" that starts a domain label or a signature company returns
+ * the top people at that domain with `domainHint` set ("at tv4.se").
+ * Session cookie (web) or bearer token (mobile).
+ */
 export async function GET(request: NextRequest) {
-  // Session cookie (web) or bearer token (mobile)
   const userId = await getRequestUserId(request);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const q = request.nextUrl.searchParams.get("q")?.trim() || "";
-
   if (q.length < 1) {
     return NextResponse.json([]);
   }
 
-  // Exclude the user's own email addresses from contact suggestions
-  const userConnections = await db.emailConnection.findMany({
-    where: { userId },
-    select: { email: true },
-  });
-  const userEmails = new Set(userConnections.map((c) => c.email.toLowerCase()));
-
-  // 1. Search Contact records (prioritized)
-  const contactResults = await db.contact.findMany({
-    where: {
-      userId,
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { emails: { some: { email: { contains: q, mode: "insensitive" } } } },
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      emails: {
-        select: { email: true, label: true, isPrimary: true },
-        orderBy: [{ isPrimary: "desc" }, { email: "asc" }],
-      },
-    },
-    orderBy: { name: "asc" },
-    take: 8,
-  });
-
-  // Filter out contacts where ALL emails are the user's own
-  const contacts = contactResults
-    .filter((c) => c.emails.some((e) => !userEmails.has(e.email.toLowerCase())))
-    .map((c) => {
-      // Remove user's own emails from the list
-      const filteredEmails = c.emails.filter(
-        (e) => !userEmails.has(e.email.toLowerCase()),
-      );
-      const primaryEmail =
-        filteredEmails.find((e) => e.isPrimary)?.email ??
-        filteredEmails[0]?.email ??
-        "";
-      return {
-        id: c.id,
-        name: c.name,
-        email: primaryEmail,
-        displayName: c.name,
-        emails: filteredEmails,
-      };
-    });
-
-  // Collect all emails already covered by contacts
-  const contactEmails = new Set(
-    contacts.flatMap((c) => c.emails.map((e) => e.email.toLowerCase())),
+  const people = await findPeople(userId, q, CONTACT_SUGGESTION_LIMIT);
+  return NextResponse.json(
+    people.map((p) => ({
+      // Contact ids link/merge in the contact UI; the `sender-` prefix marks
+      // mail-derived people it must skip.
+      id: p.contactId ?? `sender-${p.email}`,
+      name: p.displayName || p.email,
+      email: p.email,
+      displayName: p.displayName ?? p.email,
+      emails: p.emails.map((email, i) => ({
+        email,
+        label: "personal",
+        isPrimary: i === 0,
+      })),
+      domainHint: p.domainHint,
+      score: p.score,
+    })),
   );
-
-  // 2. Search approved Senders NOT linked to any ContactEmail (unmigrated)
-  const remaining = 8 - contacts.length;
-  let senderResults: typeof contacts = [];
-
-  if (remaining > 0) {
-    const unmigrated = await db.sender.findMany({
-      where: {
-        userId,
-        status: "APPROVED",
-        NOT: { email: { in: [...userEmails] } },
-        contactEmails: { none: {} },
-        OR: [
-          { email: { contains: q, mode: "insensitive" } },
-          { displayName: { contains: q, mode: "insensitive" } },
-        ],
-      },
-      select: { id: true, email: true, displayName: true },
-      orderBy: [{ displayName: "asc" }, { email: "asc" }],
-      take: remaining,
-    });
-
-    // Deduplicate: skip senders whose email already appears in contact results
-    senderResults = unmigrated
-      .filter((s) => !contactEmails.has(s.email.toLowerCase()))
-      .map((s) => ({
-        id: `sender-${s.id}`,
-        name: s.displayName || s.email,
-        email: s.email,
-        displayName: s.displayName ?? s.email,
-        emails: [{ email: s.email, label: "personal", isPrimary: true }],
-      }));
-  }
-
-  return NextResponse.json([...contacts, ...senderResults].slice(0, 8));
 }
