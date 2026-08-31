@@ -33,5 +33,7 @@ export async function GET(request: NextRequest) {
     firstEmailAt: context.firstEmailAt,
     lastEmailAt: context.lastEmailAt,
     recentThreads: context.recentThreads,
+    // Signature details, stats and Rank (kurir-ios#116)
+    profile: context.profile,
   });
 }

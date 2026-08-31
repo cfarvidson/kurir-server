@@ -1,7 +1,6 @@
-import { Phone, Briefcase, Building2 } from "lucide-react";
-import type { PersonProfile } from "@/lib/mail/person-profile";
-import type { PersonStats } from "@/lib/mail/person-stats";
-import type { SourcedValue } from "@/lib/mail/person-details";
+"use client";
+
+import type { PersonRank } from "@/lib/mail/person-stats";
 import {
   formatDate,
   formatRank,
@@ -10,77 +9,19 @@ import {
 } from "@/lib/mail/person-format";
 import { cn } from "@/lib/utils";
 
-function SourceTag({ source }: { source: SourcedValue["source"] }) {
-  if (source !== "signature") return null;
-  return (
-    <span className="eyebrow ml-1.5 text-[9px] text-muted-foreground/80">
-      from signature
-    </span>
-  );
-}
-
-function DetailRow({
-  icon: Icon,
-  item,
-  href,
-}: {
-  icon: typeof Phone;
-  item: SourcedValue;
-  href?: string;
-}) {
-  const body = (
-    <span className="truncate">
-      {item.value}
-      <SourceTag source={item.source} />
-    </span>
-  );
-  return (
-    <div className="flex min-w-0 items-center gap-2 text-xs">
-      <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
-      {href ? (
-        <a
-          href={href}
-          className="min-w-0 truncate text-foreground transition-colors hover:text-primary"
-        >
-          {body}
-        </a>
-      ) : (
-        <span className="min-w-0 truncate text-foreground">{body}</span>
-      )}
-    </div>
-  );
-}
-
 /**
- * Contact details at the top of the person pane: phones, title, company.
- * Values from a Contact record show plain; values lifted from a signature
- * carry a "from signature" tag. Renders nothing when there is nothing.
+ * `PersonStats` as it arrives over JSON (dates as ISO strings) or straight
+ * from `getContactContext` in a server component (Date objects).
  */
-export function PersonProfileHeader({
-  profile,
-  className,
-}: {
-  profile: Pick<PersonProfile, "phones" | "title" | "company">;
-  className?: string;
-}) {
-  const hasAny =
-    profile.phones.length > 0 || profile.title !== null || profile.company !== null;
-  if (!hasAny) return null;
-
-  return (
-    <div className={cn("space-y-1", className)} data-testid="person-profile-header">
-      {profile.title && <DetailRow icon={Briefcase} item={profile.title} />}
-      {profile.company && <DetailRow icon={Building2} item={profile.company} />}
-      {profile.phones.map((phone, index) => (
-        <DetailRow
-          key={`${index}-${phone.value}`}
-          icon={Phone}
-          item={phone}
-          href={`tel:${phone.value.replace(/[^\d+]/g, "")}`}
-        />
-      ))}
-    </div>
-  );
+export interface PersonStatsData {
+  sentToThem: number;
+  receivedFromThem: number;
+  firstAt: Date | string | null;
+  lastAt: Date | string | null;
+  medianTheirReplySeconds: number | null;
+  medianYourReplySeconds: number | null;
+  hourHistogram: number[];
+  rank: PersonRank;
 }
 
 function StatCell({ label, value }: { label: string; value: string }) {
@@ -95,14 +36,15 @@ function StatCell({ label, value }: { label: string; value: string }) {
 /**
  * The Stats section: counts, first/last contact, median response times,
  * a 24-bar arrival-hour histogram, and Rank. Bars are plain divs on the
- * primary token; no chart library.
+ * primary token; no chart library. Client component fed by the JSON of
+ * `getContactContext`.
  */
 export function PersonStatsSection({
   stats,
   timeZone,
   className,
 }: {
-  stats: PersonStats;
+  stats: PersonStatsData;
   timeZone: string;
   className?: string;
 }) {
@@ -123,10 +65,10 @@ export function PersonStatsSection({
         <StatCell label="Sent to them" value={String(stats.sentToThem)} />
         <StatCell label="Received" value={String(stats.receivedFromThem)} />
         {stats.firstAt && (
-          <StatCell label="First contact" value={formatDate(stats.firstAt)} />
+          <StatCell label="First contact" value={formatDate(new Date(stats.firstAt))} />
         )}
         {stats.lastAt && (
-          <StatCell label="Last contact" value={formatDate(stats.lastAt)} />
+          <StatCell label="Last contact" value={formatDate(new Date(stats.lastAt))} />
         )}
         {theirs && <StatCell label="They reply in" value={theirs} />}
         {yours && <StatCell label="You reply in" value={yours} />}
