@@ -201,6 +201,17 @@ export function searchCategoryForScope(
   return null;
 }
 
+/**
+ * Search opens on the first character (People answer at once, kurir-ios#117);
+ * message and file hits, and the filter chips, need two.
+ */
+export const SEARCH_MIN_LENGTH = 1;
+export const MESSAGE_SEARCH_MIN_LENGTH = 2;
+
+export function isSearchQuery(q: string | null | undefined): q is string {
+  return !!q && q.trim().length >= SEARCH_MIN_LENGTH;
+}
+
 export type MailSearchQuery = {
   q?: string;
   scope?: string;

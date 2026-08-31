@@ -12,6 +12,7 @@ import {
   emptyCopy,
   searchActionProps,
   type MailSearchQuery,
+  isSearchQuery,
 } from "@/lib/mail/list-contract";
 import { searchFilterSql } from "@/lib/mail/search";
 
@@ -27,7 +28,7 @@ export default async function ImboxPage({
   }
 
   const params = await searchParams;
-  const isSearching = !!(params.q && params.q.length >= 2);
+  const isSearching = isSearchQuery(params.q);
 
   return (
     <div className="flex h-full flex-col">

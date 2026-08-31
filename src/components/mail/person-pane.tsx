@@ -19,6 +19,11 @@ import {
   PERSON_PANE_DEBOUNCE_MS,
   showsPersonPane,
 } from "@/lib/mail/person-pane";
+import {
+  NETWORK_LIMIT,
+  networkStrengthLabel,
+  type NetworkNeighbor,
+} from "@/lib/mail/person-network-format";
 import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { CategoryPicker } from "@/components/mail/category-picker";
 import {
@@ -60,6 +65,8 @@ interface PaneData {
     timeZone: string;
     stats: PersonStatsData;
   };
+  /** Shared-thread and same-domain people by strength (kurir-ios#117). */
+  network: NetworkNeighbor[];
 }
 
 function timeAgo(iso: string): string {
@@ -75,6 +82,60 @@ function timeAgo(iso: string): string {
 }
 
 /**
+ * Network (kurir-ios#117): people on shared threads and on the same domain,
+ * strongest first. Choosing one switches the pane to that person.
+ */
+function NetworkSection({
+  network,
+  showAll,
+  onToggleShowAll,
+  onSelect,
+}: {
+  network: NetworkNeighbor[];
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  onSelect: (neighbor: NetworkNeighbor) => void;
+}) {
+  const shown = showAll ? network : network.slice(0, NETWORK_LIMIT);
+  const hidden = network.length - NETWORK_LIMIT;
+  return (
+    <div className="mt-4">
+      <p className="eyebrow mb-2 text-muted-foreground">Network</p>
+      <div className="space-y-0.5">
+        {shown.map((neighbor) => (
+          <button
+            key={neighbor.email}
+            type="button"
+            onClick={() => onSelect(neighbor)}
+            className="block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+          >
+            <p className="truncate text-xs font-medium">
+              {neighbor.displayName || neighbor.email.split("@")[0]}
+            </p>
+            <p className="truncate text-[10px] text-muted-foreground">
+              <span className="tabular-nums">
+                {networkStrengthLabel(neighbor)}
+              </span>
+              {" · "}
+              {neighbor.email}
+            </p>
+          </button>
+        ))}
+      </div>
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={onToggleShowAll}
+          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary transition-colors hover:text-primary/80"
+        >
+          {showAll ? "Show fewer" : `Show all (${network.length})`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * Xobni-style persistent person column (kurir-ios#115). Lives in the mail
  * layout beside the page; follows whatever row is focused or thread is
  * open. Loads are debounced and every response is checked against the
@@ -83,12 +144,14 @@ function timeAgo(iso: string): string {
 export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   const pathname = usePathname();
   const email = usePersonPaneStore((s) => s.email);
+  const setEmail = usePersonPaneStore((s) => s.setEmail);
   const collapsed = usePersonPaneStore((s) => s.collapsed);
   const setCollapsed = usePersonPaneStore((s) => s.setCollapsed);
   const setOwnEmails = usePersonPaneStore((s) => s.setOwnEmails);
   const hydrateCollapsed = usePersonPaneStore((s) => s.hydrateCollapsed);
 
   const [query, setQuery] = useState("");
+  const [showAllNetwork, setShowAllNetwork] = useState(false);
   const [data, setData] = useState<PaneData | null>(null);
   const [loading, setLoading] = useState(false);
   // The aside is display:none below lg; do not fetch for a phone.
@@ -111,9 +174,10 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  // A new person starts from a blank filter.
+  // A new person starts from a blank filter and a capped Network.
   useEffect(() => {
     setQuery("");
+    setShowAllNetwork(false);
   }, [email]);
 
   const visible = showsPersonPane(pathname);
@@ -268,6 +332,15 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                   timeZone={showing.profile.timeZone}
                   className="mt-4"
                 />
+
+                {showing.network.length > 0 && (
+                  <NetworkSection
+                    network={showing.network}
+                    showAll={showAllNetwork}
+                    onToggleShowAll={() => setShowAllNetwork((v) => !v)}
+                    onSelect={(neighbor) => setEmail(neighbor.email)}
+                  />
+                )}
 
                 <div className="mt-4">
                   <p className="eyebrow mb-2 text-muted-foreground">

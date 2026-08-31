@@ -23,6 +23,7 @@
     "migrate:passkey-auth": "tsx scripts/migrate-to-passkey-auth.ts",
     "migrate-contacts": "tsx scripts/migrate-senders-to-contacts.ts",
     "backfill-signatures": "tsx scripts/backfill-signatures.ts",
+    "recompute-rank": "tsx scripts/recompute-rank.ts",
     "backup": "sh scripts/kurir-backup.sh",
     "restore": "sh scripts/kurir-restore.sh",
     "site:dev": "npm --prefix site run dev",

@@ -50,13 +50,36 @@ collected in one pass over all mail: a message from `O` credits every
 distinct non-own To/Cc address; any other message credits its sender only.
 The pane shows it as "#3 of the 41 people you mail most".
 
-On the server that pass reads every message row of the user, so the ranking
-is cached per user for one minute in process (`RANKING_CACHE_MS`); the
-per-person numbers are computed from the person's own rows on every call.
-The next card, which needs scores for sorting, should materialise them.
+### Materialised (kurir-ios#117)
 
-Rank is the input to network sorting and ranked search (the next card), so
-it is defined once here and mirrored, not re-derived, on the client.
+That pass reads every message row of the user, so its output is stored in
+the `PersonRank` table (migration `0023_person_rank.sql`): one row per
+address with `email`, `domain`, the newest From `displayName` seen,
+`score` and `computedAt`. Rows are everyone `rankPeople` credits plus
+every other non-own address that ever appeared in From/To/Cc/Bcc of the
+user's mail (someone Cc'd on a received message, a Bcc of own mail) at
+score 0, so compose and search can offer an address that was only ever
+copied. A `Sender` row exists for From addresses only, which is why the
+score is not a Sender column.
+
+`src/lib/mail/person-rank-store.ts` rewrites the user's rows in one
+transaction (`recomputePersonRank`). It runs detached after every completed
+sync (`kickRankRecompute`: one run per user at a time, a kick that lands
+mid-run queues one more) and on demand with
+`pnpm recompute-rank <email>|--all`. Position is `ORDER BY score DESC, email
+ASC` among the rows with a score above 0 ("the people you mail"); `of` is
+their count, and a score-0 row has no position. The profile reads the table
+(`readPersonRank`); a user with no rows yet (first start after the upgrade)
+gets one live pass and a kick. The per-person counts, medians and histogram
+are still computed from the person's own rows on every call.
+
+On iOS/Mac the same pass fills the GRDB table `personRank(email, score,
+computedAt)` (`PersonRankStore`, migration v15) at the end of every
+completed sync; the pane, Network, search and compose read it.
+
+Rank is the input to Network sorting, ranked people search and compose
+autosuggest (see `docs/person-network.md`), so it is defined once here and
+mirrored, not re-derived, on the client.
 
 ## Signature extraction
 

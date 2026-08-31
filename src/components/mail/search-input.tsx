@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  SEARCH_MIN_LENGTH,
   SEARCHABLE_LIST_LABELS,
   searchQueryHref,
   type SearchCategory,
@@ -71,8 +72,12 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
     isTypingRef.current = true;
 
     if (timerRef.current) clearTimeout(timerRef.current);
+    // People answer from the first character (kurir-ios#117).
     timerRef.current = setTimeout(
-      () => replaceWith({ q: newValue.length >= 2 ? newValue : null }),
+      () =>
+        replaceWith({
+          q: newValue.trim().length >= SEARCH_MIN_LENGTH ? newValue : null,
+        }),
       500,
     );
   };

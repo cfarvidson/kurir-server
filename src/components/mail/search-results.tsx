@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import {
   BookUser,
   ChevronRight,
   Inbox,
+  Loader2,
   Newspaper,
   Receipt,
 } from "lucide-react";
@@ -13,10 +15,13 @@ import {
   searchContacts,
   type ContactSearchResult,
 } from "@/lib/mail/search-contacts";
+import { searchFiles } from "@/lib/mail/search-files";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
+import { SearchFilesGroup } from "@/components/mail/search-files-group";
 import {
   listLabelForSearchHit,
+  MESSAGE_SEARCH_MIN_LENGTH,
   type MailListId,
 } from "@/lib/mail/list-contract";
 
@@ -69,37 +74,28 @@ interface SearchResultsProps {
   list?: MailListId;
 }
 
-export async function SearchResults({
-  userId,
-  query,
-  categoryFilter,
-  basePath,
-  emptyIcon,
-  showArchiveAction,
-  showSnoozeAction,
-  showSnoozedUntil,
-  showFollowUpAction,
-  showUnarchiveAction,
-  list,
-}: SearchResultsProps) {
-  const [messages, contacts] = await Promise.all([
-    searchMessages(userId, query, categoryFilter),
-    searchContacts(userId, query),
-  ]);
+/**
+ * People / Messages / Files (kurir-ios#117). People answer from the first
+ * character, ordered by Rank, and stream to the page first; message and
+ * file hits need two characters and arrive behind a Suspense boundary.
+ */
+export async function SearchResults(props: SearchResultsProps) {
+  const { userId, query } = props;
+  const fullSearch = query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
+  const contacts = await searchContacts(userId, query);
 
-  if (messages.length === 0 && contacts.length === 0) {
+  if (!fullSearch && contacts.length === 0) {
     return (
       <EmptyState
-        icon={emptyIcon || <BookUser />}
-        title="No results found"
-        description={`No messages or contacts match “${query}”`}
+        icon={props.emptyIcon || <BookUser />}
+        title="Keep typing"
+        description={`No people match “${query}”; messages and files search from two characters`}
       />
     );
   }
 
   return (
     <div>
-      {/* Contact results */}
       {contacts.length > 0 && (
         <div className="border-b px-4 py-3 md:px-6">
           <h3 className="eyebrow mb-1 text-muted-foreground">People</h3>
@@ -111,10 +107,57 @@ export async function SearchResults({
         </div>
       )}
 
-      {/* Message results */}
+      {fullSearch && (
+        <Suspense
+          fallback={
+            <div className="flex items-center gap-2 px-4 py-4 text-sm text-muted-foreground md:px-6">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Searching messages and files…
+            </div>
+          }
+        >
+          <MessageAndFileResults {...props} hasPeople={contacts.length > 0} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+async function MessageAndFileResults({
+  userId,
+  query,
+  categoryFilter,
+  basePath,
+  emptyIcon,
+  showArchiveAction,
+  showSnoozeAction,
+  showSnoozedUntil,
+  showFollowUpAction,
+  showUnarchiveAction,
+  list,
+  hasPeople,
+}: SearchResultsProps & { hasPeople: boolean }) {
+  const [messages, files] = await Promise.all([
+    searchMessages(userId, query, categoryFilter),
+    searchFiles(userId, query),
+  ]);
+
+  if (messages.length === 0 && files.length === 0) {
+    if (hasPeople) return null;
+    return (
+      <EmptyState
+        icon={emptyIcon || <BookUser />}
+        title="No results found"
+        description={`No people, messages or files match “${query}”`}
+      />
+    );
+  }
+
+  return (
+    <>
       {messages.length > 0 && (
         <div>
-          {contacts.length > 0 && (
+          {hasPeople && (
             <div className="px-4 pb-1 pt-3 md:px-6">
               <h3 className="eyebrow text-muted-foreground">Messages</h3>
             </div>
@@ -135,6 +178,8 @@ export async function SearchResults({
           />
         </div>
       )}
-    </div>
+
+      {files.length > 0 && <SearchFilesGroup files={files} />}
+    </>
   );
 }

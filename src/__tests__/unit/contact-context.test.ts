@@ -17,6 +17,17 @@ vi.mock("@/lib/mail/threads", () => ({
   getThreadCounts: vi.fn(async () => new Map()),
 }));
 
+// Network (kurir-ios#117) has its own module and tests.
+const loadPersonNetwork = vi.fn(async (..._args: unknown[]) => [
+  { email: "bea@x.y", displayName: "Bea", kind: "sharedThread", strength: 1, sharedThreads: 1 },
+]);
+vi.mock("@/lib/mail/person-network", () => ({
+  loadPersonNetwork: (...args: unknown[]) => loadPersonNetwork(...args),
+}));
+vi.mock("@/lib/mail/user-emails", () => ({
+  getOwnAddresses: vi.fn(async () => ({ emails: ["me@z"], domains: [] })),
+}));
+
 import {
   CONTACT_CONTEXT_THREAD_LIMIT,
   contactConversationWhere,
@@ -95,6 +106,16 @@ describe("getContactContext", () => {
     // collapseToThreads is mocked as identity, so ids are message ids here.
     expect(context.recentThreads.map((t) => t.id)).toEqual(["arch"]);
     expect(context.recentThreads[0].isArchived).toBe(true);
+  });
+
+  it("carries the person's Network, loaded with the user's own addresses", async () => {
+    await seed();
+    const context = await getContactContext("user-1", "ada@x.y");
+    expect(loadPersonNetwork).toHaveBeenCalledWith("user-1", "ada@x.y", {
+      emails: ["me@z"],
+      domains: [],
+    });
+    expect(context.network.map((n) => n.email)).toEqual(["bea@x.y"]);
   });
 
   it("queries without a text filter when q is omitted", async () => {

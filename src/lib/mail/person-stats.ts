@@ -107,6 +107,71 @@ export function rankPeople(
     .sort((a, b) => b.score - a.score || (a.email < b.email ? -1 : 1));
 }
 
+/** A message row as the materialised-rank pass reads it (kurir-ios#117). */
+export interface RankSourceMessage extends PersonStatsMessage {
+  /** Bcc of own mail: an address to suggest, never credited by the formula. */
+  bccAddresses?: string[];
+  fromName?: string | null;
+}
+
+/** One row of the materialised `PersonRank` table. */
+export interface PersonRankRow {
+  email: string;
+  domain: string;
+  displayName: string | null;
+  score: number;
+}
+
+export function domainOf(email: string): string {
+  const at = email.lastIndexOf("@");
+  return at >= 0 ? email.slice(at + 1) : "";
+}
+
+/**
+ * Everything the materialised rank stores: `rankPeople` for the scores,
+ * plus every other non-own address that ever appeared in From/To/Cc/Bcc
+ * of the user's mail (someone Cc'd on a received message, a Bcc of own
+ * mail) at score 0 so compose and search can still offer it, and the
+ * newest From name seen for each address. Sorted by score desc, email
+ * asc, which is the position order; only scored rows count as "people
+ * you mail" for the position.
+ */
+export function materialiseRank(
+  messages: RankSourceMessage[],
+  own: OwnAddresses,
+  now: Date,
+): PersonRankRow[] {
+  const scores = new Map<string, number>();
+  for (const { email, score } of rankPeople(messages, own, now)) {
+    scores.set(email, score);
+  }
+  const names = new Map<string, { name: string; at: number }>();
+  for (const m of messages) {
+    const from = norm(m.fromAddress);
+    if (from && !isOwnAddress(from, own)) {
+      const name = m.fromName?.trim();
+      const at = m.receivedAt.getTime();
+      if (name && (names.get(from)?.at ?? -Infinity) < at) {
+        names.set(from, { name, at });
+      }
+    }
+    for (const raw of [from, ...m.toAddresses, ...m.ccAddresses, ...(m.bccAddresses ?? [])]) {
+      const addr = norm(raw);
+      if (addr && addr.includes("@") && !isOwnAddress(addr, own) && !scores.has(addr)) {
+        scores.set(addr, 0);
+      }
+    }
+  }
+  return [...scores.entries()]
+    .map(([email, score]) => ({
+      email,
+      domain: domainOf(email),
+      displayName: names.get(email)?.name ?? null,
+      score,
+    }))
+    .sort((a, b) => b.score - a.score || (a.email < b.email ? -1 : 1));
+}
+
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -138,6 +203,8 @@ export function computePersonStats(input: {
    * `messages`, which is only correct if `messages` is the whole mailbox.
    */
   ranking?: RankedPerson[];
+  /** The person's materialised Rank (PersonRank table); wins over `ranking`. */
+  rank?: PersonRank;
 }): PersonStats {
   const { messages, own, now, timeZone } = input;
   const email = norm(input.email);
@@ -184,9 +251,6 @@ export function computePersonStats(input: {
     hourHistogram[localHour(m.receivedAt, timeZone)] += 1;
   }
 
-  const ranked = input.ranking ?? rankPeople(messages, own, now);
-  const index = ranked.findIndex((r) => r.email === email);
-
   return {
     sentToThem: toThem.length,
     receivedFromThem: fromThem.length,
@@ -195,10 +259,16 @@ export function computePersonStats(input: {
     medianTheirReplySeconds: median(theirReplies),
     medianYourReplySeconds: median(yourReplies),
     hourHistogram,
-    rank: {
-      score: index >= 0 ? ranked[index].score : 0,
-      position: index >= 0 ? index + 1 : null,
-      of: ranked.length,
-    },
+    rank: input.rank ?? rankOf(email, input.ranking ?? rankPeople(messages, own, now)),
+  };
+}
+
+/** Position of `email` (already normalised) in a full ranking. */
+export function rankOf(email: string, ranked: RankedPerson[]): PersonRank {
+  const index = ranked.findIndex((r) => r.email === email);
+  return {
+    score: index >= 0 ? ranked[index].score : 0,
+    position: index >= 0 ? index + 1 : null,
+    of: ranked.length,
   };
 }

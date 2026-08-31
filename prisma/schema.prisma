@@ -77,6 +77,7 @@ model User {
   calendarEventInstances CalendarEventInstance[]
   messageMeetings        MessageMeeting[]
   calendarTombstones     CalendarTombstone[]
+  personRanks            PersonRank[]
 
   draftGenerationCredential DraftGenerationCredential?
 }
@@ -303,6 +304,28 @@ enum SenderCategory {
   IMBOX // Normal approved sender
   FEED // Newsletter/subscription
   PAPER_TRAIL // Transactional (receipts, shipping)
+}
+
+// Materialised Rank (kurir-ios#117): one row per counterpart of the user,
+// i.e. every non-own address ever seen in From/To/Cc/Bcc of their mail, not
+// only senders (a Sender row exists for From addresses only). Recomputed for
+// the whole mailbox after each completed sync and by scripts/recompute-rank.ts
+// with the formula in src/lib/mail/person-stats.ts. Position = ORDER BY
+// score DESC, email ASC. Read by the person profile, the pane's Network,
+// ranked people search and compose autosuggest.
+model PersonRank {
+  userId      String
+  email       String // lower-cased
+  domain      String // part after @, lower-cased
+  displayName String? // newest From name seen for the address, if any
+  score       Float    @default(0)
+  computedAt  DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, email])
+  @@index([userId, score(sort: Desc)])
+  @@index([userId, domain])
 }
 
 model Sender {
