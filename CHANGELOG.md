@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.56] - 2026-08-31
+
+### Fixed
+
+- Paired with iOS: Send after Generate draft closes the composer and
+  drops the draft (kurir-ios#121)
+
 ## [v2026.55] - 2026-08-31
 
 ### Added

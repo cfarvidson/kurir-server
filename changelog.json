@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.56",
+    "date": "2026-08-31",
+    "changes": [
+      "Paired with iOS: Send after Generate draft closes the composer and drops the draft"
+    ]
+  },
+  {
     "version": "2026.55",
     "date": "2026-08-31",
     "changes": [
