@@ -13,6 +13,7 @@ vi.mock("@/lib/mail/threads", () => ({
 }));
 
 import {
+  CONTACT_CONTEXT_THREAD_LIMIT,
   contactConversationWhere,
   getContactContext,
 } from "@/lib/mail/contact-context";
@@ -98,7 +99,7 @@ describe("getContactContext", () => {
     expect(args.where).not.toHaveProperty("AND");
   });
 
-  it("caps the collapsed threads at the requested limit", async () => {
+  it("caps the collapsed threads at the pane limit", async () => {
     const db = await seed();
     vi.mocked(db.message.findMany).mockResolvedValue(
       Array.from({ length: 12 }, (_, i) => ({
@@ -115,8 +116,8 @@ describe("getContactContext", () => {
         sender: null,
       })) as never,
     );
-    const context = await getContactContext("user-1", "ada@x.y", { limit: 3 });
-    expect(context.recentThreads).toHaveLength(3);
+    const context = await getContactContext("user-1", "ada@x.y");
+    expect(context.recentThreads).toHaveLength(CONTACT_CONTEXT_THREAD_LIMIT);
     const args = vi.mocked(db.message.findMany).mock.calls[0][0]!;
     expect(args.take).toBeGreaterThanOrEqual(50);
   });

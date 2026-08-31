@@ -8,7 +8,7 @@ import { MessageRow, type MessageItem } from "@/components/mail/message-list";
 import { SelectionActionBar } from "@/components/mail/selection-action-bar";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
-import { PersonPaneFocusSync } from "@/components/mail/person-pane-focus-sync";
+import { PersonPaneFocusSync } from "@/components/mail/person-pane-bindings";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import { filterBlockedSenderRows } from "@/lib/mail/filter-blocked-senders";

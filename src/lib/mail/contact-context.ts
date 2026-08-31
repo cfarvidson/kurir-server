@@ -8,10 +8,9 @@ export interface ContactContextOptions {
    * searched, Archive included. Blank means the full history.
    */
   q?: string | null;
-  /** Threads to return; the pane shows more than the old thread column. */
-  limit?: number;
 }
 
+/** Conversations shown in the pane (the old thread column showed 5). */
 export const CONTACT_CONTEXT_THREAD_LIMIT = 8;
 
 /** Mail exchanged with `email` across all lists, optionally filtered by `q`. */
@@ -50,7 +49,7 @@ export async function getContactContext(
   email: string,
   options: ContactContextOptions = {},
 ) {
-  const limit = options.limit ?? CONTACT_CONTEXT_THREAD_LIMIT;
+  const limit = CONTACT_CONTEXT_THREAD_LIMIT;
   const [sender, dateRange, recentMessages] = await Promise.all([
     db.sender.findFirst({
       where: { userId, email },
@@ -101,7 +100,5 @@ export async function getContactContext(
     })),
   };
 }
-
-export type ContactContext = Awaited<ReturnType<typeof getContactContext>>;
 
 // getThreadRoute moved to @/lib/mail/route-helpers (client-safe)

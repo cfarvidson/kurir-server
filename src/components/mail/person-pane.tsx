@@ -13,7 +13,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import type { SenderCategory } from "@prisma/client";
+import type { SenderCategory, SenderStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import {
@@ -40,7 +40,7 @@ interface PaneData {
   sender: {
     id: string;
     displayName: string | null;
-    status: string;
+    status: SenderStatus;
     category: SenderCategory | null;
     messageCount: number;
   } | null;
@@ -81,15 +81,30 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   const collapsed = usePersonPaneStore((s) => s.collapsed);
   const setCollapsed = usePersonPaneStore((s) => s.setCollapsed);
   const setOwnEmails = usePersonPaneStore((s) => s.setOwnEmails);
+  const hydrateCollapsed = usePersonPaneStore((s) => s.hydrateCollapsed);
 
   const [query, setQuery] = useState("");
   const [data, setData] = useState<PaneData | null>(null);
   const [loading, setLoading] = useState(false);
+  // The aside is display:none below lg; do not fetch for a phone.
+  const [wide, setWide] = useState(false);
   const requestSeq = useRef(0);
 
   useEffect(() => {
     setOwnEmails(ownEmails);
   }, [ownEmails, setOwnEmails]);
+
+  useEffect(() => {
+    hydrateCollapsed();
+  }, [hydrateCollapsed]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setWide(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   // A new person starts from a blank filter.
   useEffect(() => {
@@ -97,14 +112,14 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   }, [email]);
 
   const visible = showsPersonPane(pathname);
-  const active = visible && !collapsed;
+  const active = visible && !collapsed && wide;
 
   useEffect(() => {
     if (!active || !email) return;
     const seq = ++requestSeq.current;
     const controller = new AbortController();
-    setLoading(true);
     const timer = window.setTimeout(async () => {
+      setLoading(true);
       try {
         const params = new URLSearchParams({ email });
         const q = query.trim();
@@ -182,7 +197,7 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           {/* Search inside the profile: conversations only, across all lists */}
-          <label className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+          <label className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
             <Search className="size-3.5 shrink-0 text-muted-foreground" />
             <input
               type="text"

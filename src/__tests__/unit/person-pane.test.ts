@@ -44,14 +44,22 @@ describe("showsPersonPane", () => {
       "/paper-trail",
       "/archive/m1",
       "/sent",
-      "/from/ada%40x.y",
+      "/snoozed",
     ]) {
       expect(showsPersonPane(path), path).toBe(true);
     }
   });
 
-  it("stays away from calendar, settings, screener and compose", () => {
-    for (const path of ["/calendar", "/settings", "/screener", "/compose", null]) {
+  it("stays away from pages with no focused row to follow", () => {
+    for (const path of [
+      "/calendar",
+      "/settings",
+      "/screener",
+      "/compose",
+      "/reply-later",
+      "/from/ada%40x.y",
+      null,
+    ]) {
       expect(showsPersonPane(path), String(path)).toBe(false);
     }
   });

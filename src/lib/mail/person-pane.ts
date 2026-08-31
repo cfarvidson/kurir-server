@@ -33,7 +33,11 @@ export function personEmailFor(
   return null;
 }
 
-/** Lists whose pages host the pane (list, search, and their thread pages). */
+/**
+ * Lists whose pages host the pane (list, search, and their thread pages).
+ * Only lists rendered through InfiniteMessageList / MessageList feed the
+ * store; a page without a feeder would show a stale person.
+ */
 const PANE_ROUTES = [
   "/imbox",
   "/feed",
@@ -42,8 +46,6 @@ const PANE_ROUTES = [
   "/sent",
   "/snoozed",
   "/follow-up",
-  "/reply-later",
-  "/from",
 ];
 
 export function showsPersonPane(pathname: string | null | undefined): boolean {

@@ -29,7 +29,7 @@ import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
 import { useKeyboardNavigationStore } from "@/stores/keyboard-navigation-store";
 import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
-import { PersonPaneFocusSync } from "@/components/mail/person-pane-focus-sync";
+import { PersonPaneFocusSync } from "@/components/mail/person-pane-bindings";
 import {
   primaryLine,
   swipeActions,

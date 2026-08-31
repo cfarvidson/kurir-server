@@ -9,7 +9,8 @@ import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { SidebarRefresh } from "@/components/mail/sidebar-refresh";
-import { PersonPaneTarget } from "@/components/mail/person-pane-focus-sync";
+import { PersonPaneTarget } from "@/components/mail/person-pane-bindings";
+import { personEmailFor } from "@/lib/mail/person-pane";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
@@ -224,19 +225,15 @@ export async function ThreadDetailView({
     replyToName = recipientSender?.displayName || recipientEmail;
   }
 
-  // Determine contact email for sidebar
-  // For incoming threads: use the original sender (first message from someone else)
-  // For sent-only threads: use the primary recipient
+  // Person for the pane: the original sender (first message from someone
+  // else), else the same rule the list rows use (first external To/Cc;
+  // never an own address, so a note to self shows nobody).
   const firstExternalMessage = messages.find(
     (m) => !userEmails.has(m.fromAddress.toLowerCase()),
   );
   const contactEmail = firstExternalMessage
     ? firstExternalMessage.fromAddress.toLowerCase()
-    : messages[0].toAddresses
-        .find((a) => !userEmails.has(a.toLowerCase()))
-        ?.toLowerCase() ||
-      messages[0].toAddresses[0]?.toLowerCase() ||
-      null;
+    : personEmailFor(messages[0], userEmails);
 
   return (
     <div className="flex h-full flex-col">

@@ -6,26 +6,23 @@ interface PersonPaneState {
   email: string | null;
   /** Own addresses, so sent mail resolves to the recipient. */
   ownEmails: string[];
+  /**
+   * Starts false on both server and client so the first client render
+   * matches the SSR markup; `hydrateCollapsed` reads localStorage after
+   * mount (same pattern as push-notification-banner).
+   */
   collapsed: boolean;
 
   setEmail: (email: string | null) => void;
   setOwnEmails: (emails: string[]) => void;
   setCollapsed: (collapsed: boolean) => void;
-}
-
-function readCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(PERSON_PANE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  hydrateCollapsed: () => void;
 }
 
 export const usePersonPaneStore = create<PersonPaneState>((set) => ({
   email: null,
   ownEmails: [],
-  collapsed: readCollapsed(),
+  collapsed: false,
 
   setEmail: (email) =>
     set((state) => {
@@ -43,5 +40,14 @@ export const usePersonPaneStore = create<PersonPaneState>((set) => ({
       // Private mode / blocked storage: the toggle still works for the tab.
     }
     set({ collapsed });
+  },
+  hydrateCollapsed: () => {
+    try {
+      if (window.localStorage.getItem(PERSON_PANE_COLLAPSED_KEY) === "1") {
+        set({ collapsed: true });
+      }
+    } catch {
+      // Storage unavailable: stay expanded.
+    }
   },
 }));
