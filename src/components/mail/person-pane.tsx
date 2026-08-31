@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Calendar,
   ExternalLink,
   Mail,
   PanelRightClose,
@@ -22,6 +21,14 @@ import {
 } from "@/lib/mail/person-pane";
 import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { CategoryPicker } from "@/components/mail/category-picker";
+import {
+  PersonProfileHeader,
+  type PersonProfileHeaderData,
+} from "@/components/mail/person-profile-header";
+import {
+  PersonStatsSection,
+  type PersonStatsData,
+} from "@/components/mail/person-stats";
 
 interface PaneThread {
   id: string;
@@ -47,14 +54,12 @@ interface PaneData {
   firstEmailAt: string | null;
   lastEmailAt: string | null;
   recentThreads: PaneThread[];
-}
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(iso));
+  /** Signature details, stats and Rank (kurir-ios#116). */
+  profile: PersonProfileHeaderData & {
+    displayName: string;
+    timeZone: string;
+    stats: PersonStatsData;
+  };
 }
 
 function timeAgo(iso: string): string {
@@ -122,6 +127,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
       setLoading(true);
       try {
         const params = new URLSearchParams({ email });
+        // Histogram buckets in the browser's zone, not the account's.
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz) params.set("tz", tz);
         const q = query.trim();
         if (q) params.set("q", q);
         const res = await fetch(`/api/contacts/context?${params}`, {
@@ -166,7 +174,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
 
   const showing = data && data.email === email ? data : null;
   const name =
-    showing?.sender?.displayName || (email ? email.split("@")[0] : "");
+    showing?.profile.displayName ||
+    showing?.sender?.displayName ||
+    (email ? email.split("@")[0] : "");
   const filtering = query.trim().length > 0;
 
   return (
@@ -227,6 +237,11 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
 
             {showing ? (
               <>
+                <PersonProfileHeader
+                  profile={showing.profile}
+                  className="mt-2"
+                />
+
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {showing.sender?.status === "APPROVED" &&
                   showing.sender.category ? (
@@ -247,22 +262,12 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                   )}
                 </div>
 
-                {(showing.firstEmailAt || showing.lastEmailAt) && (
-                  <div className="mt-3 space-y-1">
-                    {showing.firstEmailAt && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="size-3 shrink-0" />
-                        <span>First: {formatDate(showing.firstEmailAt)}</span>
-                      </div>
-                    )}
-                    {showing.lastEmailAt && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="size-3 shrink-0" />
-                        <span>Last: {formatDate(showing.lastEmailAt)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* First/last contact, counts, reply times, histogram, Rank */}
+                <PersonStatsSection
+                  stats={showing.profile.stats}
+                  timeZone={showing.profile.timeZone}
+                  className="mt-4"
+                />
 
                 <div className="mt-4">
                   <p className="eyebrow mb-2 text-muted-foreground">

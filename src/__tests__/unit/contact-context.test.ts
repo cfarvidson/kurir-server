@@ -7,6 +7,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// Signature details + stats (kurir-ios#116) come from their own module.
+vi.mock("@/lib/mail/person-profile", () => ({
+  getPersonProfile: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/mail/threads", () => ({
   collapseToThreads: vi.fn((messages: unknown[]) => messages),
   getThreadCounts: vi.fn(async () => new Map()),

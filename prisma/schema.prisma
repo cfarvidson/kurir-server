@@ -337,6 +337,14 @@ model Sender {
   // has trusted this sender, overriding the global blockRemoteImages default).
   allowRemoteImages Boolean @default(false)
 
+  // Contact details lifted from this sender's signature blocks
+  // (kurir-ios#116). Filled by src/lib/mail/signature-extract.ts when a body
+  // is synced and by the backfill; a Contact record's values win over these.
+  signaturePhones      String[]  @default([])
+  signatureTitle       String?
+  signatureCompany     String?
+  signatureExtractedAt DateTime? // Null = never scanned (backfill candidate)
+
   // User relation (kept for cross-connection queries)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { collapseToThreads, getThreadCounts } from "@/lib/mail/threads";
+import { getPersonProfile } from "@/lib/mail/person-profile";
 
 export interface ContactContextOptions {
   /**
@@ -8,6 +9,8 @@ export interface ContactContextOptions {
    * searched, Archive included. Blank means the full history.
    */
   q?: string | null;
+  /** IANA zone for the arrival histogram (kurir-ios#116); account zone otherwise. */
+  tz?: string | null;
 }
 
 /** Conversations shown in the pane (the old thread column showed 5). */
@@ -50,7 +53,7 @@ export async function getContactContext(
   options: ContactContextOptions = {},
 ) {
   const limit = CONTACT_CONTEXT_THREAD_LIMIT;
-  const [sender, dateRange, recentMessages] = await Promise.all([
+  const [sender, dateRange, recentMessages, profile] = await Promise.all([
     db.sender.findFirst({
       where: { userId, email },
     }),
@@ -77,6 +80,9 @@ export async function getContactContext(
       orderBy: { receivedAt: "desc" },
       take: Math.max(limit * 10, 50), // fetch enough to get `limit` unique threads
     }),
+    // Signature details, statistics and Rank (kurir-ios#116); the same
+    // profile /api/contacts/profile serves to mobile.
+    getPersonProfile(userId, email, { timeZone: options.tz }),
   ]);
 
   const collapsed = collapseToThreads(recentMessages);
@@ -85,6 +91,7 @@ export async function getContactContext(
 
   return {
     sender,
+    profile,
     firstEmailAt: dateRange._min.receivedAt,
     lastEmailAt: dateRange._max.receivedAt,
     recentThreads: threads.map((t) => ({

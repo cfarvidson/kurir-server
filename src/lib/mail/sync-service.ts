@@ -17,6 +17,10 @@ import {
 import { matchDomainRule } from "@/lib/mail/domain-rules";
 import { assignThreadId, repairThreadIds } from "@/lib/mail/thread-assign";
 import { createSnippet } from "@/lib/mail/snippet";
+import {
+  kickSignatureBackfill,
+  recordSenderSignature,
+} from "@/lib/mail/signature-store";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
@@ -799,6 +803,14 @@ export async function processMessage(
     data: { messageCount: { increment: 1 } },
   });
 
+  // Signature details for the person pane (kurir-ios#116): from other
+  // people's bodies only, never the user's own sent copies. Without an own
+  // address list only inbox mail qualifies. Never fails sync.
+  const fromSomeoneElse = own ? !isOwnAddress(fromAddress, own) : isInbox;
+  if (parsed.text && fromSomeoneElse) {
+    await recordSenderSignature(sender, parsed.text, message.receivedAt);
+  }
+
   // Auto-cancel/clear follow-up reminders when an incoming reply arrives
   if (isInbox && threadId && own && !isOwnAddress(fromAddress, own)) {
     await db.message.updateMany({
@@ -1064,6 +1076,12 @@ export async function syncEmailConnection(
     // guaranteed no-op, so skip the full-table load.
     if (!hasRemaining && processedMessages > 0) {
       await repairThreadIds(userId);
+    }
+
+    // One-shot signature backfill for senders synced before extraction
+    // existed. Detached: returns at once and never blocks or fails the sync.
+    if (!hasRemaining) {
+      kickSignatureBackfill(userId);
     }
 
     // Move rejected-sender messages out of IMAP inbox
