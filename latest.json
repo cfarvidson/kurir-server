@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.53",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.53",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.53",
-    "changelog": "Search upgrades: all-mail scope, people first, and filter chips; squarer sidebar mark; new-mail draft generation fixes",
+    "version": "2026.54",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.54",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.54",
+    "changelog": "Sidebar top strip no longer squashes in short windows",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-08-30T15:01:09Z"
+    "releasedAt": "2026-08-31T04:48:48Z"
   }
 }

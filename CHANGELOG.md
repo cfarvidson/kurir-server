@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.54] - 2026-08-31
+
+### Fixed
+
+- The sidebar header, Compose row, and footer no longer compress in a
+  short window; the nav scrolls instead of crushing the chrome around the
+  courier mark (#101)
+
 ## [v2026.53] - 2026-08-30
 
 ### Added

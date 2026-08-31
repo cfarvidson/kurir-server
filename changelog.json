@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.54",
+    "date": "2026-08-31",
+    "changes": [
+      "Sidebar top strip no longer squashes in short windows; the nav scrolls instead"
+    ]
+  },
+  {
     "version": "2026.53",
     "date": "2026-08-30",
     "changes": [
