@@ -151,14 +151,17 @@ export async function loadPersonNetwork(
   now: Date = new Date(),
 ): Promise<NetworkNeighbor[]> {
   const email = norm(rawEmail);
+  // To/Cc are stored as received (mixed case); match the raw form too, as
+  // the profile does.
+  const variants = [...new Set([rawEmail.trim(), email])];
   const involved = await db.message.findMany({
     where: {
       userId,
       isDraft: false,
       OR: [
         { fromAddress: { equals: email, mode: "insensitive" } },
-        { toAddresses: { has: email } },
-        { ccAddresses: { has: email } },
+        { toAddresses: { hasSome: variants } },
+        { ccAddresses: { hasSome: variants } },
       ],
     },
     select: { id: true, threadId: true },

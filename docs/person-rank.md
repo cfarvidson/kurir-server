@@ -54,18 +54,21 @@ The pane shows it as "#3 of the 41 people you mail most".
 
 That pass reads every message row of the user, so its output is stored in
 the `PersonRank` table (migration `0023_person_rank.sql`): one row per
-counterpart with `email`, `domain`, the newest From `displayName` seen,
-`score` and `computedAt`. Counterparts are everyone `rankPeople` credits
-plus every non-own Bcc recipient of own mail at score 0, so compose can
-suggest an address that only ever appeared in Bcc. A `Sender` row exists
-for From addresses only, which is why the score is not a Sender column.
+address with `email`, `domain`, the newest From `displayName` seen,
+`score` and `computedAt`. Rows are everyone `rankPeople` credits plus
+every other non-own address that ever appeared in From/To/Cc/Bcc of the
+user's mail (someone Cc'd on a received message, a Bcc of own mail) at
+score 0, so compose and search can offer an address that was only ever
+copied. A `Sender` row exists for From addresses only, which is why the
+score is not a Sender column.
 
 `src/lib/mail/person-rank-store.ts` rewrites the user's rows in one
 transaction (`recomputePersonRank`). It runs detached after every completed
 sync (`kickRankRecompute`: one run per user at a time, a kick that lands
 mid-run queues one more) and on demand with
 `pnpm recompute-rank <email>|--all`. Position is `ORDER BY score DESC, email
-ASC`; `of` is the row count. The profile reads the table
+ASC` among the rows with a score above 0 ("the people you mail"); `of` is
+their count, and a score-0 row has no position. The profile reads the table
 (`readPersonRank`); a user with no rows yet (first start after the upgrade)
 gets one live pass and a kick. The per-person counts, medians and histogram
 are still computed from the person's own rows on every call.

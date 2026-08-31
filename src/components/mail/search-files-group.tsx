@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/date";
 import { fileGroup, type FileGroup } from "@/lib/mail/file-types";
+import { formatSize } from "@/lib/mail/format-size";
 import type { FileRow } from "@/lib/mail/files";
 import {
   AttachmentViewer,
@@ -23,12 +24,6 @@ const GROUP_ICON: Record<FileGroup, LucideIcon> = {
   archive: FileArchive,
   other: FileIcon,
 };
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * Files group of the main search (kurir-ios#117). A row opens the file

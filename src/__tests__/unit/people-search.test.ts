@@ -198,6 +198,22 @@ describe("findPeople", () => {
     expect(people[0].category).toBe("FEED");
   });
 
+  it("keeps a Contact whose sender row is still unscreened", async () => {
+    rankFindMany.mockResolvedValueOnce([
+      { email: "new@x.y", displayName: "Newcomer", domain: "x.y", score: 4 },
+    ]);
+    contactFindMany.mockResolvedValue([
+      { id: "c1", name: "New Contact", emails: [{ email: "new@x.y" }] },
+    ]);
+    senderFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { email: "new@x.y", displayName: "Newcomer", status: "PENDING", category: "IMBOX", contactEmails: [] },
+    ]);
+    const people = await findPeople("u1", "new", 8);
+    expect(people.map((p) => [p.email, p.displayName, p.contactId])).toEqual([
+      ["new@x.y", "New Contact", "c1"],
+    ]);
+  });
+
   it("merges a Contact onto the ranked address, name winning, one row per contact", async () => {
     rankFindMany
       .mockResolvedValueOnce([
@@ -230,7 +246,7 @@ describe("findPeople", () => {
         { email: "anna@tv4.se", displayName: "Anna", domain: "tv4.se", score: 2 },
       ]);
     senderFindMany
-      .mockResolvedValueOnce([{ domain: "tv4.se" }])
+      .mockResolvedValueOnce([{ domain: "tv4.se", signatureCompany: "TV4 Media AB" }])
       .mockResolvedValueOnce([]);
     const people = await findPeople("u1", "media", 8);
     expect(senderFindMany.mock.calls[0][0]).toEqual(
@@ -242,6 +258,7 @@ describe("findPeople", () => {
             { signatureCompany: { contains: " media", mode: "insensitive" } },
           ],
         },
+        select: { domain: true, signatureCompany: true },
         distinct: ["domain"],
       }),
     );

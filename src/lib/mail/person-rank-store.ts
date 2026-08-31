@@ -69,16 +69,19 @@ export function kickRankRecompute(userId: string): void {
   running.add(userId);
   void (async () => {
     try {
+      // A failure does not drop a kick that landed mid-run: that rerun
+      // still happens (once), and the next completed sync kicks again.
       do {
         queued.delete(userId);
-        const count = await recomputePersonRank(userId);
-        console.log(`[rank] ranked ${count} people for ${userId}`);
+        try {
+          const count = await recomputePersonRank(userId);
+          console.log(`[rank] ranked ${count} people for ${userId}`);
+        } catch (err) {
+          console.error(`[rank] recompute failed for ${userId}`, err);
+        }
       } while (queued.has(userId));
-    } catch (err) {
-      console.error(`[rank] recompute failed for ${userId}`, err);
     } finally {
       running.delete(userId);
-      queued.delete(userId);
     }
   })();
 }
@@ -91,23 +94,26 @@ export function resetRankKicks(): void {
 
 /**
  * Score, 1-based position and total for `email` from the materialised
- * table. Null when the user has no rows at all (the ranking was never
- * computed), so the caller can fall back and kick a recompute.
+ * table. The position counts scored rows only ("the people you mail");
+ * an address seen but never exchanged with sits at score 0 and has none.
+ * Null when the user has no rows at all (the ranking was never computed),
+ * so the caller can fall back and kick a recompute.
  */
 export async function readPersonRank(
   userId: string,
   rawEmail: string,
 ): Promise<PersonRank | null> {
   const email = rawEmail.trim().toLowerCase();
-  const [row, of] = await Promise.all([
+  const [row, total, of] = await Promise.all([
     db.personRank.findUnique({
       where: { userId_email: { userId, email } },
       select: { score: true },
     }),
     db.personRank.count({ where: { userId } }),
+    db.personRank.count({ where: { userId, score: { gt: 0 } } }),
   ]);
-  if (of === 0) return null;
-  if (!row) return { score: 0, position: null, of };
+  if (total === 0) return null;
+  if (!row || row.score <= 0) return { score: 0, position: null, of };
   const ahead = await db.personRank.count({
     where: {
       userId,

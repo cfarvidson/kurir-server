@@ -14,6 +14,9 @@ import {
   uniqueBlockSenderIds,
   bulkReadMarksRead,
   swipeActions,
+  isSearchQuery,
+  SEARCH_MIN_LENGTH,
+  MESSAGE_SEARCH_MIN_LENGTH,
 } from "@/lib/mail/list-contract";
 
 describe("threadCountLabel", () => {
@@ -280,5 +283,17 @@ describe("swipeActions", () => {
       leading: null,
       trailing: null,
     });
+  });
+});
+
+describe("isSearchQuery", () => {
+  it("opens search on the first character; messages wait for two", () => {
+    expect(SEARCH_MIN_LENGTH).toBe(1);
+    expect(MESSAGE_SEARCH_MIN_LENGTH).toBe(2);
+    expect(isSearchQuery("a")).toBe(true);
+    expect(isSearchQuery(" a ")).toBe(true);
+    expect(isSearchQuery(" ")).toBe(false);
+    expect(isSearchQuery("")).toBe(false);
+    expect(isSearchQuery(undefined)).toBe(false);
   });
 });

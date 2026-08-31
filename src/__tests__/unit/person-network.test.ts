@@ -211,10 +211,11 @@ describe("loadPersonNetwork", () => {
 
     const network = await loadPersonNetwork("u1", "A@acme.se", own, now);
 
+    // To/Cc are stored as received: both spellings are matched.
     expect(messageFindMany.mock.calls[0][0].where.OR).toEqual([
       { fromAddress: { equals: "a@acme.se", mode: "insensitive" } },
-      { toAddresses: { has: "a@acme.se" } },
-      { ccAddresses: { has: "a@acme.se" } },
+      { toAddresses: { hasSome: ["A@acme.se", "a@acme.se"] } },
+      { ccAddresses: { hasSome: ["A@acme.se", "a@acme.se"] } },
     ]);
     expect(messageFindMany.mock.calls[1][0].where.OR).toEqual([
       { threadId: { in: ["t1"] } },

@@ -109,7 +109,7 @@ export function rankPeople(
 
 /** A message row as the materialised-rank pass reads it (kurir-ios#117). */
 export interface RankSourceMessage extends PersonStatsMessage {
-  /** Bcc of own mail: a counterpart to suggest, never credited by the formula. */
+  /** Bcc of own mail: an address to suggest, never credited by the formula. */
   bccAddresses?: string[];
   fromName?: string | null;
 }
@@ -129,10 +129,12 @@ export function domainOf(email: string): string {
 
 /**
  * Everything the materialised rank stores: `rankPeople` for the scores,
- * plus every other non-own address seen on the user's mail (Bcc of own
- * mail) at score 0 so compose can still suggest it, and the newest From
- * name seen for each address. Sorted by score desc, email asc, which is
- * the position order.
+ * plus every other non-own address that ever appeared in From/To/Cc/Bcc
+ * of the user's mail (someone Cc'd on a received message, a Bcc of own
+ * mail) at score 0 so compose and search can still offer it, and the
+ * newest From name seen for each address. Sorted by score desc, email
+ * asc, which is the position order; only scored rows count as "people
+ * you mail" for the position.
  */
 export function materialiseRank(
   messages: RankSourceMessage[],
@@ -152,12 +154,11 @@ export function materialiseRank(
       if (name && (names.get(from)?.at ?? -Infinity) < at) {
         names.set(from, { name, at });
       }
-    } else if (from) {
-      for (const raw of m.bccAddresses ?? []) {
-        const addr = norm(raw);
-        if (addr && !isOwnAddress(addr, own) && !scores.has(addr)) {
-          scores.set(addr, 0);
-        }
+    }
+    for (const raw of [from, ...m.toAddresses, ...m.ccAddresses, ...(m.bccAddresses ?? [])]) {
+      const addr = norm(raw);
+      if (addr && addr.includes("@") && !isOwnAddress(addr, own) && !scores.has(addr)) {
+        scores.set(addr, 0);
       }
     }
   }

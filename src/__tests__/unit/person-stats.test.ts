@@ -188,15 +188,18 @@ describe("rankPeople", () => {
 });
 
 describe("materialiseRank", () => {
-  it("adds Bcc-only recipients of own mail at score 0, after everyone credited", () => {
+  it("adds every address seen but never exchanged with at score 0, after everyone credited", () => {
     const rows = [
       { ...msg({ fromAddress: "me@example.com", toAddresses: ["a@x.y"], receivedAt: now }), bccAddresses: ["Hidden@X.Y", "me@example.com"] },
       { ...msg({ fromAddress: "old@x.y", receivedAt: new Date(now.getTime() - 900 * 24 * H) }) },
+      // Someone Cc'd on a received message: not exchanged with, still suggestable.
+      { ...msg({ fromAddress: "old@x.y", toAddresses: ["me@example.com"], ccAddresses: ["Copied@X.Y", "not-an-address"], receivedAt: now }) },
     ];
     const ranked = materialiseRank(rows, own, now);
     expect(ranked.map((r) => [r.email, r.score > 0])).toEqual([
-      ["a@x.y", true],
       ["old@x.y", true],
+      ["a@x.y", true],
+      ["copied@x.y", false],
       ["hidden@x.y", false],
     ]);
   });

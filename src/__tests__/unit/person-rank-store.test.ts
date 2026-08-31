@@ -123,9 +123,10 @@ describe("readPersonRank", () => {
     expect(await readPersonRank("u1", "anna@acme.se")).toBeNull();
   });
 
-  it("gives position by score desc, email asc, and the total", async () => {
+  it("gives position by score desc, email asc, among the scored people", async () => {
     rankFindUnique.mockResolvedValue({ score: 3.5 });
-    rankCount.mockResolvedValueOnce(41).mockResolvedValueOnce(2);
+    // total rows, scored rows ("of"), rows ahead
+    rankCount.mockResolvedValueOnce(50).mockResolvedValueOnce(41).mockResolvedValueOnce(2);
     const rank = await readPersonRank("u1", "Bob@Globex.com");
     expect(rank).toEqual({ score: 3.5, position: 3, of: 41 });
     expect(rankFindUnique).toHaveBeenCalledWith(
@@ -133,6 +134,9 @@ describe("readPersonRank", () => {
         where: { userId_email: { userId: "u1", email: "bob@globex.com" } },
       }),
     );
+    expect(rankCount).toHaveBeenNthCalledWith(2, {
+      where: { userId: "u1", score: { gt: 0 } },
+    });
     expect(rankCount).toHaveBeenLastCalledWith({
       where: {
         userId: "u1",
@@ -144,10 +148,18 @@ describe("readPersonRank", () => {
     });
   });
 
-  it("gives no position for an address that is not a counterpart", async () => {
+  it("gives no position for an address never exchanged with", async () => {
     rankFindUnique.mockResolvedValue(null);
-    rankCount.mockResolvedValue(41);
+    rankCount.mockResolvedValueOnce(50).mockResolvedValueOnce(41);
     expect(await readPersonRank("u1", "nobody@x.y")).toEqual({
+      score: 0,
+      position: null,
+      of: 41,
+    });
+    // Seen (Cc'd on someone else's mail) but at score 0: no position either.
+    rankFindUnique.mockResolvedValue({ score: 0 });
+    rankCount.mockResolvedValueOnce(50).mockResolvedValueOnce(41);
+    expect(await readPersonRank("u1", "copied@x.y")).toEqual({
       score: 0,
       position: null,
       of: 41,
@@ -180,6 +192,23 @@ describe("kickRankRecompute", () => {
     kickRankRecompute("u1");
     await settle();
     expect(connectionFindMany).toHaveBeenCalledTimes(2);
+    expect(rankDeleteMany).toHaveBeenCalledTimes(1);
+    error.mockRestore();
+  });
+
+  it("still runs a kick that landed while a failing run was in flight", async () => {
+    let release!: () => void;
+    connectionFindMany.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        release = () => reject(new Error("boom"));
+      }),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    messageFindMany.mockResolvedValue([]);
+    kickRankRecompute("u1");
+    kickRankRecompute("u1"); // queued behind the run that is about to fail
+    release();
+    await settle();
     expect(rankDeleteMany).toHaveBeenCalledTimes(1);
     error.mockRestore();
   });

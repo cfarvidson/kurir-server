@@ -126,7 +126,7 @@ function NetworkSection({
         <button
           type="button"
           onClick={onToggleShowAll}
-          className="mt-1 px-2 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary transition-colors hover:text-primary/80"
         >
           {showAll ? "Show fewer" : `Show all (${network.length})`}
         </button>

@@ -142,8 +142,9 @@ const CANDIDATE_TAKE = 40;
 /**
  * Rank-ordered people for `query` from the materialised Rank and the
  * Contact records, own addresses excluded, senders the user has rejected
- * or not yet screened left out. Contacts contribute one row (their
- * best-ranked matching address, every address listed) and their name wins.
+ * or not yet screened left out unless a Contact holds the address.
+ * Contacts contribute one row (their best-ranked matching address, every
+ * address listed) and their name wins.
  */
 export async function findPeople(
   userId: string,
@@ -180,28 +181,30 @@ export async function findPeople(
       take: 20,
     }),
     q.includes("@")
-      ? Promise.resolve([] as { domain: string }[])
+      ? Promise.resolve([] as { domain: string; signatureCompany: string | null }[])
       : db.sender.findMany({
           where: { userId, OR: companyPrefixWhere(q) },
-          select: { domain: true },
+          select: { domain: true, signatureCompany: true },
           distinct: ["domain"],
           take: 5,
         }),
   ]);
 
+  // Company typeahead: the domains whose senders' signatures name a company
+  // starting with the query, and the people on them.
+  const companyByDomain = new Map<string, string>();
+  for (const d of companyDomains) {
+    if (d.signatureCompany) companyByDomain.set(d.domain.toLowerCase(), d.signatureCompany);
+  }
   const companyPeople =
-    companyDomains.length > 0
+    companyByDomain.size > 0
       ? await db.personRank.findMany({
-          where: {
-            userId,
-            domain: { in: companyDomains.map((d) => d.domain.toLowerCase()) },
-          },
+          where: { userId, domain: { in: [...companyByDomain.keys()] } },
           select: { email: true, displayName: true, domain: true, score: true },
           orderBy: [{ score: "desc" }, { email: "asc" }],
           take: CANDIDATE_TAKE,
         })
       : [];
-  const companyDomainSet = new Set(companyDomains.map((d) => d.domain.toLowerCase()));
 
   // Candidates keyed by address: ranked rows first, then contacts' addresses.
   type Candidate = PersonCandidate & { contactId: string | null; emails: string[] };
@@ -214,7 +217,7 @@ export async function findPeople(
       displayName: row.displayName,
       domain: row.domain,
       score: row.score,
-      company: companyDomainSet.has(row.domain) ? q : null,
+      company: companyByDomain.get(row.domain) ?? null,
       contactId: null,
       emails: [email],
     });
@@ -273,12 +276,14 @@ export async function findPeople(
     if (c) c.score = row.score;
   }
 
+  // A sender the user rejected or has not screened yet is left out, unless
+  // the address belongs to a Contact record: Contacts are always offered.
   const category = new Map<string, SenderCategory | null>();
   for (const s of senders) {
     const email = s.email.toLowerCase();
     const c = byEmail.get(email);
     if (!c) continue;
-    if (s.status !== "APPROVED") {
+    if (s.status !== "APPROVED" && !c.contactId) {
       byEmail.delete(email);
       continue;
     }
