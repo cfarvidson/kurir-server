@@ -3,6 +3,12 @@ import { collapseToThreads, getThreadCounts } from "@/lib/mail/threads";
 import { getPersonProfile } from "@/lib/mail/person-profile";
 import { loadPersonNetwork } from "@/lib/mail/person-network";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
+import { loadPersonLinks } from "@/lib/mail/person-links";
+import { appointmentsForPerson } from "@/lib/mail/person-appointments";
+import {
+  loadScheduleInstances,
+  scheduleDraft,
+} from "@/lib/mail/person-schedule";
 
 export interface ContactContextOptions {
   /**
@@ -55,7 +61,9 @@ export async function getContactContext(
   options: ContactContextOptions = {},
 ) {
   const limit = CONTACT_CONTEXT_THREAD_LIMIT;
-  const [sender, dateRange, recentMessages, profile, network] = await Promise.all([
+  const tz = options.tz ?? "UTC";
+  const [sender, dateRange, recentMessages, profile, network, links, appointments, scheduleInstances] =
+    await Promise.all([
     db.sender.findFirst({
       where: { userId, email },
     }),
@@ -77,6 +85,9 @@ export async function getContactContext(
         isInPaperTrail: true,
         isArchived: true,
         hasAttachments: true,
+        fromAddress: true,
+        toAddresses: true,
+        ccAddresses: true,
         sender: { select: { displayName: true, email: true, unthread: true } },
       },
       orderBy: { receivedAt: "desc" },
@@ -88,6 +99,9 @@ export async function getContactContext(
     // Network (kurir-ios#117): shared-thread and same-domain people by
     // strength. The full list; the pane caps at NETWORK_LIMIT with Show all.
     getOwnAddresses(userId).then((own) => loadPersonNetwork(userId, email, own)),
+    loadPersonLinks(userId, email),
+    appointmentsForPerson(userId, email),
+    loadScheduleInstances(userId),
   ]);
 
   const collapsed = collapseToThreads(recentMessages);
@@ -110,7 +124,13 @@ export async function getContactContext(
       isInFeed: t.isInFeed,
       isInPaperTrail: t.isInPaperTrail,
       isArchived: t.isArchived,
+      fromAddress: t.fromAddress,
+      toAddresses: t.toAddresses,
+      ccAddresses: t.ccAddresses,
     })),
+    links,
+    appointments,
+    scheduleDraft: scheduleDraft(email, scheduleInstances, new Date(), tz),
   };
 }
 

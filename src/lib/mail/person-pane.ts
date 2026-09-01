@@ -60,3 +60,26 @@ export const PERSON_PANE_COLLAPSED_KEY = "kurir:person-pane-collapsed";
 
 /** Debounce before a focus change loads the pane. */
 export const PERSON_PANE_DEBOUNCE_MS = 150;
+
+/** A thread is direct when every From/To/Cc address is this person or us. */
+export function threadIsDirect(
+  thread: {
+    fromAddress?: string;
+    toAddresses?: string[];
+    ccAddresses?: string[];
+  },
+  person: string,
+  ownEmails: Iterable<string>,
+): boolean {
+  const allowed = new Set([...ownEmails].map((e) => e.trim().toLowerCase()));
+  const personLower = person.toLowerCase();
+  allowed.add(personLower);
+  const people = [
+    thread.fromAddress ?? "",
+    ...(thread.toAddresses ?? []),
+    ...(thread.ccAddresses ?? []),
+  ]
+    .map((e) => e.toLowerCase())
+    .filter(Boolean);
+  return people.every((p) => allowed.has(p)) && people.includes(personLower);
+}

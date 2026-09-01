@@ -18,7 +18,12 @@ import { getThreadRoute } from "@/lib/mail/route-helpers";
 import {
   PERSON_PANE_DEBOUNCE_MS,
   showsPersonPane,
+  threadIsDirect,
 } from "@/lib/mail/person-pane";
+import {
+  civilFromZoned,
+  formatDateParam,
+} from "@/lib/calendar/view-time";
 import {
   NETWORK_LIMIT,
   networkStrengthLabel,
@@ -45,6 +50,24 @@ interface PaneThread {
   isInFeed: boolean;
   isInPaperTrail: boolean;
   isArchived: boolean;
+  fromAddress?: string;
+  toAddresses?: string[];
+  ccAddresses?: string[];
+}
+
+interface PaneLink {
+  id: string;
+  url: string;
+  title: string;
+  receivedAt: string;
+}
+
+interface PaneAppointment {
+  id: string;
+  title: string;
+  startAt: string;
+  isAllDay: boolean;
+  attendees?: { email: string; name: string | null }[];
 }
 
 interface PaneData {
@@ -67,6 +90,9 @@ interface PaneData {
   };
   /** Shared-thread and same-domain people by strength (kurir-ios#117). */
   network: NetworkNeighbor[];
+  links: PaneLink[];
+  appointments: PaneAppointment[];
+  scheduleDraft: { to: string; subject: string; body: string };
 }
 
 function timeAgo(iso: string): string {
@@ -135,6 +161,105 @@ function NetworkSection({
   );
 }
 
+const LINK_LIMIT = 12;
+const APPOINTMENT_LIMIT = 12;
+
+function LinksSection({
+  links,
+  showAll,
+  onToggleShowAll,
+}: {
+  links: PaneLink[];
+  showAll: boolean;
+  onToggleShowAll: () => void;
+}) {
+  if (links.length === 0) return null;
+  const shown = showAll ? links : links.slice(0, LINK_LIMIT);
+  return (
+    <div className="mt-4">
+      <p className="eyebrow mb-2 text-muted-foreground">Links exchanged</p>
+      <div className="space-y-0.5">
+        {shown.map((link) => (
+          <a
+            key={link.id}
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+          >
+            <p className="truncate text-xs font-medium">{link.title}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {timeAgo(link.receivedAt)}
+            </p>
+          </a>
+        ))}
+      </div>
+      {links.length > LINK_LIMIT && (
+        <button
+          type="button"
+          onClick={onToggleShowAll}
+          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary"
+        >
+          {showAll ? "Show fewer" : `Show all (${links.length})`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AppointmentsSection({
+  appointments,
+  timeZone,
+  showAll,
+  onToggleShowAll,
+}: {
+  appointments: PaneAppointment[];
+  timeZone: string;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+}) {
+  if (appointments.length === 0) return null;
+  const shown = showAll ? appointments : appointments.slice(0, APPOINTMENT_LIMIT);
+  return (
+    <div className="mt-4">
+      <p className="eyebrow mb-2 text-muted-foreground">Appointments</p>
+      <div className="space-y-0.5">
+        {shown.map((appointment) => {
+          const start = new Date(appointment.startAt);
+          const href = `/calendar/day?date=${formatDateParam(civilFromZoned(start, timeZone))}`;
+          const when = appointment.isAllDay
+            ? `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · All-day`
+            : start.toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+          return (
+            <Link
+              key={appointment.id}
+              href={href}
+              className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+            >
+              <p className="truncate text-xs font-medium">{appointment.title}</p>
+              <p className="text-[10px] tabular-nums text-muted-foreground">{when}</p>
+            </Link>
+          );
+        })}
+      </div>
+      {appointments.length > APPOINTMENT_LIMIT && (
+        <button
+          type="button"
+          onClick={onToggleShowAll}
+          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary"
+        >
+          {showAll ? "Show fewer" : `Show all (${appointments.length})`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * Xobni-style persistent person column (kurir-ios#115). Lives in the mail
  * layout beside the page; follows whatever row is focused or thread is
@@ -152,6 +277,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
 
   const [query, setQuery] = useState("");
   const [showAllNetwork, setShowAllNetwork] = useState(false);
+  const [showAllLinks, setShowAllLinks] = useState(false);
+  const [showAllAppointments, setShowAllAppointments] = useState(false);
+  const [directOnly, setDirectOnly] = useState(false);
   const [data, setData] = useState<PaneData | null>(null);
   const [loading, setLoading] = useState(false);
   // The aside is display:none below lg; do not fetch for a phone.
@@ -178,6 +306,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   useEffect(() => {
     setQuery("");
     setShowAllNetwork(false);
+    setShowAllLinks(false);
+    setShowAllAppointments(false);
+    setDirectOnly(false);
   }, [email]);
 
   const visible = showsPersonPane(pathname);
@@ -270,23 +401,23 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          {/* Search inside the profile: conversations only, across all lists */}
+          {/* Search inside the profile: conversations, links, appointments */}
           <label className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
             <Search className="size-3.5 shrink-0 text-muted-foreground" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search conversations"
+              placeholder="Search profile"
               className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              aria-label="Search conversations with this person"
+              aria-label="Search profile"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
                 className="text-muted-foreground hover:text-foreground"
-                aria-label="Clear conversation search"
+                aria-label="Clear profile search"
               >
                 <X className="size-3.5" />
               </button>
@@ -297,6 +428,22 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{name}</p>
               <p className="truncate text-xs text-muted-foreground">{email}</p>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <Link
+                href={`/compose?to=${encodeURIComponent(email)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
+                className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+              >
+                Email
+              </Link>
+              {showing?.scheduleDraft && (
+                <Link
+                  href={`/compose?to=${encodeURIComponent(showing.scheduleDraft.to)}&subject=${encodeURIComponent(showing.scheduleDraft.subject)}&body=${encodeURIComponent(showing.scheduleDraft.body)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
+                  className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                >
+                  Schedule time
+                </Link>
+              )}
             </div>
 
             {showing ? (
@@ -343,18 +490,38 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                 )}
 
                 <div className="mt-4">
-                  <p className="eyebrow mb-2 text-muted-foreground">
-                    Conversations
-                  </p>
-                  {showing.recentThreads.length === 0 ? (
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="eyebrow text-muted-foreground">
+                      Conversations
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setDirectOnly((v) => !v)}
+                      className="text-[11px] font-medium text-primary"
+                    >
+                      {directOnly ? "All" : "Direct only"}
+                    </button>
+                  </div>
+                  {(() => {
+                    const threads = showing.recentThreads.filter(
+                      (thread) =>
+                        !directOnly ||
+                        threadIsDirect(thread, email, ownEmails),
+                    );
+                    if (threads.length === 0) {
+                      return (
                     <p className="px-2 text-xs text-muted-foreground">
-                      {filtering
+                      {directOnly
+                        ? "No direct conversations."
+                        : filtering
                         ? "No conversations match."
                         : "No conversations yet."}
                     </p>
-                  ) : (
+                      );
+                    }
+                    return (
                     <div className={cn("space-y-1", loading && "opacity-60")}>
-                      {showing.recentThreads.map((thread) => {
+                      {threads.map((thread) => {
                         const route = getThreadRoute(thread);
                         return (
                           <Link
@@ -378,8 +545,44 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                         );
                       })}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
+
+                <LinksSection
+                  links={(showing.links ?? []).filter((link) => {
+                    const needle = query.trim().toLowerCase();
+                    if (!needle) return true;
+                    return (
+                      link.title.toLowerCase().includes(needle) ||
+                      link.url.toLowerCase().includes(needle)
+                    );
+                  })}
+                  showAll={showAllLinks}
+                  onToggleShowAll={() => setShowAllLinks((v) => !v)}
+                />
+
+                <AppointmentsSection
+                  appointments={(showing.appointments ?? []).filter(
+                    (appointment) => {
+                      const needle = query.trim().toLowerCase();
+                      if (!needle) return true;
+                      if (appointment.title.toLowerCase().includes(needle)) {
+                        return true;
+                      }
+                      return (appointment.attendees ?? []).some(
+                        (attendee) =>
+                          attendee.email.toLowerCase().includes(needle) ||
+                          (attendee.name ?? "")
+                            .toLowerCase()
+                            .includes(needle),
+                      );
+                    },
+                  )}
+                  timeZone={showing.profile.timeZone}
+                  showAll={showAllAppointments}
+                  onToggleShowAll={() => setShowAllAppointments((v) => !v)}
+                />
 
                 <Link
                   href={

@@ -19,6 +19,8 @@ import { searchFiles } from "@/lib/mail/search-files";
 import { MessageList } from "@/components/mail/message-list";
 import { EmptyState } from "@/components/mail/empty-state";
 import { SearchFilesGroup } from "@/components/mail/search-files-group";
+import { SearchAppointmentsGroup } from "@/components/mail/search-appointments-group";
+import { searchAppointments } from "@/lib/mail/person-appointments";
 import {
   listLabelForSearchHit,
   MESSAGE_SEARCH_MIN_LENGTH,
@@ -75,7 +77,7 @@ interface SearchResultsProps {
 }
 
 /**
- * People / Messages / Files (kurir-ios#117). People answer from the first
+ * People / Messages / Appointments / Files (kurir-ios#125). People answer from the first
  * character, ordered by Rank, and stream to the page first; message and
  * file hits need two characters and arrive behind a Suspense boundary.
  */
@@ -89,7 +91,7 @@ export async function SearchResults(props: SearchResultsProps) {
       <EmptyState
         icon={props.emptyIcon || <BookUser />}
         title="Keep typing"
-        description={`No people match “${query}”; messages and files search from two characters`}
+        description={`No people match “${query}”; messages, appointments and files search from two characters`}
       />
     );
   }
@@ -112,7 +114,7 @@ export async function SearchResults(props: SearchResultsProps) {
           fallback={
             <div className="flex items-center gap-2 px-4 py-4 text-sm text-muted-foreground md:px-6">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Searching messages and files…
+              Searching messages, appointments and files…
             </div>
           }
         >
@@ -137,18 +139,19 @@ async function MessageAndFileResults({
   list,
   hasPeople,
 }: SearchResultsProps & { hasPeople: boolean }) {
-  const [messages, files] = await Promise.all([
+  const [messages, files, appointments] = await Promise.all([
     searchMessages(userId, query, categoryFilter),
     searchFiles(userId, query),
+    searchAppointments(userId, query),
   ]);
 
-  if (messages.length === 0 && files.length === 0) {
+  if (messages.length === 0 && files.length === 0 && appointments.length === 0) {
     if (hasPeople) return null;
     return (
       <EmptyState
         icon={emptyIcon || <BookUser />}
         title="No results found"
-        description={`No people, messages or files match “${query}”`}
+        description={`No people, messages, appointments or files match “${query}”`}
       />
     );
   }
@@ -179,6 +182,12 @@ async function MessageAndFileResults({
         </div>
       )}
 
+      {appointments.length > 0 && (
+        <SearchAppointmentsGroup
+          appointments={appointments}
+          timeZone="UTC"
+        />
+      )}
       {files.length > 0 && <SearchFilesGroup files={files} />}
     </>
   );

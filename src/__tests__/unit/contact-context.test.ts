@@ -27,6 +27,20 @@ vi.mock("@/lib/mail/person-network", () => ({
 vi.mock("@/lib/mail/user-emails", () => ({
   getOwnAddresses: vi.fn(async () => ({ emails: ["me@z"], domains: [] })),
 }));
+vi.mock("@/lib/mail/person-links", () => ({
+  loadPersonLinks: vi.fn(async () => []),
+}));
+vi.mock("@/lib/mail/person-appointments", () => ({
+  appointmentsForPerson: vi.fn(async () => []),
+}));
+vi.mock("@/lib/mail/person-schedule", () => ({
+  loadScheduleInstances: vi.fn(async () => []),
+  scheduleDraft: vi.fn(() => ({
+    to: "ada@x.y",
+    subject: "Time to meet?",
+    body: "My week is packed. When works for you?",
+  })),
+}));
 
 import {
   CONTACT_CONTEXT_THREAD_LIMIT,
@@ -88,6 +102,9 @@ describe("getContactContext", () => {
         isInPaperTrail: false,
         isArchived: true,
         hasAttachments: false,
+        fromAddress: "ada@x.y",
+        toAddresses: ["me@z"],
+        ccAddresses: [],
         sender: null,
       },
     ] as never);
@@ -139,6 +156,9 @@ describe("getContactContext", () => {
         isInPaperTrail: false,
         isArchived: false,
         hasAttachments: false,
+        fromAddress: "ada@x.y",
+        toAddresses: ["me@z"],
+        ccAddresses: [],
         sender: null,
       })) as never,
     );

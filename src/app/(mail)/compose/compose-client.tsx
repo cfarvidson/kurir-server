@@ -168,9 +168,17 @@ export function ComposeClientPage({
   const [addedGroups, setAddedGroups] = useState<AddedGroupState[]>([]);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [subject, setSubject] = useState(
-    editScheduled?.subject ?? forwardData?.subject ?? "",
+    editScheduled?.subject ??
+      forwardData?.subject ??
+      searchParams.get("subject") ??
+      "",
   );
-  const [body, setBody] = useState(editScheduled?.body ?? forwardData?.body ?? "");
+  const [body, setBody] = useState(
+    editScheduled?.body ??
+      forwardData?.body ??
+      searchParams.get("body") ??
+      "",
+  );
   const [fromConnectionId, setFromConnectionId] = useState(
     editScheduled?.emailConnectionId ??
       defaultConnectionId ??

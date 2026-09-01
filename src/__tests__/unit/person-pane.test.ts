@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { personEmailFor, showsPersonPane } from "@/lib/mail/person-pane";
+import {
+  personEmailFor,
+  showsPersonPane,
+  threadIsDirect,
+} from "@/lib/mail/person-pane";
 
 describe("personEmailFor", () => {
   const own = ["Me@Z.com"];
@@ -33,6 +37,31 @@ describe("personEmailFor", () => {
       personEmailFor({ fromAddress: "me@z.com", toAddresses: ["me@z.com"] }, own),
     ).toBeNull();
     expect(personEmailFor(null, own)).toBeNull();
+  });
+});
+
+describe("threadIsDirect", () => {
+  const own = ["me@z"];
+
+  it("is true for a 1:1 and false when someone else is Cc'd", () => {
+    expect(
+      threadIsDirect(
+        { fromAddress: "a@x.y", toAddresses: ["me@z"], ccAddresses: [] },
+        "a@x.y",
+        own,
+      ),
+    ).toBe(true);
+    expect(
+      threadIsDirect(
+        {
+          fromAddress: "a@x.y",
+          toAddresses: ["me@z"],
+          ccAddresses: ["boss@z"],
+        },
+        "a@x.y",
+        own,
+      ),
+    ).toBe(false);
   });
 });
 

@@ -2,8 +2,10 @@
 
 import type { PersonRank } from "@/lib/mail/person-stats";
 import {
+  formatBusyHours,
   formatDate,
   formatRank,
+  formatRepliesIn,
   formatResponseTime,
   histogramFractions,
 } from "@/lib/mail/person-format";
@@ -51,7 +53,8 @@ export function PersonStatsSection({
   const total = stats.sentToThem + stats.receivedFromThem;
   if (total === 0) return null;
 
-  const theirs = formatResponseTime(stats.medianTheirReplySeconds);
+  const replies = formatRepliesIn(stats.medianTheirReplySeconds);
+  const busyHours = formatBusyHours(stats.hourHistogram);
   const yours = formatResponseTime(stats.medianYourReplySeconds);
   const rank = formatRank(stats.rank.position, stats.rank.of);
   const fractions = histogramFractions(stats.hourHistogram);
@@ -61,28 +64,24 @@ export function PersonStatsSection({
     <div className={cn("space-y-3", className)} data-testid="person-stats">
       <p className="eyebrow text-muted-foreground">Stats</p>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-        <StatCell label="Sent to them" value={String(stats.sentToThem)} />
-        <StatCell label="Received" value={String(stats.receivedFromThem)} />
-        {stats.firstAt && (
-          <StatCell label="First contact" value={formatDate(new Date(stats.firstAt))} />
-        )}
-        {stats.lastAt && (
-          <StatCell label="Last contact" value={formatDate(new Date(stats.lastAt))} />
-        )}
-        {theirs && <StatCell label="They reply in" value={theirs} />}
-        {yours && <StatCell label="You reply in" value={yours} />}
-      </div>
+      {replies && (
+        <p className="text-xs font-medium tabular-nums text-foreground">{replies}</p>
+      )}
+      {busyHours && (
+        <p className="text-xs font-medium tabular-nums text-foreground">
+          {busyHours}
+        </p>
+      )}
 
       {hasHistogram && (
         <div>
           <p className="eyebrow mb-1 text-[9px] text-muted-foreground">
-            When their mail arrives
+            When they write
           </p>
           <div
             className="flex h-8 items-end gap-px"
             role="img"
-            aria-label={`Arrival hours in ${timeZone}`}
+            aria-label={`When they write in ${timeZone}`}
             title={`Local time (${timeZone})`}
           >
             {fractions.map((fraction, hour) => (
@@ -106,6 +105,18 @@ export function PersonStatsSection({
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <StatCell label="Sent to them" value={String(stats.sentToThem)} />
+        <StatCell label="Received" value={String(stats.receivedFromThem)} />
+        {stats.firstAt && (
+          <StatCell label="First contact" value={formatDate(new Date(stats.firstAt))} />
+        )}
+        {stats.lastAt && (
+          <StatCell label="Last contact" value={formatDate(new Date(stats.lastAt))} />
+        )}
+        {yours && <StatCell label="You reply in" value={yours} />}
+      </div>
 
       {rank && (
         <p className="text-xs text-muted-foreground">

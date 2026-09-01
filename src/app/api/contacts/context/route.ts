@@ -42,5 +42,8 @@ export async function GET(request: NextRequest) {
     profile: context.profile,
     // Network by strength (kurir-ios#117)
     network: context.network,
+    links: context.links,
+    appointments: context.appointments,
+    scheduleDraft: context.scheduleDraft,
   });
 }
