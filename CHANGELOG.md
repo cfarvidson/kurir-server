@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.58] - 2026-09-01
+
+### Added
+
+- Person pane lists links exchanged and appointments with the focused
+  person, plus Email and Schedule time. Schedule time opens compose
+  with free slots for the next seven weekdays and does not create a
+  calendar event (kurir-ios#125)
+- Stats lead with how long they take to reply and when they usually
+  write; the histogram is labelled When they write
+- Search gains an Appointments group between Messages and Files
+
 ## [v2026.56] - 2026-08-31
 
 ### Fixed
