@@ -6,7 +6,7 @@ import { getConfig } from "@/lib/config";
 import { consumeChallenge } from "@/lib/webauthn-challenge-store";
 import { encode } from "next-auth/jwt";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
-import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
+import type { AuthenticatorTransport } from "@simplewebauthn/server";
 
 /**
  * POST /api/auth/webauthn/login/verify
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         id: passkey.credentialId,
         publicKey: isoBase64URL.toBuffer(passkey.publicKey) as any,
         counter: Number(passkey.counter),
-        transports: passkey.transports as AuthenticatorTransportFuture[],
+        transports: passkey.transports as AuthenticatorTransport[],
       },
       requireUserVerification: true,
     });

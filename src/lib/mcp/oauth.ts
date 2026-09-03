@@ -22,6 +22,7 @@ function getRedis(): Redis | null {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
         retryStrategy: () => null,
+        protocol: 2, // ioredis 6 defaults to RESP3
       });
       redis.connect().catch(() => {});
     } catch {

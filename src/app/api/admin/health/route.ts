@@ -65,7 +65,7 @@ export async function GET() {
 
     // Reuse BullMQ's Redis connection for memory info
     const client = await syncQueue.client;
-    const info = await client.info("memory");
+    const info = await client.info();
     const match = info.match(/used_memory_human:(\S+)/);
     if (match) {
       redisMemoryUsed = match[1];

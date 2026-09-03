@@ -5,7 +5,7 @@ import { getConfig } from "@/lib/config";
 import { auth } from "@/lib/auth";
 import { setChallenge } from "@/lib/webauthn-challenge-store";
 import { randomBytes } from "crypto";
-import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
+import type { AuthenticatorTransport } from "@simplewebauthn/server";
 import { rateLimitRegistration, tooManyRequests } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/client-ip";
 
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     attestationType: "none",
     excludeCredentials: existingPasskeys.map((pk) => ({
       id: pk.credentialId,
-      transports: pk.transports as AuthenticatorTransportFuture[],
+      transports: pk.transports as AuthenticatorTransport[],
     })),
     authenticatorSelection: {
       residentKey: "preferred",
