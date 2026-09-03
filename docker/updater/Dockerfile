@@ -1,4 +1,4 @@
-FROM alpine:3.20
+FROM alpine:3.24
 
 LABEL org.opencontainers.image.source="https://github.com/cfarvidson/kurir-server"
 LABEL org.opencontainers.image.description="Kurir — out-of-band updater sidecar"

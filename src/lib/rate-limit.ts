@@ -12,6 +12,7 @@ function getRedis(): Redis | null {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
         retryStrategy: () => null, // Don't retry — fail open
+        protocol: 2, // ioredis 6 defaults to RESP3
       });
       redis.connect().catch(() => {});
     } catch {
@@ -61,7 +62,7 @@ async function checkRateLimit(
 
     if (count > limit) {
       // Find the oldest entry to calculate retry-after
-      const oldest = await client.zrange(redisKey, 0, 0, "WITHSCORES");
+      const oldest = await client.zrange(redisKey, 0, "0", "WITHSCORES");
       const oldestTime = oldest.length >= 2 ? parseInt(oldest[1], 10) : now;
       const retryAfter = Math.ceil((oldestTime + windowMs - now) / 1000);
 
