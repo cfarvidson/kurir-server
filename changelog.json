@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.63",
+    "date": "2026-09-03",
+    "changes": [
+      "Bump managed dependencies (Next 16.3.4, Prisma 7.10, ioredis 6, SimpleWebAuthn 14, motion 13)",
+      "Updater Alpine image 3.20 to 3.24"
+    ]
+  },
+  {
     "version": "2026.58",
     "date": "2026-09-01",
     "changes": [

@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.63] - 2026-09-03
+
+### Changed
+
+- Bump managed dependencies for the app and docs site (Next 16.3.4,
+  React 19.2.8, Prisma 7.10, ioredis 6, SimpleWebAuthn 14, motion 13).
+  Updater Alpine image 3.20 to 3.24 (#156)
+
 ## [v2026.58] - 2026-09-01
 
 ### Added

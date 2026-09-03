@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.58",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.58",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.58",
-    "changelog": "Person pane: links exchanged, appointments, schedule time, and readable reply stats",
+    "version": "2026.63",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.63",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.63",
+    "changelog": "Dependency bump: Next 16.3.4, Prisma 7.10, ioredis 6, SimpleWebAuthn 14, motion 13",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-01T08:08:59Z"
+    "releasedAt": "2026-09-03T09:28:24Z"
   }
 }
