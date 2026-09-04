@@ -150,15 +150,17 @@ function scheduleNewMessageCheck(connectionId: string, delayMs: number): void {
  * - A per-connection in-flight guard coalesces a retry that fires alongside a
  *   fresh debounced event into a single execution.
  */
-export async function checkForNewMessages(connectionId: string): Promise<void> {
+export async function checkForNewMessages(
+  connectionId: string,
+): Promise<number> {
   // In-flight guard: a check already running coalesces concurrent triggers —
   // but reschedule rather than drop, so mail arriving mid-ingest is picked up
   // by a fresh check (which re-reads lastUid) instead of waiting for the 60s job.
   const before = connectionManager.getConnection(connectionId);
-  if (!before) return; // connection torn down — nothing to do
+  if (!before) return 0; // connection torn down — nothing to do
   if (before.newMessageCheckInFlight) {
     scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
-    return;
+    return 0;
   }
 
   // Defer (never drop) while a full sync holds the lock. Stale-aware: a crashed
@@ -169,10 +171,10 @@ export async function checkForNewMessages(connectionId: string): Promise<void> {
   // recreated meanwhile — guard/budget writes to the old object would be lost
   // and the captured client could be a dead socket.
   const conn = connectionManager.getConnection(connectionId);
-  if (!conn) return;
+  if (!conn) return 0;
   if (conn.newMessageCheckInFlight) {
     scheduleNewMessageCheck(connectionId, EXISTS_DEBOUNCE_MS);
-    return;
+    return 0;
   }
 
   if (lockHeld) {
@@ -182,11 +184,11 @@ export async function checkForNewMessages(connectionId: string): Promise<void> {
         `[idle] Sync lock held; new-message check deferred ${attempt} time(s) for connection ${connectionId}, giving up (next sync job is the backstop)`,
       );
       conn.newMessageRetryAttempts = 0;
-      return;
+      return 0;
     }
     conn.newMessageRetryAttempts = attempt + 1;
     scheduleNewMessageCheck(connectionId, SYNC_LOCK_RETRY_BACKOFF_MS[attempt]);
-    return;
+    return 0;
   }
 
   // Lock free — this check will complete; clear the deferral budget.
@@ -194,7 +196,12 @@ export async function checkForNewMessages(connectionId: string): Promise<void> {
 
   conn.newMessageCheckInFlight = true;
   try {
-    await ingestNewMessages(connectionId, conn.userId, conn.folderId, conn.client);
+    return await ingestNewMessages(
+      connectionId,
+      conn.userId,
+      conn.folderId,
+      conn.client,
+    );
   } finally {
     conn.newMessageCheckInFlight = false;
   }
@@ -306,7 +313,7 @@ async function ingestNewMessages(
   userId: string,
   folderId: string,
   client: ImapFlow,
-): Promise<void> {
+): Promise<number> {
   // Find highest UID we already have for this folder
   const lastMsg = await db.message.findFirst({
     where: { folderId, uid: { gt: 0 } },
@@ -316,7 +323,7 @@ async function ingestNewMessages(
   const lastUid = lastMsg?.uid ?? 0;
 
   if (!shouldRunBootCatchUp({ lastUid, newUidCount: 1 })) {
-    return;
+    return 0;
   }
 
   // Fetch new messages (uid > lastUid)
@@ -439,6 +446,8 @@ async function ingestNewMessages(
       }).catch((err) => console.error("[push] error:", err));
     }
   }
+
+  return count;
 }
 
 /** Prisma P2002 = unique constraint violation. */

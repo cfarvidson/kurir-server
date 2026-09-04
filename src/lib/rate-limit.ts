@@ -102,6 +102,14 @@ export async function rateLimitSync(userId: string): Promise<RateLimitResult> {
 }
 
 /**
+ * Rate limit the cheap on-demand IMAP new-mail check.
+ * 1 successful check per 5 seconds per user (OTP-wait retry).
+ */
+export async function rateLimitCheck(userId: string): Promise<RateLimitResult> {
+  return checkRateLimit(`check:${userId}`, 1, 5);
+}
+
+/**
  * Rate limit connection create/update.
  * 5 per minute per user.
  */
