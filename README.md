@@ -123,9 +123,11 @@ docker compose -f docker-compose.production.yml up -d
 
 For multi-host deploys across Tailscale-connected servers. See [DEPLOY.md](DEPLOY.md).
 
+Always use `bin/deploy`, never bare `kamal`. The wrapper loads `~/.kamal/kurir-secrets.env` (mode 0600). Running `kamal` without that file injects empty secrets and wipes production config.
+
 ```bash
-kamal setup    # First deploy
-kamal deploy   # Subsequent deploys
+bin/deploy setup    # First deploy
+bin/deploy          # Subsequent deploys
 ```
 
 ## Scripts
