@@ -33,7 +33,7 @@ describe("POST /api/mail/check", () => {
     vi.mocked(auth).mockResolvedValue(null as never);
 
     const { POST } = await import("@/app/api/mail/check/route");
-    const res = await POST(makeRequest());
+    const res = await POST();
     expect(res.status).toBe(401);
   });
 
@@ -47,7 +47,7 @@ describe("POST /api/mail/check", () => {
     });
 
     const { POST } = await import("@/app/api/mail/check/route");
-    const res = await POST(makeRequest());
+    const res = await POST();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, ingested: 2 });
     expect(checkNewMailForUser).toHaveBeenCalledWith("user-1");
@@ -63,7 +63,7 @@ describe("POST /api/mail/check", () => {
     });
 
     const { POST } = await import("@/app/api/mail/check/route");
-    const res = await POST(makeRequest());
+    const res = await POST();
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("4");
   });

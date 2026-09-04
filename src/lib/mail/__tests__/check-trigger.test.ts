@@ -59,7 +59,7 @@ describe("requestImapCheck", () => {
 describe("createCheckTrigger", () => {
   let visible: boolean;
   let requestCheck: ReturnType<typeof vi.fn<() => Promise<CheckResult>>>;
-  let scheduleRefresh: ReturnType<typeof vi.fn>;
+  let scheduleRefresh: ReturnType<typeof vi.fn<() => void>>;
   let resolveCheck: ((result: CheckResult) => void) | null;
   let trigger: ReturnType<typeof createCheckTrigger>;
 
@@ -83,7 +83,7 @@ describe("createCheckTrigger", () => {
     visible = true;
     resolveCheck = null;
     requestCheck = vi.fn(pendingCheck);
-    scheduleRefresh = vi.fn();
+    scheduleRefresh = vi.fn<() => void>();
     trigger = createCheckTrigger({
       isVisible: () => visible,
       requestCheck,

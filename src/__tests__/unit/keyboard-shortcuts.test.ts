@@ -193,7 +193,7 @@ describe("handleSyncShortcut (Cmd+R / Ctrl+R)", () => {
       target: {
         tagName: overrides.tagName ?? "BODY",
         isContentEditable: overrides.isContentEditable ?? false,
-      },
+      } as unknown as EventTarget,
     };
   }
 
