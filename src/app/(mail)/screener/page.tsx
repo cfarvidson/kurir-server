@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { ScreenerContent } from "@/components/screener/screener-content";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { visiblePendingSenderWhere } from "@/lib/mail/pending-senders";
+import {
+  SCREENED_SENDERS_TAKE,
+  getScreenedSenders,
+} from "@/lib/mail/screener-list";
 import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
 import {
   listDomainRulesForUser,
@@ -55,27 +59,6 @@ async function getSkippedSenders(userId: string, ownEmails?: string[]) {
   });
 }
 
-async function getScreenedSenders(userId: string, ownEmails?: string[]) {
-  return db.sender.findMany({
-    where: {
-      userId,
-      status: { in: ["APPROVED", "REJECTED"] },
-      ...(ownEmails?.length ? { NOT: { email: { in: ownEmails } } } : {}),
-    },
-    orderBy: { decidedAt: "desc" },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      domain: true,
-      status: true,
-      category: true,
-      decidedAt: true,
-      _count: { select: { messages: true } },
-    },
-  });
-}
-
 export default async function ScreenerPage() {
   const session = await auth();
 
@@ -117,6 +100,7 @@ export default async function ScreenerPage() {
           pendingSenders={pendingSenders}
           skippedSenders={skippedSenders}
           screenedSenders={screenedSenders}
+          screenedIsCapped={screenedSenders.length === SCREENED_SENDERS_TAKE}
           domainRules={domainRules}
           subjectRules={subjectRules}
         />
