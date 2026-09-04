@@ -675,6 +675,8 @@ model SystemSettings {
   latestReleaseUrl  String?
   latestChangelog   String?
   updateAvailable   Boolean   @default(false)
+  imageAvailable    Boolean?  // null = not checked yet; see image-availability.ts
+  imageCheckedAt    DateTime?
 }
 
 // ============================================

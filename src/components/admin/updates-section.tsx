@@ -7,15 +7,24 @@ import {
   Clock,
   Download,
   ExternalLink,
+  FileText,
+  Loader2,
+  PackageSearch,
   RefreshCw,
   RotateCcw,
   Settings,
+  ShieldCheck,
+  TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { FileText, TriangleAlert } from "lucide-react";
 import changelog from "@/../changelog.json";
-import { UPDATER_REFRESH_COMMAND } from "@/lib/updates/constants";
+import {
+  ACTIVE_UPDATE_STATUSES,
+  UPDATER_REFRESH_COMMAND,
+} from "@/lib/updates/constants";
+import { cn } from "@/lib/utils";
+import { compareVersions } from "@/lib/updates/compare-versions";
 
 interface ChangelogEntry {
   version: string;
@@ -31,6 +40,8 @@ interface UpdateStatus {
   latestReleaseUrl: string | null;
   latestChangelog: string | null;
   lastUpdateCheck: string | null;
+  imageAvailable?: boolean | null;
+  imageCheckedAt?: string | null;
   updateMode: string;
   updateChannel: "stable" | "beta";
   updater: {
@@ -92,6 +103,163 @@ function RelativeTime({ date }: { date: string }) {
   return <span>{diffDays}d ago</span>;
 }
 
+function ExpandToggle({
+  expanded,
+  label,
+  onClick,
+}: {
+  expanded: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+    >
+      {expanded ? "Show less" : label}
+    </button>
+  );
+}
+
+function RunRow({ entry }: { entry: UpdateLogEntry }) {
+  return (
+    <div className="rounded border bg-muted/30 px-3 py-2 text-xs">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">
+            {entry.fromVersion} → {entry.toVersion}
+          </span>
+          <StatusBadge status={entry.status} />
+          <span className="text-muted-foreground">{entry.triggeredBy}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {entry.durationMs && (
+            <span>{Math.round(entry.durationMs / 1000)}s</span>
+          )}
+          <RelativeTime date={entry.createdAt} />
+        </div>
+      </div>
+      {entry.status === "failed" && entry.error && (
+        <pre className="mt-2 whitespace-pre-wrap break-words rounded bg-muted/60 px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+          {entry.error}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function ChangelogRelease({
+  release,
+  currentVersion,
+}: {
+  release: ChangelogEntry;
+  currentVersion: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-xs font-medium">v{release.version}</span>
+        {release.date && (
+          <span className="text-xs text-muted-foreground">{release.date}</span>
+        )}
+        {release.version === currentVersion && (
+          <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+            current
+          </span>
+        )}
+      </div>
+      <ul className="space-y-0.5">
+        {release.changes.map((change, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-2 text-xs text-muted-foreground"
+          >
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
+            {change}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Entries with `from < version <= to`, newest first (changelog.json order). */
+function releasesBetween(
+  entries: ChangelogEntry[],
+  from: string,
+  to: string,
+): ChangelogEntry[] {
+  return entries.filter(
+    (e) =>
+      compareVersions(e.version, from) > 0 &&
+      compareVersions(e.version, to) <= 0,
+  );
+}
+
+interface WhatsNew {
+  heading: string;
+  releases: ChangelogEntry[];
+  /** The target's entry was not in the bundled changelog; a manifest line stands in. */
+  fromManifest: boolean;
+}
+
+/**
+ * The versions you get by installing, or (ahead of stable) the ones you
+ * have beyond the stable pointer. Empty when up to date.
+ */
+export function whatsNewFor(
+  entries: ChangelogEntry[],
+  status: Pick<
+    UpdateStatus,
+    | "updateAvailable"
+    | "runningAheadOfStable"
+    | "latestVersion"
+    | "latestChangelog"
+  >,
+  currentVersion: string,
+): WhatsNew {
+  const aheadOfStable = status.runningAheadOfStable && !status.updateAvailable;
+  if (status.updateAvailable && status.latestVersion) {
+    let releases = releasesBetween(
+      entries,
+      currentVersion,
+      status.latestVersion,
+    );
+    let fromManifest = false;
+    if (!releases.some((e) => e.version === status.latestVersion)) {
+      // The bundled changelog describes the running version; the target's
+      // entry only exists in the newer image. Fall back to the manifest line.
+      fromManifest = true;
+      releases = [
+        {
+          version: status.latestVersion,
+          date: "",
+          changes: status.latestChangelog ? [status.latestChangelog] : [],
+        },
+        ...releases,
+      ];
+    }
+    return {
+      heading:
+        releases.length > 1
+          ? `What's new: v${currentVersion} → v${status.latestVersion}`
+          : `What's new in v${status.latestVersion}`,
+      releases,
+      fromManifest,
+    };
+  }
+  if (aheadOfStable && status.latestVersion) {
+    return {
+      heading: "What you have beyond stable",
+      releases: releasesBetween(entries, status.latestVersion, currentVersion),
+      fromManifest: false,
+    };
+  }
+  return { heading: "What's new", releases: [], fromManifest: false };
+}
+
 export function UpdatesSection({
   versionInfo,
 }: {
@@ -103,6 +271,8 @@ export function UpdatesSection({
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmUpdate, setConfirmUpdate] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [changelogExpanded, setChangelogExpanded] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -148,6 +318,8 @@ export function UpdatesSection({
       await fetchStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
+      // The apply route re-verifies the image, so pull its verdict.
+      await fetchStatus();
     } finally {
       setUpdating(false);
     }
@@ -221,6 +393,23 @@ export function UpdatesSection({
   if (!status) return null;
 
   const aheadOfStable = status.runningAheadOfStable && !status.updateAvailable;
+  const installable = status.updateAvailable || aheadOfStable;
+  const imageReady = status.imageAvailable === true;
+  const inProgress = status.history.find((h) =>
+    (ACTIVE_UPDATE_STATUSES as readonly string[]).includes(h.status),
+  );
+  const latestRun = status.history[0];
+
+  const heading = status.updateAvailable
+    ? imageReady
+      ? `Update available: v${status.latestVersion}`
+      : `v${status.latestVersion} is on its way`
+    : aheadOfStable
+      ? "Ahead of stable"
+      : "Up to date";
+
+  const allReleases = changelog as ChangelogEntry[];
+  const whatsNew = whatsNewFor(allReleases, status, versionInfo.version);
 
   return (
     <section>
@@ -231,6 +420,7 @@ export function UpdatesSection({
           size="sm"
           onClick={handleCheck}
           disabled={checking}
+          aria-label="Check for updates"
         >
           <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
         </Button>
@@ -258,21 +448,28 @@ export function UpdatesSection({
             </div>
           )}
 
-        {/* Current Version & Update Status */}
+        {/* Version card */}
         <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-sm font-medium">
-                {status.updateAvailable || aheadOfStable ? (
+                {installable ? (
                   <ArrowDownCircle className="h-4 w-4 text-blue-500" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
-                {status.updateAvailable
-                  ? "Update Available"
-                  : aheadOfStable
-                    ? "Ahead of stable"
-                    : "Up to Date"}
+                {heading}
+                {installable && status.latestReleaseUrl && (
+                  <a
+                    href={status.latestReleaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 inline-flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Release notes
+                  </a>
+                )}
               </div>
               <div className="mt-2 space-y-1 text-xs">
                 <div>
@@ -292,30 +489,71 @@ export function UpdatesSection({
                     <RelativeTime date={status.lastUpdateCheck} />
                   </div>
                 )}
+                {installable && (
+                  <div className="flex items-center gap-1">
+                    {imageReady ? (
+                      <>
+                        <ShieldCheck className="h-3 w-3 text-green-500" />
+                        <span className="text-muted-foreground">
+                          Image verified
+                        </span>{" "}
+                        {status.imageCheckedAt && (
+                          <RelativeTime date={status.imageCheckedAt} />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <PackageSearch className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-muted-foreground">
+                          {status.imageAvailable === false
+                            ? "Docker image not published yet. Usually 10-15 min after tagging."
+                            : "Image availability not checked yet."}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {(status.updateAvailable || aheadOfStable) && (
-              <div className="flex gap-2">
-                {status.latestReleaseUrl && (
-                  <a
-                    href={status.latestReleaseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Release notes
-                  </a>
-                )}
-                {!confirmUpdate ? (
+            {installable && (
+              <div className="flex shrink-0 gap-2">
+                {inProgress ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <StatusBadge status={inProgress.status} />
+                  </div>
+                ) : !imageReady ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCheck}
+                      disabled={checking}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "mr-1 h-3 w-3",
+                          checking && "animate-spin",
+                        )}
+                      />
+                      Check again
+                    </Button>
+                    <span title="Waiting for the Docker image to be published">
+                      <Button size="sm" disabled>
+                        <Download className="mr-1 h-3 w-3" />
+                        {aheadOfStable ? "Reinstall stable" : "Update now"}
+                      </Button>
+                    </span>
+                  </>
+                ) : !confirmUpdate ? (
                   <Button
                     size="sm"
                     onClick={() => setConfirmUpdate(true)}
                     disabled={updating}
                   >
                     <Download className="mr-1 h-3 w-3" />
-                    {aheadOfStable ? "Reinstall stable" : "Update Now"}
+                    {aheadOfStable ? "Reinstall stable" : "Update now"}
                   </Button>
                 ) : (
                   <div className="flex max-w-xs flex-col items-end gap-2">
@@ -346,70 +584,152 @@ export function UpdatesSection({
               </div>
             )}
           </div>
+        </div>
 
-          {status.latestChangelog && status.updateAvailable && (
-            <div className="mt-3 rounded border bg-muted/50 p-3 text-xs">
-              <p className="font-medium text-muted-foreground mb-1">
-                Changelog
-              </p>
-              <p>{status.latestChangelog}</p>
+        {/* Latest run, expandable to full history */}
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-medium">
+              {historyExpanded ? "Update history" : "Latest update"}
+            </h3>
+            {status.history.length > 1 && (
+              <ExpandToggle
+                expanded={historyExpanded}
+                label={`Show full history (${status.history.length})`}
+                onClick={() => setHistoryExpanded((v) => !v)}
+              />
+            )}
+          </div>
+          {latestRun ? (
+            <div className="space-y-2">
+              {(historyExpanded ? status.history : [latestRun]).map((entry) => (
+                <RunRow key={entry.id} entry={entry} />
+              ))}
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No updates yet</p>
           )}
         </div>
 
+        {/* What's new, expandable to the full changelog */}
         <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Install betas</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {status.updateChannel === "beta"
-                  ? "This instance is on the beta channel."
-                  : "This instance is on the stable channel."}{" "}
-                Tagged versions that have not been marked stable show up only
-                with this on.
-              </p>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              {changelogExpanded ? "All versions" : whatsNew.heading}
             </div>
-            <Switch
-              aria-label="Install betas"
-              checked={status.updateChannel === "beta"}
-              disabled={checking}
-              onCheckedChange={handleChannelChange}
-            />
+            {allReleases.length > 0 && (
+              <ExpandToggle
+                expanded={changelogExpanded}
+                label={`Show all versions (${allReleases.length})`}
+                onClick={() => setChangelogExpanded((v) => !v)}
+              />
+            )}
           </div>
+          {changelogExpanded ? (
+            <div className="space-y-4">
+              {allReleases.map((release) => (
+                <ChangelogRelease
+                  key={release.version}
+                  release={release}
+                  currentVersion={versionInfo.version}
+                />
+              ))}
+            </div>
+          ) : whatsNew.releases.length > 0 ? (
+            <div className="space-y-4">
+              {whatsNew.releases.map((release) => (
+                <ChangelogRelease
+                  key={release.version}
+                  release={release}
+                  currentVersion={versionInfo.version}
+                />
+              ))}
+              {whatsNew.fromManifest &&
+                (status.latestReleaseUrl ? (
+                  <a
+                    href={status.latestReleaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Full notes in Release notes
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Full notes in Release notes
+                  </p>
+                ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {installable
+                ? "No changelog entries for this range."
+                : "You're on the latest version"}
+            </p>
+          )}
         </div>
 
-        {/* Update Mode Setting */}
+        {/* Update settings */}
         <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium">
             <Settings className="h-4 w-4 text-muted-foreground" />
-            Update Mode
+            Update settings
           </div>
-          <div className="mt-3 flex gap-2">
-            {(["off", "notify", "auto"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => handleModeChange(mode)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  status.updateMode === mode
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center justify-between gap-4 sm:flex-1">
+              <div>
+                <p className="text-sm">Install betas</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {status.updateChannel === "beta"
+                    ? "Following tagged versions before they are marked stable."
+                    : "Following stable releases only."}
+                </p>
+              </div>
+              <Switch
+                aria-label="Install betas"
+                checked={status.updateChannel === "beta"}
+                disabled={checking}
+                onCheckedChange={handleChannelChange}
+              />
+            </div>
+            <div className="sm:flex-1">
+              <p className="text-sm">Update mode</p>
+              <div
+                className="mt-2 inline-flex rounded-md bg-muted p-0.5"
+                role="group"
+                aria-label="Update mode"
               >
-                {mode === "off"
-                  ? "Off"
-                  : mode === "notify"
-                    ? "Notify Only"
-                    : "Auto-Apply"}
-              </button>
-            ))}
+                {(["off", "notify", "auto"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => handleModeChange(mode)}
+                    aria-pressed={status.updateMode === mode}
+                    className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      status.updateMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {mode === "off"
+                      ? "Off"
+                      : mode === "notify"
+                        ? "Notify"
+                        : "Auto"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {status.updateMode === "off" && "Update checking is disabled."}
+                {status.updateMode === "notify" &&
+                  "Shows available updates; you apply them."}
+                {status.updateMode === "auto" &&
+                  "Applies verified updates automatically."}
+              </p>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {status.updateMode === "off" && "Update checking is disabled."}
-            {status.updateMode === "notify" &&
-              "You will be notified when updates are available."}
-            {status.updateMode === "auto" &&
-              "Updates will be applied automatically after a health check."}
-          </p>
         </div>
 
         {/* Rollback */}
@@ -427,77 +747,6 @@ export function UpdatesSection({
             <p className="mt-1 text-xs text-muted-foreground">
               Revert to the previous version if the current update has issues.
             </p>
-          </div>
-        )}
-
-        {/* Update History */}
-        {status.history.length > 0 && (
-          <div className="rounded-lg border bg-card p-4">
-            <h3 className="text-sm font-medium mb-3">Update History</h3>
-            <div className="space-y-2">
-              {status.history.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between rounded border bg-muted/30 px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">
-                      {entry.fromVersion} → {entry.toVersion}
-                    </span>
-                    <StatusBadge status={entry.status} />
-                    <span className="text-muted-foreground">
-                      {entry.triggeredBy}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {entry.durationMs && (
-                      <span>{Math.round(entry.durationMs / 1000)}s</span>
-                    )}
-                    <RelativeTime date={entry.createdAt} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Changelog */}
-        {(changelog as ChangelogEntry[]).length > 0 && (
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center gap-2 text-sm font-medium mb-3">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              Changelog
-            </div>
-            <div className="space-y-4">
-              {(changelog as ChangelogEntry[]).map((release) => (
-                <div key={release.version}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-xs font-medium">
-                      v{release.version}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {release.date}
-                    </span>
-                    {release.version === versionInfo.version && (
-                      <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        current
-                      </span>
-                    )}
-                  </div>
-                  <ul className="space-y-0.5">
-                    {release.changes.map((change, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-xs text-muted-foreground"
-                      >
-                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-                        {change}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 

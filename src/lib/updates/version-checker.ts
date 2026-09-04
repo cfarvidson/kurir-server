@@ -2,6 +2,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
 import { DEFAULT_MANIFEST_URL } from "./constants";
+import { checkImageExists } from "./image-availability";
+import { compareVersions } from "./compare-versions";
 
 export interface VersionManifest {
   version: string;
@@ -94,29 +96,6 @@ function isValidManifestUrl(url: string): boolean {
 }
 
 /**
- * Compare two CalVer strings component by component, padding the shorter one
- * with zeroes. Returns -1 if a < b, 0 if equal, 1 if a > b.
- *
- * The `YYYY.MM.N` -> `YYYY.MICRO` crossover needs no special case here: the
- * first micro was picked to outrank the last month component, so
- * `2026.08.27` < `2026.28` is just `8 < 28` on the second component. That is
- * also why a micro cannot restart at 1 mid-year.
- */
-export function compareVersions(a: string, b: string): -1 | 0 | 1 {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const numA = partsA[i] ?? 0;
-    const numB = partsB[i] ?? 0;
-    if (numA < numB) return -1;
-    if (numA > numB) return 1;
-  }
-
-  return 0;
-}
-
-/**
  * Check for available updates by fetching the remote version manifest
  * and comparing against the current package.json version.
  *
@@ -127,6 +106,8 @@ export async function checkForUpdates(): Promise<{
   currentVersion: string;
   latestVersion: string;
   runningAheadOfStable: boolean;
+  /** null when there is nothing to install or the registry probe failed */
+  imageAvailable: boolean | null;
   error?: string;
 }> {
   const currentVersion: string = pkg.version;
@@ -169,26 +150,49 @@ export async function checkForUpdates(): Promise<{
       channel,
     );
 
+    // Only probe the registry when there is something to install. A failed
+    // probe keeps the previous answer for the same image; for a new image it
+    // resets to null so a stale "verified" never carries over. The apply
+    // route re-probes with stricter semantics (refuses on failure) right
+    // before starting a run.
+    const probe: {
+      imageAvailable?: boolean | null;
+      imageCheckedAt?: Date | null;
+    } = {};
+    if (updateAvailable || runningAheadOfStable) {
+      try {
+        probe.imageAvailable = await checkImageExists(pointer.image);
+        probe.imageCheckedAt = new Date();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[update-checker] Could not verify image ${pointer.image}: ${message}`,
+        );
+        if (settings?.latestImageTag !== pointer.image) {
+          probe.imageAvailable = null;
+          probe.imageCheckedAt = null;
+        }
+      }
+    } else {
+      probe.imageAvailable = null;
+      probe.imageCheckedAt = null;
+    }
+
+    const fields = {
+      latestVersion,
+      latestImageTag: pointer.image,
+      latestReleaseUrl: pointer.releaseUrl,
+      latestChangelog: pointer.changelog,
+      updateAvailable,
+      lastUpdateCheck: new Date(),
+      ...probe,
+    };
+
     // Persist the result in SystemSettings
     await db.systemSettings.upsert({
       where: { id: "singleton" },
-      create: {
-        id: "singleton",
-        latestVersion,
-        latestImageTag: pointer.image,
-        latestReleaseUrl: pointer.releaseUrl,
-        latestChangelog: pointer.changelog,
-        updateAvailable,
-        lastUpdateCheck: new Date(),
-      },
-      update: {
-        latestVersion,
-        latestImageTag: pointer.image,
-        latestReleaseUrl: pointer.releaseUrl,
-        latestChangelog: pointer.changelog,
-        updateAvailable,
-        lastUpdateCheck: new Date(),
-      },
+      create: { id: "singleton", ...fields },
+      update: fields,
     });
 
     return {
@@ -196,6 +200,10 @@ export async function checkForUpdates(): Promise<{
       currentVersion,
       latestVersion,
       runningAheadOfStable,
+      imageAvailable:
+        probe.imageAvailable !== undefined
+          ? probe.imageAvailable
+          : (settings?.imageAvailable ?? null),
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -206,6 +214,7 @@ export async function checkForUpdates(): Promise<{
       currentVersion,
       latestVersion: "unknown",
       runningAheadOfStable: false,
+      imageAvailable: null,
       error: message,
     };
   }

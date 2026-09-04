@@ -17,7 +17,8 @@ Pick the next micro as one greater than the highest serial across both repos' ta
 3. Top-level fields are the latest _stable_ pointer. An optional `beta` object is the newest tagged version that has not been marked stable yet
 4. Instances on the stable channel (the default) read the top-level pointer. Instances with Admin -> Updates "Install betas" on read `beta` when it is newer
 5. If that pointer is higher than the running version, the admin UI shows "update available"
-6. Users can apply the update from the admin panel (or it auto-applies if configured)
+6. The app then asks ghcr whether the pointer's image tag exists (an anonymous `HEAD` on the manifest, see `src/lib/updates/image-availability.ts`). `latest.json` lands on `main` minutes before `docker-publish.yml` pushes the multi-arch manifest, so until that finishes the page says the version "is on its way" and keeps **Update now** disabled. Auto mode waits for the same signal. Images on registries other than `ghcr.io` skip the probe.
+7. Users can apply the update from the admin panel (or it auto-applies if configured). The apply route re-probes the registry right before starting, so a page left open on an old check cannot start a doomed pull.
 
 `install.sh` pulls `ghcr.io/cfarvidson/kurir-server:latest`. That tag is the newest stable image. A new git tag does **not** move it.
 

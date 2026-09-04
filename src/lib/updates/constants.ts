@@ -19,6 +19,18 @@ export const HEALTH_CHECK_INTERVAL_MS = 5_000;
  */
 export const REQUIRED_UPDATER_PROTOCOL = 2;
 
+/**
+ * UpdateLog statuses that mean a run is still in flight. Shared by the
+ * executor (refuses to start a second run) and the admin page (hides the
+ * install buttons while one is running).
+ */
+export const ACTIVE_UPDATE_STATUSES = [
+  "started",
+  "pulling",
+  "restarting",
+  "verifying",
+] as const;
+
 /** Exact command an operator runs on the host to refresh a stale sidecar. */
 export const UPDATER_REFRESH_COMMAND =
   "docker compose pull updater && docker compose up -d updater";

@@ -22,6 +22,12 @@ async function runCheck() {
       settings?.updateMode === "auto" &&
       result.latestVersion !== "unknown"
     ) {
+      if (result.imageAvailable !== true) {
+        console.log(
+          `[update-cron] v${result.latestVersion} is available but its image is not published yet; retrying next check`,
+        );
+        return;
+      }
       console.log(
         `[update-cron] Auto-applying update to v${result.latestVersion}`,
       );

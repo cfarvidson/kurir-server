@@ -42,6 +42,8 @@ export async function GET() {
     latestReleaseUrl: settings.latestReleaseUrl,
     latestChangelog: settings.latestChangelog,
     lastUpdateCheck: settings.lastUpdateCheck?.toISOString() ?? null,
+    imageAvailable: settings.imageAvailable,
+    imageCheckedAt: settings.imageCheckedAt?.toISOString() ?? null,
     updateMode: settings.updateMode,
     updateChannel,
     updater,
