@@ -122,6 +122,8 @@ export function AutoSync() {
 
     const onMailCheck = () => checkTrigger.trigger();
     window.addEventListener(MAIL_CHECK_EVENT, onMailCheck);
+    // First paint of an already-visible tab never fires visibilitychange.
+    checkTrigger.trigger();
 
     return () => {
       window.removeEventListener(MAIL_CHECK_EVENT, onMailCheck);
