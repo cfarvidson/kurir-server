@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.64] - 2026-09-04
+
+### Added
+
+- Admin → Apps registers MCP OAuth clients for hosts that cannot publish
+  a Client ID Metadata Document: name plus exact redirect URIs, an opaque
+  `kmc_` client_id, per-client connection count, and delete that revokes
+  the client's tokens. Public clients with mandatory PKCE, no secret.
+  The CIMD path is unchanged (#157)
+
 ## [v2026.63] - 2026-09-03
 
 ### Changed
