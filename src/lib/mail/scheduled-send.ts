@@ -36,7 +36,7 @@ export async function ensureOutboundMessageId(
 }
 
 /** Backoff schedule in milliseconds: 1m, 5m, 15m, 1h, 4h */
-const BACKOFF_STEPS_MS = [
+export const BACKOFF_STEPS_MS = [
   1 * 60_000,
   5 * 60_000,
   15 * 60_000,
