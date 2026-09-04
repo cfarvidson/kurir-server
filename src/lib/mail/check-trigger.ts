@@ -62,18 +62,16 @@ interface CheckTriggerOptions {
   isVisible: () => boolean;
   requestCheck: () => Promise<CheckResult>;
   scheduleRefresh: () => void;
-  onCheckingChange?: (checking: boolean) => void;
 }
 
 export function createCheckTrigger(opts: CheckTriggerOptions): CheckTrigger {
-  const { isVisible, requestCheck, scheduleRefresh, onCheckingChange } = opts;
+  const { isVisible, requestCheck, scheduleRefresh } = opts;
 
   let inFlight = false;
   let cancelled = false;
 
   const notify = (value: boolean) => {
     setCheckInFlight(value);
-    onCheckingChange?.(value);
   };
 
   const trigger = () => {

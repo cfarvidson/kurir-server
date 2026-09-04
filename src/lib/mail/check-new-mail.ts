@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { checkForNewMessages } from "@/lib/mail/idle-handlers";
@@ -41,13 +42,19 @@ async function runCheck(userId: string): Promise<CheckNewMailResult> {
     select: { id: true },
   });
 
-  await Promise.allSettled(
-    connections.map((c) => connectionManager.startConnection(c.id)),
-  );
-
   let ingested = 0;
   for (const c of connections) {
-    ingested += await checkForNewMessages(c.id);
+    const alreadyUp = connectionManager.isConnected(c.id);
+    await connectionManager.startConnection(c.id);
+    // A cold start already ran catchUpNewMessages. Checking again would
+    // be a second lastUid IMAP pass. An already-up connection still needs
+    // the explicit check (OTP waiting on IMAP right now).
+    if (alreadyUp || !connectionManager.isConnected(c.id)) {
+      ingested += await checkForNewMessages(c.id);
+    }
+  }
+  if (ingested > 0) {
+    revalidateTag("sidebar-counts", { expire: 0 });
   }
   return { status: "ok", ingested };
 }

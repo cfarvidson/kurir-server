@@ -16,7 +16,12 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/mail/connection-manager", () => ({
   connectionManager: {
     startConnection: vi.fn().mockResolvedValue(undefined),
+    isConnected: vi.fn().mockReturnValue(false),
   },
+}));
+
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
 }));
 
 vi.mock("@/lib/mail/idle-handlers", () => ({
@@ -73,6 +78,10 @@ describe("checkNewMailForUser", () => {
     expect(connectionManager.startConnection).toHaveBeenCalledWith("conn-b");
     expect(checkForNewMessages).toHaveBeenCalledWith("conn-a");
     expect(checkForNewMessages).toHaveBeenCalledWith("conn-b");
+    const { revalidateTag } = await import("next/cache");
+    expect(revalidateTag).toHaveBeenCalledWith("sidebar-counts", {
+      expire: 0,
+    });
   });
 
   it("is a no-op when nothing new is on IMAP", async () => {
@@ -88,6 +97,35 @@ describe("checkNewMailForUser", () => {
       status: "ok",
       ingested: 0,
     });
+    const { revalidateTag } = await import("next/cache");
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it("does not re-check a connection that startConnection just brought up", async () => {
+    const { db } = await import("@/lib/db");
+    const { connectionManager } = await import(
+      "@/lib/mail/connection-manager"
+    );
+    const { checkForNewMessages } = await import("@/lib/mail/idle-handlers");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      { id: "conn-a" },
+    ] as never);
+    let up = false;
+    vi.mocked(connectionManager.isConnected).mockImplementation(() => up);
+    vi.mocked(connectionManager.startConnection).mockImplementation(
+      async () => {
+        up = true;
+      },
+    );
+    vi.mocked(checkForNewMessages).mockResolvedValue(5);
+
+    const { checkNewMailForUser } = await load();
+    expect(await checkNewMailForUser(USER)).toEqual({
+      status: "ok",
+      ingested: 0,
+    });
+    expect(connectionManager.startConnection).toHaveBeenCalledWith("conn-a");
+    expect(checkForNewMessages).not.toHaveBeenCalled();
   });
 
   it("joins an in-flight check instead of a second IMAP round-trip", async () => {

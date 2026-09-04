@@ -83,6 +83,21 @@ describe("POST /api/mobile/check", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 429 with Retry-After when rate limited", async () => {
+    const { requireMobileAuth } = await import("@/lib/mobile/auth");
+    const { checkNewMailForUser } = await import("@/lib/mail/check-new-mail");
+    vi.mocked(requireMobileAuth).mockResolvedValue({ userId: "user-1" });
+    vi.mocked(checkNewMailForUser).mockResolvedValue({
+      status: "rate_limited",
+      retryAfter: 4,
+    });
+
+    const { POST } = await import("@/app/api/mobile/check/route");
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("4");
+  });
+
   it("returns ingested count for a bearer session", async () => {
     const { requireMobileAuth } = await import("@/lib/mobile/auth");
     const { checkNewMailForUser } = await import("@/lib/mail/check-new-mail");
