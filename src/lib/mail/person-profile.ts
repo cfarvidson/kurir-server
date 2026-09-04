@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import {
   computePersonStats,
   rankOf,
-  rankPeople,
   type PersonRank,
   type PersonStats,
 } from "@/lib/mail/person-stats";
@@ -18,7 +17,7 @@ import {
   mergeSignatureDetails,
   type SignatureDetails,
 } from "@/lib/mail/signature-extract";
-import { getOwnAddresses, type OwnAddresses } from "@/lib/mail/user-emails";
+import { getOwnAddresses } from "@/lib/mail/user-emails";
 
 /**
  * The person profile served to web and mobile (kurir-ios#116): contact
@@ -56,24 +55,14 @@ const RANK_COLUMNS = {
 /**
  * Rank position comes from the materialised PersonRank table
  * (kurir-ios#117), written after each completed sync. A user whose table is
- * still empty (first start after the upgrade, or a sync that never
- * completed) gets one live pass over the mailbox and a detached recompute
- * so the next call reads the table.
+ * still empty gets zeros here and a detached recompute so the next call
+ * reads the table. Do not live-rank the mailbox on pane open.
  */
-async function rankFor(
-  userId: string,
-  email: string,
-  own: OwnAddresses,
-  now: Date,
-): Promise<PersonRank> {
+async function rankFor(userId: string, email: string): Promise<PersonRank> {
   const materialised = await readPersonRank(userId, email);
   if (materialised) return materialised;
-  const rows = await db.message.findMany({
-    where: { userId, isDraft: false },
-    select: RANK_COLUMNS,
-  });
   kickRankRecompute(userId);
-  return rankOf(email, rankPeople(rows, own, now));
+  return rankOf(email, []);
 }
 
 export async function getPersonProfile(
@@ -120,7 +109,7 @@ export async function getPersonProfile(
     }),
   ]);
 
-  const rank = await rankFor(userId, email, own, now);
+  const rank = await rankFor(userId, email);
 
   const timeZone = isValidTimeZone(options.timeZone)
     ? options.timeZone

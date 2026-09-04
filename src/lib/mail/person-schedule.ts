@@ -113,9 +113,16 @@ export function slotLines(
 
 export async function loadScheduleInstances(
   userId: string,
+  now: Date = new Date(),
 ): Promise<ScheduleInstance[]> {
+  const windowStart = new Date(now.getTime() - 1 * 86_400_000);
+  const windowEnd = new Date(now.getTime() + 16 * 86_400_000);
   const rows = await db.calendarEventInstance.findMany({
-    where: { userId },
+    where: {
+      userId,
+      startAt: { lt: windowEnd },
+      endAt: { gt: windowStart },
+    },
     select: {
       startAt: true,
       endAt: true,

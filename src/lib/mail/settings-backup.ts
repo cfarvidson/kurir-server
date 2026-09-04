@@ -642,7 +642,7 @@ export async function restoreSettingsBackupFromMessageForUser(
   messageId: string,
 ): Promise<{ skippedConnections: string[] }> {
   const message = await db.message.findFirst({
-    where: { id: messageId, userId },
+    where: { id: messageId, userId, folder: { specialUse: "sent" } },
     include: { attachments: true },
   });
   if (!message) {
