@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import {
   createAuthorizationCode,
-  fetchCimd,
+  resolveMcpClient,
   mcpIssuer,
   mcpResourceUri,
   redirectUriAllowed,
@@ -44,9 +44,9 @@ export async function submitMcpConsent(
     return "This authorization request is not valid for this Kurir instance.";
   }
 
-  const doc = await fetchCimd(clientId);
+  const doc = await resolveMcpClient(clientId);
   if (!doc) {
-    return "This app could not be verified. The client metadata document is missing or invalid.";
+    return "This app could not be verified. It is not registered here and has no valid client metadata document.";
   }
   if (!redirectUriAllowed(doc, redirectUri)) {
     return "This app requested a redirect that is not allowed.";

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { corsHeaders, corsPreflight } from "@/lib/mcp/cors";
 import {
   consumeAuthorizationCode,
-  fetchCimd,
+  resolveMcpClient,
   mcpResourceUri,
   verifyPkce,
 } from "@/lib/mcp/oauth";
@@ -108,7 +108,7 @@ async function authorizationCodeGrant(form: FormData) {
     return tokenError("invalid_grant", "PKCE verification failed", 400);
   }
 
-  const doc = await fetchCimd(clientId);
+  const doc = await resolveMcpClient(clientId);
   const tokens = await issueMcpTokens({
     userId: consumed.userId,
     clientId,

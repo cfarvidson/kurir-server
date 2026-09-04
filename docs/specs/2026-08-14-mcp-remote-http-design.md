@@ -38,7 +38,9 @@ and change that user's own settings.
 - Protocol implementation: a local dispatcher in `src/lib/mcp/`. Do not wrap
   the official SDK in v1 (Next.js + 2026-07-28 sessionless binding is simpler
   to own). Use the published schema as the source of truth for field names.
-- Client registration: Client ID Metadata Documents (CIMD) only.
+- Client registration: Client ID Metadata Documents (CIMD), plus
+  admin-registered public clients (Admin -> Apps, added 2026-09-04) for
+  hosts that cannot publish a metadata document. No DCR.
 
 ## Architecture
 
@@ -198,10 +200,12 @@ Rules:
 1. `response_type` must be `code`. `code_challenge_method` must be `S256`.
 2. `resource` must equal the canonical MCP URI `https://<base>/mcp`
    (http on localhost).
-3. `client_id` must be an `https://` URL (CIMD). Fetch the document, require
-   `redirect_uris` to contain the exact `redirect_uri`. Cache CIMD JSON in
-   Redis for 5 minutes keyed by URL. Fail closed if the fetch fails or the
-   document is invalid.
+3. `client_id` is either an `https://` URL (CIMD) or a registered `kmc_`
+   id. A URL: fetch the document, cache CIMD JSON in Redis for 5 minutes
+   keyed by URL. A `kmc_` id: look up `McpClient`. Either way require
+   `redirect_uris` to contain the exact `redirect_uri` and fail closed if
+   the fetch fails, the document is invalid, or the id is unknown
+   (`resolveMcpClient` in `oauth.ts`).
 4. User must have a NextAuth session. If not, redirect to
    `/login?next=<authorize URL>`.
 5. Consent page (English): client name from CIMD, short description
@@ -238,19 +242,39 @@ Public clients: no client secret.
 
 A "Connected apps" section on the PWA settings page lists the user's
 `McpToken` rows: client name, created at, last used. Revoke deletes the row
-immediately. No admin view in v1.
+immediately.
+
+### Admin UI (added 2026-09-04)
+
+Admin -> Apps lists `McpClient` rows and registers new ones: name plus
+exact redirect URIs (same rule as CIMD: absolute https, or http on
+localhost / 127.0.0.1 where any port matches). The opaque `client_id`
+(`kmc_` + 24 base64url chars) is shown for copying. Registered clients are
+public clients: PKCE stays mandatory, there is no client secret. Deleting a
+client also deletes its `McpToken` and `McpAuthorizationCode` rows in one
+transaction. Clients are instance-level: deleting the registering admin
+sets `createdBy` to NULL instead of cascading, so tokens never outlive the
+row that can revoke them.
 
 ## Data model
 
-Migration `0013_mcp.sql`, idempotent (`IF NOT EXISTS`), applied by
-`scripts/apply-migrations.sh`. Do not use `prisma db push` for this.
+Migration `0013_mcp.sql` (and `0024_mcp_clients.sql` for `McpClient`),
+idempotent (`IF NOT EXISTS`), applied by `scripts/apply-migrations.sh`. Do
+not use `prisma db push` for this.
 
 ```
+McpClient
+  id, createdAt
+  clientId          String @unique  // kmc_ + 24 base64url chars
+  name              String
+  redirectUris      String[]
+  createdBy         -> User?        // SET NULL on user delete
+
 McpAuthorizationCode
   id, createdAt
   codeHash          String @unique
   userId            -> User
-  clientId          String          // CIMD URL
+  clientId          String          // CIMD URL or kmc_ id
   redirectUri       String
   codeChallenge     String          // S256 challenge
   resource          String

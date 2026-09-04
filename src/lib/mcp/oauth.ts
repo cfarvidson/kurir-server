@@ -101,6 +101,14 @@ export function redirectUriAllowed(
   });
 }
 
+/** https anywhere, or plain http on a loopback host (native clients). */
+function isHttpsOrLoopback(url: URL): boolean {
+  return (
+    url.protocol === "https:" ||
+    (url.protocol === "http:" && isLoopbackHost(url.hostname))
+  );
+}
+
 function parseCimdUrl(clientIdUrl: string): URL | null {
   let url: URL;
   try {
@@ -108,11 +116,7 @@ function parseCimdUrl(clientIdUrl: string): URL | null {
   } catch {
     return null;
   }
-  const isLoopback =
-    url.hostname === "localhost" || url.hostname === "127.0.0.1";
-  if (url.protocol === "https:") return url;
-  if (url.protocol === "http:" && isLoopback) return url;
-  return null;
+  return isHttpsOrLoopback(url) ? url : null;
 }
 
 function parseCimdDocument(
@@ -195,6 +199,56 @@ export async function fetchCimd(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Prefix that marks an admin-registered (non-CIMD) client_id. */
+export const MCP_CLIENT_ID_PREFIX = "kmc_";
+
+export function generateMcpClientId(): string {
+  return `${MCP_CLIENT_ID_PREFIX}${randomBytes(18).toString("base64url")}`;
+}
+
+/**
+ * Same redirect rules as CIMD documents: absolute https URLs, or http on a
+ * loopback host for native clients. Returns the normalised list or null.
+ */
+export function validateRedirectUris(input: string[]): string[] | null {
+  const out: string[] = [];
+  for (const raw of input) {
+    const value = raw.trim();
+    if (!value) continue;
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return null;
+    }
+    if (!isHttpsOrLoopback(url) || url.hash) return null;
+    out.push(value);
+  }
+  return out.length > 0 ? out : null;
+}
+
+/**
+ * Resolve a client_id to its metadata. A URL is a Client ID Metadata Document
+ * and is fetched; anything else is looked up among the admin-registered
+ * clients. Both paths fail closed.
+ */
+export async function resolveMcpClient(
+  clientId: string,
+): Promise<CimdDocument | null> {
+  if (parseCimdUrl(clientId)) return fetchCimd(clientId);
+  if (!clientId.startsWith(MCP_CLIENT_ID_PREFIX)) return null;
+  const row = await db.mcpClient.findUnique({
+    where: { clientId },
+    select: { clientId: true, name: true, redirectUris: true },
+  });
+  if (!row) return null;
+  return {
+    client_id: row.clientId,
+    client_name: row.name,
+    redirect_uris: row.redirectUris,
+  };
 }
 
 export async function createAuthorizationCode(input: {

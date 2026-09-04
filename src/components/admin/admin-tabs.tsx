@@ -4,13 +4,14 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-const TABS = ["health", "sync", "users", "updates", "logs"] as const;
+const TABS = ["health", "sync", "users", "apps", "updates", "logs"] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminTabsProps {
   healthContent: React.ReactNode;
   syncContent: React.ReactNode;
   usersContent: React.ReactNode;
+  appsContent: React.ReactNode;
   updatesContent: React.ReactNode;
   logsContent: React.ReactNode;
 }
@@ -19,6 +20,7 @@ export function AdminTabs({
   healthContent,
   syncContent,
   usersContent,
+  appsContent,
   updatesContent,
   logsContent,
 }: AdminTabsProps) {
@@ -55,6 +57,9 @@ export function AdminTabs({
         <TabsTrigger value="users" className="flex-1">
           Users
         </TabsTrigger>
+        <TabsTrigger value="apps" className="flex-1">
+          Apps
+        </TabsTrigger>
         <TabsTrigger value="updates" className="flex-1">
           Updates
         </TabsTrigger>
@@ -66,6 +71,7 @@ export function AdminTabs({
       <TabsContent value="health">{healthContent}</TabsContent>
       <TabsContent value="sync">{syncContent}</TabsContent>
       <TabsContent value="users">{usersContent}</TabsContent>
+      <TabsContent value="apps">{appsContent}</TabsContent>
       <TabsContent value="updates">{updatesContent}</TabsContent>
       <TabsContent value="logs">{logsContent}</TabsContent>
     </Tabs>
