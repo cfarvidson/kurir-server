@@ -41,7 +41,7 @@ interface ScreenedSender {
   status: SenderStatus;
   category: SenderCategory | null;
   decidedAt: Date | null;
-  _count: { messages: number };
+  messageCount: number;
 }
 
 interface DomainRule {
@@ -65,6 +65,7 @@ interface ScreenerContentProps {
   pendingSenders: PendingSender[];
   skippedSenders: SkippedSender[];
   screenedSenders: ScreenedSender[];
+  screenedIsCapped?: boolean;
   domainRules: DomainRule[];
   subjectRules: SubjectRule[];
 }
@@ -84,6 +85,7 @@ export function ScreenerContent({
   pendingSenders,
   skippedSenders,
   screenedSenders,
+  screenedIsCapped = false,
   domainRules,
   subjectRules,
 }: ScreenerContentProps) {
@@ -206,6 +208,7 @@ export function ScreenerContent({
             filteredSubjectRules.length > 0) && (
             <ScreenedSenderList
               senders={filteredScreened}
+              screenedIsCapped={screenedIsCapped}
               domainRules={filteredRules}
               subjectRules={filteredSubjectRules}
             />
