@@ -44,8 +44,10 @@ docker compose -f docker-compose.production.yml up -d
 
 ## Kamal users
 
+Always use `bin/deploy`, never bare `kamal`.
+
 ```bash
-kamal deploy
+bin/deploy
 ```
 
 Kamal builds and pushes a new image from the current codebase, then performs a rolling deploy. Database schema changes are applied automatically by the container entrypoint on startup.

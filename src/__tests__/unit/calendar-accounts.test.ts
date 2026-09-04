@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { davMocks, jobMocks } = vi.hoisted(() => ({
+const { davMocks, jobMocks, dnsMocks } = vi.hoisted(() => ({
   davMocks: {
     createAccount: vi.fn(),
     getBasicAuthHeaders: vi.fn(() => ({ authorization: "Basic x" })),
@@ -9,6 +9,13 @@ const { davMocks, jobMocks } = vi.hoisted(() => ({
     enqueueCalendarSyncJob: vi.fn(),
     unscheduleCalendarSyncJob: vi.fn(),
   },
+  dnsMocks: {
+    lookup: vi.fn(),
+  },
+}));
+
+vi.mock("node:dns/promises", () => ({
+  lookup: dnsMocks.lookup,
 }));
 
 vi.mock("tsdav", () => ({
@@ -49,7 +56,12 @@ import {
 } from "@/lib/calendar/accounts";
 
 describe("createCalDavAccount", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dnsMocks.lookup.mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+  });
 
   it("discovers calendar-home then inserts and enqueues sync", async () => {
     davMocks.createAccount.mockResolvedValue({
@@ -152,6 +164,25 @@ describe("createCalDavAccount", () => {
     expect(davMocks.createAccount).not.toHaveBeenCalled();
     expect(db.calendarAccount.create).not.toHaveBeenCalled();
     expect(db.calendarAccount.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "http://127.0.0.1/",
+    "https://10.0.0.1/",
+    "https://169.254.169.254/",
+    "https://localhost/",
+  ])("refuses private destination %s before tsdav", async (url) => {
+    await expect(
+      createCalDavAccount({
+        userId: "u1",
+        url,
+        username: "user",
+        password: "pass",
+      }),
+    ).rejects.toThrow(/That URL is not allowed/);
+
+    expect(davMocks.createAccount).not.toHaveBeenCalled();
+    expect(dnsMocks.lookup).not.toHaveBeenCalled();
   });
 });
 

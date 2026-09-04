@@ -58,9 +58,11 @@ docker compose -f docker-compose.production.yml up -d
 
 For deploying across multiple Tailscale-connected servers with a private Docker registry.
 
+Always use `bin/deploy`, never bare `kamal`. The wrapper loads `~/.kamal/kurir-secrets.env`.
+
 ```bash
-kamal setup    # First deploy
-kamal deploy   # Subsequent deploys
+bin/deploy setup    # First deploy
+bin/deploy          # Subsequent deploys
 ```
 
 Each option is covered in detail in the [Installation guide](installation).

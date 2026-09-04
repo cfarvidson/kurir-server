@@ -18,7 +18,7 @@ cp config/deploy.yml.example config/deploy.yml
 cp .kamal/secrets.example .kamal/secrets
 ```
 
-Edit `config/deploy.yml` with your server hostnames, registry, and domain. Edit `.kamal/secrets` to reference your environment variables.
+Edit `config/deploy.yml` with your server hostnames, registry, and domain. Edit `.kamal/secrets` to reference `$KAMAL_*` environment variables. Put the actual values in `~/.kamal/kurir-secrets.env` (mode 0600, outside the repo) and always invoke Kamal via `bin/deploy`. Bare `kamal` without that file injects empty secrets and wipes production config.
 
 ## Environment Setup
 
@@ -51,13 +51,13 @@ sudo tailscale serve --bg --https=443 http://localhost:80
 
 ```bash
 # Provision servers, boot accessories (postgres) and deploy the app
-kamal setup
+bin/deploy setup
 
 # Schema and versioned migrations are applied automatically by the
 # container entrypoint on boot — nothing to run manually.
 
 # Create the first user
-kamal app exec -i "tsx scripts/add-user.ts"
+bin/deploy app exec -i "tsx scripts/add-user.ts"
 ```
 
 ## Deployment
@@ -68,50 +68,48 @@ git checkout main
 git pull origin main
 
 # Deploy the latest version
-kamal deploy
+bin/deploy
 ```
 
-The post-deploy hook automatically runs `prisma db push` after each deploy.
+The container entrypoint runs `scripts/apply-migrations.sh` on boot. Existing installs never use `prisma db push` (the production database shares its instance with unrelated tables that `db push` would try to drop). Ad-hoc SQL:
+
+```bash
+bin/deploy app exec --reuse "psql \"$DATABASE_URL\" -c '...'"
+```
 
 ## Database Management
 
 ```bash
-# Apply schema changes (idempotent, safe to re-run)
-kamal app exec "prisma db push --skip-generate"
-
-# Check current schema status
-kamal app exec "prisma migrate status"
-
 # Add a new user
-kamal app exec -i "tsx scripts/add-user.ts"
+bin/deploy app exec -i "tsx scripts/add-user.ts"
 
 # Sync emails for a user
-kamal app exec "tsx scripts/sync-user.ts --all"
+bin/deploy app exec "tsx scripts/sync-user.ts --all"
 
 # Direct database access
-kamal accessory exec db "psql -U kurir"
+bin/deploy accessory exec db "psql -U kurir"
 ```
 
 ## Operations
 
 ```bash
 # Check status of all services
-kamal details
+bin/deploy details
 
 # View application logs
-kamal app logs -f
+bin/deploy app logs -f
 
 # View postgres logs
-kamal accessory logs db -f
+bin/deploy accessory logs db -f
 
 # Open a shell in the app container
-kamal app exec -i /bin/sh
+bin/deploy app exec -i /bin/sh
 
 # Node REPL in production
-kamal app exec -i node
+bin/deploy app exec -i node
 
 # Clear stuck sync lock
-kamal accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
+bin/deploy accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
 ```
 
 ## Backup & Restore
@@ -120,19 +118,19 @@ See [docs/BACKUP.md](docs/BACKUP.md) for full documentation.
 
 ```bash
 # Create a backup (Kamal)
-kamal app exec "sh scripts/kurir-backup.sh"
+bin/deploy app exec "sh scripts/kurir-backup.sh"
 
 # Create a backup (Docker Compose production)
 docker compose -f docker-compose.production.yml exec app sh scripts/kurir-backup.sh
 
 # Copy backup to host
-kamal app exec "cat /app/backups/kurir-backup-TIMESTAMP.tar.gz" > backup.tar.gz
+bin/deploy app exec "cat /app/backups/kurir-backup-TIMESTAMP.tar.gz" > backup.tar.gz
 
 # Restore from backup
-kamal app exec -i "sh scripts/kurir-restore.sh /app/backups/kurir-backup-TIMESTAMP.tar.gz"
+bin/deploy app exec -i "sh scripts/kurir-restore.sh /app/backups/kurir-backup-TIMESTAMP.tar.gz"
 
 # Restart after restore
-kamal app boot
+bin/deploy app boot
 ```
 
 Backups include: PostgreSQL dump, Redis snapshot, environment variables.
@@ -141,7 +139,7 @@ Backups include: PostgreSQL dump, Redis snapshot, environment variables.
 
 ```bash
 # Rollback to the previous version
-kamal rollback
+bin/deploy rollback
 ```
 
 ## Troubleshooting
@@ -149,7 +147,7 @@ kamal rollback
 ### Database Connection Errors
 
 - Verify `KAMAL_DATABASE_URL` uses `kurir-db` as the host (Docker container name on the `kamal` network)
-- Check that the database service is running: `kamal accessory details db`
+- Check that the database service is running: `bin/deploy accessory details db`
 - Confirm Tailscale is connected: `tailscale status`
 
 ### Authentication Issues
@@ -167,5 +165,5 @@ kamal rollback
 If IMAP sync crashes, the lock stays active for 5 minutes. To clear immediately:
 
 ```bash
-kamal accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
+bin/deploy accessory exec db "psql -U kurir -c 'UPDATE \"SyncState\" SET \"isSyncing\" = false;'"
 ```
