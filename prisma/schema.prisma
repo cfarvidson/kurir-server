@@ -408,6 +408,7 @@ model Sender {
   @@index([emailConnectionId, category])
   @@index([domain])
   @@index([decidedByRuleId])
+  @@index([userId, updatedAt])
 }
 
 // Domain-level screening rule (plan 033): auto-approve or auto-reject every
@@ -624,6 +625,7 @@ model Message {
   @@index([threadId])
   @@index([messageId])
   @@index([senderId])
+  @@index([userId, updatedAt])
 }
 
 model Attachment {
