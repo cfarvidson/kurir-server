@@ -5,8 +5,6 @@ import { DEFAULT_MANIFEST_URL } from "./constants";
 import { checkImageExists } from "./image-availability";
 import { compareVersions } from "./compare-versions";
 
-export { compareVersions };
-
 export interface VersionManifest {
   version: string;
   image: string;
@@ -154,28 +152,30 @@ export async function checkForUpdates(): Promise<{
 
     // Only probe the registry when there is something to install. A failed
     // probe keeps the previous answer for the same image; for a new image it
-    // resets to null so a stale "verified" never carries over.
-    const imageFields: {
+    // resets to null so a stale "verified" never carries over. The apply
+    // route re-probes with stricter semantics (refuses on failure) right
+    // before starting a run.
+    const probe: {
       imageAvailable?: boolean | null;
       imageCheckedAt?: Date | null;
     } = {};
     if (updateAvailable || runningAheadOfStable) {
       try {
-        imageFields.imageAvailable = await checkImageExists(pointer.image);
-        imageFields.imageCheckedAt = new Date();
+        probe.imageAvailable = await checkImageExists(pointer.image);
+        probe.imageCheckedAt = new Date();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn(
           `[update-checker] Could not verify image ${pointer.image}: ${message}`,
         );
         if (settings?.latestImageTag !== pointer.image) {
-          imageFields.imageAvailable = null;
-          imageFields.imageCheckedAt = null;
+          probe.imageAvailable = null;
+          probe.imageCheckedAt = null;
         }
       }
     } else {
-      imageFields.imageAvailable = null;
-      imageFields.imageCheckedAt = null;
+      probe.imageAvailable = null;
+      probe.imageCheckedAt = null;
     }
 
     const fields = {
@@ -185,7 +185,7 @@ export async function checkForUpdates(): Promise<{
       latestChangelog: pointer.changelog,
       updateAvailable,
       lastUpdateCheck: new Date(),
-      ...imageFields,
+      ...probe,
     };
 
     // Persist the result in SystemSettings
@@ -201,8 +201,8 @@ export async function checkForUpdates(): Promise<{
       latestVersion,
       runningAheadOfStable,
       imageAvailable:
-        imageFields.imageAvailable !== undefined
-          ? imageFields.imageAvailable
+        probe.imageAvailable !== undefined
+          ? probe.imageAvailable
           : (settings?.imageAvailable ?? null),
     };
   } catch (err) {

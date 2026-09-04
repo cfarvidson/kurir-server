@@ -340,6 +340,22 @@ describe("UpdatesSection", () => {
       expect(screen.getByText("Full notes in Release notes")).toBeTruthy();
     });
 
+    it("still notes where the full changelog lives when no release URL is known", async () => {
+      setStatus({
+        ...updateAvailable,
+        latestVersion: "2026.99",
+        latestReleaseUrl: null,
+        latestChangelog: "Manifest line",
+        imageAvailable: true,
+      });
+
+      render(<UpdatesSection versionInfo={{ version: "2026.29" }} />);
+
+      expect(await screen.findByText("Manifest line")).toBeTruthy();
+      const note = screen.getByText("Full notes in Release notes");
+      expect(note.tagName).toBe("P");
+    });
+
     it("expands to every version and back", async () => {
       render(<UpdatesSection versionInfo={{ version: "2026.29" }} />);
 

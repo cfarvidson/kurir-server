@@ -19,7 +19,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import changelog from "@/../changelog.json";
-import { UPDATER_REFRESH_COMMAND } from "@/lib/updates/constants";
+import {
+  ACTIVE_UPDATE_STATUSES,
+  UPDATER_REFRESH_COMMAND,
+} from "@/lib/updates/constants";
+import { cn } from "@/lib/utils";
 import { compareVersions } from "@/lib/updates/compare-versions";
 
 interface ChangelogEntry {
@@ -60,8 +64,6 @@ interface UpdateLogEntry {
   triggeredBy: string;
   completedAt: string | null;
 }
-
-const ACTIVE_STATUSES = ["started", "pulling", "restarting", "verifying"];
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -191,8 +193,71 @@ function releasesBetween(
 ): ChangelogEntry[] {
   return entries.filter(
     (e) =>
-      compareVersions(e.version, from) > 0 && compareVersions(e.version, to) <= 0,
+      compareVersions(e.version, from) > 0 &&
+      compareVersions(e.version, to) <= 0,
   );
+}
+
+interface WhatsNew {
+  heading: string;
+  releases: ChangelogEntry[];
+  /** The target's entry was not in the bundled changelog; a manifest line stands in. */
+  fromManifest: boolean;
+}
+
+/**
+ * The versions you get by installing, or (ahead of stable) the ones you
+ * have beyond the stable pointer. Empty when up to date.
+ */
+export function whatsNewFor(
+  entries: ChangelogEntry[],
+  status: Pick<
+    UpdateStatus,
+    | "updateAvailable"
+    | "runningAheadOfStable"
+    | "latestVersion"
+    | "latestChangelog"
+  >,
+  currentVersion: string,
+): WhatsNew {
+  const aheadOfStable = status.runningAheadOfStable && !status.updateAvailable;
+  if (status.updateAvailable && status.latestVersion) {
+    let releases = releasesBetween(
+      entries,
+      currentVersion,
+      status.latestVersion,
+    );
+    let fromManifest = false;
+    if (!releases.some((e) => e.version === status.latestVersion)) {
+      // The bundled changelog describes the running version; the target's
+      // entry only exists in the newer image. Fall back to the manifest line.
+      fromManifest = true;
+      releases = [
+        {
+          version: status.latestVersion,
+          date: "",
+          changes: status.latestChangelog ? [status.latestChangelog] : [],
+        },
+        ...releases,
+      ];
+    }
+    return {
+      heading:
+        releases.length > 1
+          ? `What's new: v${currentVersion} → v${status.latestVersion}`
+          : `What's new in v${status.latestVersion}`,
+      releases,
+      fromManifest,
+    };
+  }
+  if (aheadOfStable && status.latestVersion) {
+    return {
+      heading: "What you have beyond stable",
+      releases: releasesBetween(entries, status.latestVersion, currentVersion),
+      fromManifest: false,
+    };
+  }
+  return { heading: "What's new", releases: [], fromManifest: false };
 }
 
 export function UpdatesSection({
@@ -331,7 +396,7 @@ export function UpdatesSection({
   const installable = status.updateAvailable || aheadOfStable;
   const imageReady = status.imageAvailable === true;
   const inProgress = status.history.find((h) =>
-    ACTIVE_STATUSES.includes(h.status),
+    (ACTIVE_UPDATE_STATUSES as readonly string[]).includes(h.status),
   );
   const latestRun = status.history[0];
 
@@ -343,43 +408,8 @@ export function UpdatesSection({
       ? "Ahead of stable"
       : "Up to date";
 
-  // What's new: the versions you get by installing, or (ahead of stable)
-  // the ones you have beyond the stable pointer.
   const allReleases = changelog as ChangelogEntry[];
-  let whatsNew: ChangelogEntry[] = [];
-  let whatsNewHeading = "What's new";
-  let missingLatestNotes = false;
-  if (status.updateAvailable && status.latestVersion) {
-    whatsNew = releasesBetween(
-      allReleases,
-      versionInfo.version,
-      status.latestVersion,
-    );
-    if (!whatsNew.some((e) => e.version === status.latestVersion)) {
-      // The bundled changelog describes the running version; the target's
-      // entry only exists in the newer image. Fall back to the manifest line.
-      missingLatestNotes = true;
-      whatsNew = [
-        {
-          version: status.latestVersion,
-          date: "",
-          changes: status.latestChangelog ? [status.latestChangelog] : [],
-        },
-        ...whatsNew,
-      ];
-    }
-    whatsNewHeading =
-      whatsNew.length > 1
-        ? `What's new: v${versionInfo.version} → v${status.latestVersion}`
-        : `What's new in v${status.latestVersion}`;
-  } else if (aheadOfStable && status.latestVersion) {
-    whatsNew = releasesBetween(
-      allReleases,
-      status.latestVersion,
-      versionInfo.version,
-    );
-    whatsNewHeading = "What you have beyond stable";
-  }
+  const whatsNew = whatsNewFor(allReleases, status, versionInfo.version);
 
   return (
     <section>
@@ -463,7 +493,7 @@ export function UpdatesSection({
                   <div className="flex items-center gap-1">
                     {imageReady ? (
                       <>
-                        <ShieldCheck className="h-3 w-3 text-green-600" />
+                        <ShieldCheck className="h-3 w-3 text-green-500" />
                         <span className="text-muted-foreground">
                           Image verified
                         </span>{" "}
@@ -502,7 +532,10 @@ export function UpdatesSection({
                       disabled={checking}
                     >
                       <RefreshCw
-                        className={`mr-1 h-3 w-3 ${checking ? "animate-spin" : ""}`}
+                        className={cn(
+                          "mr-1 h-3 w-3",
+                          checking && "animate-spin",
+                        )}
                       />
                       Check again
                     </Button>
@@ -569,11 +602,9 @@ export function UpdatesSection({
           </div>
           {latestRun ? (
             <div className="space-y-2">
-              {(historyExpanded ? status.history : [latestRun]).map(
-                (entry) => (
-                  <RunRow key={entry.id} entry={entry} />
-                ),
-              )}
+              {(historyExpanded ? status.history : [latestRun]).map((entry) => (
+                <RunRow key={entry.id} entry={entry} />
+              ))}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">No updates yet</p>
@@ -585,7 +616,7 @@ export function UpdatesSection({
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-medium">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              {changelogExpanded ? "All versions" : whatsNewHeading}
+              {changelogExpanded ? "All versions" : whatsNew.heading}
             </div>
             {allReleases.length > 0 && (
               <ExpandToggle
@@ -605,26 +636,31 @@ export function UpdatesSection({
                 />
               ))}
             </div>
-          ) : whatsNew.length > 0 ? (
+          ) : whatsNew.releases.length > 0 ? (
             <div className="space-y-4">
-              {whatsNew.map((release) => (
+              {whatsNew.releases.map((release) => (
                 <ChangelogRelease
                   key={release.version}
                   release={release}
                   currentVersion={versionInfo.version}
                 />
               ))}
-              {missingLatestNotes && status.latestReleaseUrl && (
-                <a
-                  href={status.latestReleaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Full notes in Release notes
-                </a>
-              )}
+              {whatsNew.fromManifest &&
+                (status.latestReleaseUrl ? (
+                  <a
+                    href={status.latestReleaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Full notes in Release notes
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Full notes in Release notes
+                  </p>
+                ))}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">

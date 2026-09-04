@@ -29,31 +29,40 @@ export async function POST() {
 
   // Re-verify right before starting: the page may be showing a check from
   // minutes ago, and a doomed pull would otherwise land as a failed run.
-  if (settings.latestImageTag) {
-    let available: boolean;
-    try {
-      available = await checkImageExists(settings.latestImageTag);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return NextResponse.json(
-        { error: `Could not verify that the Docker image is published (${message})` },
-        { status: 503 },
-      );
-    }
+  // (checkForUpdates runs the same probe but keeps its previous answer on
+  // failure; here a failure refuses.)
+  if (!settings.latestImageTag) {
+    return NextResponse.json(
+      { error: "No image reference recorded; check for updates first" },
+      { status: 409 },
+    );
+  }
 
-    await db.systemSettings.update({
-      where: { id: "singleton" },
-      data: { imageAvailable: available, imageCheckedAt: new Date() },
-    });
+  let available: boolean;
+  try {
+    available = await checkImageExists(settings.latestImageTag);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      {
+        error: `Could not verify that the Docker image is published (${message})`,
+      },
+      { status: 503 },
+    );
+  }
 
-    if (!available) {
-      return NextResponse.json(
-        {
-          error: `Docker image for v${settings.latestVersion} is not published yet`,
-        },
-        { status: 409 },
-      );
-    }
+  await db.systemSettings.update({
+    where: { id: "singleton" },
+    data: { imageAvailable: available, imageCheckedAt: new Date() },
+  });
+
+  if (!available) {
+    return NextResponse.json(
+      {
+        error: `Docker image for v${settings.latestVersion} is not published yet`,
+      },
+      { status: 409 },
+    );
   }
 
   const result = await startUpdate(settings.latestVersion, "manual");

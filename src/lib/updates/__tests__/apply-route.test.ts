@@ -124,6 +124,24 @@ describe("POST /api/admin/updates/apply", () => {
     expect(startUpdate).not.toHaveBeenCalled();
   });
 
+  it("refuses when no image reference has been recorded", async () => {
+    findUnique.mockResolvedValue({
+      updateAvailable: true,
+      latestVersion: "2026.31",
+      latestImageTag: null,
+      updateChannel: "stable",
+    });
+
+    const { POST } = await import("@/app/api/admin/updates/apply/route");
+    const res = await POST();
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error).toMatch(/check for updates first/);
+    expect(checkImageExists).not.toHaveBeenCalled();
+    expect(startUpdate).not.toHaveBeenCalled();
+  });
+
   it("refuses with 503 when the registry cannot be reached", async () => {
     checkImageExists.mockRejectedValue(new Error("ECONNRESET"));
     findUnique.mockResolvedValue({

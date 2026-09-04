@@ -3,21 +3,26 @@ import { checkImageExists, parseGhcrRef } from "../image-availability";
 
 const REF = "ghcr.io/cfarvidson/kurir-server:v2026.66";
 
-function stubRegistry(manifestStatus: number, tokenBody: unknown = { token: "t" }) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.startsWith("https://ghcr.io/token")) {
-      return { ok: true, status: 200, json: async () => tokenBody };
-    }
-    if (url.startsWith("https://ghcr.io/v2/")) {
-      expect(init?.method).toBe("HEAD");
-      expect((init?.headers as Record<string, string>).Authorization).toBe(
-        "Bearer t",
-      );
-      return { ok: manifestStatus === 200, status: manifestStatus };
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  });
+function stubRegistry(
+  manifestStatus: number,
+  tokenBody: unknown = { token: "t" },
+) {
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("https://ghcr.io/token")) {
+        return { ok: true, status: 200, json: async () => tokenBody };
+      }
+      if (url.startsWith("https://ghcr.io/v2/")) {
+        expect(init?.method).toBe("HEAD");
+        expect((init?.headers as Record<string, string>).Authorization).toBe(
+          "Bearer t",
+        );
+        return { ok: manifestStatus === 200, status: manifestStatus };
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -36,7 +41,9 @@ describe("parseGhcrRef", () => {
 
   it("rejects other registries and digest references", () => {
     expect(parseGhcrRef("docker.io/library/postgres:16")).toBeNull();
-    expect(parseGhcrRef("ghcr.io/cfarvidson/kurir-server@sha256:abc")).toBeNull();
+    expect(
+      parseGhcrRef("ghcr.io/cfarvidson/kurir-server@sha256:abc"),
+    ).toBeNull();
     expect(parseGhcrRef("ghcr.io/cfarvidson/kurir-server")).toBeNull();
   });
 });
@@ -68,6 +75,22 @@ describe("checkImageExists", () => {
   it("throws when the token endpoint gives no token", async () => {
     stubRegistry(200, {});
     await expect(checkImageExists(REF)).rejects.toThrow(/no token/);
+  });
+
+  it("passes a timeout signal to both requests and surfaces a timeout as a throw", async () => {
+    const fetchMock = stubRegistry(200);
+    await checkImageExists(REF);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new DOMException("The operation was aborted", "TimeoutError");
+      }),
+    );
+    await expect(checkImageExists(REF)).rejects.toThrow(/aborted/);
   });
 
   it("throws on network failure", async () => {

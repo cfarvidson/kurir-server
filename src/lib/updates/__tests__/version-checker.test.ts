@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  manifestSchema,
-  compareVersions,
-  checkForUpdates,
-} from "../version-checker";
+import { manifestSchema, checkForUpdates } from "../version-checker";
+import { compareVersions } from "../compare-versions";
 import handwrittenWithBeta from "./fixtures/latest-with-beta.json";
 
 const { upsert, findFirst, checkImageExists, pkg } = vi.hoisted(() => ({

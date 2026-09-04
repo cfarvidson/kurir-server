@@ -1,7 +1,10 @@
 import { db } from "@/lib/db";
 import pkg from "@/../package.json";
 import { checkUpdaterHealth } from "@/lib/updates/updater-health";
-import { UPDATER_REFRESH_COMMAND } from "@/lib/updates/constants";
+import {
+  ACTIVE_UPDATE_STATUSES,
+  UPDATER_REFRESH_COMMAND,
+} from "@/lib/updates/constants";
 
 export interface UpdateResult {
   started: boolean;
@@ -77,7 +80,7 @@ export async function startUpdate(
 ): Promise<UpdateResult> {
   const inProgress = await db.updateLog.findFirst({
     where: {
-      status: { in: ["started", "pulling", "restarting", "verifying"] },
+      status: { in: [...ACTIVE_UPDATE_STATUSES] },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -144,7 +147,7 @@ export async function startUpdate(
 export async function startRollback(): Promise<UpdateResult> {
   const inProgress = await db.updateLog.findFirst({
     where: {
-      status: { in: ["started", "pulling", "restarting", "verifying"] },
+      status: { in: [...ACTIVE_UPDATE_STATUSES] },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -173,7 +176,12 @@ export async function startRollback(): Promise<UpdateResult> {
     lastSuccessful?.fromVersion && lastSuccessful.fromVersion !== "unknown"
       ? lastSuccessful.fromVersion
       : undefined;
-  const result = await callUpdater("/rollback", log.id, undefined, rollbackTarget);
+  const result = await callUpdater(
+    "/rollback",
+    log.id,
+    undefined,
+    rollbackTarget,
+  );
   if (!result.ok) {
     await db.updateLog.update({
       where: { id: log.id },
