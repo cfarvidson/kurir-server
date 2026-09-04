@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.66",
+    "date": "2026-09-04",
+    "changes": [
+      "On-demand IMAP check from tab focus, Cmd+R, pull-to-refresh, and native Sync",
+      "POST /api/mail/check and POST /api/mobile/check run IDLE lastUid ingest, not a full mailbox sync"
+    ]
+  },
+  {
     "version": "2026.64",
     "date": "2026-09-04",
     "changes": [

@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.66] - 2026-09-04
+
+### Added
+
+- On-demand IMAP check: `POST /api/mail/check` (cookie) and
+  `POST /api/mobile/check` (bearer) run the cheap IDLE lastUid ingest
+  instead of a full mailbox sync (#161)
+- Web Sync on tab focus, first paint, Cmd+R / Ctrl+R, pull-to-refresh,
+  the sidebar dot, the command palette, and Retry (#162)
+
 ## [v2026.64] - 2026-09-04
 
 ### Added
