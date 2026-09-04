@@ -9,6 +9,12 @@ import {
   createRefreshScheduler,
   type RefreshScheduler,
 } from "@/lib/mail/refresh-scheduler";
+import {
+  createCheckTrigger,
+  requestImapCheck,
+  MAIL_CHECK_EVENT,
+  type CheckTrigger,
+} from "@/lib/mail/check-trigger";
 
 // Trailing debounce window for coalescing refreshes.
 const REFRESH_DEBOUNCE_MS = 400;
@@ -78,7 +84,12 @@ export function AutoSync() {
   // SSE effect below) so `schedule()` callers find it ready; `schedule()` is
   // only ever invoked from later async events, so the ordering is safe even on
   // the initial connect.
+  //
+  // The IMAP check trigger sits in front of that scheduler for on-demand
+  // ingest (visibility resume, Cmd+R, sidebar, palette, error-banner Retry).
+  // It coalesces bursts to one POST /api/mail/check, then one schedule().
   const schedulerRef = useRef<RefreshScheduler | null>(null);
+  const checkTriggerRef = useRef<CheckTrigger | null>(null);
   useEffect(() => {
     const scheduler = createRefreshScheduler({
       delayMs: REFRESH_DEBOUNCE_MS,
@@ -101,7 +112,23 @@ export function AutoSync() {
       },
     });
     schedulerRef.current = scheduler;
+
+    const checkTrigger = createCheckTrigger({
+      isVisible: () => document.visibilityState === "visible",
+      requestCheck: requestImapCheck,
+      scheduleRefresh: () => scheduler.schedule(),
+    });
+    checkTriggerRef.current = checkTrigger;
+
+    const onMailCheck = () => checkTrigger.trigger();
+    window.addEventListener(MAIL_CHECK_EVENT, onMailCheck);
+    // First paint of an already-visible tab never fires visibilitychange.
+    checkTrigger.trigger();
+
     return () => {
+      window.removeEventListener(MAIL_CHECK_EVENT, onMailCheck);
+      checkTrigger.cancel();
+      checkTriggerRef.current = null;
       scheduler.cancel();
       schedulerRef.current = null;
     };
@@ -200,8 +227,9 @@ export function AutoSync() {
         clearDisconnectTimer();
         reconnectAttempts = 0;
         connect();
-        // Pick up anything that changed while we were backgrounded.
-        schedule();
+        // Cheap IMAP ingest, then the coalesced UI refresh. Hidden tabs never
+        // fetch; a burst of focus + Cmd+R joins this same trigger.
+        checkTriggerRef.current?.trigger();
       } else if (!disconnectTimer) {
         // Going hidden: cancel any pending reconnect (we'll reconnect on
         // resume) and defer the close so transient visibility flips don't churn

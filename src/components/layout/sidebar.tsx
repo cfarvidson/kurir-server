@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { navigation } from "./navigation";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
 import { useSync } from "@/hooks/useSync";
+import { requestMailCheck } from "@/lib/mail/check-trigger";
 import { useBadgeCounts } from "@/hooks/use-badge-counts";
 import {
   type BadgePreferences,
@@ -107,6 +108,7 @@ export function Sidebar({
             status={syncState.status}
             lastSyncTime={syncState.lastSyncTime}
             errorMessage={syncState.errorMessage}
+            onClick={requestMailCheck}
           />
         </div>
       </div>

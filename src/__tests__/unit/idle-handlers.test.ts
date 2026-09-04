@@ -310,7 +310,7 @@ describe("idle-handlers — checkForNewMessages (U4)", () => {
       });
 
     const { checkForNewMessages } = await loadModule();
-    await expect(checkForNewMessages(CONNECTION_ID)).resolves.toBeUndefined();
+    await expect(checkForNewMessages(CONNECTION_ID)).resolves.toBe(1);
 
     // Both attempted; loop did not abort on the P2002.
     expect(processMessage).toHaveBeenCalledTimes(2);

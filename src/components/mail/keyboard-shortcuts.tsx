@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { keyboardState } from "@/lib/keyboard-state";
+import {
+  handleSyncShortcut,
+  requestMailCheck,
+} from "@/lib/mail/check-trigger";
 
 interface ShortcutEntry {
   keys: string[];
@@ -76,6 +80,7 @@ const sharedShortcuts: ShortcutEntry[] = [
   { keys: ["f"], description: "Follow up" },
   { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["Cmd", "K"], description: "Command palette", mode: "combo" },
+  { keys: ["Cmd", "R"], description: "Sync", mode: "combo" },
   { keys: ["?"], description: "Keyboard shortcuts" },
 ];
 
@@ -242,6 +247,11 @@ export function KeyboardShortcuts() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Cmd+R / Ctrl+R is Sync. Handle before the typing-target guard so
+      // compose still preventDefaults (no browser reload) without firing
+      // a list refresh that could drop an in-progress draft.
+      if (handleSyncShortcut(e, requestMailCheck)) return;
+
       const el = e.target as HTMLElement;
       if (
         el.tagName === "INPUT" ||

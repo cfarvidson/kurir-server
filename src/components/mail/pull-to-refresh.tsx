@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useTransition } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRef, useEffect, useCallback } from "react";
+import {
+  isCheckInFlight,
+  requestMailCheck,
+  subscribeCheckInFlight,
+} from "@/lib/mail/check-trigger";
 
 const THRESHOLD = 64;
 const MAX_PULL = 128;
@@ -12,16 +15,14 @@ const DIRECTION_LOCK_DISTANCE = 10;
  * Native-feeling pull-to-refresh for iOS PWA standalone mode.
  *
  * All gesture animation is done via direct DOM manipulation (no React
- * state during touch) for 60fps. Only the refreshing/done states use
- * React state to trigger the RSC refresh via useTransition.
+ * state during touch) for 60fps. Release past the threshold runs the
+ * same IMAP check as Cmd+R / sidebar Sync (`requestMailCheck`). AutoSync
+ * then coalesces the UI refresh. The spinner follows that in-flight check.
  */
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spinnerRef = useRef<HTMLDivElement>(null);
-  const [isPending, startTransition] = useTransition();
 
   // All mutable gesture state lives in a single ref object — no React re-renders.
   const state = useRef({
@@ -63,25 +64,6 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     return wrapperRef.current?.parentElement ?? null;
   }, []);
 
-  // Start refreshing — called once on release past threshold
-  const doRefresh = useCallback(() => {
-    const s = state.current;
-    s.refreshing = true;
-    s.distance = THRESHOLD;
-    applyTransform(THRESHOLD, true);
-
-    const svg = spinnerRef.current?.querySelector("svg");
-    if (svg) {
-      svg.style.transform = "";
-      svg.classList.add("ptr-spinning");
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["messages"] });
-    startTransition(() => {
-      router.refresh();
-    });
-  }, [applyTransform, queryClient, router, startTransition]);
-
   // Reset to resting position
   const reset = useCallback(
     (animate: boolean) => {
@@ -105,12 +87,35 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     [applyTransform],
   );
 
-  // Dismiss when RSC render settles
-  useEffect(() => {
-    if (state.current.refreshing && !isPending) {
+  // Start refreshing — called once on release past threshold
+  const doRefresh = useCallback(() => {
+    const s = state.current;
+    s.refreshing = true;
+    s.distance = THRESHOLD;
+    applyTransform(THRESHOLD, true);
+
+    const svg = spinnerRef.current?.querySelector("svg");
+    if (svg) {
+      svg.style.transform = "";
+      svg.classList.add("ptr-spinning");
+    }
+
+    requestMailCheck();
+    // Hidden tab or a cancelled trigger is a no-op. Don't leave the
+    // spinner hanging; AutoSync will not notify.
+    if (!isCheckInFlight()) {
       reset(true);
     }
-  }, [isPending, reset]);
+  }, [applyTransform, reset]);
+
+  // Dismiss when the shared IMAP check settles (AutoSync refreshes after).
+  useEffect(() => {
+    return subscribeCheckInFlight(() => {
+      if (state.current.refreshing && !isCheckInFlight()) {
+        reset(true);
+      }
+    });
+  }, [reset]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;

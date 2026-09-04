@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { handleSyncShortcut } from "@/lib/mail/check-trigger";
 
 /**
  * Tests for keyboard shortcut configuration and mappings.
@@ -164,5 +165,90 @@ describe("shortcut definitions completeness", () => {
     // "g" should not be a list shortcut since it starts go-to
     const singles = listKeys.filter((k) => !k.includes("+"));
     expect(singles).not.toContain("g");
+  });
+
+  it("thread bare r (reply) is distinct from Cmd+R (sync)", () => {
+    expect(threadKeys).toContain("r");
+    expect(threadKeys).not.toContain("Cmd+R");
+  });
+});
+
+describe("handleSyncShortcut (Cmd+R / Ctrl+R)", () => {
+  function makeEvent(overrides: {
+    key?: string;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    shiftKey?: boolean;
+    altKey?: boolean;
+    tagName?: string;
+    isContentEditable?: boolean;
+  } = {}) {
+    return {
+      key: overrides.key ?? "r",
+      metaKey: overrides.metaKey ?? false,
+      ctrlKey: overrides.ctrlKey ?? false,
+      shiftKey: overrides.shiftKey ?? false,
+      altKey: overrides.altKey ?? false,
+      preventDefault: vi.fn(),
+      target: {
+        tagName: overrides.tagName ?? "BODY",
+        isContentEditable: overrides.isContentEditable ?? false,
+      } as unknown as EventTarget,
+    };
+  }
+
+  it("preventDefault on Cmd+R and fires sync (does not reload)", () => {
+    const onSync = vi.fn();
+    const event = makeEvent({ metaKey: true });
+    expect(handleSyncShortcut(event, onSync)).toBe(true);
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("preventDefault on Ctrl+R and fires sync", () => {
+    const onSync = vi.fn();
+    const event = makeEvent({ ctrlKey: true, key: "R" });
+    expect(handleSyncShortcut(event, onSync)).toBe(true);
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire sync when typing in an input, but still preventDefault", () => {
+    const onSync = vi.fn();
+    const event = makeEvent({ metaKey: true, tagName: "INPUT" });
+    expect(handleSyncShortcut(event, onSync)).toBe(true);
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSync).not.toHaveBeenCalled();
+  });
+
+  it("does not fire sync in a textarea or contenteditable", () => {
+    const onSync = vi.fn();
+    const textarea = makeEvent({ ctrlKey: true, tagName: "TEXTAREA" });
+    expect(handleSyncShortcut(textarea, onSync)).toBe(true);
+    expect(onSync).not.toHaveBeenCalled();
+
+    const editable = makeEvent({
+      metaKey: true,
+      tagName: "DIV",
+      isContentEditable: true,
+    });
+    expect(handleSyncShortcut(editable, onSync)).toBe(true);
+    expect(onSync).not.toHaveBeenCalled();
+  });
+
+  it("ignores bare r so thread Reply is unchanged", () => {
+    const onSync = vi.fn();
+    const event = makeEvent({ key: "r" });
+    expect(handleSyncShortcut(event, onSync)).toBe(false);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(onSync).not.toHaveBeenCalled();
+  });
+
+  it("does not steal Cmd+Shift+R", () => {
+    const onSync = vi.fn();
+    const event = makeEvent({ metaKey: true, shiftKey: true });
+    expect(handleSyncShortcut(event, onSync)).toBe(false);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(onSync).not.toHaveBeenCalled();
   });
 });

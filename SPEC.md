@@ -474,10 +474,11 @@ Query params: `category` (imbox/feed/paper-trail/archive/snoozed), `cursor`, `li
 | Method | Path               | Purpose                          |
 | ------ | ------------------ | -------------------------------- |
 | POST   | `/api/mail/sync`   | Trigger email sync               |
+| POST   | `/api/mail/check`  | Cheap IMAP new-mail check        |
 | POST   | `/api/mail/send`   | Send new email                   |
 | GET    | `/api/mail/events` | SSE stream for real-time updates |
 
-Sync query params: `connectionId` (specific or all), `batchSize`, `resync` (force full resync)
+Sync query params: `connectionId` (specific or all), `batchSize`, `resync` (force full resync). `POST /api/mail/check` is a cheap lastUid IMAP catch-up (not a full resync); `POST /api/mobile/check` is the bearer twin. Rate-limited to 1 per 5 seconds per user.
 
 ### Attachment Routes
 

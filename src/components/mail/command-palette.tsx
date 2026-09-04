@@ -21,9 +21,10 @@ import {
   Keyboard,
   Reply,
   MailOpen,
+  RefreshCw,
 } from "lucide-react";
-import { keyboardState } from "@/lib/keyboard-state";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
+import { requestMailCheck } from "@/lib/mail/check-trigger";
 
 const GROUP_HEADING_CLASS =
   "**:[[cmdk-group-heading]]:eyebrow **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-muted-foreground";
@@ -301,6 +302,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           );
           searchInput?.focus();
         });
+      },
+    },
+    {
+      id: "sync",
+      label: "Sync",
+      icon: <RefreshCw className="h-4 w-4" />,
+      shortcut: ["Cmd", "R"],
+      group: "actions",
+      onSelect: () => {
+        close();
+        requestMailCheck();
       },
     },
     {
