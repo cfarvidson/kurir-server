@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ensureOutboundMessageId / sendScheduledEmail must generate a stable RFC 5322
 // Message-ID BEFORE the first SMTP attempt and reuse it verbatim on every
@@ -178,5 +178,70 @@ describe("sendScheduledEmail", () => {
     const callArgs = sendMailMock.mock.calls[0][0];
     expect("to" in callArgs).toBe(false);
     expect(callArgs.cc).toBe("cc-only@example.com");
+  });
+});
+
+describe("isSmtpPermanentError", () => {
+  it.each([
+    [{ responseCode: 550 }, true],
+    [{ responseCode: 500 }, true],
+    [{ responseCode: 599 }, true],
+    [{ responseCode: 499 }, false],
+    [{ responseCode: 400 }, false],
+    [{ responseCode: 250 }, false],
+    [{ responseCode: "550" }, false],
+    [{}, false],
+    [null, false],
+    [undefined, false],
+    ["string", false],
+    [new Error("connect ECONNREFUSED"), false],
+  ] as const)("classifies %j as %s", async (input, expected) => {
+    const { isSmtpPermanentError } = await import("@/lib/mail/scheduled-send");
+    expect(isSmtpPermanentError(input)).toBe(expected);
+  });
+});
+
+describe("getNextRetryDelay", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses the first step at attempts=1 with no jitter", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { getNextRetryDelay, BACKOFF_STEPS_MS } = await import(
+      "@/lib/mail/scheduled-send"
+    );
+    expect(getNextRetryDelay(1)).toBe(BACKOFF_STEPS_MS[0]);
+  });
+
+  it("uses the second step at attempts=2", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { getNextRetryDelay, BACKOFF_STEPS_MS } = await import(
+      "@/lib/mail/scheduled-send"
+    );
+    expect(getNextRetryDelay(2)).toBe(BACKOFF_STEPS_MS[1]);
+  });
+
+  it("caps at the last step when attempts exceed the table", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { getNextRetryDelay, BACKOFF_STEPS_MS } = await import(
+      "@/lib/mail/scheduled-send"
+    );
+    expect(getNextRetryDelay(99)).toBe(BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]);
+  });
+
+  it("adds 20% jitter when Math.random is 1", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(1);
+    const { getNextRetryDelay, BACKOFF_STEPS_MS } = await import(
+      "@/lib/mail/scheduled-send"
+    );
+    const base = BACKOFF_STEPS_MS[0];
+    expect(getNextRetryDelay(1)).toBe(base + 0.2 * base);
+  });
+
+  it("returns NaN for attempts=0 (worker always passes attempts+1)", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { getNextRetryDelay } = await import("@/lib/mail/scheduled-send");
+    expect(Number.isNaN(getNextRetryDelay(0))).toBe(true);
   });
 });
