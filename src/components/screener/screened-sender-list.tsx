@@ -39,7 +39,7 @@ interface ScreenedSender {
   status: SenderStatus;
   category: SenderCategory | null;
   decidedAt: Date | null;
-  _count: { messages: number };
+  messageCount: number;
 }
 
 interface DomainRule {
@@ -77,10 +77,12 @@ const CATEGORY_CONFIG = {
 
 export function ScreenedSenderList({
   senders,
+  screenedIsCapped = false,
   domainRules = [],
   subjectRules = [],
 }: {
   senders: ScreenedSender[];
+  screenedIsCapped?: boolean;
   domainRules?: DomainRule[];
   subjectRules?: SubjectRule[];
 }) {
@@ -175,6 +177,11 @@ export function ScreenedSenderList({
     <div className="border-t border-border">
       <div className="px-4 py-4 md:px-6">
         <h2 className="eyebrow text-muted-foreground">Previously Screened</h2>
+        {screenedIsCapped && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Showing the 200 most recently decided senders.
+          </p>
+        )}
       </div>
 
       {domainRules.length > 0 && (
@@ -374,7 +381,7 @@ export function ScreenedSenderList({
                   <div className="truncate text-sm text-muted-foreground">
                     {sender.email} &middot;{" "}
                     <span className="tabular-nums">
-                      {sender._count.messages}
+                      {sender.messageCount}
                     </span>{" "}
                     email(s)
                   </div>
@@ -458,7 +465,7 @@ export function ScreenedSenderList({
                   <div className="truncate text-sm text-muted-foreground">
                     {sender.email} &middot;{" "}
                     <span className="tabular-nums">
-                      {sender._count.messages}
+                      {sender.messageCount}
                     </span>{" "}
                     email(s)
                   </div>
