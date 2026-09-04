@@ -125,3 +125,9 @@ jobs:
         run: |
           psql "$DATABASE_URL" -c 'DROP TABLE "_kurir_migrations";'
           sh scripts/apply-migrations.sh
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Full-text search against Postgres
+        run: pnpm exec vitest run --config vitest.fts.config.mjs
