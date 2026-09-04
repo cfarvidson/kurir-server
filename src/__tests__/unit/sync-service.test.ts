@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     message: {
       findMany: vi.fn(),
@@ -301,6 +302,28 @@ describe("thread repair gating", () => {
     expect(result.results[0].newMessages).toBe(1);
     expect(result.results[0].remaining).toBe(0);
     expect(db.message.findMany).toHaveBeenCalledWith(REPAIR_CALL);
+  });
+
+  it("does not write highestModSeq on the folder.update at end of sync", async () => {
+    const db = await commonMocks();
+    await setupImapFlow({ search: [5], messages: [fakeMsg(5)] });
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    await syncEmailConnection("conn-1");
+
+    const updateCalls = vi.mocked(db.folder.update).mock.calls;
+    expect(updateCalls.length).toBeGreaterThan(0);
+    const lastUpdate = updateCalls[updateCalls.length - 1][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(lastUpdate.data).not.toHaveProperty("highestModSeq");
+    expect(db.folder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "folder-1",
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: 1n } }],
+      },
+      data: { highestModSeq: 1n },
+    });
   });
 
   it("defers the repair while a backfill still has remaining messages", async () => {
@@ -656,6 +679,21 @@ describe("subject rules at ingest (kurir-ios#48)", () => {
         data: { messageCount: { increment: 1 } },
       }),
     );
+  });
+
+  it("persists highestModSeq only when it moved forward", async () => {
+    const { persistFolderHighestModSeq } = await import(
+      "@/lib/mail/sync-service"
+    );
+    const { db } = await import("@/lib/db");
+    await persistFolderHighestModSeq("folder-1", 5n);
+    expect(db.folder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "folder-1",
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: 5n } }],
+      },
+      data: { highestModSeq: 5n },
+    });
   });
 
   it("leaves a non-matching message from the same sender to the sender's decision", async () => {
