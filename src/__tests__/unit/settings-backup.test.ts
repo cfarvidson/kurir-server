@@ -23,7 +23,7 @@ vi.mock("@/lib/db", () => ({
     sender: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     domainRule: { findMany: vi.fn(), upsert: vi.fn() },
     subjectRule: { findMany: vi.fn(), upsert: vi.fn() },
-    message: { findMany: vi.fn() },
+    message: { findMany: vi.fn(), findFirst: vi.fn() },
     attachment: { create: vi.fn(), findFirst: vi.fn() },
     folder: { findFirst: vi.fn() },
     $transaction: vi.fn(),
@@ -434,5 +434,41 @@ describe("setSettingsBackupCadenceForUser", () => {
         settingsBackupNextRunAt: null,
       },
     });
+  });
+});
+
+describe("restoreSettingsBackupFromMessageForUser", () => {
+  it("only looks up Sent snapshots", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    const { restoreSettingsBackupFromMessageForUser } = await import(
+      "@/lib/mail/settings-backup"
+    );
+    await expect(
+      restoreSettingsBackupFromMessageForUser("user-1", "msg-1"),
+    ).rejects.toThrow("Backup not found");
+    expect(db.message.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "msg-1",
+          userId: "user-1",
+          folder: { specialUse: "sent" },
+        },
+      }),
+    );
+    expect(approveSenderForUser).not.toHaveBeenCalled();
+  });
+
+  it("does not apply when no Sent backup exists", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+    const { restoreSettingsBackupFromMessageForUser } = await import(
+      "@/lib/mail/settings-backup"
+    );
+    await expect(
+      restoreSettingsBackupFromMessageForUser("user-1", "inbox-msg"),
+    ).rejects.toThrow("Backup not found");
+    expect(approveSenderForUser).not.toHaveBeenCalled();
+    expect(rejectSenderForUser).not.toHaveBeenCalled();
   });
 });
