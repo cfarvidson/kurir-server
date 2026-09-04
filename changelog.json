@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.67",
+    "date": "2026-09-04",
+    "changes": [
+      "Admin → Updates: Update now stays disabled until the offered image is published on ghcr (\"is on its way\"), and the apply route re-checks before starting",
+      "Auto-update mode waits for the published image too",
+      "Admin → Updates shows the latest run inline with its error, and limits What's new to versions between current and offered"
+    ]
+  },
+  {
     "version": "2026.66",
     "date": "2026-09-04",
     "changes": [

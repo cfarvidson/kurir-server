@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.67] - 2026-09-04
+
+### Changed
+
+- Admin → Updates gates Update now on the offered image existing on ghcr
+  (anonymous manifest `HEAD`), shows "vX is on its way" until it does,
+  and re-probes in the apply route (409 missing, 503 unreachable). Auto
+  mode waits for the same signal (#164)
+- Admin → Updates shows the latest run with its error inline, limits
+  What's new to versions between current and offered, and merges channel
+  and mode into one settings card (#164)
+
 ## [v2026.66] - 2026-09-04
 
 ### Added

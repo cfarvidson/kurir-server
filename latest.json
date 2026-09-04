@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.66",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.66",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.66",
-    "changelog": "On-demand IMAP check from tab focus, Cmd+R, pull-to-refresh, and native Sync",
+    "version": "2026.67",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.67",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.67",
+    "changelog": "Admin > Updates waits for the published image before offering Update now, and shows only what matters",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-04T13:06:08Z"
+    "releasedAt": "2026-09-04T14:13:40Z"
   }
 }
