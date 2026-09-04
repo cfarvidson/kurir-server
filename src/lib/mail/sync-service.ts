@@ -194,7 +194,7 @@ async function getOrCreateSender(
       domain,
       status: isOwnEmail ? "APPROVED" : rule ? rule.status : "PENDING",
       category: rule?.category ?? "IMBOX",
-      messageCount: 1,
+      messageCount: 0,
       ...(isOwnEmail || rule ? { decidedAt: new Date() } : {}),
       ...(rule ? { decidedByRuleId: rule.id } : {}),
     },
