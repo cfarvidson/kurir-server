@@ -127,7 +127,7 @@ model McpAuthorizationCode {
   createdAt DateTime @default(now())
 
   codeHash      String   @unique
-  clientId      String // CIMD URL
+  clientId      String // CIMD URL or registered kmc_ id
   redirectUri   String
   codeChallenge String // S256 challenge
   resource      String
@@ -153,8 +153,10 @@ model McpClient {
   name         String
   redirectUris String[]
 
-  createdBy String
-  creator   User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  // Instance-level: the client must outlive the admin who registered it,
+  // otherwise its tokens would keep working with no row to revoke from.
+  createdBy String?
+  creator   User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 }
 
 model McpToken {

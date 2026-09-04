@@ -101,6 +101,14 @@ export function redirectUriAllowed(
   });
 }
 
+/** https anywhere, or plain http on a loopback host (native clients). */
+function isHttpsOrLoopback(url: URL): boolean {
+  return (
+    url.protocol === "https:" ||
+    (url.protocol === "http:" && isLoopbackHost(url.hostname))
+  );
+}
+
 function parseCimdUrl(clientIdUrl: string): URL | null {
   let url: URL;
   try {
@@ -108,11 +116,7 @@ function parseCimdUrl(clientIdUrl: string): URL | null {
   } catch {
     return null;
   }
-  const isLoopback =
-    url.hostname === "localhost" || url.hostname === "127.0.0.1";
-  if (url.protocol === "https:") return url;
-  if (url.protocol === "http:" && isLoopback) return url;
-  return null;
+  return isHttpsOrLoopback(url) ? url : null;
 }
 
 function parseCimdDocument(
@@ -219,10 +223,7 @@ export function validateRedirectUris(input: string[]): string[] | null {
     } catch {
       return null;
     }
-    const ok =
-      url.protocol === "https:" ||
-      (url.protocol === "http:" && isLoopbackHost(url.hostname));
-    if (!ok || url.hash) return null;
+    if (!isHttpsOrLoopback(url) || url.hash) return null;
     out.push(value);
   }
   return out.length > 0 ? out : null;

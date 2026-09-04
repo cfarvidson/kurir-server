@@ -18,9 +18,15 @@ export function McpClientsPanel({ clients }: { clients: McpClientInfo[] }) {
 
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
+  // Clipboard access can be refused after an await (Safari, lapsed user
+  // activation); never let that turn a completed action into an error.
   const copy = async (value: string, message: string) => {
-    await navigator.clipboard.writeText(value);
-    toast.success(message);
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(message);
+    } catch {
+      toast.info("Copy failed, use the copy button in the list");
+    }
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -34,10 +40,10 @@ export function McpClientsPanel({ clients }: { clients: McpClientInfo[] }) {
     startCreate(async () => {
       try {
         const result = await createMcpClient(name.trim(), uris);
-        await copy(result.clientId, "Client registered, client_id copied");
         setShowForm(false);
         setName("");
         setRedirectUris("");
+        await copy(result.clientId, "Client registered, client_id copied");
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Failed to register client",

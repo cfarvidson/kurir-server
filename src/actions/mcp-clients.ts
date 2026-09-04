@@ -56,10 +56,10 @@ export async function createMcpClient(
 
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName.length > MAX_NAME_LENGTH) {
-    throw new Error("Name is required (max 80 characters)");
+    throw new Error(`Name is required (max ${MAX_NAME_LENGTH} characters)`);
   }
   if (redirectUris.length > MAX_REDIRECT_URIS) {
-    throw new Error("At most 10 redirect URIs");
+    throw new Error(`At most ${MAX_REDIRECT_URIS} redirect URIs`);
   }
   const uris = validateRedirectUris(redirectUris);
   if (!uris) {

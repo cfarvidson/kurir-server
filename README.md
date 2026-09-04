@@ -36,6 +36,11 @@ mail, triage, screen senders, and change your own settings. Sending and
 other destructive actions ask for a confirmation in Claude first. Revoke
 access under Settings → Connected apps.
 
+Clients identify themselves with a Client ID Metadata Document (Claude does
+this on its own). For a host that cannot publish one, an admin registers it
+under Admin → Apps with its redirect URI and hands over the generated
+`client_id`. PKCE is required either way; there is no client secret.
+
 ## Quick Start
 
 ### One-Command Install (Recommended)

@@ -1,5 +1,7 @@
 -- Admin-registered MCP OAuth clients (public clients, PKCE, no secret) for
--- hosts that cannot serve a Client ID Metadata Document. Idempotent.
+-- hosts that cannot serve a Client ID Metadata Document. Clients are
+-- instance-level: deleting the admin who registered one keeps the row
+-- (createdBy set to NULL) so its tokens stay revocable. Idempotent.
 
 CREATE TABLE IF NOT EXISTS "McpClient" (
   "id"           TEXT NOT NULL,
@@ -7,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "McpClient" (
   "clientId"     TEXT NOT NULL,
   "name"         TEXT NOT NULL,
   "redirectUris" TEXT[],
-  "createdBy"    TEXT NOT NULL,
+  "createdBy"    TEXT,
   CONSTRAINT "McpClient_pkey" PRIMARY KEY ("id")
 );
 
@@ -19,6 +21,6 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'McpClient_createdBy_fkey') THEN
     ALTER TABLE "McpClient"
       ADD CONSTRAINT "McpClient_createdBy_fkey"
-      FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
   END IF;
 END $$;
