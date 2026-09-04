@@ -8,7 +8,7 @@ vi.mock("@/lib/mcp/oauth", async () => {
     consumeAuthorizationCode: vi.fn(),
     verifyPkce: vi.fn(),
     mcpResourceUri: () => "https://mail.example/mcp",
-    fetchCimd: vi.fn().mockResolvedValue({
+    resolveMcpClient: vi.fn().mockResolvedValue({
       client_id: "https://ok.example/c.json",
       client_name: "Claude",
       redirect_uris: ["https://claude.ai/cb"],

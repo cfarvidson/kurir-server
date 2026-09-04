@@ -197,6 +197,59 @@ export async function fetchCimd(
   }
 }
 
+/** Prefix that marks an admin-registered (non-CIMD) client_id. */
+export const MCP_CLIENT_ID_PREFIX = "kmc_";
+
+export function generateMcpClientId(): string {
+  return `${MCP_CLIENT_ID_PREFIX}${randomBytes(18).toString("base64url")}`;
+}
+
+/**
+ * Same redirect rules as CIMD documents: absolute https URLs, or http on a
+ * loopback host for native clients. Returns the normalised list or null.
+ */
+export function validateRedirectUris(input: string[]): string[] | null {
+  const out: string[] = [];
+  for (const raw of input) {
+    const value = raw.trim();
+    if (!value) continue;
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return null;
+    }
+    const ok =
+      url.protocol === "https:" ||
+      (url.protocol === "http:" && isLoopbackHost(url.hostname));
+    if (!ok || url.hash) return null;
+    out.push(value);
+  }
+  return out.length > 0 ? out : null;
+}
+
+/**
+ * Resolve a client_id to its metadata. A URL is a Client ID Metadata Document
+ * and is fetched; anything else is looked up among the admin-registered
+ * clients. Both paths fail closed.
+ */
+export async function resolveMcpClient(
+  clientId: string,
+): Promise<CimdDocument | null> {
+  if (parseCimdUrl(clientId)) return fetchCimd(clientId);
+  if (!clientId.startsWith(MCP_CLIENT_ID_PREFIX)) return null;
+  const row = await db.mcpClient.findUnique({
+    where: { clientId },
+    select: { clientId: true, name: true, redirectUris: true },
+  });
+  if (!row) return null;
+  return {
+    client_id: row.clientId,
+    client_name: row.name,
+    redirect_uris: row.redirectUris,
+  };
+}
+
 export async function createAuthorizationCode(input: {
   userId: string;
   clientId: string;

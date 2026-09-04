@@ -7,6 +7,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
+    mcpClient: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -83,6 +86,81 @@ describe("CIMD", () => {
     expect(redirectUriAllowed(doc, "https://localhost:3118/callback")).toBe(false);
     expect(redirectUriAllowed(doc, "https://app.example:8443/cb")).toBe(false);
     expect(redirectUriAllowed(doc, "not a url")).toBe(false);
+  });
+});
+
+describe("registered clients", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("resolveMcpClient looks up a registered client_id without fetching", async () => {
+    const { db } = await import("@/lib/db");
+    const { resolveMcpClient, generateMcpClientId } =
+      await import("@/lib/mcp/oauth");
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const clientId = generateMcpClientId();
+    expect(clientId).toMatch(/^kmc_[A-Za-z0-9_-]{24}$/);
+    vi.mocked(db.mcpClient.findUnique).mockResolvedValue({
+      clientId,
+      name: "Grok Bot",
+      redirectUris: ["https://grok-bot.example/oauth/callback"],
+    } as never);
+    const doc = await resolveMcpClient(clientId);
+    expect(doc).toEqual({
+      client_id: clientId,
+      client_name: "Grok Bot",
+      redirect_uris: ["https://grok-bot.example/oauth/callback"],
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("resolveMcpClient fails closed for unknown or malformed ids", async () => {
+    const { db } = await import("@/lib/db");
+    const { resolveMcpClient } = await import("@/lib/mcp/oauth");
+    vi.mocked(db.mcpClient.findUnique).mockResolvedValue(null);
+    expect(await resolveMcpClient("kmc_missing")).toBeNull();
+    // Not a URL and not a registered-id shape: never hits the database.
+    vi.mocked(db.mcpClient.findUnique).mockClear();
+    expect(await resolveMcpClient("grokbot")).toBeNull();
+    expect(db.mcpClient.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("resolveMcpClient still fetches CIMD for URL client_ids", async () => {
+    const { resolveMcpClient } = await import("@/lib/mcp/oauth");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          client_id: "https://ok.example/c.json",
+          client_name: "Claude",
+          redirect_uris: ["https://claude.ai/cb"],
+        }),
+      }),
+    );
+    const doc = await resolveMcpClient("https://ok.example/c.json");
+    expect(doc?.client_name).toBe("Claude");
+  });
+
+  it("validateRedirectUris accepts https and loopback http only", async () => {
+    const { validateRedirectUris } = await import("@/lib/mcp/oauth");
+    expect(
+      validateRedirectUris([
+        " https://grok-bot.example/oauth/callback ",
+        "http://localhost/callback",
+        "http://127.0.0.1:8080/cb",
+        "",
+      ]),
+    ).toEqual([
+      "https://grok-bot.example/oauth/callback",
+      "http://localhost/callback",
+      "http://127.0.0.1:8080/cb",
+    ]);
+    expect(validateRedirectUris(["http://evil.example/cb"])).toBeNull();
+    expect(validateRedirectUris(["https://ok.example/cb#frag"])).toBeNull();
+    expect(validateRedirectUris(["not a url"])).toBeNull();
+    expect(validateRedirectUris([])).toBeNull();
+    expect(validateRedirectUris(["  "])).toBeNull();
   });
 });
 

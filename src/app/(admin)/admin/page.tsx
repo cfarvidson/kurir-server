@@ -5,14 +5,16 @@ import { AdminTabs } from "@/components/admin/admin-tabs";
 import { HealthSection } from "@/components/admin/health-section";
 import { SyncSection } from "@/components/admin/sync-section";
 import { UsersSection } from "@/components/admin/users-section";
+import { McpClientsPanel } from "@/components/admin/mcp-clients-panel";
 import { LogsSection } from "@/components/admin/logs-section";
 import { UpdatesSection } from "@/components/admin/updates-section";
+import { listMcpClients } from "@/actions/mcp-clients";
 import pkg from "@/../package.json";
 
 export default async function AdminDashboardPage() {
   const session = await requireAdmin();
 
-  const [users, settings, invites] = await Promise.all([
+  const [users, settings, invites, mcpClients] = await Promise.all([
     db.user.findMany({
       orderBy: { createdAt: "asc" },
       select: {
@@ -61,6 +63,7 @@ export default async function AdminDashboardPage() {
         createdAt: true,
       },
     }),
+    listMcpClients(),
   ]);
 
   // Build sync connections list (all connections across all users)
@@ -130,6 +133,7 @@ export default async function AdminDashboardPage() {
           }))}
         />
       }
+      appsContent={<McpClientsPanel clients={mcpClients} />}
       updatesContent={<UpdatesSection versionInfo={versionInfo} />}
       logsContent={<LogsSection />}
     />

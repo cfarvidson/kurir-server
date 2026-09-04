@@ -71,6 +71,7 @@ model User {
   mcpTokens             McpToken[]
   mcpAuthorizationCodes McpAuthorizationCode[]
   mcpConfirmations      McpConfirmation[]
+  mcpClientsCreated     McpClient[]
   calendarAccounts       CalendarAccount[]
   calendars              Calendar[]
   calendarEvents         CalendarEvent[]
@@ -141,6 +142,21 @@ model McpAuthorizationCode {
 // Bearer tokens for MCP remote HTTP clients. Opaque access/refresh pair stored
 // hashed (SHA-256). Audience (`resource`) is checked on every /mcp call.
 // Refresh rotates both hashes in place (race-safe updateMany).
+// Admin-registered OAuth client for MCP hosts that cannot serve a Client ID
+// Metadata Document. Public client (PKCE, no secret); clientId is opaque and
+// never a URL so it cannot be confused with a CIMD client_id.
+model McpClient {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  clientId     String   @unique
+  name         String
+  redirectUris String[]
+
+  createdBy String
+  creator   User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
 model McpToken {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())

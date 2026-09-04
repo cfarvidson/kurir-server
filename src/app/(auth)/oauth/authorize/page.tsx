@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SectionHeading } from "@/components/ui/editorial";
 import { auth } from "@/lib/auth";
-import { fetchCimd, mcpResourceUri, redirectUriAllowed } from "@/lib/mcp/oauth";
+import {
+  mcpResourceUri,
+  redirectUriAllowed,
+  resolveMcpClient,
+} from "@/lib/mcp/oauth";
 import { ConsentForm } from "./consent-form";
 
 export const dynamic = "force-dynamic";
@@ -73,12 +77,12 @@ export default async function AuthorizePage({
     );
   }
 
-  const doc = await fetchCimd(clientId);
+  const doc = await resolveMcpClient(clientId);
   if (!doc) {
     return (
       <AuthorizeError
         title="Unknown app"
-        message="This app could not be verified. The client metadata document is missing or invalid."
+        message="This app could not be verified. It is not registered here and has no valid client metadata document."
       />
     );
   }
