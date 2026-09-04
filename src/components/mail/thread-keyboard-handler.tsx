@@ -34,6 +34,8 @@ export function ThreadKeyboardHandler({
       if (isInputFocused()) return;
       if (keyboardState.gSequenceActive) return;
       if (keyboardState.popoverOpen) return;
+      // Cmd+R is Sync (handled globally). Bare r stays Reply.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       switch (e.key) {
         case "r": {

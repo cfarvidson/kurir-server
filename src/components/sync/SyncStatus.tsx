@@ -49,12 +49,14 @@ export function SyncStatusIndicator({
   errorMessage,
   size = "sm",
   className,
+  onClick,
 }: {
   status: SyncStatus;
   lastSyncTime?: Date | null;
   errorMessage?: string;
   size?: "sm" | "xs";
   className?: string;
+  onClick?: () => void;
 }) {
   const statusConfig: Record<SyncStatus, string> = {
     synced: "bg-green-500",
@@ -72,7 +74,16 @@ export function SyncStatusIndicator({
     <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={cn("relative cursor-default", className)}>
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label="Sync"
+            className={cn(
+              "relative border-0 bg-transparent p-0",
+              onClick ? "cursor-pointer" : "cursor-default",
+              className,
+            )}
+          >
             <div
               className={cn(
                 "rounded-full",
@@ -88,7 +99,7 @@ export function SyncStatusIndicator({
                 )}
               />
             )}
-          </div>
+          </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>{getTooltipText(status, lastSyncTime, errorMessage)}</p>

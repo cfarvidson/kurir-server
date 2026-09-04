@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  isCheckInFlight,
+  requestMailCheck,
+  subscribeCheckInFlight,
+} from "@/lib/mail/check-trigger";
 
 export type SyncStatus = "synced" | "syncing" | "error" | "stale";
 
@@ -95,8 +100,11 @@ async function fetchSyncStatus(): Promise<SyncStatusResponse> {
 }
 
 export function useSync() {
-  const queryClient = useQueryClient();
-  const [retrying, setRetrying] = useState(false);
+  const checking = useSyncExternalStore(
+    subscribeCheckInFlight,
+    isCheckInFlight,
+    () => false,
+  );
 
   const { data = DEFAULT_RESPONSE } = useQuery({
     queryKey: ["sync-status"],
@@ -106,25 +114,15 @@ export function useSync() {
   });
 
   const derived = deriveStatus(data);
-
-  const retry = useCallback(async () => {
-    setRetrying(true);
-    try {
-      await fetch("/api/mail/sync", { method: "POST" });
-      setTimeout(() => {
-        queryClient
-          .invalidateQueries({ queryKey: ["sync-status"] })
-          .finally(() => setRetrying(false));
-      }, 3000);
-    } catch {
-      setRetrying(false);
-    }
-  }, [queryClient]);
+  const retry = useCallback(() => {
+    requestMailCheck();
+  }, []);
 
   return {
     ...derived,
+    status: checking ? "syncing" : derived.status,
     connections: data.connections,
     retry,
-    retrying,
+    retrying: checking,
   };
 }

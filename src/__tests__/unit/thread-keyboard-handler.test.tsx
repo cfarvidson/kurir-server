@@ -39,4 +39,19 @@ describe("ThreadKeyboardHandler mouse back", () => {
     fireEvent.mouseUp(window, { button: 4 });
     expect(intentionalBack).not.toHaveBeenCalled();
   });
+
+  it("bare r replies; Cmd+R does not", () => {
+    const onReply = vi.fn();
+    window.addEventListener("keyboard-reply", onReply);
+    render(<ThreadKeyboardHandler messageId="m1" returnPath="/imbox" />);
+
+    fireEvent.keyDown(window, { key: "r", metaKey: true });
+    fireEvent.keyDown(window, { key: "r", ctrlKey: true });
+    expect(onReply).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: "r" });
+    expect(onReply).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("keyboard-reply", onReply);
+  });
 });
