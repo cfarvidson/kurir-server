@@ -1,8 +1,8 @@
 /**
  * Coalesced on-demand IMAP check (kurir-server#162).
  *
- * Window-focus, Cmd+R, the sidebar indicator, the command palette, and the
- * error-banner Retry all funnel through one trigger: if the tab is visible,
+ * Window-focus, Cmd+R, pull-to-refresh, the sidebar indicator, the command
+ * palette, and the error-banner Retry all funnel through one trigger: if the tab is visible,
  * POST /api/mail/check (cheap IDLE lastUid ingest, not full sync), then
  * schedule the existing UI refresh. A burst collapses to one IMAP call and
  * one refresh. Hidden tabs do not fetch. 429 still schedules a UI refresh
@@ -27,7 +27,7 @@ export async function requestImapCheck(): Promise<CheckResult> {
   }
 }
 
-/** Dispatch from sidebar, palette, Cmd+R, and useSync retry. */
+/** Dispatch from sidebar, palette, Cmd+R, pull-to-refresh, and useSync retry. */
 export function requestMailCheck() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(MAIL_CHECK_EVENT));
