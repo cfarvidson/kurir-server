@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { dnsMocks } = vi.hoisted(() => ({
+const { dnsMocks, pinnedMocks } = vi.hoisted(() => ({
   dnsMocks: { lookup: vi.fn() },
+  pinnedMocks: { fetchPinned: vi.fn() },
 }));
 
 vi.mock("node:dns/promises", () => ({
   lookup: dnsMocks.lookup,
+}));
+
+vi.mock("@/lib/calendar/ics-pinned", () => ({
+  fetchPinned: pinnedMocks.fetchPinned,
 }));
 
 import { createIcsAdapter } from "@/lib/calendar/providers/ics";
@@ -64,11 +69,10 @@ describe("createIcsAdapter", () => {
     dnsMocks.lookup.mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
     ]);
-    vi.stubGlobal("fetch", vi.fn());
   });
 
   it("lists one read-only calendar named from X-WR-CALNAME", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, FEED));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, FEED));
     const calendars = await createIcsAdapter({ url: FEED_URL }).listCalendars();
     expect(calendars).toEqual([
       {
@@ -83,7 +87,7 @@ describe("createIcsAdapter", () => {
   });
 
   it("pulls every mappable VEVENT and skips a bad one", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, FEED));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, FEED));
     const result = await createIcsAdapter({ url: FEED_URL }).pull(
       { providerCalendarId: FEED_URL, syncToken: null },
       null,
@@ -104,7 +108,7 @@ describe("createIcsAdapter", () => {
   });
 
   it("reports a removed UID as a reset so the replica drops it", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, FEED_WITHOUT_INSET));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, FEED_WITHOUT_INSET));
     const result = await createIcsAdapter({ url: FEED_URL }).pull(
       { providerCalendarId: FEED_URL, syncToken: '"v1"' },
       null,
@@ -114,7 +118,7 @@ describe("createIcsAdapter", () => {
   });
 
   it("is a no-op when the ETag is unchanged", async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 304 }));
+    pinnedMocks.fetchPinned.mockResolvedValue(new Response(null, { status: 304 }));
     const result = await createIcsAdapter({ url: FEED_URL }).pull(
       { providerCalendarId: FEED_URL, syncToken: '"v1"' },
       null,
@@ -126,12 +130,9 @@ describe("createIcsAdapter", () => {
       reset: false,
       complete: true,
     });
-    expect(vi.mocked(fetch).mock.calls[0]?.[0].toString()).toBe(FEED_URL);
-    const headers = vi.mocked(fetch).mock.calls[0]?.[1]?.headers as Record<
-      string,
-      string
-    >;
-    expect(headers["If-None-Match"]).toBe('"v1"');
+    const [url, , , headers] = pinnedMocks.fetchPinned.mock.calls[0];
+    expect((url as URL).toString()).toBe(FEED_URL);
+    expect((headers as Record<string, string>)["If-None-Match"]).toBe('"v1"');
   });
 
   it("refuses writes", async () => {

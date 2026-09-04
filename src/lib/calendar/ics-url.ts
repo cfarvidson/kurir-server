@@ -3,7 +3,9 @@
  * feed over HTTPS. Shared by connect and the ICS adapter.
  */
 import { lookup } from "node:dns/promises";
+import net from "node:net";
 import ICAL from "ical.js";
+import { fetchPinned } from "@/lib/calendar/ics-pinned";
 
 export const ICS_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
@@ -77,12 +79,15 @@ export function icsAddressIsBlocked(address: string): boolean {
   return false;
 }
 
-async function assertPublicHttpsUrl(url: URL): Promise<void> {
+async function assertPublicHttpsUrl(url: URL): Promise<string> {
   if (url.protocol !== "https:" || url.username || url.password) {
     throw new Error(url.username || url.password ? NO_LOGIN : NOT_ALLOWED);
   }
   if (icsAddressIsBlocked(url.hostname)) {
     throw new Error(NOT_ALLOWED);
+  }
+  if (net.isIP(url.hostname)) {
+    return url.hostname;
   }
   try {
     const answers = await lookup(url.hostname, { all: true });
@@ -90,6 +95,7 @@ async function assertPublicHttpsUrl(url: URL): Promise<void> {
     if (list.length === 0 || list.some((row) => icsAddressIsBlocked(row.address))) {
       throw new Error(NOT_ALLOWED);
     }
+    return list[0]!.address;
   } catch (err) {
     if (err instanceof Error && err.message === NOT_ALLOWED) throw err;
     throw new Error("Could not reach that calendar.");
@@ -128,7 +134,7 @@ export async function fetchIcsFeed(
   lastModified: string | null;
 }> {
   let current = new URL(url);
-  await assertPublicHttpsUrl(current);
+  let pinnedIp = await assertPublicHttpsUrl(current);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const headers: Record<string, string> = {
       Accept: "text/calendar, text/plain, */*",
@@ -139,11 +145,20 @@ export async function fetchIcsFeed(
     if (hop === 0 && conditional?.lastModified) {
       headers["If-Modified-Since"] = conditional.lastModified;
     }
-    const res = await fetch(current, {
-      method: "GET",
-      headers,
-      redirect: "manual",
-    });
+    let res: Response;
+    try {
+      res = await fetchPinned(
+        current,
+        pinnedIp,
+        hop === 0 ? "manual" : "error",
+        headers,
+      );
+    } catch (err) {
+      if (err instanceof Error && err.message === "redirect") {
+        throw new Error("Could not reach that calendar.");
+      }
+      throw err;
+    }
     if (res.status === 304) {
       return {
         status: 304,
@@ -153,10 +168,11 @@ export async function fetchIcsFeed(
       };
     }
     if (res.status >= 300 && res.status < 400) {
+      if (hop > 0) throw new Error("Could not reach that calendar.");
       const location = res.headers.get("location");
       if (!location) throw new Error("Could not reach that calendar.");
       current = new URL(location, current);
-      await assertPublicHttpsUrl(current);
+      pinnedIp = await assertPublicHttpsUrl(current);
       continue;
     }
     if (res.status === 401 || res.status === 403) {
