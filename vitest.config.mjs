@@ -13,7 +13,11 @@ export default defineConfig({
     setupFiles: ["./src/__tests__/setup.ts"],
     // Don't crawl into nested git worktrees — they hold stale copies of these
     // tests from other branches, which surface as phantom failures.
-    exclude: [...configDefaults.exclude, "**/.worktrees/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      "**/.worktrees/**",
+      "**/*.postgres.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
