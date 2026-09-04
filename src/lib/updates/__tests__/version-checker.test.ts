@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   manifestSchema,
   compareVersions,
@@ -6,10 +6,15 @@ import {
 } from "../version-checker";
 import handwrittenWithBeta from "./fixtures/latest-with-beta.json";
 
-const { upsert, findFirst, pkg } = vi.hoisted(() => ({
+const { upsert, findFirst, checkImageExists, pkg } = vi.hoisted(() => ({
   upsert: vi.fn(),
   findFirst: vi.fn(),
+  checkImageExists: vi.fn(),
   pkg: { version: "2026.08.27" },
+}));
+
+vi.mock("../image-availability", () => ({
+  checkImageExists: (...args: unknown[]) => checkImageExists(...args),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -162,6 +167,7 @@ describe("checkForUpdates", () => {
   beforeEach(() => {
     upsert.mockReset();
     findFirst.mockReset();
+    checkImageExists.mockReset().mockResolvedValue(true);
     pkg.version = "2026.08.27";
     findFirst.mockResolvedValue({
       updateManifestUrl: null,
@@ -353,5 +359,101 @@ describe("checkForUpdates", () => {
     expect(result.runningAheadOfStable).toBe(false);
 
     vi.unstubAllGlobals();
+  });
+});
+
+describe("checkForUpdates image availability", () => {
+  beforeEach(() => {
+    upsert.mockReset();
+    findFirst.mockReset();
+    checkImageExists.mockReset();
+    pkg.version = "2026.08.27";
+    findFirst.mockResolvedValue({
+      updateManifestUrl: null,
+      updateChannel: "stable",
+      latestImageTag: null,
+      imageAvailable: null,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("probes the registry for the pointer image and persists the verdict", async () => {
+    checkImageExists.mockResolvedValue(true);
+    stubFetch(manifest());
+
+    const result = await checkForUpdates();
+
+    expect(checkImageExists).toHaveBeenCalledWith(
+      "ghcr.io/cfarvidson/kurir-server:v2026.28",
+    );
+    expect(result.imageAvailable).toBe(true);
+    expect(persisted()).toMatchObject({ imageAvailable: true });
+    expect(persisted()?.imageCheckedAt).toBeInstanceOf(Date);
+  });
+
+  it("persists false when the tag is not published yet", async () => {
+    checkImageExists.mockResolvedValue(false);
+    stubFetch(manifest());
+
+    const result = await checkForUpdates();
+
+    expect(result.imageAvailable).toBe(false);
+    expect(persisted()).toMatchObject({ imageAvailable: false });
+  });
+
+  it("skips the probe and clears the fields when nothing is installable", async () => {
+    pkg.version = "2026.28";
+    stubFetch(manifest());
+
+    const result = await checkForUpdates();
+
+    expect(checkImageExists).not.toHaveBeenCalled();
+    expect(result.imageAvailable).toBeNull();
+    expect(persisted()).toMatchObject({
+      imageAvailable: null,
+      imageCheckedAt: null,
+    });
+  });
+
+  it("keeps the previous verdict for the same image when the probe fails", async () => {
+    findFirst.mockResolvedValue({
+      updateManifestUrl: null,
+      updateChannel: "stable",
+      latestImageTag: "ghcr.io/cfarvidson/kurir-server:v2026.28",
+      imageAvailable: true,
+    });
+    checkImageExists.mockRejectedValue(new Error("ECONNRESET"));
+    stubFetch(manifest());
+
+    const result = await checkForUpdates();
+
+    expect(result.error).toBeUndefined();
+    expect(result.imageAvailable).toBe(true);
+    expect(persisted()).not.toHaveProperty("imageAvailable");
+    expect(persisted()).toMatchObject({ updateAvailable: true });
+  });
+
+  it("resets to unknown when the probe fails for a new image", async () => {
+    findFirst.mockResolvedValue({
+      updateManifestUrl: null,
+      updateChannel: "stable",
+      latestImageTag: "ghcr.io/cfarvidson/kurir-server:v2026.08.28",
+      imageAvailable: true,
+    });
+    checkImageExists.mockRejectedValue(new Error("ECONNRESET"));
+    stubFetch(manifest());
+
+    const result = await checkForUpdates();
+
+    expect(result.imageAvailable).toBeNull();
+    expect(persisted()).toMatchObject({
+      imageAvailable: null,
+      imageCheckedAt: null,
+    });
   });
 });

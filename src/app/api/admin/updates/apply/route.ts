@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import pkg from "@/../package.json";
 import { startUpdate } from "@/lib/updates/update-executor";
 import { isRunningAheadOfStable } from "@/lib/updates/version-checker";
+import { checkImageExists } from "@/lib/updates/image-availability";
 
 export async function POST() {
   try {
@@ -24,6 +25,35 @@ export async function POST() {
 
   if ((!settings?.updateAvailable && !ahead) || !settings?.latestVersion) {
     return NextResponse.json({ error: "No update available" }, { status: 400 });
+  }
+
+  // Re-verify right before starting: the page may be showing a check from
+  // minutes ago, and a doomed pull would otherwise land as a failed run.
+  if (settings.latestImageTag) {
+    let available: boolean;
+    try {
+      available = await checkImageExists(settings.latestImageTag);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { error: `Could not verify that the Docker image is published (${message})` },
+        { status: 503 },
+      );
+    }
+
+    await db.systemSettings.update({
+      where: { id: "singleton" },
+      data: { imageAvailable: available, imageCheckedAt: new Date() },
+    });
+
+    if (!available) {
+      return NextResponse.json(
+        {
+          error: `Docker image for v${settings.latestVersion} is not published yet`,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const result = await startUpdate(settings.latestVersion, "manual");

@@ -12,6 +12,10 @@ Kurir is distributed as a Docker image via GitHub Container Registry (`ghcr.io/c
 
 The admin Updates page polls `latest.json`. Stable is the default channel. **Install betas** follows tagged versions that have not been marked stable yet.
 
+A new version can show up before its Docker image has finished publishing; that usually takes 10-15 minutes after the tag. The page checks the registry and says the version "is on its way" with **Update now** disabled until the image is actually pullable. **Check again** re-runs the check on demand. Auto-apply waits for the same signal.
+
+The page shows the latest update run and the changelog entries between your version and the offered one. **Show full history** and **Show all versions** expand them.
+
 Turning the switch off does not move you back by itself. If the instance is already running an unmarked version, the page says it is ahead of stable and offers **Reinstall stable**. That uses the same pull and health-check path as a normal update, including rollback if the health check fails. It does **not** undo database migrations the beta already applied. There is no clean downgrade once a migration has run.
 
 ## Before updating
