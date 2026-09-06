@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.70",
+    "date": "2026-09-06",
+    "changes": [
+      "Calendar connect rejects private and loopback URLs, and ICS fetches pin to the allowlisted IP with at most one redirect",
+      "Bulk unarchive from Archive returns rule-approved mail to its subject-rule category, matching single-thread unarchive",
+      "MCP OAuth rate limits use the real client IP instead of a spoofable X-Forwarded-For hop",
+      "Operator docs and pnpm db:setup use bin/deploy and scripts/apply-migrations.sh"
+    ]
+  },
+  {
     "version": "2026.67",
     "date": "2026-09-04",
     "changes": [

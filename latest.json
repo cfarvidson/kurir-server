@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.67",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.67",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.67",
-    "changelog": "Admin > Updates waits for the published image before offering Update now, and shows only what matters",
+    "version": "2026.70",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.70",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.70",
+    "changelog": "Security and correctness follow-ups: calendar URL SSRF guards, bulk unarchive honors subject rules, OAuth rate limits keyed on the real client IP",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-04T14:13:40Z"
+    "releasedAt": "2026-09-06T15:36:57Z"
   }
 }

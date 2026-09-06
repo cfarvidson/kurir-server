@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.70] - 2026-09-06
+
+### Changed
+
+- Bulk unarchive from Archive goes through the same path as single-thread
+  unarchive, so rule-approved mail returns to its subject-rule category (#158)
+- MCP OAuth authorize/token rate limits key on the real client IP instead
+  of a spoofable `X-Forwarded-For` hop (#158)
+- Operator docs, wizard copy, and `pnpm db:setup` use `bin/deploy` and
+  `scripts/apply-migrations.sh` instead of bare `kamal` and
+  `prisma db push` (#158)
+
+### Fixed
+
+- Calendar connect refuses loopback, RFC1918, link-local, and localhost
+  URLs before CalDAV discovery; ICS fetches connect to the resolved
+  allowlisted IP and follow at most one redirect (#158)
+- Updater sidecar compares `X-Updater-Token` in constant time (#158)
+
 ## [v2026.67] - 2026-09-04
 
 ### Changed
