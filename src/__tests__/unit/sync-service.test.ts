@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     message: {
       findMany: vi.fn(),
@@ -301,6 +302,28 @@ describe("thread repair gating", () => {
     expect(result.results[0].newMessages).toBe(1);
     expect(result.results[0].remaining).toBe(0);
     expect(db.message.findMany).toHaveBeenCalledWith(REPAIR_CALL);
+  });
+
+  it("does not write highestModSeq on the folder.update at end of sync", async () => {
+    const db = await commonMocks();
+    await setupImapFlow({ search: [5], messages: [fakeMsg(5)] });
+
+    const { syncEmailConnection } = await import("@/lib/mail/sync-service");
+    await syncEmailConnection("conn-1");
+
+    const updateCalls = vi.mocked(db.folder.update).mock.calls;
+    expect(updateCalls.length).toBeGreaterThan(0);
+    const lastUpdate = updateCalls[updateCalls.length - 1][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(lastUpdate.data).not.toHaveProperty("highestModSeq");
+    expect(db.folder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "folder-1",
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: 1n } }],
+      },
+      data: { highestModSeq: 1n },
+    });
   });
 
   it("defers the repair while a backfill still has remaining messages", async () => {
@@ -609,6 +632,68 @@ describe("subject rules at ingest (kurir-ios#48)", () => {
         }),
       }),
     );
+  });
+
+  it("counts a new sender's first message once", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: null });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "Hello once"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN },
+    );
+
+    expect(db.sender.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ messageCount: 0 }),
+      }),
+    );
+    expect(db.sender.update).toHaveBeenCalledWith({
+      where: { id: "sender-1" },
+      data: { messageCount: { increment: 1 } },
+    });
+  });
+
+  it("does not increment messageCount when reconciling an existing row", async () => {
+    const db = await mockPersistence({ status: "PENDING", category: null });
+    vi.mocked(db.message.findFirst).mockResolvedValue({
+      id: "existing",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({ id: "existing" } as never);
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    await processMessage(
+      fakeMsg("news@github.com", "Hello once"),
+      "user-1",
+      "conn-1",
+      "folder-1",
+      { isInbox: true, own: OWN },
+    );
+
+    expect(db.message.create).not.toHaveBeenCalled();
+    expect(db.sender.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { messageCount: { increment: 1 } },
+      }),
+    );
+  });
+
+  it("persists highestModSeq only when it moved forward", async () => {
+    const { persistFolderHighestModSeq } = await import(
+      "@/lib/mail/sync-service"
+    );
+    const { db } = await import("@/lib/db");
+    await persistFolderHighestModSeq("folder-1", 5n);
+    expect(db.folder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "folder-1",
+        OR: [{ highestModSeq: null }, { highestModSeq: { lt: 5n } }],
+      },
+      data: { highestModSeq: 5n },
+    });
   });
 
   it("leaves a non-matching message from the same sender to the sender's decision", async () => {

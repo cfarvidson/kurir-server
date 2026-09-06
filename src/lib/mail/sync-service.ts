@@ -134,6 +134,20 @@ export function advanceWatermark(args: {
   return Math.max(current, allUids.reduce((a, b) => Math.max(a, b), 0));
 }
 
+/** Monotonic CONDSTORE watermark. Never clobber a higher IDLE value. */
+export async function persistFolderHighestModSeq(
+  folderId: string,
+  modseq: bigint,
+) {
+  await db.folder.updateMany({
+    where: {
+      id: folderId,
+      OR: [{ highestModSeq: null }, { highestModSeq: { lt: modseq } }],
+    },
+    data: { highestModSeq: modseq },
+  });
+}
+
 /**
  * Decode a subject as it arrives off the wire (kurir-ios#59): unfold header
  * continuation lines, then decode RFC 2047 encoded-words. ImapFlow usually
@@ -194,7 +208,7 @@ async function getOrCreateSender(
       domain,
       status: isOwnEmail ? "APPROVED" : rule ? rule.status : "PENDING",
       category: rule?.category ?? "IMBOX",
-      messageCount: 1,
+      messageCount: 0,
       ...(isOwnEmail || rule ? { decidedAt: new Date() } : {}),
       ...(rule ? { decidedByRuleId: rule.id } : {}),
     },
@@ -505,14 +519,12 @@ async function syncMailbox(
       errors.push(`Fetch error: ${outerErr}`);
     }
 
-    // Update folder sync time + highestModSeq + examined-UID watermark
+    // Update folder sync time + examined-UID watermark. highestModSeq is a
+    // monotonic bump so a long sync cannot clobber a newer IDLE value.
     await db.folder.update({
       where: { id: folder.id },
       data: {
         lastSyncedAt: new Date(),
-        highestModSeq: status.highestModseq
-          ? BigInt(status.highestModseq)
-          : undefined,
         lastExaminedUid: advanceWatermark({
           current: folder.lastExaminedUid,
           allUids,
@@ -521,6 +533,12 @@ async function syncMailbox(
         }),
       },
     });
+    if (status.highestModseq) {
+      await persistFolderHighestModSeq(
+        folder.id,
+        BigInt(status.highestModseq),
+      );
+    }
 
     return {
       folderId: folder.id,

@@ -53,11 +53,11 @@ describe("getPersonProfile rank", () => {
     expect(kickRankRecompute).not.toHaveBeenCalled();
   });
 
-  it("ranks live once and kicks the materialisation when the table is empty", async () => {
+  it("returns zeros and kicks materialisation when the table is empty", async () => {
     readPersonRank.mockResolvedValue(null);
     const profile = await getPersonProfile("u1", "anna@acme.se", { now });
-    expect(profile.stats.rank).toEqual({ score: 1, position: 1, of: 1 });
-    expect(messageFindMany).toHaveBeenCalledTimes(2);
+    expect(profile.stats.rank).toEqual({ score: 0, position: null, of: 0 });
+    expect(messageFindMany).toHaveBeenCalledTimes(1);
     expect(kickRankRecompute).toHaveBeenCalledWith("u1");
   });
 });

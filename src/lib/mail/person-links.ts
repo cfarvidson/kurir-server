@@ -140,18 +140,17 @@ export async function loadPersonLinks(
     },
     select: {
       id: true,
-      htmlBody: true,
       textBody: true,
       receivedAt: true,
     },
     orderBy: { receivedAt: "desc" },
-    take: 200,
+    take: 40,
   });
   const byKey = new Map<string, PersonLink>();
   const order: string[] = [];
   for (const message of messages) {
-    if (!message.htmlBody && !message.textBody) continue;
-    for (const extracted of extractLinks(message.htmlBody, message.textBody)) {
+    if (!message.textBody) continue;
+    for (const extracted of extractLinks(null, message.textBody)) {
       if (!byKey.has(extracted.key)) {
         order.push(extracted.key);
         byKey.set(extracted.key, {
