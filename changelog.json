@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.72",
+    "date": "2026-09-06",
+    "changes": [
+      "Screener Previously Screened shows the 200 most recently decided senders and says so when capped",
+      "Design specs for Feed List-Unsubscribe, MCP calendar tools, and event attendees",
+      "Weekly dependency bump"
+    ]
+  },
+  {
     "version": "2026.71",
     "date": "2026-09-06",
     "changes": [

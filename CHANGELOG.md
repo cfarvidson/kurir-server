@@ -4,6 +4,22 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.72] - 2026-09-06
+
+### Added
+
+- Design specs for Feed List-Unsubscribe (one-click leave, HTTPS POST
+  only), MCP calendar tools (wrap existing cores, confirm on write), and
+  attendees in the web event dialog (Google/Microsoft writable only) (#160)
+
+### Changed
+
+- Screener Previously Screened shows the 200 most recently decided
+  senders with a note when capped, sorts senders without a decision time
+  last, and reads the denormalised message count instead of a per-row
+  `_count` (#160)
+- Weekly dependency bump (#165)
+
 ## [v2026.71] - 2026-09-06
 
 ### Changed

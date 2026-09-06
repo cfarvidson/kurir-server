@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.71",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.71",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.71",
-    "changelog": "P2 audit follow-ups: single-count new senders, capped person-pane queries, indexed mobile sync cursors, monotonic folder highestModSeq, Sent-only settings restore, and Postgres FTS in CI",
+    "version": "2026.72",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.72",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.72",
+    "changelog": "Screener Previously Screened caps at the 200 most recently decided senders, weekly dependency bump, and design specs for Feed List-Unsubscribe, MCP calendar tools, and event attendees",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-06T16:04:23Z"
+    "releasedAt": "2026-09-06T16:30:57Z"
   }
 }
