@@ -78,7 +78,7 @@ describe("search_vector against Postgres", () => {
 
   it("populates search_vector on insert", async () => {
     const rows = await db.$queryRaw<{ search_vector: unknown }[]>`
-      SELECT search_vector FROM "Message" WHERE id = ${userA.message.id}
+      SELECT search_vector::text AS search_vector FROM "Message" WHERE id = ${userA.message.id}
     `;
     expect(rows[0]?.search_vector).toBeTruthy();
   });
