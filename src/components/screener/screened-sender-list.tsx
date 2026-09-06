@@ -179,7 +179,7 @@ export function ScreenedSenderList({
         <h2 className="eyebrow text-muted-foreground">Previously Screened</h2>
         {screenedIsCapped && (
           <p className="mt-1 text-sm text-muted-foreground">
-            Showing the 200 most recently decided senders.
+            Showing the <span className="tabular-nums">200</span> most recently decided senders.
           </p>
         )}
       </div>

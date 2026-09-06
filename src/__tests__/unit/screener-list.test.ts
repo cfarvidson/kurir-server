@@ -22,7 +22,7 @@ describe("getScreenedSenders", () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 200,
-        orderBy: { decidedAt: "desc" },
+        orderBy: { decidedAt: { sort: "desc", nulls: "last" } },
         select: expect.objectContaining({
           messageCount: true,
         }),

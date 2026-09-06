@@ -12,7 +12,7 @@ export async function getScreenedSenders(
       status: { in: ["APPROVED", "REJECTED"] },
       ...(ownEmails?.length ? { NOT: { email: { in: ownEmails } } } : {}),
     },
-    orderBy: { decidedAt: "desc" },
+    orderBy: { decidedAt: { sort: "desc", nulls: "last" } },
     take: SCREENED_SENDERS_TAKE,
     select: {
       id: true,

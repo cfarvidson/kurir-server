@@ -208,7 +208,7 @@ export function ScreenerContent({
             filteredSubjectRules.length > 0) && (
             <ScreenedSenderList
               senders={filteredScreened}
-              screenedIsCapped={screenedIsCapped}
+              screenedIsCapped={screenedIsCapped && !isSearching}
               domainRules={filteredRules}
               subjectRules={filteredSubjectRules}
             />
