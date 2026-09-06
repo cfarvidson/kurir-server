@@ -1,4 +1,6 @@
 import type { Prisma } from "@prisma/client";
+import { lookup } from "node:dns/promises";
+import net from "node:net";
 import { createAccount, getBasicAuthHeaders } from "tsdav";
 import { encrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -7,6 +9,54 @@ import {
   unscheduleCalendarSyncJob,
 } from "@/lib/jobs/calendar-sync-worker";
 import type { CalendarOAuthProvider } from "@/lib/calendar/oauth";
+import { icsAddressIsBlocked } from "@/lib/calendar/ics-url";
+
+const NOT_ALLOWED = "That URL is not allowed.";
+
+function calDavHostnameBlocked(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal")
+  );
+}
+
+async function assertPublicCalDavUrl(serverUrl: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(serverUrl);
+  } catch {
+    throw new Error(NOT_ALLOWED);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(NOT_ALLOWED);
+  }
+  if (parsed.username || parsed.password || !parsed.hostname) {
+    throw new Error(NOT_ALLOWED);
+  }
+  if (calDavHostnameBlocked(parsed.hostname)) {
+    throw new Error(NOT_ALLOWED);
+  }
+  if (icsAddressIsBlocked(parsed.hostname)) {
+    throw new Error(NOT_ALLOWED);
+  }
+  if (net.isIP(parsed.hostname)) return;
+  try {
+    const answers = await lookup(parsed.hostname, { all: true });
+    const list = Array.isArray(answers) ? answers : [answers];
+    if (
+      list.length === 0 ||
+      list.some((row) => icsAddressIsBlocked(row.address))
+    ) {
+      throw new Error(NOT_ALLOWED);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === NOT_ALLOWED) throw err;
+    throw new Error(NOT_ALLOWED);
+  }
+}
 
 export function normalizeCalDavUrl(raw: string): string {
   const trimmed = raw.trim();
@@ -23,6 +73,7 @@ export async function discoverCalDavHome(input: {
   password: string;
 }): Promise<string> {
   const serverUrl = normalizeCalDavUrl(input.url);
+  await assertPublicCalDavUrl(serverUrl);
   const account = await createAccount({
     account: {
       serverUrl,

@@ -10,7 +10,7 @@ This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). Be kind, be usef
 
 ### Prerequisites
 
-- Node.js 22+ (see `.nvmrc`)
+- Node.js 20 (see `.nvmrc`)
 - pnpm 9.15+ (`corepack enable && corepack prepare pnpm@9.15.0 --activate`)
 - Docker (for PostgreSQL and Redis)
 
@@ -130,7 +130,7 @@ Open an issue with:
 - Steps to reproduce
 - Expected vs actual behavior
 - Your environment (browser, OS, deployment method)
-- Relevant logs (`docker compose logs app` or `kamal app logs`)
+- Relevant logs (`docker compose logs app` or `bin/deploy app logs`)
 
 For security vulnerabilities, see [SECURITY.md](SECURITY.md) — please do **not** open a public issue.
 

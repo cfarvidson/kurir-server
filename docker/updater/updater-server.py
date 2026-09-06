@@ -9,6 +9,7 @@ outside the app container (so restarting the app doesn't kill us) and stream
 status back to /api/admin/updates/status on the app.
 """
 
+import hmac
 import json
 import os
 import subprocess
@@ -373,7 +374,11 @@ class Handler(BaseHTTPRequestHandler):
         if not UPDATER_TOKEN:
             return False
         token = self.headers.get("X-Updater-Token", "")
-        return token == UPDATER_TOKEN
+        a = token.encode("utf-8")
+        b = UPDATER_TOKEN.encode("utf-8")
+        if len(a) != len(b):
+            return False
+        return hmac.compare_digest(a, b)
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":

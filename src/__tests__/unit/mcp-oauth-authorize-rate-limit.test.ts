@@ -79,19 +79,38 @@ describe("rateLimitOAuthAuthorize", () => {
     expect(rateLimitOAuth).not.toHaveBeenCalled();
   });
 
-  it("uses the first x-forwarded-for hop, then x-real-ip, then local", async () => {
-    const { oauthClientIp } = await import("@/lib/mcp/oauth-rate-limit");
-    expect(
-      oauthClientIp(
-        new Headers({
-          "x-forwarded-for": " 9.9.9.9, 10.0.0.1 ",
-          "x-real-ip": "1.2.3.4",
-        }),
-      ),
-    ).toBe("9.9.9.9");
-    expect(oauthClientIp(new Headers({ "x-real-ip": "1.2.3.4" }))).toBe(
-      "1.2.3.4",
+  it("prefers X-Real-IP over a spoofed leftmost X-Forwarded-For hop", async () => {
+    const { rateLimitOAuth } = await import("@/lib/rate-limit");
+    const { rateLimitOAuthAuthorize } =
+      await import("@/lib/mcp/oauth-rate-limit");
+    await rateLimitOAuthAuthorize(
+      "/oauth/authorize",
+      "GET",
+      new Headers({
+        "x-forwarded-for": "8.8.8.8, 203.0.113.10",
+        "x-real-ip": "1.2.3.4",
+      }),
     );
-    expect(oauthClientIp(new Headers())).toBe("local");
+    expect(rateLimitOAuth).toHaveBeenCalledWith("1.2.3.4");
+  });
+
+  it("uses the rightmost X-Forwarded-For hop when X-Real-IP is absent", async () => {
+    const { rateLimitOAuth } = await import("@/lib/rate-limit");
+    const { rateLimitOAuthAuthorize } =
+      await import("@/lib/mcp/oauth-rate-limit");
+    await rateLimitOAuthAuthorize(
+      "/oauth/authorize",
+      "GET",
+      new Headers({ "x-forwarded-for": "8.8.8.8, 203.0.113.10" }),
+    );
+    expect(rateLimitOAuth).toHaveBeenCalledWith("203.0.113.10");
+  });
+
+  it("keys the limiter on unknown when no forwarding headers are present", async () => {
+    const { rateLimitOAuth } = await import("@/lib/rate-limit");
+    const { rateLimitOAuthAuthorize } =
+      await import("@/lib/mcp/oauth-rate-limit");
+    await rateLimitOAuthAuthorize("/oauth/authorize", "GET", new Headers());
+    expect(rateLimitOAuth).toHaveBeenCalledWith("unknown");
   });
 });

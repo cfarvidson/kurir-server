@@ -1,5 +1,19 @@
-import { describe, it, expect } from "vitest";
-import { canonicalizeIcsUrl } from "@/lib/calendar/ics-account";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const { dnsMocks, pinnedMocks } = vi.hoisted(() => ({
+  dnsMocks: { lookup: vi.fn() },
+  pinnedMocks: { fetchPinned: vi.fn() },
+}));
+
+vi.mock("node:dns/promises", () => ({
+  lookup: dnsMocks.lookup,
+}));
+
+vi.mock("@/lib/calendar/ics-pinned", () => ({
+  fetchPinned: pinnedMocks.fetchPinned,
+}));
+
+import { canonicalizeIcsUrl, fetchIcsFeed } from "@/lib/calendar/ics-url";
 
 describe("canonicalizeIcsUrl", () => {
   it("rewrites webcal, webcals and http to https and strips trailing slashes", () => {
@@ -40,5 +54,59 @@ describe("canonicalizeIcsUrl", () => {
     expect(() => canonicalizeIcsUrl("javascript:alert(1)")).toThrow(
       /not a calendar url/i,
     );
+  });
+});
+
+describe("fetchIcsFeed DNS pin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses a hostname that resolves to loopback before connecting", async () => {
+    dnsMocks.lookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+
+    await expect(
+      fetchIcsFeed("https://evil.example/cal.ics"),
+    ).rejects.toThrow(/not allowed/i);
+
+    expect(pinnedMocks.fetchPinned).not.toHaveBeenCalled();
+  });
+
+  it("connects to the validated address, not a second DNS lookup", async () => {
+    dnsMocks.lookup.mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    pinnedMocks.fetchPinned.mockResolvedValue(
+      new Response("BEGIN:VCALENDAR\nEND:VCALENDAR", {
+        status: 200,
+        headers: { "content-type": "text/calendar" },
+      }),
+    );
+
+    await fetchIcsFeed("https://calendar.example/holidays.ics");
+
+    expect(pinnedMocks.fetchPinned).toHaveBeenCalledTimes(1);
+    const [url, ip] = pinnedMocks.fetchPinned.mock.calls[0];
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).hostname).toBe("calendar.example");
+    expect(ip).toBe("93.184.216.34");
+  });
+
+  it("does not fetch a redirect onto a blocked host", async () => {
+    dnsMocks.lookup.mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    pinnedMocks.fetchPinned.mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://127.0.0.1/cal.ics" },
+      }),
+    );
+
+    await expect(
+      fetchIcsFeed("https://calendar.example/holidays.ics"),
+    ).rejects.toThrow(/not allowed/i);
+
+    expect(pinnedMocks.fetchPinned).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,7 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "db:setup": "prisma db push && docker compose exec -T postgres psql -U kurir < prisma/migrations/0001_search_vector.sql",
+    "db:setup": "prisma db push && sh scripts/apply-migrations.sh",
     "db:studio": "prisma studio",
     "add-user": "tsx scripts/add-user.ts",
     "list-users": "tsx scripts/list-users.ts",

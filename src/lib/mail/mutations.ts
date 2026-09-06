@@ -46,6 +46,16 @@ export const ARCHIVE_CLEAR_DATA = {
   followUpSetAt: null,
 };
 
+function unarchiveData(target: SenderCategory) {
+  return {
+    isArchived: false,
+    isInImbox: target === "IMBOX",
+    isInFeed: target === "FEED",
+    isInPaperTrail: target === "PAPER_TRAIL",
+    isInScreener: false,
+  };
+}
+
 /**
  * Find PENDING senders linked to the given messages. If all of a sender's
  * messages are now archived, auto-reject the sender so they don't
@@ -207,26 +217,18 @@ export async function unarchiveThread(userId: string, messageId: string) {
   );
   const senderPlacedIds = messageIds.filter((id) => !rulePlacedIds.has(id));
 
-  const unarchiveData = (target: SenderCategory) => ({
-    isArchived: false,
-    isInImbox: target === "IMBOX",
-    isInFeed: target === "FEED",
-    isInPaperTrail: target === "PAPER_TRAIL",
-    isInScreener: false,
-  });
-
   await db.$transaction([
     ...(senderPlacedIds.length > 0
       ? [
           db.message.updateMany({
-            where: { id: { in: senderPlacedIds } },
+            where: { id: { in: senderPlacedIds }, userId },
             data: unarchiveData(category),
           }),
         ]
       : []),
     ...[...idsByRuleCategory].map(([target, ids]) =>
       db.message.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, userId },
         data: unarchiveData(target),
       }),
     ),
@@ -244,6 +246,147 @@ export async function unarchiveThread(userId: string, messageId: string) {
   }
 
   return { category };
+}
+
+/**
+ * Unarchive every selected thread (and unthreaded singles) with the same
+ * subject-rule placement as unarchiveThread. One IMAP after() for all
+ * connections — do not call unarchiveThread in a loop.
+ */
+export async function unarchiveThreadsForUser(
+  userId: string,
+  messageIds: string[],
+) {
+  if (messageIds.length === 0) return;
+
+  const selected = await db.message.findMany({
+    where: { id: { in: messageIds }, userId },
+    select: {
+      id: true,
+      threadId: true,
+      emailConnectionId: true,
+      sender: { select: { category: true } },
+    },
+  });
+  if (selected.length === 0) return;
+
+  const senderCategoryByThreadKey = new Map<string, SenderCategory>();
+  for (const m of selected) {
+    const key = m.threadId ?? m.id;
+    if (!senderCategoryByThreadKey.has(key)) {
+      senderCategoryByThreadKey.set(key, m.sender?.category ?? "IMBOX");
+    }
+  }
+
+  const threadIds = [
+    ...new Set(selected.map((m) => m.threadId).filter(Boolean)),
+  ] as string[];
+  const singleIds = selected.filter((m) => !m.threadId).map((m) => m.id);
+
+  const threadMessages = await db.message.findMany({
+    where: {
+      userId,
+      OR: [
+        ...(threadIds.length > 0 ? [{ threadId: { in: threadIds } }] : []),
+        ...(singleIds.length > 0 ? [{ id: { in: singleIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      uid: true,
+      folderId: true,
+      emailConnectionId: true,
+      threadId: true,
+      sender: { select: { category: true } },
+    },
+  });
+
+  const allIds = threadMessages.map((m) => m.id);
+
+  const ruledMessages = await db.message.findMany({
+    where: { id: { in: allIds }, userId, subjectRuleId: { not: null } },
+    select: {
+      id: true,
+      subjectRule: { select: { status: true, category: true } },
+    },
+  });
+
+  const idsByRuleCategory = new Map<SenderCategory, string[]>();
+  for (const m of ruledMessages) {
+    const rule = m.subjectRule;
+    if (rule?.status !== "APPROVED" || !rule.category) continue;
+    const ids = idsByRuleCategory.get(rule.category) ?? [];
+    ids.push(m.id);
+    idsByRuleCategory.set(rule.category, ids);
+  }
+  const rulePlacedIds = new Set([...idsByRuleCategory.values()].flat());
+
+  const idsBySenderCategory = new Map<SenderCategory, string[]>();
+  for (const m of threadMessages) {
+    if (rulePlacedIds.has(m.id)) continue;
+    const key = m.threadId ?? m.id;
+    const category =
+      senderCategoryByThreadKey.get(key) ?? m.sender?.category ?? "IMBOX";
+    const ids = idsBySenderCategory.get(category) ?? [];
+    ids.push(m.id);
+    idsBySenderCategory.set(category, ids);
+  }
+
+  await db.$transaction([
+    ...[...idsBySenderCategory].map(([target, ids]) =>
+      db.message.updateMany({
+        where: { id: { in: ids }, userId },
+        data: unarchiveData(target),
+      }),
+    ),
+    ...[...idsByRuleCategory].map(([target, ids]) =>
+      db.message.updateMany({
+        where: { id: { in: ids }, userId },
+        data: unarchiveData(target),
+      }),
+    ),
+  ]);
+
+  const byConnection = new Map<string, typeof threadMessages>();
+  for (const msg of threadMessages) {
+    const group = byConnection.get(msg.emailConnectionId) ?? [];
+    group.push(msg);
+    byConnection.set(msg.emailConnectionId, group);
+  }
+
+  const imapWork: Array<{
+    connectionId: string;
+    folderId: string;
+    uids: number[];
+  }> = [];
+
+  for (const [connectionId, connMessages] of byConnection) {
+    const archiveFolder = await db.folder.findFirst({
+      where: {
+        emailConnectionId: connectionId,
+        specialUse: { in: ["archive", "all"] },
+      },
+      select: { id: true },
+    });
+    const uids = archiveFolder
+      ? connMessages
+          .filter((m) => m.folderId === archiveFolder.id && m.uid > 0)
+          .map((m) => m.uid)
+      : [];
+    if (uids.length > 0 && archiveFolder) {
+      imapWork.push({ connectionId, folderId: archiveFolder.id, uids });
+    }
+  }
+
+  if (imapWork.length > 0) {
+    after(async () => {
+      for (const { connectionId, folderId, uids } of imapWork) {
+        await moveToInboxViaImap(userId, connectionId, folderId, uids).catch(
+          (err) => console.error("IMAP unarchive move failed:", err),
+        );
+      }
+    });
+  }
 }
 
 /** Set read state for a whole thread (explicit target state — idempotent). */

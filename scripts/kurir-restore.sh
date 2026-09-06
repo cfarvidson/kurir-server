@@ -169,15 +169,15 @@ if [ -n "$FATAL_ERRORS" ]; then
   fail "Database restore encountered errors (see above)"
 fi
 
-# Re-apply search vector migration (trigger + index)
-log "Re-applying search vector migration..."
-SEARCH_VECTOR_SQL="/app/prisma/migrations/0001_search_vector.sql"
-if [ -f "$SEARCH_VECTOR_SQL" ]; then
-  psql "$DB_URL_CLEAN" < "$SEARCH_VECTOR_SQL" > /dev/null 2>&1 || {
-    log "WARNING: search_vector migration had errors (may already exist)"
+# Re-apply versioned SQL migrations (idempotent IF NOT EXISTS)
+log "Re-applying versioned migrations..."
+APPLY_MIGRATIONS="/app/scripts/apply-migrations.sh"
+if [ -f "$APPLY_MIGRATIONS" ]; then
+  ( cd /app && DATABASE_URL="$DB_URL_CLEAN" sh scripts/apply-migrations.sh ) || {
+    log "WARNING: migration runner had errors (may already be applied)"
   }
 else
-  log "WARNING: search_vector.sql not found at ${SEARCH_VECTOR_SQL}, skipping"
+  log "WARNING: apply-migrations.sh not found at ${APPLY_MIGRATIONS}, skipping"
 fi
 
 log "Database restored."

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { jobMocks, dnsMocks } = vi.hoisted(() => ({
+const { jobMocks, dnsMocks, pinnedMocks } = vi.hoisted(() => ({
   jobMocks: {
     enqueueCalendarSyncJob: vi.fn(),
     unscheduleCalendarSyncJob: vi.fn(),
@@ -8,10 +8,17 @@ const { jobMocks, dnsMocks } = vi.hoisted(() => ({
   dnsMocks: {
     lookup: vi.fn(),
   },
+  pinnedMocks: {
+    fetchPinned: vi.fn(),
+  },
 }));
 
 vi.mock("node:dns/promises", () => ({
   lookup: dnsMocks.lookup,
+}));
+
+vi.mock("@/lib/calendar/ics-pinned", () => ({
+  fetchPinned: pinnedMocks.fetchPinned,
 }));
 
 vi.mock("@/lib/jobs/calendar-sync-worker", () => ({
@@ -92,11 +99,10 @@ describe("createIcsAccount", () => {
     vi.clearAllMocks();
     publicLookup();
     vi.mocked(isDemoInstance).mockReturnValue(false);
-    vi.stubGlobal("fetch", vi.fn());
   });
 
   it("stores an ICS account, names it from X-WR-CALNAME and enqueues sync", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, NAMED_ICS));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, NAMED_ICS));
     vi.mocked(db.calendarAccount.findFirst).mockResolvedValue(null);
     vi.mocked(db.calendarAccount.create).mockResolvedValue({
       id: "acc-ics",
@@ -139,7 +145,7 @@ describe("createIcsAccount", () => {
   });
 
   it("uses the host when the feed has no name", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, EMPTY_ICS));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, EMPTY_ICS));
     vi.mocked(db.calendarAccount.findFirst).mockResolvedValue(null);
     vi.mocked(db.calendarAccount.create).mockResolvedValue({
       id: "acc-2",
@@ -158,7 +164,7 @@ describe("createIcsAccount", () => {
   });
 
   it("upserts the same canonical URL instead of inserting a twin", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, NAMED_ICS));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(200, NAMED_ICS));
     vi.mocked(db.calendarAccount.findFirst).mockResolvedValue({
       id: "acc-existing",
     } as never);
@@ -182,7 +188,7 @@ describe("createIcsAccount", () => {
   });
 
   it("fails connect on HTML or garbage and does not insert", async () => {
-    vi.mocked(fetch).mockResolvedValue(
+    pinnedMocks.fetchPinned.mockResolvedValue(
       jsonResponse(200, "<html>not a calendar</html>"),
     );
 
@@ -195,7 +201,7 @@ describe("createIcsAccount", () => {
   });
 
   it("fails with a needs-auth message on 401 from the feed", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(401, "login"));
+    pinnedMocks.fetchPinned.mockResolvedValue(jsonResponse(401, "login"));
 
     await expect(
       createIcsAccount({ userId: "u1", url: "https://example.com/secret.ics" }),
@@ -211,12 +217,12 @@ describe("createIcsAccount", () => {
       createIcsAccount({ userId: "u1", url: "https://localhost/cal.ics" }),
     ).rejects.toThrow(/not allowed/i);
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(pinnedMocks.fetchPinned).not.toHaveBeenCalled();
     expect(db.calendarAccount.create).not.toHaveBeenCalled();
   });
 
   it("refuses a redirect onto loopback", async () => {
-    vi.mocked(fetch).mockResolvedValue(
+    pinnedMocks.fetchPinned.mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: { location: "https://127.0.0.1/cal.ics" },
@@ -240,7 +246,7 @@ describe("createIcsAccount", () => {
       createIcsAccount({ userId: "u1", url: "https://example.com/cal.ics" }),
     ).rejects.toThrow(/demo/i);
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(pinnedMocks.fetchPinned).not.toHaveBeenCalled();
     expect(dnsMocks.lookup).not.toHaveBeenCalled();
   });
 });

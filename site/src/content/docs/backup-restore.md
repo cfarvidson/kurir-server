@@ -136,9 +136,8 @@ gpg --symmetric --cipher-algo AES256 kurir-backup-*.tar.gz
 
 **Restore fails with permission errors** -- Ensure the `DATABASE_URL` user has privileges to drop/create tables. The default `kurir` user has full access.
 
-**Search not working after restore** -- The restore script re-applies the search vector migration automatically. If it fails, run manually:
+**Search not working after restore** -- The restore script re-applies every versioned SQL file in `prisma/migrations/` (idempotent). If it fails, run the migration runner with `DATABASE_URL` set:
 
 ```bash
-docker compose -f docker-compose.production.yml exec -T postgres \
-  psql -U kurir < prisma/migrations/0001_search_vector.sql
+sh scripts/apply-migrations.sh
 ```

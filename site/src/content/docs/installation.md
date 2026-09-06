@@ -90,9 +90,11 @@ For deploying across multiple Tailscale-connected servers with a private Docker 
 
 Configuration lives in `config/deploy.yml` and `.kamal/secrets`. See the [DEPLOY.md](https://github.com/cfarvidson/kurir-server/blob/main/DEPLOY.md) file in the repository for the full guide.
 
+Always use `bin/deploy`, never bare `kamal`. The wrapper loads `~/.kamal/kurir-secrets.env` (mode 0600). Running `kamal` without that file injects empty secrets and wipes production config.
+
 ```bash
-kamal setup    # First deploy: provisions server, boots accessories + app
-kamal deploy   # Subsequent deploys
+bin/deploy setup    # First deploy: provisions server, boots accessories + app
+bin/deploy          # Subsequent deploys
 ```
 
 The container entrypoint applies the database schema and all versioned migrations automatically on startup — including the full-text search setup. Nothing to run manually.
@@ -101,7 +103,7 @@ The container entrypoint applies the database schema and all versioned migration
 
 After any installation method, visiting your Kurir instance for the first time will present a setup wizard that walks you through:
 
-1. **Creating your admin account** -- Choose a username and password.
+1. **Creating your admin account** -- Set your name and register a passkey (WebAuthn).
 2. **Connecting your email** -- Enter your IMAP/SMTP credentials or use OAuth for Gmail/Outlook.
 3. **Initial sync** -- Kurir fetches your recent emails and populates the Screener.
 

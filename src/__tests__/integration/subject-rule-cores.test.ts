@@ -552,7 +552,7 @@ describe("unarchiveThread and subject-rule provenance (kurir-ios#60)", () => {
     await unarchiveThread(USER, "m1");
 
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["m1"] } },
+      where: { id: { in: ["m1"] }, userId: USER },
       data: {
         isArchived: false,
         isInImbox: true,
@@ -562,7 +562,7 @@ describe("unarchiveThread and subject-rule provenance (kurir-ios#60)", () => {
       },
     });
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["m2"] } },
+      where: { id: { in: ["m2"] }, userId: USER },
       data: {
         isArchived: false,
         isInImbox: false,
@@ -594,7 +594,7 @@ describe("unarchiveThread and subject-rule provenance (kurir-ios#60)", () => {
 
     expect(dbMock.message.updateMany).toHaveBeenCalledTimes(1);
     expect(dbMock.message.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["m1"] } },
+      where: { id: { in: ["m1"] }, userId: USER },
       data: {
         isArchived: false,
         isInImbox: false,
@@ -603,6 +603,122 @@ describe("unarchiveThread and subject-rule provenance (kurir-ios#60)", () => {
         isInScreener: false,
       },
     });
+  });
+});
+
+describe("unarchiveThreadsForUser and subject-rule provenance", () => {
+  it("places a rule-filed message in the rule category in the same bulk as sender-placed mail", async () => {
+    dbMock.message.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "m1",
+          threadId: null,
+          emailConnectionId: "c1",
+          sender: { category: "IMBOX" },
+        },
+        {
+          id: "m2",
+          threadId: null,
+          emailConnectionId: "c1",
+          sender: { category: "IMBOX" },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "m1",
+          uid: 11,
+          folderId: "f-arch",
+          emailConnectionId: "c1",
+          threadId: null,
+          sender: { category: "IMBOX" },
+        },
+        {
+          id: "m2",
+          uid: 12,
+          folderId: "f-arch",
+          emailConnectionId: "c1",
+          threadId: null,
+          sender: { category: "IMBOX" },
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: "m2", subjectRule: { status: "APPROVED", category: "FEED" } },
+      ]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+
+    const { unarchiveThreadsForUser } = await import("@/lib/mail/mutations");
+    await unarchiveThreadsForUser(USER, ["m1", "m2"]);
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1"] }, userId: USER },
+      data: {
+        isArchived: false,
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isInScreener: false,
+      },
+    });
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m2"] }, userId: USER },
+      data: {
+        isArchived: false,
+        isInImbox: false,
+        isInFeed: true,
+        isInPaperTrail: false,
+        isInScreener: false,
+      },
+    });
+  });
+
+  it("screen-out-ruled messages fall back to the sender's category", async () => {
+    dbMock.message.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "m1",
+          threadId: null,
+          emailConnectionId: "c1",
+          sender: { category: "PAPER_TRAIL" },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "m1",
+          uid: 11,
+          folderId: "f-arch",
+          emailConnectionId: "c1",
+          threadId: null,
+          sender: { category: "PAPER_TRAIL" },
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: "m1", subjectRule: { status: "REJECTED", category: null } },
+      ]);
+    dbMock.folder.findFirst.mockResolvedValue(null);
+
+    const { unarchiveThreadsForUser } = await import("@/lib/mail/mutations");
+    await unarchiveThreadsForUser(USER, ["m1"]);
+
+    expect(dbMock.message.updateMany).toHaveBeenCalledTimes(1);
+    expect(dbMock.message.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1"] }, userId: USER },
+      data: {
+        isArchived: false,
+        isInImbox: false,
+        isInFeed: false,
+        isInPaperTrail: true,
+        isInScreener: false,
+      },
+    });
+  });
+
+  it("does not update rows the user does not own", async () => {
+    dbMock.message.findMany.mockResolvedValueOnce([]);
+
+    const { unarchiveThreadsForUser } = await import("@/lib/mail/mutations");
+    await unarchiveThreadsForUser(USER, ["other-user-msg"]);
+
+    expect(dbMock.message.updateMany).not.toHaveBeenCalled();
   });
 });
 

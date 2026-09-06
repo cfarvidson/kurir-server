@@ -6,7 +6,7 @@ import {
   mcpResourceUri,
   verifyPkce,
 } from "@/lib/mcp/oauth";
-import { oauthClientIp } from "@/lib/mcp/oauth-rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import { issueMcpTokens, rotateMcpTokens } from "@/lib/mcp/tokens";
 import { rateLimitOAuth } from "@/lib/rate-limit";
 
@@ -47,7 +47,7 @@ export function OPTIONS() {
 }
 
 export async function POST(req: Request) {
-  const limit = await rateLimitOAuth(oauthClientIp(req.headers));
+  const limit = await rateLimitOAuth(getClientIp(req.headers));
   if (!limit.allowed) {
     return tokenError("invalid_request", "Too many requests", 429, {
       "Retry-After": String(limit.retryAfter),

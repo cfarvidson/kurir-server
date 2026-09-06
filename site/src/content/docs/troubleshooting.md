@@ -148,11 +148,10 @@ docker compose restart app
 
 ## Search not working
 
-Kurir uses PostgreSQL full-text search with a `search_vector` column and GIN index. If search returns no results after a restore or fresh install, the search vector migration may not have been applied:
+Kurir uses PostgreSQL full-text search with a `search_vector` column and GIN index. If search returns no results after a restore or fresh install, the versioned migrations may not have been applied. Run the full runner (idempotent) with `DATABASE_URL` set:
 
 ```bash
-docker compose -f docker-compose.production.yml exec -T postgres \
-  psql -U kurir < prisma/migrations/0001_search_vector.sql
+sh scripts/apply-migrations.sh
 ```
 
 ## Getting more help
