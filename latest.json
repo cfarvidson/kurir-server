@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-08-26T16:51:26Z",
   "beta": {
-    "version": "2026.70",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.70",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.70",
-    "changelog": "Security and correctness follow-ups: calendar URL SSRF guards, bulk unarchive honors subject rules, OAuth rate limits keyed on the real client IP",
+    "version": "2026.71",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.71",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.71",
+    "changelog": "P2 audit follow-ups: single-count new senders, capped person-pane queries, indexed mobile sync cursors, monotonic folder highestModSeq, Sent-only settings restore, and Postgres FTS in CI",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-06T15:36:57Z"
+    "releasedAt": "2026-09-06T16:04:23Z"
   }
 }

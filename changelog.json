@@ -1,5 +1,17 @@
 [
   {
+    "version": "2026.71",
+    "date": "2026-09-06",
+    "changes": [
+      "New senders have their first message counted once instead of twice",
+      "Person pane Rank reads the materialised table, schedule is windowed, and Links caps at 40 rows without scanning HTML bodies",
+      "Mobile delta-sync uses a new (userId, updatedAt) index on Message and Sender",
+      "Folder sync no longer overwrites a newer highestModSeq written by IDLE",
+      "Settings restore only accepts a snapshot from the Sent folder",
+      "CI runs the full-text search test against a real Postgres"
+    ]
+  },
+  {
     "version": "2026.70",
     "date": "2026-09-06",
     "changes": [

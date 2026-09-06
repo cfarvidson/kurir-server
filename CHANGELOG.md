@@ -4,6 +4,28 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.71] - 2026-09-06
+
+### Changed
+
+- Person pane Rank reads the materialised rank table and shows zeros
+  while a cold-start recompute runs; schedule instances are windowed to
+  the visible days and Links skips `htmlBody` and caps at 40 rows (#159)
+- Settings restore only accepts a snapshot from the Sent folder, the
+  same filter as the restore list (#159)
+- CI `migrations` job runs the `search_vector` full-text search test
+  against a real Postgres 16 (#159)
+
+### Fixed
+
+- A new sender's first message is counted once instead of twice (#159)
+- Folder sync persists `highestModSeq` only when it moved forward, so it
+  no longer clobbers a newer value written by IDLE (#159)
+- Mobile delta-sync sorts on a new `(userId, updatedAt)` index on
+  Message and Sender (migration `0026`) (#159)
+- SMTP permanent 5xx vs transient errors and scheduled-send backoff are
+  covered by table tests (#159)
+
 ## [v2026.70] - 2026-09-06
 
 ### Changed
