@@ -9,6 +9,7 @@ import {
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { assignThread } from "@/lib/mail/thread-assign";
+import { applyFollowUpAfterSend } from "@/lib/mail/mutations";
 import { rateLimitSend } from "@/lib/rate-limit";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { isDemoInstance } from "@/lib/demo";
@@ -73,6 +74,7 @@ export const createScheduledSchema = z.object({
   inReplyToMessageId: z.string().optional(),
   references: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
+  followUpUntil: z.coerce.date().optional(),
 });
 
 export type CreateScheduledInput = z.input<typeof createScheduledSchema>;
@@ -97,6 +99,7 @@ export const updateScheduledSchema = z.object({
   inReplyToMessageId: z.string().optional(),
   references: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
+  followUpUntil: z.union([z.null(), z.coerce.date()]).optional(),
 });
 
 export type UpdateScheduledInput = z.input<typeof updateScheduledSchema>;
@@ -185,6 +188,7 @@ export async function insertScheduledMessageForUser(
       inReplyToMessageId: parsed.inReplyToMessageId ?? null,
       references: parsed.references ?? null,
       attachmentIds: parsed.attachmentIds ?? [],
+      followUpUntil: parsed.followUpUntil ?? null,
     },
   });
 
@@ -208,6 +212,7 @@ export async function listScheduledForUser(userId: string) {
       scheduledFor: true,
       status: true,
       error: true,
+      followUpUntil: true,
     },
   });
 }
@@ -271,6 +276,8 @@ export async function updateScheduledForUser(
     updateData.references = parsed.references;
   if (parsed.attachmentIds !== undefined)
     updateData.attachmentIds = parsed.attachmentIds;
+  if (parsed.followUpUntil !== undefined)
+    updateData.followUpUntil = parsed.followUpUntil;
 
   await db.scheduledMessage.update({
     where: { id },
@@ -455,7 +462,7 @@ export async function deliverScheduledNowForUser(
       userId,
     );
 
-    await createLocalSentMessage({
+    const sent = await createLocalSentMessage({
       userId,
       emailConnectionId: msg.emailConnectionId,
       messageId: result.messageId || null,
@@ -472,6 +479,7 @@ export async function deliverScheduledNowForUser(
       html: htmlBody,
       attachmentIds: sentLoaded.ids,
     });
+    await applyFollowUpAfterSend(userId, sent?.id, msg.followUpUntil);
 
     appendToImapSent({
       emailConnectionId: msg.emailConnectionId,

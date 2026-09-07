@@ -352,4 +352,21 @@ describe("editScheduledMessage cc/bcc", () => {
     ).rejects.toThrow(/No valid recipient/);
     expect(db.scheduledMessage.update).not.toHaveBeenCalled();
   });
+
+  it("clears followUpUntil when PATCH sends null", async () => {
+    const db = await setupPendingRow({
+      to: "stored@example.com",
+      followUpUntil: new Date("2026-09-10T08:00:00.000Z"),
+    });
+    const { editScheduledMessage } = await import(
+      "@/actions/scheduled-messages"
+    );
+
+    await editScheduledMessage("sched-1", { followUpUntil: null });
+
+    const args = vi.mocked(db.scheduledMessage.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(args.data.followUpUntil).toBeNull();
+  });
 });

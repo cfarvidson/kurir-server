@@ -70,6 +70,28 @@ describe("setFollowUp", () => {
   });
 });
 
+describe("applyFollowUpAfterSend", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("no-ops without a message id or deadline", async () => {
+    const { applyFollowUpAfterSend } = await import("@/lib/mail/mutations");
+    const { db } = await import("@/lib/db");
+    await applyFollowUpAfterSend("user-1", null, new Date());
+    await applyFollowUpAfterSend("user-1", "m1", null);
+    expect(db.message.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when setThreadFollowUp fails", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+
+    const { applyFollowUpAfterSend } = await import("@/lib/mail/mutations");
+    await expect(
+      applyFollowUpAfterSend("user-1", "m1", new Date(Date.now() + 86400000)),
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe("dismissFollowUp", () => {
   beforeEach(() => vi.clearAllMocks());
 

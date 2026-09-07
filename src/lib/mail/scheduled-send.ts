@@ -8,6 +8,7 @@ import { loadAttachmentsForSend } from "./attachment-helpers";
 import { buildSmtpAuth } from "./auth-helpers";
 import { parseRecipients } from "./recipients";
 import { assignThread } from "./thread-assign";
+import { applyFollowUpAfterSend } from "@/lib/mail/mutations";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -184,7 +185,7 @@ async function processSingleMessage(
     const ccRecipients = parseRecipients(msg.cc ?? "").recipients;
     const bccRecipients = parseRecipients(msg.bcc ?? "").recipients;
 
-    await createLocalSentMessage({
+    const sent = await createLocalSentMessage({
       userId: msg.userId,
       emailConnectionId: msg.emailConnectionId,
       messageId: result.messageId || null,
@@ -201,6 +202,7 @@ async function processSingleMessage(
       html: htmlBody,
       attachmentIds: sentLoaded.ids,
     });
+    await applyFollowUpAfterSend(msg.userId, sent?.id, msg.followUpUntil);
 
     // Append to IMAP Sent folder (fire-and-forget)
     appendToImapSent({
