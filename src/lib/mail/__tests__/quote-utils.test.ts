@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { splitPlainTextQuotes } from "../quote-utils";
+import {
+  closingKind,
+  isClosingLine,
+  isNameLike,
+  splitPlainTextQuotes,
+} from "../quote-utils";
 
 describe("splitPlainTextQuotes", () => {
   it("collapses a trailing > block with its attribution line", () => {
@@ -114,6 +119,55 @@ describe("splitPlainTextQuotes", () => {
     expect(splitPlainTextQuotes(text)).toEqual({ body: text, quoted: null });
   });
 
+  it("starts the signature at the last closing phrase", () => {
+    const text = [
+      "Hej!",
+      "",
+      "Tack för svaret, jag återkommer.",
+      "",
+      "Med vänliga hälsningar",
+      "",
+      "Teckentrup / Portexpert.se",
+      "",
+      "Nicklas Bertilsson",
+      "Mob: 0707-88 06 69",
+    ].join("\n");
+    const { body, quoted } = splitPlainTextQuotes(text);
+    expect(body).toBe("Hej!\n\nTack för svaret, jag återkommer.");
+    expect(quoted?.startsWith("Med vänliga hälsningar")).toBe(true);
+  });
+
+  it("recognises Mvh + name, slash sign-offs and English closings", () => {
+    expect(splitPlainTextQuotes("Ok!\n\nMvh Nicklas\n070-123").body).toBe(
+      "Ok!",
+    );
+    expect(splitPlainTextQuotes("Ok!\n\n/Nicklas").body).toBe("Ok!");
+    expect(splitPlainTextQuotes("Ok!\n\n//Nicklas Bertilsson\nVD").body).toBe(
+      "Ok!",
+    );
+    expect(splitPlainTextQuotes("Ok!\n\nBest regards,\nBob").body).toBe("Ok!");
+  });
+
+  it("keeps a bare closing that is first, last, or followed by prose", () => {
+    expect(splitPlainTextQuotes("Tack\nBob").quoted).toBeNull();
+    expect(splitPlainTextQuotes("Hej\nTack").quoted).toBeNull();
+    expect(
+      splitPlainTextQuotes(
+        "Hej!\n\nKan du skicka den?\n\nTack\n\nOch en sak till...",
+      ).quoted,
+    ).toBeNull();
+    // A lone "Tack" mid-mail followed by a later real closing: the last wins.
+    expect(splitPlainTextQuotes("Hej\nTack\nEn sak till.\nMvh\nBob").body).toBe(
+      "Hej\nTack\nEn sak till.",
+    );
+  });
+
+  it("closing phrase comes before a trailing quote and Sent-from", () => {
+    expect(
+      splitPlainTextQuotes("Ok\n\nMvh\nBob\n\nOn X wrote:\n> q").body,
+    ).toBe("Ok");
+  });
+
   it("bails when nothing would remain visible", () => {
     expect(splitPlainTextQuotes("> only quoted")).toEqual({
       body: "> only quoted",
@@ -131,5 +185,54 @@ describe("splitPlainTextQuotes", () => {
   it("handles CRLF bodies", () => {
     const text = "Hi\r\n\r\nOn X wrote:\r\n> q\r\n";
     expect(splitPlainTextQuotes(text).body).toBe("Hi");
+  });
+});
+
+describe("closingKind / isNameLike", () => {
+  it("classifies closings, names and slash sign-offs", () => {
+    expect(closingKind("Med vänliga hälsningar")).toBe("bare");
+    expect(closingKind("Med vänlig hälsning,")).toBe("bare");
+    expect(closingKind("Mvh Nicklas")).toBe("named");
+    expect(closingKind("Kind regards, Bob Smith")).toBe("named");
+    expect(closingKind("/Nicklas")).toBe("named");
+    expect(closingKind("//Nicklas Bertilsson")).toBe("named");
+    expect(closingKind("/ Carl-Fredrik")).toBe("named");
+    expect(closingKind("/Bjørn")).toBe("named");
+    expect(closingKind("/nicklas")).toBe("named");
+    expect(isClosingLine("Best regards")).toBe(true);
+  });
+
+  it("rejects prose, paths and ASCII-boundary false positives", () => {
+    for (const l of [
+      "Tack för att du hörde av dig.",
+      "Best regards are sent to everyone",
+      "/usr/local/bin",
+      "//comment in code",
+      "Mvh vi ses imorgon på kontoret",
+      "BRÖD AB",
+    ]) {
+      expect(closingKind(l), l).toBe("none");
+    }
+  });
+
+  it("tells names and companies from prose", () => {
+    for (const l of [
+      "Nicklas Bertilsson",
+      "Teckentrup / Portexpert.se",
+      "Head of Sales",
+      "VD",
+      "Carl-Fredrik Arvidson",
+    ]) {
+      expect(isNameLike(l), l).toBe(true);
+    }
+    for (const l of [
+      "Kan du skicka den?",
+      "Och en sak till...",
+      "Vår styrka är att vi",
+      "0707-88 06 69",
+      "Mob: 0707",
+    ]) {
+      expect(isNameLike(l), l).toBe(false);
+    }
   });
 });

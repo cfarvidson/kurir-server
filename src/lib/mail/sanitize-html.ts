@@ -5,7 +5,9 @@ import {
   MOBILE_APP_LINE,
   SENT_FROM,
   SIGNATURE_DELIMITER,
+  closingKind,
   isForwardHeader,
+  isNameLike,
 } from "@/lib/mail/quote-utils";
 import { isLikelyTracker } from "./tracker-detection";
 
@@ -384,10 +386,16 @@ function elementText(el: Node): string {
   return normalizeText(el.textContent ?? "");
 }
 
-/** Non-blank lines of an element, `<br>` as the line break. */
+/** Non-blank lines of an element: `<br>` and block boundaries break lines. */
 function elementLines(el: Element): string[] {
   const clone = el.cloneNode(true) as Element;
   clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  clone.querySelectorAll("*").forEach((child) => {
+    if (BLOCK_TAGS.has(child.tagName)) {
+      child.prepend("\n");
+      child.append("\n");
+    }
+  });
   return (clone.textContent ?? "")
     .split("\n")
     .map(normalizeText)
@@ -498,13 +506,30 @@ function extendBoundaryOnce(
  */
 export function findQuoteBoundary(doc: Document): Element | null {
   const body = doc.body;
-  let boundary: Element | null = null;
-  for (const el of Array.from(body.querySelectorAll("*"))) {
-    if (isMarker(el, body)) {
-      boundary = el;
-      break;
+  const all = Array.from(body.querySelectorAll("*"));
+  const hardIndex = all.findIndex((el) => isMarker(el, body));
+  const hard = hardIndex >= 0 ? all[hardIndex] : null;
+  const limit = hardIndex >= 0 ? hardIndex : all.length;
+
+  // The last closing-phrase element above the first hard marker, with
+  // visible text above it, starts the signature. A bare closing needs a
+  // name-like line right after it (in the same element or the next one
+  // with text); a closing inside a blockquote is the counterpart's.
+  let closing: Element | null = null;
+  for (let i = 0; i < limit; i++) {
+    const el = all[i];
+    if (closing?.contains(el)) continue;
+    if (!CLOSING_TAGS.has(el.tagName) || el.closest("blockquote")) continue;
+    const lines = elementLines(el);
+    if (lines.length === 0) continue;
+    const kind = closingKind(lines[0]);
+    if (kind === "none" || !hasVisibleTextBefore(el, doc)) continue;
+    const next = lines.length > 1 ? lines[1] : nextVisibleLine(all, i, limit);
+    if (kind === "named" || (next !== null && isNameLike(next))) {
+      closing = el;
     }
   }
+  let boundary = closing ?? hard;
   if (!boundary) return null;
 
   // Pull the boundary back over attribution lines, "Sent from" lines, a
@@ -516,21 +541,50 @@ export function findQuoteBoundary(doc: Document): Element | null {
   }
 
   // Whole body quoted: collapsing would leave nothing visible.
-  const walker = doc.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */);
-  let visible = false;
+  return hasVisibleTextBefore(boundary, doc) ? boundary : null;
+}
+
+/** Elements that can open a signature with a closing phrase. */
+const CLOSING_TAGS = new Set([
+  "DIV",
+  "P",
+  "TD",
+  "LI",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+]);
+
+/** First line of the next element after `all[i]` (before `limit`) that has text. */
+function nextVisibleLine(
+  all: Element[],
+  i: number,
+  limit: number,
+): string | null {
+  for (let j = i + 1; j < limit; j++) {
+    if (all[i].contains(all[j])) continue;
+    const lines = elementLines(all[j]);
+    if (lines.length > 0) return lines[0];
+  }
+  return null;
+}
+
+/** True when some text node before `el` in document order is non-blank. */
+function hasVisibleTextBefore(el: Element, doc: Document): boolean {
+  const walker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     if (
-      boundary.contains(n) ||
-      boundary.compareDocumentPosition(n) & 4 /* DOCUMENT_POSITION_FOLLOWING */
+      el.contains(n) ||
+      el.compareDocumentPosition(n) & 4 /* DOCUMENT_POSITION_FOLLOWING */
     ) {
-      break;
+      return false;
     }
-    if (elementText(n) !== "") {
-      visible = true;
-      break;
-    }
+    if (elementText(n) !== "") return true;
   }
-  return visible ? boundary : null;
+  return false;
 }
 
 /** Remove `el` and everything after it in document order, up to `body`. */
