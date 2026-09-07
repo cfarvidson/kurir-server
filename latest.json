@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.73",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.73",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.73",
-    "changelog": "Replies to a bcc broadcast split into one thread per counterpart, and every message card can be replied to directly with Replied/Draft badges",
+    "version": "2026.74",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.74",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.74",
+    "changelog": "Quoted replies, Outlook headers and signatures collapse behind Show full message; list previews show the author's own words",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-07T10:19:02Z"
+    "releasedAt": "2026-09-07T12:16:07Z"
   }
 }

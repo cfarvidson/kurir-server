@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.74] - 2026-09-07
+
+### Added
+
+- Quoted replies collapse behind "Show full message" on web, iOS and Mac.
+  The boundary finder now recognises Outlook desktop replies (a Från:/
+  Skickat: header with no blockquote), Outlook web, Apple Mail (including
+  "Den … skrev X:" sharing a div with the quote), Gmail and Thunderbird
+  shapes, and inline quotes with reply text after them stay visible (#167)
+- Signatures marked with "-- " or a mail-client signature wrapper, and
+  trailing "Sent from my iPhone" / "Get Outlook for iOS" lines, are hidden
+  together with the quote; the toggle shows whenever anything is hidden (#167)
+
+### Changed
+
+- Thread list previews are computed from the author's own text, so a reply
+  no longer previews as "Från: … Skickat: …". Existing previews are not
+  rewritten (#167)
+
 ## [v2026.73] - 2026-09-07
 
 ### Added

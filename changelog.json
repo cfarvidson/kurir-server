@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.74",
+    "date": "2026-09-07",
+    "changes": [
+      "Quoted replies collapse behind Show full message on web, iOS and Mac, including Outlook desktop replies (Från:/Skickat: header with no blockquote), Outlook web, Apple Mail, Gmail and Thunderbird shapes",
+      "Signatures marked with \"-- \" or a mail-client signature wrapper, and trailing \"Sent from my iPhone\" / \"Get Outlook\" lines, are hidden with the quote",
+      "Thread list previews show only the author's own words instead of quoted headers; existing previews are not rewritten"
+    ]
+  },
+  {
     "version": "2026.73",
     "date": "2026-09-07",
     "changes": [
