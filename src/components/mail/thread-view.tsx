@@ -10,7 +10,11 @@ import {
   Forward,
   MoreHorizontal,
   Printer,
+  Reply,
+  ReplyAll,
+  Split,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { MeetingCard } from "@/components/calendar/meeting-card";
@@ -18,7 +22,11 @@ import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
 import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { RecipientList } from "@/components/mail/recipient-list";
-import type { RecipientNameMap } from "@/lib/mail/recipient-names";
+import {
+  resolveRecipientName,
+  type RecipientNameMap,
+} from "@/lib/mail/recipient-names";
+import { cardLabel } from "@/lib/mail/thread-card";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 import { BlockedTrackersIndicator } from "@/components/mail/blocked-trackers-indicator";
 import {
@@ -30,11 +38,14 @@ import type { MeetingCardMeeting } from "@/lib/calendar/meeting-card";
 
 interface ThreadMessage {
   id: string;
+  messageId?: string | null;
+  inReplyTo?: string | null;
   subject: string | null;
   fromAddress: string;
   fromName: string | null;
   toAddresses: string[];
   ccAddresses: string[];
+  bccAddresses?: string[];
   receivedAt: Date;
   sentAt: Date | null;
   textBody: string | null;
@@ -59,10 +70,31 @@ interface ThreadMessage {
   meeting?: MeetingCardMeeting | null;
 }
 
+/** A thread split from this one (plan 055), rendered under the broadcast card. */
+export interface ThreadBranchLink {
+  threadId: string;
+  href: string;
+  senderName: string;
+  count: number;
+  rootInReplyTo: string | null;
+}
+
+export type ReplyMode = "reply" | "replyAll";
+
 interface ThreadViewProps {
   messages: ThreadMessage[];
   currentUserEmail: string;
   userEmails?: Set<string>;
+  /** Card the composer currently targets; its Reply button reads as active. */
+  replyTargetId?: string | null;
+  /** Cards the user has already replied to (see answeredMessageIds). */
+  answeredIds?: Set<string>;
+  /** Cards with a saved reply draft. */
+  draftIds?: Set<string>;
+  /** Cards whose reply-all would add recipients beyond the primary one. */
+  replyAllIds?: Set<string>;
+  onReply?: (messageId: string, mode: ReplyMode) => void;
+  branches?: ThreadBranchLink[];
   /** User's global remote-image policy (block all / block trackers / allow all). */
   remoteImagePolicy?: RemoteImagePolicy;
   /** Lowercased address → contact name, for recipient display. */
@@ -128,11 +160,50 @@ function printEmail(message: ThreadMessage, imageFlags: SanitizeImageFlags) {
   win.addEventListener("load", () => win.print());
 }
 
+function BranchList({ branches }: { branches: ThreadBranchLink[] }) {
+  const n = branches.length;
+  return (
+    <div
+      data-thread-branches
+      className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 text-xs text-muted-foreground"
+    >
+      <Split className="h-3 w-3 shrink-0" />
+      <span>
+        {n} {n === 1 ? "reply" : "replies"} opened as separate{" "}
+        {n === 1 ? "thread" : "threads"}
+      </span>
+      {branches.map((branch) => (
+        <span key={branch.threadId} className="inline-flex items-center gap-1.5">
+          <span aria-hidden>·</span>
+          <Link
+            href={branch.href}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            {branch.senderName}
+            {branch.count > 1 && (
+              <span className="ml-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                ·{branch.count}
+              </span>
+            )}
+          </Link>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   isFromCurrentUser,
+  label,
   isCollapsed: initialCollapsed,
   isFirst,
+  isReplyTarget = false,
+  isAnswered = false,
+  hasDraft = false,
+  canReplyAll = false,
+  onReply,
+  branches = [],
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
   hasWritableCalendar = false,
@@ -140,8 +211,15 @@ function MessageBubble({
 }: {
   message: ThreadMessage;
   isFromCurrentUser: boolean;
+  label: string;
   isCollapsed: boolean;
   isFirst: boolean;
+  isReplyTarget?: boolean;
+  isAnswered?: boolean;
+  hasDraft?: boolean;
+  canReplyAll?: boolean;
+  onReply?: (messageId: string, mode: ReplyMode) => void;
+  branches?: ThreadBranchLink[];
   remoteImagePolicy?: RemoteImagePolicy;
   recipientNames?: RecipientNameMap;
   hasWritableCalendar?: boolean;
@@ -176,8 +254,8 @@ function MessageBubble({
   );
   const hasQuotes = message.htmlBody ? hasHtmlQuotes : !!plainQuoted;
 
-  const senderName =
-    message.sender?.displayName || message.fromName || message.fromAddress;
+  const actionClass =
+    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
   return (
     <motion.div
@@ -199,8 +277,25 @@ function MessageBubble({
           >
             <div className="min-w-0">
               <span className="text-sm font-semibold leading-none tracking-tight">
-                {isFromCurrentUser ? "You" : senderName}
+                {label}
               </span>
+              {isAnswered && (
+                <span
+                  data-card-badge="replied"
+                  className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"
+                >
+                  <Reply className="h-2.5 w-2.5" />
+                  replied
+                </span>
+              )}
+              {hasDraft && (
+                <span
+                  data-card-badge="draft"
+                  className="ml-1.5 inline-flex items-center rounded-sm bg-primary/10 px-1 text-[10px] font-medium text-primary"
+                >
+                  draft
+                </span>
+              )}
               {message.isArchived && (
                 <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
                   <Archive className="h-2.5 w-2.5" />
@@ -253,18 +348,6 @@ function MessageBubble({
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(
-                          `/compose?forward=${message.id}&from=${encodeURIComponent(pathname)}`,
-                        );
-                      }}
-                      className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                      title="Forward this email"
-                    >
-                      <Forward className="h-3.5 w-3.5" />
-                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -334,6 +417,7 @@ function MessageBubble({
                   )}
                   {hasQuotes && (
                     <button
+                      data-quote-toggle
                       onClick={() => setQuotesCollapsed(!quotesCollapsed)}
                       aria-label={
                         quotesCollapsed
@@ -348,34 +432,127 @@ function MessageBubble({
                     </button>
                   )}
                 </div>
+
+                {/* Card actions: reply to exactly this message (plan 055) */}
+                <div
+                  data-card-actions
+                  className="mt-4 flex flex-wrap items-center gap-1 border-t border-border/40 pt-3"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReply?.(message.id, "reply");
+                    }}
+                    aria-pressed={isReplyTarget}
+                    className={cn(
+                      actionClass,
+                      isReplyTarget && "bg-primary/10 text-foreground",
+                    )}
+                    title={`Reply to ${label}`}
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                    Reply
+                  </button>
+                  {canReplyAll && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReply?.(message.id, "replyAll");
+                      }}
+                      className={actionClass}
+                      title="Reply all"
+                    >
+                      <ReplyAll className="h-3.5 w-3.5" />
+                      Reply all
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(
+                        `/compose?forward=${message.id}&from=${encodeURIComponent(pathname)}`,
+                      );
+                    }}
+                    className={actionClass}
+                    title="Forward this email"
+                  >
+                    <Forward className="h-3.5 w-3.5" />
+                    Forward
+                  </button>
+                </div>
               </div>
             </div>
           )}
+
+          {branches.length > 0 && <BranchList branches={branches} />}
         </div>
       </div>
     </motion.div>
   );
 }
 
+/**
+ * Which card each branch hangs under: the message it replied to, else the
+ * last own card (the broadcast the split came from), else the first card.
+ */
+export function branchesByCard(
+  messages: ThreadMessage[],
+  branches: ThreadBranchLink[],
+  isOwn: (address: string) => boolean,
+): Map<string, ThreadBranchLink[]> {
+  const byCard = new Map<string, ThreadBranchLink[]>();
+  if (branches.length === 0 || messages.length === 0) return byCard;
+  const lastOwn = [...messages].reverse().find((m) => isOwn(m.fromAddress));
+  const fallback = (lastOwn ?? messages[0]).id;
+  for (const branch of branches) {
+    const card =
+      messages.find(
+        (m) => branch.rootInReplyTo && m.messageId === branch.rootInReplyTo,
+      )?.id ?? fallback;
+    byCard.set(card, [...(byCard.get(card) ?? []), branch]);
+  }
+  return byCard;
+}
+
 export function ThreadView({
   messages,
   currentUserEmail,
   userEmails,
+  replyTargetId = null,
+  answeredIds,
+  draftIds,
+  replyAllIds,
+  onReply,
+  branches = [],
   remoteImagePolicy = "BLOCK_ALL",
   recipientNames = {},
   hasWritableCalendar = false,
   timezone = "UTC",
 }: ThreadViewProps) {
   const emailSet = userEmails ?? new Set([currentUserEmail.toLowerCase()]);
+  const isOwn = (address: string) => emailSet.has(address.trim().toLowerCase());
+  const nameFor = (address: string) =>
+    resolveRecipientName(address, recipientNames);
+  const branchCards = branchesByCard(messages, branches, isOwn);
   return (
     <div className="space-y-0">
       {messages.map((message, i) => (
         <MessageBubble
           key={message.id}
           message={message}
-          isFromCurrentUser={emailSet.has(message.fromAddress.toLowerCase())}
+          isFromCurrentUser={isOwn(message.fromAddress)}
+          label={cardLabel(message, isOwn, nameFor)}
           isCollapsed={i < messages.length - 1}
           isFirst={i === 0}
+          isReplyTarget={message.id === replyTargetId}
+          isAnswered={answeredIds?.has(message.id) ?? false}
+          hasDraft={draftIds?.has(message.id) ?? false}
+          canReplyAll={replyAllIds?.has(message.id) ?? false}
+          onReply={onReply}
+          branches={branchCards.get(message.id) ?? []}
           remoteImagePolicy={remoteImagePolicy}
           recipientNames={recipientNames}
           hasWritableCalendar={hasWritableCalendar}

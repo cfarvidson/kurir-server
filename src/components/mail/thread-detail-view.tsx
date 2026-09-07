@@ -2,9 +2,20 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Split } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
-import { getThreadMessages } from "@/lib/mail/threads";
+import {
+  getThreadMessages,
+  branchesOf,
+  splitOriginOf,
+} from "@/lib/mail/threads";
+import {
+  defaultReplyTargetId,
+  replyOptionsFor,
+  type ReplyOptions,
+} from "@/lib/mail/thread-card";
+import { resolveRecipientName } from "@/lib/mail/recipient-names";
+import { formatDate } from "@/lib/date";
 import { resolveImagePolicy } from "@/lib/mail/image-policy";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { pushFlagsToImap } from "@/lib/mail/flag-push";
@@ -20,7 +31,7 @@ import { stripReplyPrefixes } from "@/lib/mail/subject-rules";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
-import { findReplyDraftForThread } from "@/lib/mail/draft-presentation-db";
+import { findReplyDraftsForThread } from "@/lib/mail/draft-presentation-db";
 import { serializeMessageMeeting } from "@/lib/calendar/meeting-card";
 
 async function getUserInfo(userId: string, connectionId: string) {
@@ -131,9 +142,10 @@ export async function ThreadDetailView({
 
   const subject = targetMessage.subject || "(no subject)";
 
-  // Resolve recipient addresses across the whole thread to contact names in a
-  // single batched query (avoids N+1). Falls back to the raw address when an
-  // address has no matching contact.
+  // Resolve recipient addresses across the whole thread to names in two
+  // batched queries (avoids N+1): contacts first, then the Sender rows for
+  // addresses without a contact (so "You → Corp A" and "Reply to Corp A" read
+  // the same as the list). Falls back to the raw address.
   const recipientAddresses = [
     ...new Set(
       messages
@@ -154,76 +166,45 @@ export async function ThreadDetailView({
     for (const ce of recipientContacts) {
       recipientNames[ce.email.toLowerCase()] = ce.contact.name;
     }
+    const unnamed = recipientAddresses.filter((a) => !recipientNames[a]);
+    if (unnamed.length > 0) {
+      const senders = await db.sender.findMany({
+        where: { userId: session.user.id, email: { in: unnamed } },
+        select: { email: true, displayName: true },
+      });
+      for (const sender of senders) {
+        if (sender.displayName) {
+          recipientNames[sender.email.toLowerCase()] = sender.displayName;
+        }
+      }
+    }
+  }
+  const nameFor = (address: string) =>
+    resolveRecipientName(address, recipientNames);
+
+  // Per-card reply parameters (plan 055): the composer targets whichever
+  // card the user picks, so every card gets its own recipients/threading.
+  const replyOptions: Record<string, ReplyOptions> = {};
+  for (const m of messages) {
+    replyOptions[m.id] = replyOptionsFor(m, isOwn, nameFor);
   }
 
-  // For threading: always reference the actual last message
-  const lastMessage = messages[messages.length - 1];
-
-  // For reply address: find the last message from someone else (not yourself)
-  // Check all user emails (email, sendAsEmail, aliases) to avoid replying to self
-  const lastIncoming = [...messages]
-    .reverse()
-    .find((m) => !isOwn(m.fromAddress));
-
-  const replyDraft = await findReplyDraftForThread(
+  const replyDrafts = await findReplyDraftsForThread(
     session.user.id,
     messages.map((m) => m.id),
   );
-  const pinned =
-    (replyDraft &&
-      messages.find((m) => m.id === replyDraft.contextMessageId)) ||
-    lastIncoming ||
-    lastMessage;
-  const headerMessage = replyDraft ? pinned : lastIncoming;
-  const threadAnchor = replyDraft ? pinned : lastMessage;
+  const draftContextIds = replyDrafts.map((d) => d.contextMessageId);
+  const initialReplyTargetId =
+    defaultReplyTargetId(messages, isOwn, replyDrafts[0]?.contextMessageId) ??
+    targetMessage.id;
 
-  let replyToAddress: string;
-  let replyToName: string;
-  let replyAllExtraTo: string[] = [];
-  let replyAllCc: string[] = [];
-
-  if (headerMessage) {
-    replyToAddress = headerMessage.replyTo || headerMessage.fromAddress;
-    replyToName =
-      headerMessage.sender?.displayName ||
-      headerMessage.fromName ||
-      headerMessage.fromAddress;
-
-    const primary = replyToAddress.toLowerCase();
-    const seen = new Set<string>();
-    const skip = (addr: string) => {
-      const key = addr.trim().toLowerCase();
-      if (!key || key === primary || isOwn(addr) || seen.has(key)) {
-        return true;
-      }
-      seen.add(key);
-      return false;
-    };
-    replyAllExtraTo = headerMessage.toAddresses.filter((addr) => !skip(addr));
-    replyAllCc = headerMessage.ccAddresses.filter((addr) => !skip(addr));
-  } else if (isSentView) {
-    // Sent-only thread: reply to the recipient, not yourself
-    const recipientEmail =
-      lastMessage.toAddresses[0] || lastMessage.fromAddress;
-    replyToAddress = recipientEmail;
-    const recipientSender = await db.sender.findFirst({
-      where: { userId: session.user.id, email: recipientEmail },
-      select: { displayName: true },
-    });
-    replyToName = recipientSender?.displayName || recipientEmail;
-  } else {
-    // All messages are from the user — reply to the last recipient
-    const recipientEmail =
-      lastMessage.toAddresses.find((a) => !userEmails.has(a.toLowerCase())) ||
-      lastMessage.toAddresses[0] ||
-      lastMessage.fromAddress;
-    replyToAddress = recipientEmail;
-    const recipientSender = await db.sender.findFirst({
-      where: { userId: session.user.id, email: recipientEmail },
-      select: { displayName: true },
-    });
-    replyToName = recipientSender?.displayName || recipientEmail;
-  }
+  // Split threads (plan 055): the broadcast lists the branches that opened
+  // from it; a branch links back to the broadcast.
+  const splitOrigin = await splitOriginOf(session.user.id, messages);
+  const branches =
+    !splitOrigin && targetMessage.threadId
+      ? await branchesOf(session.user.id, targetMessage.threadId)
+      : [];
 
   // Person for the pane: the original sender (first message from someone
   // else), else the same rule the list rows use (first external To/Cc;
@@ -308,6 +289,16 @@ export async function ThreadDetailView({
             <h1 className="font-serif text-2xl font-semibold text-foreground md:text-display">
               {subject}
             </h1>
+            {splitOrigin && (
+              <Link
+                href={splitOrigin.href}
+                data-split-origin
+                className="eyebrow mt-2 inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Split className="h-3 w-3" />
+                Split from your message {formatDate(splitOrigin.sentAt)}
+              </Link>
+            )}
 
             <div className="mt-3 md:mt-6">
               <ThreadPageContent
@@ -318,19 +309,14 @@ export async function ThreadDetailView({
                 }))}
                 currentUserEmail={currentUserEmail}
                 userEmails={[...userEmails]}
-                replyToMessageId={pinned.id}
-                replyToAddress={replyToAddress}
-                replyToName={replyToName}
-                replyAllExtraTo={replyAllExtraTo}
-                replyAllCc={replyAllCc}
-                subject={pinned.subject || "(no subject)"}
+                replyOptions={replyOptions}
+                initialReplyTargetId={initialReplyTargetId}
+                draftContextIds={draftContextIds}
+                branches={branches}
                 emailConnectionId={targetMessage.emailConnectionId}
-                rfcMessageId={threadAnchor.messageId ?? undefined}
-                references={threadAnchor.references}
                 userTimezone={userInfo.timezone}
                 remoteImagePolicy={userInfo.remoteImagePolicy}
                 recipientNames={recipientNames}
-                hasDraft={Boolean(replyDraft)}
                 hasWritableCalendar={userInfo.hasWritableCalendar}
               />
             </div>

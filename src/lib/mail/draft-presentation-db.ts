@@ -62,6 +62,23 @@ export async function findReplyDraftForThread(
   return rows[0] ?? null;
 }
 
+/** Every reply draft in the thread, for the per-card draft badge (plan 055). */
+export async function findReplyDraftsForThread(
+  userId: string,
+  messageIds: string[],
+) {
+  if (messageIds.length === 0) return [];
+  return db.draft.findMany({
+    where: {
+      userId,
+      type: "REPLY",
+      contextMessageId: { in: messageIds },
+    },
+    select: { contextMessageId: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
 export async function loadDraftContextMessage(
   userId: string,
   messageId: string,
