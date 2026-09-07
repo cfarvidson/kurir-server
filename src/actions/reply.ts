@@ -55,6 +55,7 @@ export async function replyToMessage(
     select: {
       messageId: true,
       threadId: true,
+      splitFromThreadId: true,
       references: true,
       subject: true,
       fromAddress: true,
@@ -130,6 +131,7 @@ export async function replyToMessage(
     emailConnectionId: message.emailConnectionId,
     messageId: info.messageId || null,
     threadId: message.threadId || message.messageId || null,
+    splitFromThreadId: message.splitFromThreadId,
     inReplyTo: message.messageId || null,
     references,
     subject,

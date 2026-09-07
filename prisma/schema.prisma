@@ -532,6 +532,10 @@ model Message {
   threadId   String? // Computed thread ID
   inReplyTo  String? // In-Reply-To header
   references String[] // References header
+  // Set on every row of a branch thread: a counterpart's reply to an own
+  // bcc-only broadcast gets a thread of its own (plan 055). Holds the
+  // broadcast thread's key so the two can link to each other.
+  splitFromThreadId String?
 
   // Headers
   subject      String?
@@ -623,6 +627,7 @@ model Message {
   @@index([userId, inReplyTo])
   @@index([emailConnectionId])
   @@index([threadId])
+  @@index([userId, splitFromThreadId])
   @@index([messageId])
   @@index([senderId])
   @@index([userId, updatedAt])

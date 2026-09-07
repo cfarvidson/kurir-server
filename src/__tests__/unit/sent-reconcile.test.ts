@@ -164,12 +164,19 @@ describe("sent reconciliation dedup (Message-ID, uid-sign agnostic)", () => {
   it("re-runs thread assignment when reconciling a local placeholder", async () => {
     const db = await baseMocks();
     await mockParsed({ references: ["<anchor@x>"] });
+    // Thread resolve: the anchor (nearest known ancestor) already has a threadId.
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      {
+        messageId: "<anchor@x>",
+        threadId: "<thread@x>",
+        splitFromThreadId: null,
+        fromAddress: "anchor@x",
+        toAddresses: [],
+        ccAddresses: [],
+      },
+    ] as any);
     (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
       const w = args?.where ?? {};
-      // Thread resolve: a related message with a threadId exists.
-      if (w.OR?.[0]?.messageId?.in) {
-        return { threadId: "<thread@x>" } as any;
-      }
       // Dedup: the local placeholder row from the send.
       if (typeof w.messageId === "string") {
         return { id: "placeholder-1", uid: -5 } as any;

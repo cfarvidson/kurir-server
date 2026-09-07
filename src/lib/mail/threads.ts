@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { threadKeyOf } from "@/lib/mail/thread-key";
+import { getThreadRoute } from "@/lib/mail/route-helpers";
 
 export { threadKeyOf };
 
@@ -98,6 +99,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
     select: {
       id: true,
       threadId: true,
+      splitFromThreadId: true,
       messageId: true,
       inReplyTo: true,
       references: true,
@@ -107,6 +109,18 @@ export async function getThreadMessages(userId: string, messageId: string) {
   });
 
   if (!message) return null;
+
+  // A branch thread (plan 055) is exactly its threadId rows. Its References
+  // still name the broadcast it split from and the broadcast's other replies,
+  // so the linkage passes below would merge it straight back — skip them.
+  if (message.splitFromThreadId && message.threadId) {
+    const branch = await db.message.findMany({
+      where: { userId, threadId: message.threadId },
+      include: threadInclude,
+      orderBy: { receivedAt: "asc" },
+    });
+    return finalizeThread(branch);
+  }
 
   // When the sender is flagged `unthread`, render only this message in the
   // detail view — do not pull in related messages by threadId/References.
@@ -142,10 +156,12 @@ export async function getThreadMessages(userId: string, messageId: string) {
     relatedIds.add(ref);
   }
 
-  // Pass 1: find messages by threadId + relatedIds
+  // Pass 1: find messages by threadId + relatedIds. Branch rows are never
+  // linked in: they reply to this thread's messages by design.
   const pass1 = await db.message.findMany({
     where: {
       userId,
+      splitFromThreadId: null,
       OR: [
         ...(message.threadId ? [{ threadId: message.threadId }] : []),
         ...(relatedIds.size > 0
@@ -174,6 +190,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
     const pass2 = await db.message.findMany({
       where: {
         userId,
+        splitFromThreadId: null,
         inReplyTo: { in: allMessageIds },
         id: { notIn: Array.from(foundIds) },
       },
@@ -186,6 +203,15 @@ export async function getThreadMessages(userId: string, messageId: string) {
     }
   }
 
+  return finalizeThread(allMessages);
+}
+
+type ThreadRow = Awaited<
+  ReturnType<typeof db.message.findMany<{ include: typeof threadInclude }>>
+>[number];
+
+/** Dedupe folder copies, mark unread rows read, sort by Date header. */
+async function finalizeThread(allMessages: ThreadRow[]) {
   // Deduplicate: same messageId can exist in multiple folders (e.g. inbox + sent).
   // Prefer IMAP-synced records (positive UID) over local placeholders (negative UID).
   const seen = new Map<string, (typeof allMessages)[0]>();
@@ -266,4 +292,126 @@ export function collapseToThreads<
     }
     return msg;
   });
+}
+
+export interface ThreadBranch {
+  threadId: string;
+  /** Route to open the branch (its latest message, like a list row). */
+  href: string;
+  senderName: string;
+  count: number;
+  latestAt: Date;
+  /** RFC Message-ID of the broadcast message the branch replies to. */
+  rootInReplyTo: string | null;
+}
+
+/**
+ * Branch threads split from `threadId` (plan 055), one per counterpart,
+ * oldest branch first. Empty when the thread is not a broadcast.
+ */
+export async function branchesOf(
+  userId: string,
+  threadId: string,
+): Promise<ThreadBranch[]> {
+  const rows = await db.message.findMany({
+    where: { userId, splitFromThreadId: threadId },
+    select: {
+      id: true,
+      threadId: true,
+      messageId: true,
+      inReplyTo: true,
+      fromAddress: true,
+      fromName: true,
+      sentAt: true,
+      receivedAt: true,
+      isInImbox: true,
+      isInFeed: true,
+      isInPaperTrail: true,
+      isArchived: true,
+      sender: { select: { displayName: true } },
+    },
+    orderBy: { receivedAt: "asc" },
+  });
+
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (!row.threadId) continue;
+    const group = groups.get(row.threadId) ?? [];
+    group.push(row);
+    groups.set(row.threadId, group);
+  }
+
+  const at = (m: (typeof rows)[number]) => (m.sentAt ?? m.receivedAt).getTime();
+  const branches: ThreadBranch[] = [];
+  for (const [branchThreadId, group] of groups) {
+    const sorted = [...group].sort((a, b) => at(a) - at(b));
+    const root =
+      sorted.find((m) => m.messageId === branchThreadId) ?? sorted[0];
+    const latest = sorted[sorted.length - 1];
+    branches.push({
+      threadId: branchThreadId,
+      href: `${getThreadRoute(latest)}/${latest.id}`,
+      senderName:
+        root.sender?.displayName || root.fromName || root.fromAddress,
+      count: sorted.length,
+      latestAt: latest.sentAt ?? latest.receivedAt,
+      rootInReplyTo: root.inReplyTo,
+    });
+  }
+  return branches.sort((a, b) => {
+    const ra = groups.get(a.threadId)!;
+    const rb = groups.get(b.threadId)!;
+    return Math.min(...ra.map(at)) - Math.min(...rb.map(at));
+  });
+}
+
+export interface SplitOrigin {
+  href: string;
+  sentAt: Date;
+}
+
+/**
+ * For a branch thread: the broadcast message it split from (plan 055), or
+ * null when the thread is not a branch or the broadcast is gone.
+ */
+export async function splitOriginOf(
+  userId: string,
+  messages: Array<{
+    threadId: string | null;
+    splitFromThreadId: string | null;
+    messageId: string | null;
+    inReplyTo: string | null;
+  }>,
+): Promise<SplitOrigin | null> {
+  const root =
+    messages.find((m) => m.splitFromThreadId && m.messageId === m.threadId) ??
+    messages.find((m) => m.splitFromThreadId);
+  if (!root?.splitFromThreadId) return null;
+
+  const select = {
+    id: true,
+    sentAt: true,
+    receivedAt: true,
+    isInImbox: true,
+    isInFeed: true,
+    isInPaperTrail: true,
+    isArchived: true,
+  } as const;
+  const origin =
+    (root.inReplyTo
+      ? await db.message.findFirst({
+          where: { userId, messageId: root.inReplyTo, splitFromThreadId: null },
+          select,
+        })
+      : null) ??
+    (await db.message.findFirst({
+      where: { userId, threadId: root.splitFromThreadId },
+      select,
+      orderBy: { receivedAt: "asc" },
+    }));
+  if (!origin) return null;
+  return {
+    href: `${getThreadRoute(origin)}/${origin.id}`,
+    sentAt: origin.sentAt ?? origin.receivedAt,
+  };
 }

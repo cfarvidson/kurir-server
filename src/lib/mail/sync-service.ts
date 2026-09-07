@@ -15,7 +15,7 @@ import {
   storedContentToBuffer,
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
-import { assignThreadId, repairThreadIds } from "@/lib/mail/thread-assign";
+import { assignThread, repairThreadIds } from "@/lib/mail/thread-assign";
 import { createSnippet } from "@/lib/mail/snippet";
 import {
   kickSignatureBackfill,
@@ -654,11 +654,13 @@ export async function processMessage(
 
   // Shared with the send paths: resolve against related messages, fall back
   // to the conversation root / own Message-ID, and unify the conversation.
-  const threadId = await assignThreadId({
+  const { threadId, splitFromThreadId } = await assignThread({
     userId,
     messageId: envelope.messageId || null,
     inReplyTo,
     references,
+    fromAddress,
+    own,
   });
 
   // Reconcile an existing row for this mail instead of inserting a duplicate:
@@ -679,7 +681,14 @@ export async function processMessage(
     if (existing) {
       const updated = await db.message.update({
         where: { id: existing.id },
-        data: { uid: msg.uid, folderId, threadId, inReplyTo, references },
+        data: {
+          uid: msg.uid,
+          folderId,
+          threadId,
+          splitFromThreadId,
+          inReplyTo,
+          references,
+        },
       });
       return updated;
     }
@@ -714,6 +723,7 @@ export async function processMessage(
           folderId,
           messageId: newMessageId,
           threadId,
+          splitFromThreadId,
           inReplyTo,
           references,
         },
@@ -742,6 +752,7 @@ export async function processMessage(
       uid: msg.uid,
       messageId: envelope.messageId || null,
       threadId,
+      splitFromThreadId,
       inReplyTo,
       references,
       subject: subject || null,
