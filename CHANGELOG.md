@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.76] - 2026-09-07
+
+### Fixed
+
+- iOS and Mac conversations appear together after all expanded messages finish
+  rendering, preventing layout jumps while message bodies load.
+
+### Changed
+
+- Paired server release for the iOS and Mac rendering update; server behavior
+  is unchanged.
+
 ## [v2026.75] - 2026-09-07
 
 ### Added

@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.76",
+    "date": "2026-09-07",
+    "changes": [
+      "iOS and Mac conversations appear together after all expanded messages finish rendering, preventing layout jumps while message bodies load",
+      "Paired server release for the iOS and Mac rendering update; server behavior is unchanged"
+    ]
+  },
+  {
     "version": "2026.75",
     "date": "2026-09-07",
     "changes": [

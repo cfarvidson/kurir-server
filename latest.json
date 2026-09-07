@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.75",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.75",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.75",
-    "changelog": "Signatures without \"-- \" are hidden from the last closing phrase (Med vänliga hälsningar, Mvh, /Namn) when a name follows",
+    "version": "2026.76",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.76",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.76",
+    "changelog": "iOS and Mac conversations appear together after message rendering completes, preventing layout jumps",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-07T13:03:55Z"
+    "releasedAt": "2026-09-07T13:11:09Z"
   }
 }
