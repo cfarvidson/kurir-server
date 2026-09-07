@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.78] - 2026-09-07
+
+### Fixed
+
+- Generated drafts no longer invent a sender name. Sign with a name only
+  if it appears in the user's own earlier mail; otherwise omit it (#171)
+
 ## [v2026.77] - 2026-09-07
 
 ### Added

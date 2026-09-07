@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.78",
+    "date": "2026-09-07",
+    "changes": [
+      "Generated drafts no longer invent a sender name; they sign with a name only if it appears in your own earlier mail"
+    ]
+  },
+  {
     "version": "2026.77",
     "date": "2026-09-07",
     "changes": [

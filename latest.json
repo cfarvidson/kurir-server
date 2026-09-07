@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.77",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.77",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.77",
-    "changelog": "Apply a follow-up deadline when sending or scheduling mail, so unanswered threads return to Follow-up if nobody replies",
+    "version": "2026.78",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.78",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.78",
+    "changelog": "Generated drafts no longer invent a sender name; they sign with a name only if it appears in your own earlier mail",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-07T14:14:20Z"
+    "releasedAt": "2026-09-07T14:28:42Z"
   }
 }
