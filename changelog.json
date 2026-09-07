@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.75",
+    "date": "2026-09-07",
+    "changes": [
+      "Signatures without a \"-- \" marker are hidden too: the tail starts at the last closing phrase (\"Med vänliga hälsningar\", \"Mvh Nicklas\", \"Best regards\", \"/Nicklas\") when a name or company follows it, on web, iOS and Mac",
+      "A bare \"Tack\" mid-mail followed by prose, or at the very end, stays visible"
+    ]
+  },
+  {
     "version": "2026.74",
     "date": "2026-09-07",
     "changes": [

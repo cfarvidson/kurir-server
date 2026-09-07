@@ -4,6 +4,23 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.75] - 2026-09-07
+
+### Added
+
+- Signatures without a "-- " marker are hidden too: the hidden tail starts
+  at the last closing phrase ("Med vänliga hälsningar", "Mvh Nicklas",
+  "Best regards", "/Nicklas") when a name or company line follows it, or
+  when the phrase itself carries a name. Gmail/Apple one-div signatures
+  and Outlook one-paragraph-per-line signatures are both recognised. A
+  bare "Tack" mid-mail followed by prose, or at the very end, stays
+  visible (#168)
+
+### Fixed
+
+- Signature extraction's closing-phrase check read the phrase as the name,
+  so multi-word closings such as "Med vänliga hälsningar" never counted (#168)
+
 ## [v2026.74] - 2026-09-07
 
 ### Added
