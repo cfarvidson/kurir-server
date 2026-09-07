@@ -4,8 +4,9 @@
  * signature extraction. The line rules here are mirrored by the iOS client
  * in `QuoteDetection.swift`; keep the two in step.
  *
- * Only strong signals count. A missed quote is a cosmetic nuisance; hiding
- * the author's own words is not.
+ * Only strong signals count, plus a closing phrase when a name follows it.
+ * A missed quote is a cosmetic nuisance; hiding the author's own words is
+ * not.
  */
 
 export const QUOTE_LINE = /^\s*>/;
@@ -31,26 +32,87 @@ const DIVIDERS: RegExp[] = [
 ];
 
 // Closing phrases that end the author's text; the signature starts there.
-const CLOSING =
-  /^(med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement)\b[,.!]?\s*(.*)$/i;
-// "/Nicklas" or "//Nicklas Bertilsson" on a line of its own.
-const SLASH_SIGNOFF =
-  /^\/{1,2}\s?[A-ZÅÄÖÉ][\wåäöéü.-]*(?:\s+[A-ZÅÄÖÉ][\wåäöéü.-]*){0,3}$/;
+// The phrase must be followed by the end of the line, whitespace or
+// punctuation (JS "\b" is ASCII-only, so "BRÖD" would otherwise match "br").
+const CLOSING = new RegExp(
+  "^(" +
+    "med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement" +
+    ")(?=$|[\\s,.!])[,.!]?\\s*(.*)$",
+  "i",
+);
+const LETTER = "A-Za-zÀ-ÖØ-öø-ÿ";
+const UPPER = "A-ZÀ-ÖØ-Þ";
+// "/Nicklas", "//Nicklas Bertilsson", "/Bjørn" on a line of its own: one to
+// four words; a lowercase start is only accepted for one or two words so
+// "//comment in code" stays prose.
+const SLASH_SIGNOFF = new RegExp(
+  `^\\/{1,2}\\s?[${LETTER}][${LETTER}.-]*(?:\\s+[${LETTER}][${LETTER}.-]*){0,3}$`,
+);
+const STARTS_UPPER = new RegExp(`^[${UPPER}]`);
+const LOWERCASE_WORD = new RegExp(`^[a-zà-öø-ÿ][${LETTER}]{3,}$`);
+
+export type ClosingKind = "none" | "bare" | "named";
 
 /**
- * A line that is a closing phrase ("Med vänliga hälsningar", "Mvh Bob",
- * "Best regards,") or a slash sign-off ("/Bob", "//Bob"). A closing may be
- * followed by up to three capitalised words (a name) on the same line.
+ * Classify a line as a closing: "named" when it carries a name ("Mvh Bob",
+ * "Kind regards, Bob Smith", "/Bob"), "bare" for the phrase alone ("Med
+ * vänliga hälsningar", "Tack"). Up to three capitalised words may follow
+ * the phrase.
  */
-export function isClosingLine(line: string): boolean {
+export function closingKind(line: string): ClosingKind {
   const s = line.trim();
-  if (SLASH_SIGNOFF.test(s)) return true;
+  if (SLASH_SIGNOFF.test(s)) {
+    const words = s.replace(/^\/+\s?/, "").split(/\s+/);
+    return STARTS_UPPER.test(words[0]) || words.length <= 2 ? "named" : "none";
+  }
   const m = CLOSING.exec(s);
-  if (!m) return false;
+  if (!m) return "none";
   const rest = m[2].trim();
-  if (rest.length === 0) return true;
+  if (rest.length === 0) return "bare";
   const words = rest.split(/\s+/);
-  return words.length <= 3 && words.every((w) => /^[A-ZÅÄÖÉ]/.test(w));
+  return words.length <= 3 && words.every((w) => STARTS_UPPER.test(w))
+    ? "named"
+    : "none";
+}
+
+export function isClosingLine(line: string): boolean {
+  return closingKind(line) !== "none";
+}
+
+/**
+ * A line that reads as a name, title or company rather than prose: at most
+ * five words, one of them capitalised, no sentence punctuation at a word
+ * end, and no lowercase word of four letters or more ("Kan du skicka den?"
+ * and "Och en sak till" fail; "Nicklas Bertilsson", "Teckentrup /
+ * Portexpert.se" and "Head of Sales" pass).
+ */
+export function isNameLike(line: string): boolean {
+  const words = line
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w !== "");
+  if (words.length === 0 || words.length > 5) return false;
+  if (words.some((w) => /[?!:;,]$|\.\.\.$/.test(w))) return false;
+  if (!words.some((w) => STARTS_UPPER.test(w))) return false;
+  return !words.some((w) => LOWERCASE_WORD.test(w.replace(/\.+$/, "")));
+}
+
+/**
+ * Index of the line where the signature starts, or `cut` when there is
+ * none: the last closing line with body text above it that is either
+ * "named" or followed (before `cut`) by a name-like line. A bare "Tack" at
+ * the end, or mid-mail followed by prose, stays visible.
+ */
+export function signatureStart(lines: string[], cut: number): number {
+  for (let i = cut - 1; i > 0; i--) {
+    const kind = closingKind(lines[i]);
+    if (kind === "none") continue;
+    if (!lines.slice(0, i).some((l) => l.trim() !== "")) continue;
+    if (kind === "named") return i;
+    const next = lines.slice(i + 1, cut).find((l) => l.trim() !== "");
+    if (next !== undefined && isNameLike(next)) return i;
+  }
+  return cut;
 }
 
 /** The RFC 3676 signature separator: "-- " (trailing space optional). */
@@ -158,15 +220,7 @@ export function splitPlainTextQuotes(text: string): {
 
   // 4. Closing phrase: the last "Med vänliga hälsningar" / "Mvh Bob" /
   //    "/Bob" line with body text above it starts the signature.
-  for (let i = cut - 1; i > 0; i--) {
-    if (
-      isClosingLine(lines[i]) &&
-      lines.slice(0, i).some((l) => l.trim() !== "")
-    ) {
-      cut = i;
-      break;
-    }
-  }
+  cut = signatureStart(lines, cut);
 
   // 5. "Sent from …" as the last line of the author's text.
   let last = cut - 1;

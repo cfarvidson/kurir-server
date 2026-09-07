@@ -621,6 +621,42 @@ describe("sanitizeEmailHtml", () => {
       expect(html).toBe("<div>Ok</div>");
     });
 
+    it("hides a Gmail-style signature div (closing, name and phone with <br>)", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Ok</div><div>Med vänliga hälsningar<br>Nicklas Bertilsson<br>0707</div>",
+        { collapseQuotes: true },
+      );
+      expect(html).toBe("<div>Ok</div>");
+    });
+
+    it("keeps a bare closing followed by prose or by nothing", () => {
+      expect(
+        sanitizeEmailHtmlWithMeta(
+          "<div>Hej Nicklas,</div><div>Tack!</div><div>Kan du skicka den?</div>",
+          { collapseQuotes: true },
+        ).quoteCollapsible,
+      ).toBe(false);
+      expect(
+        sanitizeEmailHtmlWithMeta("<div>Hej</div><div>Tack</div>", {
+          collapseQuotes: true,
+        }).quoteCollapsible,
+      ).toBe(false);
+    });
+
+    it("ignores a closing inside a blockquote and picks the outermost wrapper", () => {
+      expect(
+        sanitizeEmailHtml(
+          "<div>Ok</div><blockquote><p>Mvh Bob</p></blockquote><div>my answer</div>",
+          { collapseQuotes: true },
+        ),
+      ).toContain("my answer");
+      expect(
+        sanitizeEmailHtml("<div>Ok</div><div><p>Mvh</p><p>Bob</p></div>", {
+          collapseQuotes: true,
+        }),
+      ).toBe("<div>Ok</div>");
+    });
+
     it("ignores a closing phrase with nothing visible above it", () => {
       const { quoteCollapsible } = sanitizeEmailHtmlWithMeta(
         "<div>Mvh</div><div>Bob</div>",

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isClosingLine, splitPlainTextQuotes } from "../quote-utils";
+import {
+  closingKind,
+  isClosingLine,
+  isNameLike,
+  splitPlainTextQuotes,
+} from "../quote-utils";
 
 describe("splitPlainTextQuotes", () => {
   it("collapses a trailing > block with its attribution line", () => {
@@ -143,8 +148,14 @@ describe("splitPlainTextQuotes", () => {
     expect(splitPlainTextQuotes("Ok!\n\nBest regards,\nBob").body).toBe("Ok!");
   });
 
-  it("keeps a closing phrase that is the first line, or followed by more text", () => {
+  it("keeps a bare closing that is first, last, or followed by prose", () => {
     expect(splitPlainTextQuotes("Tack\nBob").quoted).toBeNull();
+    expect(splitPlainTextQuotes("Hej\nTack").quoted).toBeNull();
+    expect(
+      splitPlainTextQuotes(
+        "Hej!\n\nKan du skicka den?\n\nTack\n\nOch en sak till...",
+      ).quoted,
+    ).toBeNull();
     // A lone "Tack" mid-mail followed by a later real closing: the last wins.
     expect(splitPlainTextQuotes("Hej\nTack\nEn sak till.\nMvh\nBob").body).toBe(
       "Hej\nTack\nEn sak till.",
@@ -177,31 +188,51 @@ describe("splitPlainTextQuotes", () => {
   });
 });
 
-describe("isClosingLine", () => {
-  it("matches closings with an optional name and slash sign-offs", () => {
-    for (const l of [
-      "Med vänliga hälsningar",
-      "Med vänlig hälsning,",
-      "Mvh Nicklas",
-      "Best regards",
-      "Kind regards, Bob Smith",
-      "/Nicklas",
-      "//Nicklas Bertilsson",
-      "/ Nicklas",
-    ]) {
-      expect(isClosingLine(l), l).toBe(true);
-    }
+describe("closingKind / isNameLike", () => {
+  it("classifies closings, names and slash sign-offs", () => {
+    expect(closingKind("Med vänliga hälsningar")).toBe("bare");
+    expect(closingKind("Med vänlig hälsning,")).toBe("bare");
+    expect(closingKind("Mvh Nicklas")).toBe("named");
+    expect(closingKind("Kind regards, Bob Smith")).toBe("named");
+    expect(closingKind("/Nicklas")).toBe("named");
+    expect(closingKind("//Nicklas Bertilsson")).toBe("named");
+    expect(closingKind("/ Carl-Fredrik")).toBe("named");
+    expect(closingKind("/Bjørn")).toBe("named");
+    expect(closingKind("/nicklas")).toBe("named");
+    expect(isClosingLine("Best regards")).toBe(true);
   });
 
-  it("rejects prose and paths", () => {
+  it("rejects prose, paths and ASCII-boundary false positives", () => {
     for (const l of [
       "Tack för att du hörde av dig.",
       "Best regards are sent to everyone",
       "/usr/local/bin",
       "//comment in code",
       "Mvh vi ses imorgon på kontoret",
+      "BRÖD AB",
     ]) {
-      expect(isClosingLine(l), l).toBe(false);
+      expect(closingKind(l), l).toBe("none");
+    }
+  });
+
+  it("tells names and companies from prose", () => {
+    for (const l of [
+      "Nicklas Bertilsson",
+      "Teckentrup / Portexpert.se",
+      "Head of Sales",
+      "VD",
+      "Carl-Fredrik Arvidson",
+    ]) {
+      expect(isNameLike(l), l).toBe(true);
+    }
+    for (const l of [
+      "Kan du skicka den?",
+      "Och en sak till...",
+      "Vår styrka är att vi",
+      "0707-88 06 69",
+      "Mob: 0707",
+    ]) {
+      expect(isNameLike(l), l).toBe(false);
     }
   });
 });
