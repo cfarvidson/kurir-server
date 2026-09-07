@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.73",
+    "date": "2026-09-07",
+    "changes": [
+      "Replies to a bcc broadcast open as one thread per counterpart, linked from the original message and back",
+      "Every expanded message card has Reply, Reply all and Forward, including your own messages; the composer follows the selected card",
+      "Message cards show Replied and Draft badges, and your own messages read \"You → Name\""
+    ]
+  },
+  {
     "version": "2026.72",
     "date": "2026-09-06",
     "changes": [

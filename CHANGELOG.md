@@ -4,6 +4,19 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.73] - 2026-09-07
+
+### Added
+
+- Replies to a bcc broadcast (a sent message with no visible To/Cc) split
+  into one thread per counterpart. The original shows "N replies opened as
+  separate threads" with links; each branch links back with "Split from
+  your message". Existing threads split on the next full sync (#166)
+- Every expanded message card has Reply, Reply all and Forward, including
+  your own; the reply composer follows the selected card and keeps one
+  draft per target. Cards show Replied and Draft badges, and your own
+  messages read "You → Name" (#166)
+
 ## [v2026.72] - 2026-09-06
 
 ### Added

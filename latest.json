@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.72",
   "changelog": "Screener Previously Screened caps at the 200 most recently decided senders, weekly dependency bump, and design specs for Feed List-Unsubscribe, MCP calendar tools, and event attendees",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-06T16:30:57Z"
+  "releasedAt": "2026-09-06T16:30:57Z",
+  "beta": {
+    "version": "2026.73",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.73",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.73",
+    "changelog": "Replies to a bcc broadcast split into one thread per counterpart, and every message card can be replied to directly with Replied/Draft badges",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-07T10:19:02Z"
+  }
 }
