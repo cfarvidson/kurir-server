@@ -28,10 +28,7 @@ vi.mock("@/lib/mail/auth-helpers", () => ({
   buildImapAuth: vi.fn(),
 }));
 
-import {
-  extractAttachmentParts,
-  extractDomain,
-} from "@/lib/mail/sync-service";
+import { extractAttachmentParts, extractDomain } from "@/lib/mail/sync-service";
 import { createSnippet } from "@/lib/mail/snippet";
 
 describe("extractDomain", () => {
@@ -80,9 +77,9 @@ describe("createSnippet", () => {
   });
 
   it("drops the quoted tail and signature", () => {
-    expect(
-      createSnippet("Sure thing.\n\nOn X wrote:\n> could you?"),
-    ).toBe("Sure thing.");
+    expect(createSnippet("Sure thing.\n\nOn X wrote:\n> could you?")).toBe(
+      "Sure thing.",
+    );
     expect(
       createSnippet("Hej!\n\nFrån: a@b.c\nSkickat: igår\nTill: d@e.f\n\nold"),
     ).toBe("Hej!");

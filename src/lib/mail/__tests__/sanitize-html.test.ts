@@ -442,7 +442,7 @@ describe("sanitizeEmailHtml", () => {
 
     it("cuts the English Outlook header too", () => {
       const html = sanitizeEmailHtml(
-        "<p>ok</p><div style=\"border-top:solid #E1E1E1 1.0pt\"><p><b>From:</b> x<br><b>Sent:</b> y<br><b>To:</b> z</p></div><p>old</p>",
+        '<p>ok</p><div style="border-top:solid #E1E1E1 1.0pt"><p><b>From:</b> x<br><b>Sent:</b> y<br><b>To:</b> z</p></div><p>old</p>',
         { collapseQuotes: true },
       );
       expect(html).toContain("ok");
@@ -451,7 +451,7 @@ describe("sanitizeEmailHtml", () => {
 
     it("ignores a border-top div that is not a header", () => {
       const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
-        "<p>hi</p><div style=\"border-top:1px solid #ccc\">Footer text</div>",
+        '<p>hi</p><div style="border-top:1px solid #ccc">Footer text</div>',
         { collapseQuotes: true },
       );
       expect(quoteCollapsible).toBe(false);
@@ -460,7 +460,7 @@ describe("sanitizeEmailHtml", () => {
 
     it("cuts the Outlook web reply (hr + divRplyFwdMsg) including the rule", () => {
       const html = sanitizeEmailHtml(
-        "<div>Sure.</div><div id=\"appendonsend\"></div><hr><div id=\"divRplyFwdMsg\"><b>From:</b> x</div><div>old</div>",
+        '<div>Sure.</div><div id="appendonsend"></div><hr><div id="divRplyFwdMsg"><b>From:</b> x</div><div>old</div>',
         { collapseQuotes: true },
       );
       expect(html).toContain("Sure.");
@@ -480,7 +480,7 @@ describe("sanitizeEmailHtml", () => {
 
     it("pulls in an Apple Mail attribution that shares a div with the quote", () => {
       const html = sanitizeEmailHtml(
-        "<div>Tack</div><br><div>Den 7 sep. 2026 kl. 12:30 skrev Bob &lt;bob@x.y&gt;:<br><blockquote type=\"cite\">old</blockquote></div>",
+        '<div>Tack</div><br><div>Den 7 sep. 2026 kl. 12:30 skrev Bob &lt;bob@x.y&gt;:<br><blockquote type="cite">old</blockquote></div>',
         { collapseQuotes: true },
       );
       expect(html).toContain("Tack");
@@ -512,12 +512,12 @@ describe("sanitizeEmailHtml", () => {
     it("cuts signature wrappers and the -- delimiter", () => {
       expect(
         sanitizeEmailHtml(
-          "<div>Bye</div><div class=\"gmail_signature\">Bob<br>CEO</div>",
+          '<div>Bye</div><div class="gmail_signature">Bob<br>CEO</div>',
           { collapseQuotes: true },
         ),
       ).not.toContain("CEO");
       expect(
-        sanitizeEmailHtml("<div>Bye</div><div id=\"Signature\">Bob</div>", {
+        sanitizeEmailHtml('<div>Bye</div><div id="Signature">Bob</div>', {
           collapseQuotes: true,
         }),
       ).not.toContain("Bob");
@@ -540,6 +540,48 @@ describe("sanitizeEmailHtml", () => {
           { collapseQuotes: true },
         ),
       ).toContain("Worked.");
+    });
+
+    it("pulls in an Apple Mail attribution with a mailto link", () => {
+      const html = sanitizeEmailHtml(
+        '<div>Tack</div><div>On 1 Jan <a href="mailto:bob@x.y">Bob</a> wrote:<br><blockquote>old</blockquote></div>',
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Tack");
+      expect(html).not.toContain("wrote:");
+    });
+
+    it("hides a 'Sent from' line above the quote, past blank spacers", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Yes</div><div>Sent from my iPhone</div><div><br></div><div>On X, Bob wrote:</div><blockquote>q</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Yes");
+      expect(html).not.toContain("iPhone");
+    });
+
+    it("hides the quote when the signature marker sits below it", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Hi</div><div>On X, Bob wrote:</div><blockquote>q</blockquote><div>--</div><div>Bob</div>",
+        { collapseQuotes: true },
+      );
+      expect(html).toBe("<div>Hi</div>");
+    });
+
+    it("keeps a multi-line element that merely starts with 'Sent from'", () => {
+      const html = sanitizeEmailHtml(
+        "<p>Hi</p><div>Sent from my iPhone<br>Actually, call me at 5.</div>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("call me at 5");
+    });
+
+    it("ignores a trailing comment after the quote", () => {
+      const html = sanitizeEmailHtml(
+        "<p>Hi</p><blockquote>q</blockquote><!-- tracking -->",
+        { collapseQuotes: true },
+      );
+      expect(html).not.toContain("<blockquote");
     });
 
     it("does not collapse when the whole body is quoted", () => {
@@ -749,7 +791,9 @@ describe("sanitizeEmailHtml", () => {
       });
       // No live loading attribute points at the tracker host. (Whitespace
       // before the name excludes the safe data-blocked-src stash attribute.)
-      expect(html).not.toMatch(/\s(?:src|srcset|poster|background|href)="https?:\/\/t\.example/);
+      expect(html).not.toMatch(
+        /\s(?:src|srcset|poster|background|href)="https?:\/\/t\.example/,
+      );
       // The surviving <img> stashed its URL out of the loading path instead.
       expect(html).toContain("data-blocked-src");
     });

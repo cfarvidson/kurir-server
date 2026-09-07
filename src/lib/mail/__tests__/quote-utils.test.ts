@@ -80,6 +80,21 @@ describe("splitPlainTextQuotes", () => {
     });
   });
 
+  it("hides a signature that sits below the quote (Thunderbird reply-above)", () => {
+    const text = "Hi\n\nOn X wrote:\n> q\n-- \nBob";
+    expect(splitPlainTextQuotes(text)).toEqual({
+      body: "Hi",
+      quoted: "On X wrote:\n> q\n-- \nBob",
+    });
+  });
+
+  it("matches the German Outlook divider", () => {
+    expect(
+      splitPlainTextQuotes("Hi\n-----Ursprüngliche Nachricht-----\nVon: a@b")
+        .body,
+    ).toBe("Hi");
+  });
+
   it("uses the earliest of signature and quote", () => {
     const text = "Hi\n-- \nBob\n\nOn X wrote:\n> q";
     expect(splitPlainTextQuotes(text).body).toBe("Hi");

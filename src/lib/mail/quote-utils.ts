@@ -10,15 +10,21 @@
 
 export const QUOTE_LINE = /^\s*>/;
 // "On … wrote:" / "Den … skrev Bob <bob@x.y>:" - the verb may precede the
-// name, so only the trailing colon is anchored.
-const ATTRIBUTION_START = /^(On|Den|Am|Le|El)\s/;
-const ATTRIBUTION_END = /\b(wrote|skrev|schrieb|a écrit|escribió)\b[^\n]*:\s*$/i;
+// name, so only the trailing colon is anchored. The two vocabularies are
+// exported so the HTML boundary finder builds its regex from the same lists.
+export const ATTRIBUTION_START_WORDS = "On|Den|Am|Le|El";
+export const ATTRIBUTION_VERBS = "wrote|skrev|schrieb|a écrit|escribió";
+const ATTRIBUTION_START = new RegExp(`^(${ATTRIBUTION_START_WORDS})\\s`);
+const ATTRIBUTION_END = new RegExp(
+  `\\b(${ATTRIBUTION_VERBS})\\b[^\\n]*:\\s*$`,
+  "i",
+);
 // Outlook / forwarded header blocks: a From: line followed by another label.
 export const FORWARD_HEADER_FROM = /^\s*(From|Från|Fra|Von|De)\s*:/i;
 export const FORWARD_HEADER_NEXT =
   /^\s*(Sent|Skickat|Sendt|Gesendet|Date|Datum|To|Till|Til|An|Subject|Ämne|Emne|Betreff|Cc)\s*:/i;
 const DIVIDERS: RegExp[] = [
-  /^\s*-{2,}\s*(Original Message|Ursprungligt meddelande|Ursprünglische Nachricht|Message d'origine)\s*-{2,}\s*$/i,
+  /^\s*-{2,}\s*(Original Message|Ursprungligt meddelande|Ursprüngliche Nachricht|Message d'origine)\s*-{2,}\s*$/i,
   /^\s*-{3,}\s*(Forwarded message|Vidarebefordrat meddelande|Weitergeleitete Nachricht)\s*-{3,}\s*$/i,
   /^\s*(Begin forwarded message|Vidarebefordrat meddelande|Anfang der weitergeleiteten Nachricht)\s*:\s*$/i,
   /^_{10,}\s*$/,
@@ -59,9 +65,9 @@ export function isDivider(line: string): boolean {
  * quoted / signature part.
  *
  * Cut points, earliest wins:
- * 1. A trailing `>` block (blank lines allowed), pulling in an "On … wrote:"
- *    attribution line just above it. Inline `>` replies with text after them
- *    are left alone.
+ * 1. A trailing `>` block (blank lines allowed; a "-- " signature below it
+ *    still counts as trailing), pulling in an "On … wrote:" attribution line
+ *    just above it. Inline `>` replies with text after them are left alone.
  * 2. The first forwarded/Outlook header block (From:/Från: + Sent:/Skickat: …)
  *    or "----- Original Message -----" style divider.
  * 3. The first "-- " signature delimiter above that.
@@ -81,16 +87,22 @@ export function splitPlainTextQuotes(text: string): {
     .map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
   let cut = lines.length;
 
+  // A "-- " signature below the quote (Thunderbird's reply-above layout)
+  // must not stop the trailing-block walk; the block is trailing when only
+  // the signature follows it.
+  let sigStart = lines.findIndex((l) => SIGNATURE_DELIMITER.test(l));
+  if (sigStart < 0) sigStart = lines.length;
+
   // 1. Trailing > block.
-  let quoteStart = lines.length;
-  for (let i = lines.length - 1; i >= 0; i--) {
+  let quoteStart = sigStart;
+  for (let i = sigStart - 1; i >= 0; i--) {
     if (lines[i].startsWith(">") || lines[i].trim() === "") {
       quoteStart = i;
     } else {
       break;
     }
   }
-  if (lines.slice(quoteStart).some((l) => l.startsWith(">"))) {
+  if (lines.slice(quoteStart, sigStart).some((l) => l.startsWith(">"))) {
     cut = quoteStart;
     // Attribution directly above the block, one or two lines when wrapped,
     // ending in the colon. The nearest start wins so an unrelated "On the
@@ -117,12 +129,7 @@ export function splitPlainTextQuotes(text: string): {
   }
 
   // 3. Signature delimiter.
-  for (let i = 0; i < cut; i++) {
-    if (SIGNATURE_DELIMITER.test(lines[i])) {
-      cut = i;
-      break;
-    }
-  }
+  if (sigStart < cut) cut = sigStart;
 
   // 4. "Sent from …" as the last line of the author's text.
   let last = cut - 1;

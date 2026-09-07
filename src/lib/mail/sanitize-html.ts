@@ -1,10 +1,12 @@
 import DOMPurify from "dompurify";
 import {
+  ATTRIBUTION_START_WORDS,
+  ATTRIBUTION_VERBS,
   MOBILE_APP_LINE,
   SENT_FROM,
   SIGNATURE_DELIMITER,
   isForwardHeader,
-} from "./quote-utils";
+} from "@/lib/mail/quote-utils";
 import { isLikelyTracker } from "./tracker-detection";
 
 export interface CidAttachment {
@@ -339,12 +341,57 @@ const QUOTE_WRAPPER_SELECTOR = [
   "#ms-outlook-mobile-signature",
 ].join(", ");
 
-const HTML_ATTRIBUTION =
-  /^(On|Den|Am|Le|El)\s[\s\S]*\b(wrote|skrev|schrieb|a écrit|escribió)\b[^:]*:$/i;
+const HTML_ATTRIBUTION = new RegExp(
+  `^(${ATTRIBUTION_START_WORDS})\\s[\\s\\S]*\\b(${ATTRIBUTION_VERBS})\\b[^:]*:$`,
+  "i",
+);
+
+/** Tags whose start ends a run of inline text when walking back. */
+const BLOCK_TAGS = new Set([
+  "DIV",
+  "P",
+  "TABLE",
+  "TBODY",
+  "TR",
+  "TD",
+  "TH",
+  "UL",
+  "OL",
+  "LI",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "SECTION",
+  "ARTICLE",
+  "HEADER",
+  "FOOTER",
+  "PRE",
+  "CENTER",
+  "BLOCKQUOTE",
+  "HR",
+]);
+
+/** Whitespace (incl. non-breaking) collapsed to single spaces, trimmed. */
+function normalizeText(text: string): string {
+  return text.replace(/[\s\u00a0]+/g, " ").trim();
+}
 
 /** Element text with entities decoded and whitespace collapsed. */
 function elementText(el: Node): string {
-  return (el.textContent ?? "").replace(/[\s\u00a0]+/g, " ").trim();
+  return normalizeText(el.textContent ?? "");
+}
+
+/** Non-blank lines of an element, `<br>` as the line break. */
+function elementLines(el: Element): string[] {
+  const clone = el.cloneNode(true) as Element;
+  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  return (clone.textContent ?? "")
+    .split("\n")
+    .map(normalizeText)
+    .filter((l) => l !== "");
 }
 
 /** True when no visible text follows `el` in document order. */
@@ -352,6 +399,7 @@ function isTrailing(el: Element, body: HTMLElement): boolean {
   let node: Node | null = el;
   while (node && node !== body) {
     for (let sib = node.nextSibling; sib; sib = sib.nextSibling) {
+      if (sib.nodeType === 8 /* COMMENT_NODE */) continue;
       if (elementText(sib) !== "") return false;
     }
     node = node.parentNode;
@@ -359,15 +407,19 @@ function isTrailing(el: Element, body: HTMLElement): boolean {
   return true;
 }
 
+/** A one-line "Sent from my iPhone" / "Get Outlook for iOS" element. */
+function isSentFromLine(el: Element): boolean {
+  const lines = elementLines(el);
+  return (
+    lines.length === 1 &&
+    (SENT_FROM.test(lines[0]) || MOBILE_APP_LINE.test(lines[0]))
+  );
+}
+
 /** Outlook desktop: `<div style="border-top:…"><p><b>From:</b> … <br><b>Sent:</b> …`. */
 function isOutlookHeader(el: Element): boolean {
   if (!/border-top/i.test(el.getAttribute("style") ?? "")) return false;
-  const clone = el.cloneNode(true) as Element;
-  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
-  const lines = (clone.textContent ?? "")
-    .split("\n")
-    .map((l) => l.replace(/\u00a0/g, " ").trim())
-    .filter((l) => l !== "");
+  const lines = elementLines(el);
   return lines.length > 0 && isForwardHeader(lines, 0);
 }
 
@@ -380,17 +432,69 @@ function isMarker(el: Element, body: HTMLElement): boolean {
   const text = elementText(el);
   if (text.length > 200) return false;
   if (SIGNATURE_DELIMITER.test(text)) return true;
-  if (SENT_FROM.test(text) || MOBILE_APP_LINE.test(text)) {
-    return isTrailing(el, body);
-  }
+  if (isSentFromLine(el)) return isTrailing(el, body);
   return false;
 }
 
 /**
+ * One step of pulling the boundary backwards: an attribution or "Sent from"
+ * element, a trailing blockquote (a signature below the quote), or an
+ * `<hr>` right before it. Inline elements and `<br>`s are read as text;
+ * blank elements without images are skipped. Returns null when the
+ * boundary stays.
+ */
+function extendBoundaryOnce(
+  boundary: Element,
+  body: HTMLElement,
+): Element | null {
+  let before = "";
+  let prevEl: Element | null = null;
+  for (let n = boundary.previousSibling; n; n = n.previousSibling) {
+    if (n.nodeType === 1) {
+      const el = n as Element;
+      if (BLOCK_TAGS.has(el.tagName)) {
+        // Spacer paragraphs (Outlook's `<p><o:p>&nbsp;</o:p></p>`) carry
+        // nothing visible; look past them.
+        if (
+          before === "" &&
+          elementText(el) === "" &&
+          !el.querySelector("img")
+        ) {
+          continue;
+        }
+        prevEl = el;
+        break;
+      }
+      if (el.tagName === "BR") continue;
+    }
+    before = (n.textContent ?? "") + before;
+  }
+  before = normalizeText(before);
+  const parent = boundary.parentElement;
+  if (before === "" && prevEl) {
+    if (
+      prevEl.tagName === "HR" ||
+      prevEl.tagName === "BLOCKQUOTE" ||
+      HTML_ATTRIBUTION.test(elementText(prevEl)) ||
+      isSentFromLine(prevEl)
+    ) {
+      return prevEl;
+    }
+    return null;
+  }
+  if (before !== "" && !prevEl && parent && parent !== body) {
+    // Bare text before the marker inside a shared parent (Apple Mail puts
+    // "Den … skrev X:<br>" and the blockquote in one div).
+    if (HTML_ATTRIBUTION.test(before)) return parent;
+  }
+  return null;
+}
+
+/**
  * The element where the quoted / signature tail begins, or null. The first
- * marker in document order wins; an "On … wrote:" attribution paragraph or
- * an `<hr>` right before it is pulled in. Null when nothing visible would
- * remain above the boundary.
+ * marker in document order wins, then the boundary is pulled back over what
+ * belongs to the tail (see `extendBoundaryOnce`). Null when nothing visible
+ * would remain above the boundary.
  */
 export function findQuoteBoundary(doc: Document): Element | null {
   const body = doc.body;
@@ -403,33 +507,12 @@ export function findQuoteBoundary(doc: Document): Element | null {
   }
   if (!boundary) return null;
 
-  // Attribution just before the marker: the nearest preceding element
-  // (skipping <br>s), or bare text nodes inside a shared parent (Apple Mail
-  // puts "Den … skrev X:<br>" and the blockquote in one div). An <hr> right
-  // before the marker (Outlook web) goes too.
-  let before = "";
-  let prevEl: Element | null = null;
-  for (let n = boundary.previousSibling; n; n = n.previousSibling) {
-    if (n.nodeType === 1 && (n as Element).tagName !== "BR") {
-      prevEl = n as Element;
-      break;
-    }
-    before = (n.textContent ?? "") + before;
-  }
-  before = before.replace(/[\s\u00a0]+/g, " ").trim();
-  const parent = boundary.parentElement;
-  if (before === "" && prevEl) {
-    if (prevEl.tagName === "HR" || HTML_ATTRIBUTION.test(elementText(prevEl))) {
-      boundary = prevEl;
-    }
-  } else if (
-    before !== "" &&
-    !prevEl &&
-    parent &&
-    parent !== body &&
-    HTML_ATTRIBUTION.test(before)
-  ) {
-    boundary = parent;
+  // Pull the boundary back over attribution lines, "Sent from" lines, a
+  // quote that a signature marker sits below, and Outlook web's <hr>.
+  for (let i = 0; i < 8; i++) {
+    const earlier = extendBoundaryOnce(boundary, body);
+    if (!earlier) break;
+    boundary = earlier;
   }
 
   // Whole body quoted: collapsing would leave nothing visible.
