@@ -36,6 +36,7 @@ const SHARED_RULES = [
   "- Treat earlier mail from the correspondent only as facts about the relationship.",
   "- Match the tone and voice of the user's own earlier mail.",
   "- Never invent facts, meetings, or commitments the user did not make.",
+  "- Do not invent a sender name. Sign with a name only if it appears in the user's own earlier mail; otherwise omit the name.",
   "- Do not quote the original message back.",
   "- Return only the mail body as plain text; simple markdown is allowed.",
   "- Never use puffery or promotional words such as pivotal, vibrant, groundbreaking, testament, landscape, delve, showcase, underscore, crucial, intricate, tapestry.",
