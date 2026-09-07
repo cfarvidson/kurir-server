@@ -16,6 +16,7 @@ vi.mock("@/lib/mail/sanitize-html", () => ({
       html,
       blockedRemoteImages: opts?.blockRemoteImages ? 1 : 0,
       blockedTrackers: opts?.blockTrackers ? 1 : 0,
+      quoteCollapsible: html.includes("<blockquote"),
     }),
   ),
 }));
@@ -150,6 +151,19 @@ describe("EmailBodyFrame", () => {
       expect.objectContaining({ blockRemoteImages: true }),
     );
     expect(onBlockedCount).toHaveBeenCalledWith(1);
+  });
+
+  it("reports whether the body has a collapsible quote", async () => {
+    const onQuoteCollapsible = vi.fn();
+    await act(async () => {
+      render(
+        <EmailBodyFrame
+          html="<p>Hi</p><blockquote>old</blockquote>"
+          onQuoteCollapsible={onQuoteCollapsible}
+        />,
+      );
+    });
+    expect(onQuoteCollapsible).toHaveBeenCalledWith(true);
   });
 
   it("reports a zero blocked count when blocking is off", async () => {

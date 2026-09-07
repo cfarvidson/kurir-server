@@ -79,6 +79,16 @@ describe("createSnippet", () => {
     expect(createSnippet("> quoted text\n> more")).toBe("quoted text > more");
   });
 
+  it("drops the quoted tail and signature", () => {
+    expect(
+      createSnippet("Sure thing.\n\nOn X wrote:\n> could you?"),
+    ).toBe("Sure thing.");
+    expect(
+      createSnippet("Hej!\n\nFrån: a@b.c\nSkickat: igår\nTill: d@e.f\n\nold"),
+    ).toBe("Hej!");
+    expect(createSnippet("Bye\n-- \nBob")).toBe("Bye");
+  });
+
   it("respects custom maxLength", () => {
     const result = createSnippet("Hello world, this is a test", 10);
     expect(result).toBe("Hello worl...");

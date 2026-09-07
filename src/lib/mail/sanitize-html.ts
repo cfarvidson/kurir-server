@@ -1,4 +1,10 @@
 import DOMPurify from "dompurify";
+import {
+  MOBILE_APP_LINE,
+  SENT_FROM,
+  SIGNATURE_DELIMITER,
+  isForwardHeader,
+} from "./quote-utils";
 import { isLikelyTracker } from "./tracker-detection";
 
 export interface CidAttachment {
@@ -7,7 +13,11 @@ export interface CidAttachment {
 }
 
 export interface SanitizeOptions {
-  /** When true, strip blockquote / gmail_quote elements from the output. */
+  /**
+   * When true, the trailing quoted / signature part is cut from the output
+   * (see `findQuoteBoundary`). `quoteCollapsible` in the result says whether
+   * there was anything to cut, regardless of this flag.
+   */
   collapseQuotes?: boolean;
   /** Message attachments for CID→URL rewriting */
   attachments?: CidAttachment[];
@@ -41,6 +51,8 @@ export interface SanitizeResult {
    * as trackers in `blockTrackers` mode. Zero in the other modes.
    */
   blockedTrackers: number;
+  /** True when the body has a quoted / signature tail that can be collapsed. */
+  quoteCollapsible: boolean;
 }
 
 /** Build the proxied URL used to load a remote image through our own server. */
@@ -183,7 +195,12 @@ export function sanitizeEmailHtmlWithMeta(
 ): SanitizeResult {
   if (typeof window === "undefined") {
     // Server-side: return empty string — the iframe renders client-side only.
-    return { html: "", blockedRemoteImages: 0, blockedTrackers: 0 };
+    return {
+      html: "",
+      blockedRemoteImages: 0,
+      blockedTrackers: 0,
+      quoteCollapsible: false,
+    };
   }
 
   const purify = DOMPurify(window);
@@ -271,25 +288,16 @@ export function sanitizeEmailHtmlWithMeta(
     }
   });
 
-  // 5. Optionally collapse quotes.
-  if (options.collapseQuotes) {
-    // Standard blockquotes.
-    doc.querySelectorAll("blockquote").forEach((el) => el.remove());
-    // Gmail / Mozilla / Yahoo / Proton quote wrappers.
-    doc
-      .querySelectorAll(
-        ".gmail_quote, .moz-cite-prefix, .yahoo_quoted, .protonmail_quote",
-      )
-      .forEach((el) => el.remove());
-    // "On <date>, <name> wrote:" attribution paragraphs preceding quotes.
-    doc.querySelectorAll("p, div").forEach((el) => {
-      if (/^On .+wrote:\s*$/.test(el.textContent?.trim() ?? "")) {
-        el.remove();
-      }
-    });
-  }
+  // 5. Optionally collapse the quoted / signature tail.
+  const boundary = findQuoteBoundary(doc);
+  if (boundary && options.collapseQuotes) truncateFrom(boundary, doc.body);
 
-  return { html: doc.body.innerHTML, blockedRemoteImages, blockedTrackers };
+  return {
+    html: doc.body.innerHTML,
+    blockedRemoteImages,
+    blockedTrackers,
+    quoteCollapsible: boundary !== null,
+  };
 }
 
 /** Exported for tests. Removes CSS comments, then drops url()/image-set(). */
@@ -306,4 +314,148 @@ export function stripCssResourceLoads(style: string): string {
     .map((decl) => decl.trim())
     .filter((decl) => decl && !/\\[0-9a-f]{1,6}/i.test(decl))
     .join("; ");
+}
+
+// ---------------------------------------------------------------------------
+// Quote / signature boundary
+//
+// Mirrored by the iOS client in `QuoteDetection.swift`; keep the two in step.
+// Only strong signals count: explicit wrapper classes/ids that mail clients
+// emit, the Outlook desktop reply header, a trailing blockquote, the "-- "
+// signature separator and "Sent from my iPhone"-style closers.
+// ---------------------------------------------------------------------------
+
+/** Wrappers that contain the whole quoted thread or the signature. */
+const QUOTE_WRAPPER_SELECTOR = [
+  ".gmail_quote",
+  ".moz-cite-prefix",
+  ".yahoo_quoted",
+  ".protonmail_quote",
+  "#divRplyFwdMsg",
+  "#appendonsend",
+  ".gmail_signature",
+  ".moz-signature",
+  "#Signature",
+  "#ms-outlook-mobile-signature",
+].join(", ");
+
+const HTML_ATTRIBUTION =
+  /^(On|Den|Am|Le|El)\s[\s\S]*\b(wrote|skrev|schrieb|a écrit|escribió)\b[^:]*:$/i;
+
+/** Element text with entities decoded and whitespace collapsed. */
+function elementText(el: Node): string {
+  return (el.textContent ?? "").replace(/[\s\u00a0]+/g, " ").trim();
+}
+
+/** True when no visible text follows `el` in document order. */
+function isTrailing(el: Element, body: HTMLElement): boolean {
+  let node: Node | null = el;
+  while (node && node !== body) {
+    for (let sib = node.nextSibling; sib; sib = sib.nextSibling) {
+      if (elementText(sib) !== "") return false;
+    }
+    node = node.parentNode;
+  }
+  return true;
+}
+
+/** Outlook desktop: `<div style="border-top:…"><p><b>From:</b> … <br><b>Sent:</b> …`. */
+function isOutlookHeader(el: Element): boolean {
+  if (!/border-top/i.test(el.getAttribute("style") ?? "")) return false;
+  const clone = el.cloneNode(true) as Element;
+  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  const lines = (clone.textContent ?? "")
+    .split("\n")
+    .map((l) => l.replace(/\u00a0/g, " ").trim())
+    .filter((l) => l !== "");
+  return lines.length > 0 && isForwardHeader(lines, 0);
+}
+
+function isMarker(el: Element, body: HTMLElement): boolean {
+  if (el.matches(QUOTE_WRAPPER_SELECTOR)) return true;
+  const tag = el.tagName;
+  if (tag === "BLOCKQUOTE") return isTrailing(el, body);
+  if (tag !== "DIV" && tag !== "P") return false;
+  if (isOutlookHeader(el)) return true;
+  const text = elementText(el);
+  if (text.length > 200) return false;
+  if (SIGNATURE_DELIMITER.test(text)) return true;
+  if (SENT_FROM.test(text) || MOBILE_APP_LINE.test(text)) {
+    return isTrailing(el, body);
+  }
+  return false;
+}
+
+/**
+ * The element where the quoted / signature tail begins, or null. The first
+ * marker in document order wins; an "On … wrote:" attribution paragraph or
+ * an `<hr>` right before it is pulled in. Null when nothing visible would
+ * remain above the boundary.
+ */
+export function findQuoteBoundary(doc: Document): Element | null {
+  const body = doc.body;
+  let boundary: Element | null = null;
+  for (const el of Array.from(body.querySelectorAll("*"))) {
+    if (isMarker(el, body)) {
+      boundary = el;
+      break;
+    }
+  }
+  if (!boundary) return null;
+
+  // Attribution just before the marker: the nearest preceding element
+  // (skipping <br>s), or bare text nodes inside a shared parent (Apple Mail
+  // puts "Den … skrev X:<br>" and the blockquote in one div). An <hr> right
+  // before the marker (Outlook web) goes too.
+  let before = "";
+  let prevEl: Element | null = null;
+  for (let n = boundary.previousSibling; n; n = n.previousSibling) {
+    if (n.nodeType === 1 && (n as Element).tagName !== "BR") {
+      prevEl = n as Element;
+      break;
+    }
+    before = (n.textContent ?? "") + before;
+  }
+  before = before.replace(/[\s\u00a0]+/g, " ").trim();
+  const parent = boundary.parentElement;
+  if (before === "" && prevEl) {
+    if (prevEl.tagName === "HR" || HTML_ATTRIBUTION.test(elementText(prevEl))) {
+      boundary = prevEl;
+    }
+  } else if (
+    before !== "" &&
+    !prevEl &&
+    parent &&
+    parent !== body &&
+    HTML_ATTRIBUTION.test(before)
+  ) {
+    boundary = parent;
+  }
+
+  // Whole body quoted: collapsing would leave nothing visible.
+  const walker = doc.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */);
+  let visible = false;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (
+      boundary.contains(n) ||
+      boundary.compareDocumentPosition(n) & 4 /* DOCUMENT_POSITION_FOLLOWING */
+    ) {
+      break;
+    }
+    if (elementText(n) !== "") {
+      visible = true;
+      break;
+    }
+  }
+  return visible ? boundary : null;
+}
+
+/** Remove `el` and everything after it in document order, up to `body`. */
+function truncateFrom(el: Element, body: HTMLElement): void {
+  let node: Node | null = el;
+  while (node && node !== body) {
+    while (node.nextSibling) node.nextSibling.remove();
+    node = node.parentNode;
+  }
+  el.remove();
 }

@@ -263,9 +263,8 @@ describe("content fallback with the shared snippet computation", () => {
       { isInbox: false },
     );
 
-    expect(storedSnippet).toBe(
-      "First line of the reply Second line > quoted tail",
-    );
+    // The quoted tail is dropped from the snippet on both sides.
+    expect(storedSnippet).toBe("First line of the reply Second line");
     expect(queriedSnippet).toBe(storedSnippet);
     // Reconciled, not duplicated — and threading is repaired, not frozen.
     expect(db.message.update).toHaveBeenCalledWith(

@@ -229,6 +229,8 @@ function MessageBubble({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
+  // Reported by the sanitizer once the HTML body has rendered client-side.
+  const [hasHtmlQuotes, setHasHtmlQuotes] = useState(false);
   const [imagesRevealed, setImagesRevealed] = useState(false);
   const [blockedCount, setBlockedCount] = useState(0);
   const [blockedTrackers, setBlockedTrackers] = useState(0);
@@ -245,10 +247,6 @@ function MessageBubble({
   // True only in full block-all mode — drives the "Load images" banner + print.
   const shouldBlockImages = sanitizeFlags.blockRemoteImages;
 
-  const hasHtmlQuotes =
-    /<blockquote|class="gmail_quote"|class="moz-cite-prefix"/.test(
-      message.htmlBody ?? "",
-    );
   const { body: plainBody, quoted: plainQuoted } = splitPlainTextQuotes(
     message.textBody ?? "",
   );
@@ -395,7 +393,8 @@ function MessageBubble({
                       )}
                       <EmailBodyFrame
                         html={message.htmlBody}
-                        collapseQuotes={quotesCollapsed && hasHtmlQuotes}
+                        collapseQuotes={quotesCollapsed}
+                        onQuoteCollapsible={setHasHtmlQuotes}
                         attachments={message.attachments}
                         blockRemoteImages={sanitizeFlags.blockRemoteImages}
                         blockTrackers={sanitizeFlags.blockTrackers}
@@ -421,14 +420,14 @@ function MessageBubble({
                       onClick={() => setQuotesCollapsed(!quotesCollapsed)}
                       aria-label={
                         quotesCollapsed
-                          ? "Show quoted text"
+                          ? "Show full message"
                           : "Hide quoted text"
                       }
                       aria-expanded={!quotesCollapsed}
                       className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <MoreHorizontal className="h-3 w-3" />
-                      {quotesCollapsed ? "Show quoted text" : "Hide"}
+                      {quotesCollapsed ? "Show full message" : "Hide"}
                     </button>
                   )}
                 </div>
