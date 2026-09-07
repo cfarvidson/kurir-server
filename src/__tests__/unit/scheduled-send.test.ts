@@ -23,7 +23,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/mail/persist-sent", () => ({
-  createLocalSentMessage: vi.fn(),
+  createLocalSentMessage: vi.fn().mockResolvedValue({ id: "sent-1" }),
   appendToImapSent: vi.fn(),
 }));
 

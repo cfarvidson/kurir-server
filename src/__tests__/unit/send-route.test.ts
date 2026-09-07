@@ -27,6 +27,12 @@ vi.mock("@/lib/mail/persist-sent", () => ({
   appendToImapSent: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/mail/mutations", () => ({
+  applyFollowUpAfterSend: vi.fn().mockResolvedValue(undefined),
+  setThreadFollowUp: vi.fn(),
+  dismissThreadFollowUp: vi.fn(),
+}));
+
 vi.mock("@/lib/mail/contacts", () => ({
   findOrCreateContactForEmail: vi.fn().mockResolvedValue({ id: "c1" }),
 }));
@@ -199,6 +205,45 @@ describe("POST /api/mail/send", () => {
         ccAddresses: ["c@example.com", "d@example.com"],
         bccAddresses: ["e@example.com"],
       }),
+    );
+  });
+
+  it("applies follow-up on the persisted sent message when followUpUntil is set", async () => {
+    const { auth, getDefaultConnectionCredentials } =
+      await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as any);
+    vi.mocked(getDefaultConnectionCredentials).mockResolvedValue({
+      connectionId: "conn-default",
+      email: "me@gmail.com",
+      sendAsEmail: null,
+      aliases: [],
+      treatDomainAsOwn: false,
+      password: "pass",
+      accessToken: null,
+      oauthProvider: null,
+      imap: { host: "imap.gmail.com", port: 993 },
+      smtp: { host: "smtp.gmail.com", port: 587 },
+    });
+
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findFirst).mockResolvedValue(null);
+
+    const until = new Date("2026-09-10T08:00:00.000Z");
+    const { applyFollowUpAfterSend } = await import("@/lib/mail/mutations");
+    const { POST } = await import("@/app/api/mail/send/route");
+    const req = makeRequest({
+      to: "a@example.com",
+      subject: "Hi",
+      text: "Hello",
+      followUpUntil: until.toISOString(),
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    expect(applyFollowUpAfterSend).toHaveBeenCalledWith(
+      "user-1",
+      "sent-1",
+      until,
     );
   });
 

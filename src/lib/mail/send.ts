@@ -15,6 +15,7 @@ import {
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
 import { assignThread } from "@/lib/mail/thread-assign";
+import { applyFollowUpAfterSend } from "@/lib/mail/mutations";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -45,6 +46,7 @@ export const sendMailSchema = z.object({
       contextMessageId: z.string().min(1),
     })
     .optional(),
+  followUpUntil: z.coerce.date().optional(),
 });
 
 export type SendMailInput = z.infer<typeof sendMailSchema>;
@@ -75,6 +77,7 @@ export async function sendMailForUser(
     fromConnectionId,
     attachmentIds,
     draft,
+    followUpUntil,
   } = input;
 
   // Support multiple recipients (comma/semicolon separated) across To/Cc/Bcc.
@@ -190,7 +193,7 @@ export async function sendMailForUser(
     references: references || [],
   });
 
-  await createLocalSentMessage({
+  const sent = await createLocalSentMessage({
     userId,
     emailConnectionId: resolvedConnectionId,
     messageId: result.messageId || null,
@@ -207,6 +210,7 @@ export async function sendMailForUser(
     html: displayHtml,
     attachmentIds: loaded.ids,
   });
+  await applyFollowUpAfterSend(userId, sent?.id, followUpUntil);
 
   // The mail is out and persisted; drop the originating draft. A failure here
   // must not turn a successful send into an error response — the client's own

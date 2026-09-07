@@ -799,6 +799,10 @@ model ScheduledMessage {
   // Attachment IDs (references Attachment table, linked at send time)
   attachmentIds String[] @default([])
 
+  // Wait-for-reply deadline, computed by the client from the scheduled send
+  // time plus a follow-up preset. Applied when the mail actually goes out.
+  followUpUntil DateTime?
+
   // Ownership
   userId            String
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)

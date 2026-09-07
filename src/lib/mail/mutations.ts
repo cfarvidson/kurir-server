@@ -504,6 +504,20 @@ export async function setThreadFollowUp(
   });
 }
 
+/** Apply follow-up after a send. Failures must not fail the send itself. */
+export async function applyFollowUpAfterSend(
+  userId: string,
+  messageId: string | undefined | null,
+  until: Date | null | undefined,
+) {
+  if (!messageId || !until) return;
+  try {
+    await setThreadFollowUp(userId, messageId, until);
+  } catch (err) {
+    console.error("Follow-up after send failed:", err);
+  }
+}
+
 /** Clear any follow-up state for a whole thread. */
 export async function dismissThreadFollowUp(userId: string, messageId: string) {
   const message = await db.message.findFirst({
