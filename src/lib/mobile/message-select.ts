@@ -9,6 +9,7 @@ export const MESSAGE_SELECT = {
   id: true,
   updatedAt: true,
   threadId: true,
+  splitFromThreadId: true,
   messageId: true,
   inReplyTo: true,
   references: true,

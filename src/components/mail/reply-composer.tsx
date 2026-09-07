@@ -38,6 +38,8 @@ interface ReplyComposerProps {
   references: string[];
   userTimezone: string;
   hasDraft?: boolean;
+  /** Reports whether a draft with content exists for this target. */
+  onDraftPresence?: (hasDraft: boolean) => void;
 }
 
 export function ReplyComposer({
@@ -54,6 +56,7 @@ export function ReplyComposer({
   references,
   userTimezone,
   hasDraft: hasDraftProp = false,
+  onDraftPresence,
 }: ReplyComposerProps) {
   const canReplyAll = replyAllExtraTo.length > 0 || replyAllCc.length > 0;
   const replyAllToString = [replyToAddress, ...replyAllExtraTo].join(", ");
@@ -85,6 +88,7 @@ export function ReplyComposer({
   const savedBccRef = useRef("");
   const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
   const restoredFromDraftRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const resetRecipients = useCallback(() => {
     setTo(replyToAddress);
@@ -181,6 +185,8 @@ export function ReplyComposer({
       body,
       attachmentIds,
     });
+    onDraftPresence?.(body.trim().length > 0 || attachmentIds.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, cc, bcc, savedSubject, subject, body, attachments, isOpen, saveDraft]);
 
   const openReplyAll = useCallback(() => {
@@ -191,12 +197,22 @@ export function ReplyComposer({
     setIsOpen(true);
   }, [replyAllToString, replyAllCcString, replyAllCc.length]);
 
-  // Listen for keyboard shortcuts to focus/open the reply composer
+  // Open on the `r` / `a` shortcuts and on a card's Reply / Reply all
+  // button (plan 055), which the thread dispatches as the same events.
   useEffect(() => {
-    const replyHandler = () => setIsOpen(true);
+    const reveal = () =>
+      containerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    const replyHandler = () => {
+      setIsOpen(true);
+      reveal();
+    };
     const replyAllHandler = () => {
       if (canReplyAll) openReplyAll();
       else setIsOpen(true);
+      reveal();
     };
     window.addEventListener("keyboard-reply", replyHandler);
     window.addEventListener("keyboard-reply-all", replyAllHandler);
@@ -256,6 +272,7 @@ export function ReplyComposer({
       });
       cancelPendingSave();
       await removeDraft();
+      onDraftPresence?.(false);
       toast.success("Reply scheduled");
       setBody("");
       setAttachments([]);
@@ -313,6 +330,7 @@ export function ReplyComposer({
           sentBcc || undefined,
         );
         await removeDraft();
+        onDraftPresence?.(false);
         onSent?.(sentBody);
       },
       () => {
@@ -342,7 +360,7 @@ export function ReplyComposer({
   };
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       {!isOpen ? (
         <button
           data-reply-composer-trigger
@@ -569,6 +587,7 @@ export function ReplyComposer({
                   if (hasContent && !confirm("Discard reply?")) return;
                   cancelPendingSave();
                   removeDraft();
+                  onDraftPresence?.(false);
                   setBody("");
                   setAttachments([]);
                   resetRecipients();

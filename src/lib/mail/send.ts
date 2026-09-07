@@ -14,7 +14,7 @@ import {
   createLocalSentMessage,
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
-import { assignThreadId } from "@/lib/mail/thread-assign";
+import { assignThread } from "@/lib/mail/thread-assign";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
@@ -183,7 +183,7 @@ export async function sendMailForUser(
   // Thread like ingest: reuse a related thread, root-fall-back to our own
   // Message-ID, and back-fill the conversation so a null-threadId anchor
   // joins the reply's thread.
-  const threadId = await assignThreadId({
+  const { threadId, splitFromThreadId } = await assignThread({
     userId,
     messageId: result.messageId || null,
     inReplyTo: inReplyTo || null,
@@ -195,6 +195,7 @@ export async function sendMailForUser(
     emailConnectionId: resolvedConnectionId,
     messageId: result.messageId || null,
     threadId,
+    splitFromThreadId,
     inReplyTo: inReplyTo || null,
     references: references || [],
     subject,

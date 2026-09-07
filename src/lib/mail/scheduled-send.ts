@@ -7,7 +7,7 @@ import { convertMarkdownToEmailHtml } from "./markdown-to-email";
 import { loadAttachmentsForSend } from "./attachment-helpers";
 import { buildSmtpAuth } from "./auth-helpers";
 import { parseRecipients } from "./recipients";
-import { assignThreadId } from "./thread-assign";
+import { assignThread } from "./thread-assign";
 import { emitToUser } from "./sse-subscribers";
 import nodemailer from "nodemailer";
 import type { EmailConnection, ScheduledMessage } from "@prisma/client";
@@ -165,7 +165,7 @@ async function processSingleMessage(
     // Shared with the direct-send path: resolves against known related
     // messages, falls back to our own Message-ID for fresh conversations,
     // and back-fills null/divergent threadIds on the anchor.
-    const threadId = await assignThreadId({
+    const { threadId, splitFromThreadId } = await assignThread({
       userId: msg.userId,
       messageId: result.messageId || null,
       inReplyTo: msg.inReplyToMessageId || null,
@@ -189,6 +189,7 @@ async function processSingleMessage(
       emailConnectionId: msg.emailConnectionId,
       messageId: result.messageId || null,
       threadId,
+      splitFromThreadId,
       inReplyTo: msg.inReplyToMessageId || null,
       references: refList,
       subject: msg.subject,

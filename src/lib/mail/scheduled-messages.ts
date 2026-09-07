@@ -8,7 +8,7 @@ import {
   appendToImapSent,
 } from "@/lib/mail/persist-sent";
 import { parseRecipients } from "@/lib/mail/recipients";
-import { assignThreadId } from "@/lib/mail/thread-assign";
+import { assignThread } from "@/lib/mail/thread-assign";
 import { rateLimitSend } from "@/lib/rate-limit";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { isDemoInstance } from "@/lib/demo";
@@ -440,7 +440,7 @@ export async function deliverScheduledNowForUser(
     const refList = msg.references
       ? msg.references.split(" ").filter(Boolean)
       : [];
-    const threadId = await assignThreadId({
+    const { threadId, splitFromThreadId } = await assignThread({
       userId,
       messageId: result.messageId || null,
       inReplyTo: msg.inReplyToMessageId || null,
@@ -460,6 +460,7 @@ export async function deliverScheduledNowForUser(
       emailConnectionId: msg.emailConnectionId,
       messageId: result.messageId || null,
       threadId,
+      splitFromThreadId,
       inReplyTo: msg.inReplyToMessageId || null,
       references: refList,
       subject: msg.subject,

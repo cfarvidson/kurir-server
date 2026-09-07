@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     emailConnection: {
       findUnique: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     folder: {
       findUnique: vi.fn(),
@@ -179,8 +180,14 @@ describe("thread repair gating", () => {
       id: true,
       messageId: true,
       threadId: true,
+      splitFromThreadId: true,
       inReplyTo: true,
       references: true,
+      fromAddress: true,
+      toAddresses: true,
+      ccAddresses: true,
+      sentAt: true,
+      receivedAt: true,
     },
   };
 

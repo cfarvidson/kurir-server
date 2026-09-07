@@ -98,6 +98,8 @@ export async function createLocalSentMessage(opts: {
   emailConnectionId: string;
   messageId: string | null;
   threadId: string | null;
+  /** Branch marker (plan 055); a reply inside a branch stays in it. */
+  splitFromThreadId?: string | null;
   inReplyTo: string | null;
   references: string[];
   subject: string;
@@ -119,6 +121,7 @@ export async function createLocalSentMessage(opts: {
       uid: generateTempUid(),
       messageId: opts.messageId,
       threadId: opts.threadId,
+      splitFromThreadId: opts.splitFromThreadId ?? null,
       inReplyTo: opts.inReplyTo,
       references: opts.references,
       subject: opts.subject,

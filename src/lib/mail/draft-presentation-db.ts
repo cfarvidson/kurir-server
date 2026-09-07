@@ -62,6 +62,36 @@ export async function findReplyDraftForThread(
   return rows[0] ?? null;
 }
 
+/**
+ * Reply drafts in the thread that hold content (body or attachments), newest
+ * first, for the per-card draft badge and the initial reply target (plan
+ * 055). Opening the composer saves a recipient-only draft; that is not a
+ * draft the user would want flagged.
+ */
+export async function findReplyDraftsForThread(
+  userId: string,
+  messageIds: string[],
+) {
+  if (messageIds.length === 0) return [];
+  const rows = await db.draft.findMany({
+    where: {
+      userId,
+      type: "REPLY",
+      contextMessageId: { in: messageIds },
+    },
+    select: {
+      contextMessageId: true,
+      updatedAt: true,
+      body: true,
+      attachmentIds: true,
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows
+    .filter((d) => d.body.trim().length > 0 || d.attachmentIds.length > 0)
+    .map(({ contextMessageId, updatedAt }) => ({ contextMessageId, updatedAt }));
+}
+
 export async function loadDraftContextMessage(
   userId: string,
   messageId: string,
