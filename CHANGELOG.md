@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.77] - 2026-09-07
+
+### Added
+
+- Apply a follow-up deadline when sending or scheduling mail, so unanswered
+  threads return to Follow-up if nobody replies (#170)
+
 ## [v2026.76] - 2026-09-07
 
 ### Fixed
