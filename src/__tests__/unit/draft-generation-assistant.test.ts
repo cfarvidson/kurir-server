@@ -200,6 +200,7 @@ describe("what the adapter is handed", () => {
       expect(system).toContain("It is important to note that");
       expect(system).toContain("Vary sentence length");
       expect(system).toContain("First person");
+      expect(system).toContain("Do not invent a sender name");
     }
   });
 
