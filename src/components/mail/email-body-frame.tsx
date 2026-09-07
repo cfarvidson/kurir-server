@@ -8,7 +8,7 @@ import {
 
 interface EmailBodyFrameProps {
   html: string;
-  /** When true, blockquote / gmail_quote elements are stripped before rendering. */
+  /** When true, the quoted / signature tail is cut before rendering. */
   collapseQuotes?: boolean;
   /** Message attachments for CID→URL rewriting */
   attachments?: CidAttachment[];
@@ -27,6 +27,8 @@ interface EmailBodyFrameProps {
   onBlockedCount?: (count: number) => void;
   /** Reports how many remote images were stripped as trackers on the last render. */
   onTrackerCount?: (count: number) => void;
+  /** Reports whether the body has a collapsible quoted / signature tail. */
+  onQuoteCollapsible?: (collapsible: boolean) => void;
 }
 
 /**
@@ -55,6 +57,7 @@ export function EmailBodyFrame({
   blockTrackers,
   onBlockedCount,
   onTrackerCount,
+  onQuoteCollapsible,
 }: EmailBodyFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +69,7 @@ export function EmailBodyFrame({
       html: sanitized,
       blockedRemoteImages,
       blockedTrackers,
+      quoteCollapsible,
     } = sanitizeEmailHtmlWithMeta(html, {
       collapseQuotes,
       attachments,
@@ -74,6 +78,7 @@ export function EmailBodyFrame({
     });
     onBlockedCount?.(blockedRemoteImages);
     onTrackerCount?.(blockedTrackers);
+    onQuoteCollapsible?.(quoteCollapsible);
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
 
@@ -128,6 +133,7 @@ export function EmailBodyFrame({
     blockTrackers,
     onBlockedCount,
     onTrackerCount,
+    onQuoteCollapsible,
   ]);
 
   return <div ref={hostRef} className="bg-white" />;

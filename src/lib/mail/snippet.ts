@@ -1,5 +1,10 @@
+import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
+
 /**
  * Create a preview snippet from an email body.
+ *
+ * The quoted tail and signature are dropped first so a reply previews the
+ * author's words, not "From: … Sent: …".
  *
  * The single implementation shared by ingest (sync-service) and the local
  * sent-message persist (persist-sent). The Sent-folder reconciliation matches
@@ -12,8 +17,8 @@ export function createSnippet(
   maxLength = 150,
 ): string | null {
   if (!text) return null;
-  const cleaned = text
-    .replace(/\s+/g, " ")
+  const cleaned = splitPlainTextQuotes(text)
+    .body.replace(/\s+/g, " ")
     .replace(/^[\s>]+/gm, "")
     .trim();
   return cleaned.length > maxLength

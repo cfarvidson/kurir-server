@@ -92,7 +92,10 @@ function fakeMsg(overrides: {
   } as any;
 }
 
-async function mockParsed(overrides?: { text?: string; references?: string[] }) {
+async function mockParsed(overrides?: {
+  text?: string;
+  references?: string[];
+}) {
   const { simpleParser } = await import("mailparser");
   vi.mocked(simpleParser).mockResolvedValue({
     text: overrides?.text ?? "Hello",
@@ -126,13 +129,15 @@ describe("sent reconciliation dedup (Message-ID, uid-sign agnostic)", () => {
   it("reconciles a second IMAP copy in the same folder instead of inserting a duplicate", async () => {
     const db = await baseMocks();
     // First copy already synced with a real (positive) uid.
-    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
-      const w = args?.where ?? {};
-      if (typeof w.messageId === "string" && w.OR) {
-        return { id: "existing-1", uid: 77, folderId: "sent-folder" } as any;
-      }
-      return null;
-    });
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(
+      async (args: any) => {
+        const w = args?.where ?? {};
+        if (typeof w.messageId === "string" && w.OR) {
+          return { id: "existing-1", uid: 77, folderId: "sent-folder" } as any;
+        }
+        return null;
+      },
+    );
 
     const { processMessage } = await import("@/lib/mail/sync-service");
     await processMessage(
@@ -175,14 +180,16 @@ describe("sent reconciliation dedup (Message-ID, uid-sign agnostic)", () => {
         ccAddresses: [],
       },
     ] as any);
-    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
-      const w = args?.where ?? {};
-      // Dedup: the local placeholder row from the send.
-      if (typeof w.messageId === "string") {
-        return { id: "placeholder-1", uid: -5 } as any;
-      }
-      return null;
-    });
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(
+      async (args: any) => {
+        const w = args?.where ?? {};
+        // Dedup: the local placeholder row from the send.
+        if (typeof w.messageId === "string") {
+          return { id: "placeholder-1", uid: -5 } as any;
+        }
+        return null;
+      },
+    );
 
     const { processMessage } = await import("@/lib/mail/sync-service");
     await processMessage(
@@ -219,10 +226,12 @@ describe("content fallback with the shared snippet computation", () => {
       path: "Sent",
     } as any);
     let storedSnippet: string | null = null;
-    (vi.mocked(db.message.create).mockImplementation as any)(async (args: any) => {
-      storedSnippet = args.data.snippet;
-      return { id: "local-1", ...args.data } as any;
-    });
+    (vi.mocked(db.message.create).mockImplementation as any)(
+      async (args: any) => {
+        storedSnippet = args.data.snippet;
+        return { id: "local-1", ...args.data } as any;
+      },
+    );
     const { createLocalSentMessage } = await import("@/lib/mail/persist-sent");
     await createLocalSentMessage({
       userId: "user-1",
@@ -241,18 +250,20 @@ describe("content fallback with the shared snippet computation", () => {
     // snippet the content-fallback lookup queries with.
     await mockParsed({ text: multiline });
     let queriedSnippet: string | undefined;
-    (vi.mocked(db.message.findFirst).mockImplementation as any)(async (args: any) => {
-      const w = args?.where ?? {};
-      if (w.uid?.lt === 0 && w.fromAddress) {
-        queriedSnippet = w.snippet;
-        return {
-          id: "local-1",
-          uid: -5,
-          messageId: "<old@x>",
-        } as any;
-      }
-      return null;
-    });
+    (vi.mocked(db.message.findFirst).mockImplementation as any)(
+      async (args: any) => {
+        const w = args?.where ?? {};
+        if (w.uid?.lt === 0 && w.fromAddress) {
+          queriedSnippet = w.snippet;
+          return {
+            id: "local-1",
+            uid: -5,
+            messageId: "<old@x>",
+          } as any;
+        }
+        return null;
+      },
+    );
 
     const { processMessage } = await import("@/lib/mail/sync-service");
     await processMessage(
@@ -263,9 +274,8 @@ describe("content fallback with the shared snippet computation", () => {
       { isInbox: false },
     );
 
-    expect(storedSnippet).toBe(
-      "First line of the reply Second line > quoted tail",
-    );
+    // The quoted tail is dropped from the snippet on both sides.
+    expect(storedSnippet).toBe("First line of the reply Second line");
     expect(queriedSnippet).toBe(storedSnippet);
     // Reconciled, not duplicated — and threading is repaired, not frozen.
     expect(db.message.update).toHaveBeenCalledWith(
@@ -392,10 +402,12 @@ describe("\\Sent-less servers", () => {
         connect: vi.fn().mockResolvedValue(undefined),
         logout: vi.fn().mockResolvedValue(undefined),
         // A name-decoy listed before the real \Sent mailbox.
-        list: vi.fn().mockResolvedValue([
-          { path: "Sent-Archive-2019" },
-          { path: "Skickat", specialUse: "\\Sent" },
-        ]),
+        list: vi
+          .fn()
+          .mockResolvedValue([
+            { path: "Sent-Archive-2019" },
+            { path: "Skickat", specialUse: "\\Sent" },
+          ]),
         search: vi.fn().mockResolvedValue([]),
         status: vi.fn().mockResolvedValue({
           messages: 0,

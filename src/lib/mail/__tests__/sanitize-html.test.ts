@@ -406,6 +406,194 @@ describe("sanitizeEmailHtml", () => {
     });
   });
 
+  describe("quote boundary", () => {
+    // Outlook desktop (Word-rendered) reply, trimmed from a real message:
+    // the header sits in a border-top div and the quoted body follows as
+    // siblings inside WordSection1 — no blockquote anywhere.
+    const outlook =
+      "<div class=WordSection1>" +
+      "<p class=MsoNormal>Hej!<o:p></o:p></p>" +
+      "<p class=MsoNormal>Ifall du inte finner någon skylt?<o:p></o:p></p>" +
+      "<p class=MsoNormal><o:p>&nbsp;</o:p></p>" +
+      "<div style='border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm 0cm 0cm'>" +
+      "<p class=MsoNormal><b><span style='font-size:11.0pt'>Från:</span></b>" +
+      "<span style='font-size:11.0pt'> carl-fredrik@arvidson.io &lt;carl-fredrik@arvidson.io&gt; <br>" +
+      "<b>Skickat:</b> den 7 september 2026 12:30<br><b>Till:</b> info@portexpert.se<br>" +
+      "<b>Ämne:</b> Re: Sv: Portar<o:p></o:p></span></p></div>" +
+      "<p class=MsoNormal><o:p>&nbsp;</o:p></p>" +
+      "<p><span>Jag har letat men hittar ingen skylt.</span></p>" +
+      "</div>";
+
+    it("cuts an Outlook desktop reply at the Från:/Skickat: header", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(outlook, {
+        collapseQuotes: true,
+      });
+      expect(quoteCollapsible).toBe(true);
+      expect(html).toContain("Ifall du inte finner");
+      expect(html).not.toContain("Från:");
+      expect(html).not.toContain("Jag har letat");
+    });
+
+    it("reports the boundary without cutting when collapseQuotes is off", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(outlook);
+      expect(quoteCollapsible).toBe(true);
+      expect(html).toContain("Jag har letat");
+    });
+
+    it("cuts the English Outlook header too", () => {
+      const html = sanitizeEmailHtml(
+        '<p>ok</p><div style="border-top:solid #E1E1E1 1.0pt"><p><b>From:</b> x<br><b>Sent:</b> y<br><b>To:</b> z</p></div><p>old</p>',
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("ok");
+      expect(html).not.toContain("old");
+    });
+
+    it("ignores a border-top div that is not a header", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
+        '<p>hi</p><div style="border-top:1px solid #ccc">Footer text</div>',
+        { collapseQuotes: true },
+      );
+      expect(quoteCollapsible).toBe(false);
+      expect(html).toContain("Footer text");
+    });
+
+    it("cuts the Outlook web reply (hr + divRplyFwdMsg) including the rule", () => {
+      const html = sanitizeEmailHtml(
+        '<div>Sure.</div><div id="appendonsend"></div><hr><div id="divRplyFwdMsg"><b>From:</b> x</div><div>old</div>',
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Sure.");
+      expect(html).not.toContain("<hr");
+      expect(html).not.toContain("old");
+    });
+
+    it("pulls in an attribution paragraph before a trailing blockquote", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Thanks</div><div>On Mon, Bob &lt;bob@x.y&gt; wrote:</div><blockquote>old</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Thanks");
+      expect(html).not.toContain("wrote:");
+      expect(html).not.toContain("old");
+    });
+
+    it("pulls in an Apple Mail attribution that shares a div with the quote", () => {
+      const html = sanitizeEmailHtml(
+        '<div>Tack</div><br><div>Den 7 sep. 2026 kl. 12:30 skrev Bob &lt;bob@x.y&gt;:<br><blockquote type="cite">old</blockquote></div>',
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Tack");
+      expect(html).not.toContain("skrev");
+      expect(html).not.toContain("old");
+    });
+
+    it("keeps an inline blockquote that has reply text after it", () => {
+      const src =
+        "<p>Hi</p><blockquote>q1</blockquote><p>a1</p><blockquote>q2</blockquote><p>a2</p>";
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(src, {
+        collapseQuotes: true,
+      });
+      expect(quoteCollapsible).toBe(false);
+      expect(html).toContain("a2");
+      expect(html).toContain("q1");
+    });
+
+    it("collapses only the trailing blockquote of an inline reply", () => {
+      const html = sanitizeEmailHtml(
+        "<p>Hi</p><blockquote>q1</blockquote><p>a1</p><blockquote>q2</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("a1");
+      expect(html).toContain("q1");
+      expect(html).not.toContain("q2");
+    });
+
+    it("cuts signature wrappers and the -- delimiter", () => {
+      expect(
+        sanitizeEmailHtml(
+          '<div>Bye</div><div class="gmail_signature">Bob<br>CEO</div>',
+          { collapseQuotes: true },
+        ),
+      ).not.toContain("CEO");
+      expect(
+        sanitizeEmailHtml('<div>Bye</div><div id="Signature">Bob</div>', {
+          collapseQuotes: true,
+        }),
+      ).not.toContain("Bob");
+      expect(
+        sanitizeEmailHtml("<p>Bye</p><p>--&nbsp;</p><p>Bob</p>", {
+          collapseQuotes: true,
+        }),
+      ).not.toContain("Bob");
+    });
+
+    it("cuts a trailing 'Sent from my iPhone' but not one mid-body", () => {
+      expect(
+        sanitizeEmailHtml("<div>Yes</div><div>Sent from my iPhone</div>", {
+          collapseQuotes: true,
+        }),
+      ).not.toContain("iPhone");
+      expect(
+        sanitizeEmailHtml(
+          "<div>Sent from my iPhone this morning.</div><div>Worked.</div>",
+          { collapseQuotes: true },
+        ),
+      ).toContain("Worked.");
+    });
+
+    it("pulls in an Apple Mail attribution with a mailto link", () => {
+      const html = sanitizeEmailHtml(
+        '<div>Tack</div><div>On 1 Jan <a href="mailto:bob@x.y">Bob</a> wrote:<br><blockquote>old</blockquote></div>',
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Tack");
+      expect(html).not.toContain("wrote:");
+    });
+
+    it("hides a 'Sent from' line above the quote, past blank spacers", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Yes</div><div>Sent from my iPhone</div><div><br></div><div>On X, Bob wrote:</div><blockquote>q</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("Yes");
+      expect(html).not.toContain("iPhone");
+    });
+
+    it("hides the quote when the signature marker sits below it", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Hi</div><div>On X, Bob wrote:</div><blockquote>q</blockquote><div>--</div><div>Bob</div>",
+        { collapseQuotes: true },
+      );
+      expect(html).toBe("<div>Hi</div>");
+    });
+
+    it("keeps a multi-line element that merely starts with 'Sent from'", () => {
+      const html = sanitizeEmailHtml(
+        "<p>Hi</p><div>Sent from my iPhone<br>Actually, call me at 5.</div>",
+        { collapseQuotes: true },
+      );
+      expect(html).toContain("call me at 5");
+    });
+
+    it("ignores a trailing comment after the quote", () => {
+      const html = sanitizeEmailHtml(
+        "<p>Hi</p><blockquote>q</blockquote><!-- tracking -->",
+        { collapseQuotes: true },
+      );
+      expect(html).not.toContain("<blockquote");
+    });
+
+    it("does not collapse when the whole body is quoted", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
+        "<div>&nbsp;</div><blockquote>only quoted</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(quoteCollapsible).toBe(false);
+      expect(html).toContain("only quoted");
+    });
+  });
+
   describe("blockRemoteImages (spy-tracker blocker)", () => {
     it("strips the src of a remote image and stashes it in data-blocked-src", () => {
       const { html, blockedRemoteImages } = sanitizeEmailHtmlWithMeta(
@@ -603,7 +791,9 @@ describe("sanitizeEmailHtml", () => {
       });
       // No live loading attribute points at the tracker host. (Whitespace
       // before the name excludes the safe data-blocked-src stash attribute.)
-      expect(html).not.toMatch(/\s(?:src|srcset|poster|background|href)="https?:\/\/t\.example/);
+      expect(html).not.toMatch(
+        /\s(?:src|srcset|poster|background|href)="https?:\/\/t\.example/,
+      );
       // The surviving <img> stashed its URL out of the loading path instead.
       expect(html).toContain("data-blocked-src");
     });

@@ -25,6 +25,15 @@
  *    "Title, Company" and "Title at Company" one-liners are split.
  */
 
+import {
+  QUOTE_LINE,
+  SENT_FROM,
+  SIGNATURE_DELIMITER,
+  isAttribution,
+  isDivider,
+  isForwardHeader,
+} from "@/lib/mail/quote-utils";
+
 export interface SignatureDetails {
   phones: string[];
   title?: string;
@@ -33,23 +42,7 @@ export interface SignatureDetails {
 
 export const MAX_SIGNATURE_PHONES = 3;
 
-const QUOTE_LINE = /^\s*>/;
-const ATTRIBUTION_START = /^(On|Den|Am|Le|El)\s/;
-// "On … wrote:" / "Den … skrev Bob <bob@x.y>:" - the verb may precede the
-// name, so only the trailing colon is anchored.
-const ATTRIBUTION_END = /\b(wrote|skrev|schrieb|a écrit|escribió)\b[^\n]*:\s*$/i;
-const FORWARD_HEADER_FROM = /^\s*(From|Från|Fra|Von|De)\s*:/i;
-const FORWARD_HEADER_NEXT = /^\s*(Sent|Skickat|Sendt|Gesendet|Date|Datum|To|Till|Til|An|Subject|Ämne|Emne|Betreff|Cc)\s*:/i;
-const DIVIDERS: RegExp[] = [
-  /^\s*-{2,}\s*(Original Message|Ursprungligt meddelande|Ursprünglische Nachricht|Message d'origine)\s*-{2,}\s*$/i,
-  /^\s*-{3,}\s*(Forwarded message|Vidarebefordrat meddelande|Weitergeleitete Nachricht)\s*-{3,}\s*$/i,
-  /^\s*(Begin forwarded message|Vidarebefordrat meddelande|Anfang der weitergeleiteten Nachricht)\s*:\s*$/i,
-  /^_{10,}\s*$/,
-];
-
-const SIGNATURE_DELIMITER = /^--\s?$/;
 const CLOSING = /^(med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement)\b[,.!]?\s*(.*)$/i;
-const SENT_FROM = /^(sent|skickat|sendt|gesendet|envoyé)\s+(from|från|fra|von|de)\s+/i;
 
 const PHONE = /(?:\+\s?)?\(?\d[\d\s().\-]{5,}\d/g;
 const PHONE_LABEL_BEFORE = /(?:^|[\s|•·])(tel|tfn|telefon|telephone|phone|ph|mob|mobil|mobile|cell|direct|direkt|dir|office|kontor|växel|fax|m|t|d|o|w|p)\.?\s*[:.]?\s*$/i;
@@ -65,22 +58,6 @@ function lines(text: string): string[] {
   return text.replace(/\r\n?/g, "\n").split("\n");
 }
 
-function isAttribution(all: string[], i: number): boolean {
-  if (!ATTRIBUTION_START.test(all[i])) return false;
-  for (let j = i; j < Math.min(all.length, i + 3); j++) {
-    if (ATTRIBUTION_END.test(all[j])) return true;
-  }
-  return false;
-}
-
-function isForwardHeader(all: string[], i: number): boolean {
-  if (!FORWARD_HEADER_FROM.test(all[i])) return false;
-  for (let j = i + 1; j < Math.min(all.length, i + 4); j++) {
-    if (FORWARD_HEADER_NEXT.test(all[j])) return true;
-  }
-  return false;
-}
-
 /** The author's own text: everything before the first quote/forward marker. */
 export function stripQuotedAndForwarded(text: string): string {
   const all = lines(text);
@@ -89,7 +66,7 @@ export function stripQuotedAndForwarded(text: string): string {
     const line = all[i];
     if (
       QUOTE_LINE.test(line) ||
-      DIVIDERS.some((d) => d.test(line)) ||
+      isDivider(line) ||
       isAttribution(all, i) ||
       isForwardHeader(all, i)
     ) {

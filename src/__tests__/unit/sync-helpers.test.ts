@@ -28,10 +28,7 @@ vi.mock("@/lib/mail/auth-helpers", () => ({
   buildImapAuth: vi.fn(),
 }));
 
-import {
-  extractAttachmentParts,
-  extractDomain,
-} from "@/lib/mail/sync-service";
+import { extractAttachmentParts, extractDomain } from "@/lib/mail/sync-service";
 import { createSnippet } from "@/lib/mail/snippet";
 
 describe("extractDomain", () => {
@@ -77,6 +74,16 @@ describe("createSnippet", () => {
     // Then /^[\s>]+/gm strips the leading "> " from that single line.
     // The mid-string " > " is not at a line boundary so it stays.
     expect(createSnippet("> quoted text\n> more")).toBe("quoted text > more");
+  });
+
+  it("drops the quoted tail and signature", () => {
+    expect(createSnippet("Sure thing.\n\nOn X wrote:\n> could you?")).toBe(
+      "Sure thing.",
+    );
+    expect(
+      createSnippet("Hej!\n\nFrån: a@b.c\nSkickat: igår\nTill: d@e.f\n\nold"),
+    ).toBe("Hej!");
+    expect(createSnippet("Bye\n-- \nBob")).toBe("Bye");
   });
 
   it("respects custom maxLength", () => {
