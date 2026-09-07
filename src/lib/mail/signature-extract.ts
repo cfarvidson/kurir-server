@@ -30,6 +30,7 @@ import {
   SENT_FROM,
   SIGNATURE_DELIMITER,
   isAttribution,
+  isClosingLine,
   isDivider,
   isForwardHeader,
 } from "@/lib/mail/quote-utils";
@@ -42,16 +43,22 @@ export interface SignatureDetails {
 
 export const MAX_SIGNATURE_PHONES = 3;
 
-const CLOSING = /^(med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement)\b[,.!]?\s*(.*)$/i;
-
 const PHONE = /(?:\+\s?)?\(?\d[\d\s().\-]{5,}\d/g;
-const PHONE_LABEL_BEFORE = /(?:^|[\s|•·])(tel|tfn|telefon|telephone|phone|ph|mob|mobil|mobile|cell|direct|direkt|dir|office|kontor|växel|fax|m|t|d|o|w|p)\.?\s*[:.]?\s*$/i;
-const NOT_A_PHONE_LINE = /org\.?\s*nr|organisationsnummer|org\.?\s*no|\bvat\b|moms|reg\.?\s*no|\biban\b|bankgiro|plusgiro|\bbg\s*:|\bpg\s*:|invoice|faktura|kundnr|customer\s*(?:no|id)|order\s*(?:no|#|nr)|account\s*(?:no|number)|konto/i;
-const DATE_LIKE = [/^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/, /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/];
+const PHONE_LABEL_BEFORE =
+  /(?:^|[\s|•·])(tel|tfn|telefon|telephone|phone|ph|mob|mobil|mobile|cell|direct|direkt|dir|office|kontor|växel|fax|m|t|d|o|w|p)\.?\s*[:.]?\s*$/i;
+const NOT_A_PHONE_LINE =
+  /org\.?\s*nr|organisationsnummer|org\.?\s*no|\bvat\b|moms|reg\.?\s*no|\biban\b|bankgiro|plusgiro|\bbg\s*:|\bpg\s*:|invoice|faktura|kundnr|customer\s*(?:no|id)|order\s*(?:no|#|nr)|account\s*(?:no|number)|konto/i;
+const DATE_LIKE = [
+  /^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/,
+  /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/,
+];
 
-const TITLE_WORDS = /(chef\b|ansvarig|ledare\b|utvecklare|konsult\b|säljare|ingenjör|rektor|lärare|förvaltare|mäklare|redovisnings|ekonom\b|jurist|advokat|handläggare|rådgivare|kommunikatör|grundare|ordförande|controller|assistent|koordinator|specialist|strateg\b|analytiker|arkitekt|designer|manager|director|engineer|developer|consultant|founder|partner\b|owner|officer|president|analyst|architect|coordinator|assistant|associate|advisor|adviser|recruiter|editor|teacher|professor|doctor|scientist|researcher|producer|programmer|accountant|attorney|lawyer|nurse|physician|therapist|\bhead of\b|\bvp\b|\bvd\b|\bceo\b|\bcto\b|\bcfo\b|\bcoo\b|\bcmo\b|\bcio\b|\bchief\b|\bstudent\b|\bintern\b|praktikant)/i;
-const COMPANY_SUFFIX = /(^|[\s,])(AB|Inc\.?|LLC|Ltd\.?|GmbH|AG|AS|ASA|Oy|ApS|A\/S|S\.A\.|SAS|BV|B\.V\.|PLC|Corp\.?|Corporation|Co\.|Company|Group|Holding|Holdings|Partners|Studio|Studios|Agency|Solutions|Technologies|Consulting|Ventures|Capital|Labs|Kommun|Region|Universitet|University|Skola|School|Förskola|Förening|Föreningen|Stiftelsen|Institutet|Institute|Foundation|Bank)(?=$|[\s,.)])/;
-const TITLE_COMPANY_SPLIT = /^(.+?)(?:,\s+|\s+at\s+|\s+@\s+|\s+hos\s+|\s+på\s+)(.+)$/i;
+const TITLE_WORDS =
+  /(chef\b|ansvarig|ledare\b|utvecklare|konsult\b|säljare|ingenjör|rektor|lärare|förvaltare|mäklare|redovisnings|ekonom\b|jurist|advokat|handläggare|rådgivare|kommunikatör|grundare|ordförande|controller|assistent|koordinator|specialist|strateg\b|analytiker|arkitekt|designer|manager|director|engineer|developer|consultant|founder|partner\b|owner|officer|president|analyst|architect|coordinator|assistant|associate|advisor|adviser|recruiter|editor|teacher|professor|doctor|scientist|researcher|producer|programmer|accountant|attorney|lawyer|nurse|physician|therapist|\bhead of\b|\bvp\b|\bvd\b|\bceo\b|\bcto\b|\bcfo\b|\bcoo\b|\bcmo\b|\bcio\b|\bchief\b|\bstudent\b|\bintern\b|praktikant)/i;
+const COMPANY_SUFFIX =
+  /(^|[\s,])(AB|Inc\.?|LLC|Ltd\.?|GmbH|AG|AS|ASA|Oy|ApS|A\/S|S\.A\.|SAS|BV|B\.V\.|PLC|Corp\.?|Corporation|Co\.|Company|Group|Holding|Holdings|Partners|Studio|Studios|Agency|Solutions|Technologies|Consulting|Ventures|Capital|Labs|Kommun|Region|Universitet|University|Skola|School|Förskola|Förening|Föreningen|Stiftelsen|Institutet|Institute|Foundation|Bank)(?=$|[\s,.)])/;
+const TITLE_COMPANY_SPLIT =
+  /^(.+?)(?:,\s+|\s+at\s+|\s+@\s+|\s+hos\s+|\s+på\s+)(.+)$/i;
 const SEGMENT_SPLIT = /\s*(?:\||•|·|‧|⋅|\s[–—-]\s|\s\/\s)\s*/;
 
 function lines(text: string): string[] {
@@ -77,15 +84,6 @@ export function stripQuotedAndForwarded(text: string): string {
   return all.slice(0, cut).join("\n").trimEnd();
 }
 
-function isClosing(line: string): boolean {
-  const m = CLOSING.exec(line.trim());
-  if (!m) return false;
-  const rest = m[1].trim();
-  if (rest.length === 0) return true;
-  const words = rest.split(/\s+/);
-  return words.length <= 3 && words.every((w) => /^[A-ZÅÄÖÉ]/.test(w));
-}
-
 /** The trailing signature block of the author's own text, or [] when none. */
 export function signatureBlock(ownText: string): string[] {
   const all = lines(ownText);
@@ -102,7 +100,7 @@ export function signatureBlock(ownText: string): string[] {
   // 2. Closing phrase within the final 12 lines.
   const floor = Math.max(0, all.length - 12);
   for (let i = all.length - 1; i >= floor; i--) {
-    if (isClosing(all[i])) {
+    if (isClosingLine(all[i])) {
       return all.slice(i + 1);
     }
   }
@@ -131,7 +129,9 @@ function isSignatureAnchor(line: string): boolean {
   const s = line.trim();
   if (/@|https?:|www\./i.test(s)) return true;
   if (COMPANY_SUFFIX.test(s)) return true;
-  return PHONE_LABEL_BEFORE.test(s.split(/\d/)[0] ?? "") && phonesIn(s).length > 0;
+  return (
+    PHONE_LABEL_BEFORE.test(s.split(/\d/)[0] ?? "") && phonesIn(s).length > 0
+  );
 }
 
 function digitsOf(s: string): string {
@@ -181,11 +181,13 @@ function isPlainTextSegment(segment: string): boolean {
   if (digitsOf(s).length > 2) return false;
   if (!/[A-Za-zÀ-ÖØ-öø-ÿ]{2}/.test(s)) return false;
   if (s.split(/\s+/).length > 6) return false; // a sentence, not a card line
-  if (isClosing(s) || SENT_FROM.test(s)) return false;
+  if (isClosingLine(s) || SENT_FROM.test(s)) return false;
   return true;
 }
 
-export function extractSignature(bodyText: string | null | undefined): SignatureDetails {
+export function extractSignature(
+  bodyText: string | null | undefined,
+): SignatureDetails {
   if (!bodyText) return { phones: [], title: undefined, company: undefined };
   const block = signatureBlock(stripQuotedAndForwarded(bodyText))
     .map((l) => l.trim())
@@ -219,7 +221,11 @@ export function extractSignature(bodyText: string | null | undefined): Signature
 
   for (let i = start; i < segments.length; i++) {
     const segment = segments[i];
-    if (!company && COMPANY_SUFFIX.test(segment) && !TITLE_WORDS.test(segment)) {
+    if (
+      !company &&
+      COMPANY_SUFFIX.test(segment) &&
+      !TITLE_WORDS.test(segment)
+    ) {
       company = segment;
       continue;
     }

@@ -584,6 +584,51 @@ describe("sanitizeEmailHtml", () => {
       expect(html).not.toContain("<blockquote");
     });
 
+    it("starts the signature at the last closing-phrase paragraph", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
+        "<div class=WordSection1><p class=MsoNormal>Hej!<o:p></o:p></p>" +
+          "<p class=MsoNormal>Tack, jag återkommer.<o:p></o:p></p>" +
+          "<p class=MsoNormal><o:p>&nbsp;</o:p></p>" +
+          "<p class=MsoNormal>Med vänliga hälsningar<o:p></o:p></p>" +
+          "<p class=MsoNormal>Teckentrup / Portexpert.se</p>" +
+          "<p class=MsoNormal>Nicklas Bertilsson</p></div>",
+        { collapseQuotes: true },
+      );
+      expect(quoteCollapsible).toBe(true);
+      expect(html).toContain("jag återkommer");
+      expect(html).not.toContain("Med vänliga hälsningar");
+      expect(html).not.toContain("Nicklas");
+    });
+
+    it("cuts at a slash sign-off and at Mvh + name", () => {
+      expect(
+        sanitizeEmailHtml("<div>Ok!</div><div>/Nicklas</div><div>VD</div>", {
+          collapseQuotes: true,
+        }),
+      ).toBe("<div>Ok!</div>");
+      expect(
+        sanitizeEmailHtml("<div>Ok!</div><div>Mvh Nicklas</div>", {
+          collapseQuotes: true,
+        }),
+      ).toBe("<div>Ok!</div>");
+    });
+
+    it("prefers the closing phrase over a later quote marker", () => {
+      const html = sanitizeEmailHtml(
+        "<div>Ok</div><div>Mvh</div><div>Bob</div><div>On X, Bob wrote:</div><blockquote>q</blockquote>",
+        { collapseQuotes: true },
+      );
+      expect(html).toBe("<div>Ok</div>");
+    });
+
+    it("ignores a closing phrase with nothing visible above it", () => {
+      const { quoteCollapsible } = sanitizeEmailHtmlWithMeta(
+        "<div>Mvh</div><div>Bob</div>",
+        { collapseQuotes: true },
+      );
+      expect(quoteCollapsible).toBe(false);
+    });
+
     it("does not collapse when the whole body is quoted", () => {
       const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
         "<div>&nbsp;</div><blockquote>only quoted</blockquote>",

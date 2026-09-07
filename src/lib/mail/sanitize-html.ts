@@ -5,6 +5,7 @@ import {
   MOBILE_APP_LINE,
   SENT_FROM,
   SIGNATURE_DELIMITER,
+  isClosingLine,
   isForwardHeader,
 } from "@/lib/mail/quote-utils";
 import { isLikelyTracker } from "./tracker-detection";
@@ -499,12 +500,24 @@ function extendBoundaryOnce(
 export function findQuoteBoundary(doc: Document): Element | null {
   const body = doc.body;
   let boundary: Element | null = null;
+  // The last closing-phrase paragraph above the first hard marker (with
+  // visible text above it) starts the signature.
+  let closing: Element | null = null;
   for (const el of Array.from(body.querySelectorAll("*"))) {
     if (isMarker(el, body)) {
       boundary = el;
       break;
     }
+    if (
+      (el.tagName === "DIV" || el.tagName === "P") &&
+      isClosingLine(elementText(el)) &&
+      elementLines(el).length === 1 &&
+      hasVisibleTextBefore(el, doc)
+    ) {
+      closing = el;
+    }
   }
+  boundary = closing ?? boundary;
   if (!boundary) return null;
 
   // Pull the boundary back over attribution lines, "Sent from" lines, a
@@ -516,21 +529,22 @@ export function findQuoteBoundary(doc: Document): Element | null {
   }
 
   // Whole body quoted: collapsing would leave nothing visible.
-  const walker = doc.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */);
-  let visible = false;
+  return hasVisibleTextBefore(boundary, doc) ? boundary : null;
+}
+
+/** True when some text node before `el` in document order is non-blank. */
+function hasVisibleTextBefore(el: Element, doc: Document): boolean {
+  const walker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     if (
-      boundary.contains(n) ||
-      boundary.compareDocumentPosition(n) & 4 /* DOCUMENT_POSITION_FOLLOWING */
+      el.contains(n) ||
+      el.compareDocumentPosition(n) & 4 /* DOCUMENT_POSITION_FOLLOWING */
     ) {
-      break;
+      return false;
     }
-    if (elementText(n) !== "") {
-      visible = true;
-      break;
-    }
+    if (elementText(n) !== "") return true;
   }
-  return visible ? boundary : null;
+  return false;
 }
 
 /** Remove `el` and everything after it in document order, up to `body`. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitPlainTextQuotes } from "../quote-utils";
+import { isClosingLine, splitPlainTextQuotes } from "../quote-utils";
 
 describe("splitPlainTextQuotes", () => {
   it("collapses a trailing > block with its attribution line", () => {
@@ -114,6 +114,49 @@ describe("splitPlainTextQuotes", () => {
     expect(splitPlainTextQuotes(text)).toEqual({ body: text, quoted: null });
   });
 
+  it("starts the signature at the last closing phrase", () => {
+    const text = [
+      "Hej!",
+      "",
+      "Tack för svaret, jag återkommer.",
+      "",
+      "Med vänliga hälsningar",
+      "",
+      "Teckentrup / Portexpert.se",
+      "",
+      "Nicklas Bertilsson",
+      "Mob: 0707-88 06 69",
+    ].join("\n");
+    const { body, quoted } = splitPlainTextQuotes(text);
+    expect(body).toBe("Hej!\n\nTack för svaret, jag återkommer.");
+    expect(quoted?.startsWith("Med vänliga hälsningar")).toBe(true);
+  });
+
+  it("recognises Mvh + name, slash sign-offs and English closings", () => {
+    expect(splitPlainTextQuotes("Ok!\n\nMvh Nicklas\n070-123").body).toBe(
+      "Ok!",
+    );
+    expect(splitPlainTextQuotes("Ok!\n\n/Nicklas").body).toBe("Ok!");
+    expect(splitPlainTextQuotes("Ok!\n\n//Nicklas Bertilsson\nVD").body).toBe(
+      "Ok!",
+    );
+    expect(splitPlainTextQuotes("Ok!\n\nBest regards,\nBob").body).toBe("Ok!");
+  });
+
+  it("keeps a closing phrase that is the first line, or followed by more text", () => {
+    expect(splitPlainTextQuotes("Tack\nBob").quoted).toBeNull();
+    // A lone "Tack" mid-mail followed by a later real closing: the last wins.
+    expect(splitPlainTextQuotes("Hej\nTack\nEn sak till.\nMvh\nBob").body).toBe(
+      "Hej\nTack\nEn sak till.",
+    );
+  });
+
+  it("closing phrase comes before a trailing quote and Sent-from", () => {
+    expect(
+      splitPlainTextQuotes("Ok\n\nMvh\nBob\n\nOn X wrote:\n> q").body,
+    ).toBe("Ok");
+  });
+
   it("bails when nothing would remain visible", () => {
     expect(splitPlainTextQuotes("> only quoted")).toEqual({
       body: "> only quoted",
@@ -131,5 +174,34 @@ describe("splitPlainTextQuotes", () => {
   it("handles CRLF bodies", () => {
     const text = "Hi\r\n\r\nOn X wrote:\r\n> q\r\n";
     expect(splitPlainTextQuotes(text).body).toBe("Hi");
+  });
+});
+
+describe("isClosingLine", () => {
+  it("matches closings with an optional name and slash sign-offs", () => {
+    for (const l of [
+      "Med vänliga hälsningar",
+      "Med vänlig hälsning,",
+      "Mvh Nicklas",
+      "Best regards",
+      "Kind regards, Bob Smith",
+      "/Nicklas",
+      "//Nicklas Bertilsson",
+      "/ Nicklas",
+    ]) {
+      expect(isClosingLine(l), l).toBe(true);
+    }
+  });
+
+  it("rejects prose and paths", () => {
+    for (const l of [
+      "Tack för att du hörde av dig.",
+      "Best regards are sent to everyone",
+      "/usr/local/bin",
+      "//comment in code",
+      "Mvh vi ses imorgon på kontoret",
+    ]) {
+      expect(isClosingLine(l), l).toBe(false);
+    }
   });
 });

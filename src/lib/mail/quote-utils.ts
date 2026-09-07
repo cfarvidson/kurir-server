@@ -30,6 +30,29 @@ const DIVIDERS: RegExp[] = [
   /^_{10,}\s*$/,
 ];
 
+// Closing phrases that end the author's text; the signature starts there.
+const CLOSING =
+  /^(med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement)\b[,.!]?\s*(.*)$/i;
+// "/Nicklas" or "//Nicklas Bertilsson" on a line of its own.
+const SLASH_SIGNOFF =
+  /^\/{1,2}\s?[A-ZÅÄÖÉ][\wåäöéü.-]*(?:\s+[A-ZÅÄÖÉ][\wåäöéü.-]*){0,3}$/;
+
+/**
+ * A line that is a closing phrase ("Med vänliga hälsningar", "Mvh Bob",
+ * "Best regards,") or a slash sign-off ("/Bob", "//Bob"). A closing may be
+ * followed by up to three capitalised words (a name) on the same line.
+ */
+export function isClosingLine(line: string): boolean {
+  const s = line.trim();
+  if (SLASH_SIGNOFF.test(s)) return true;
+  const m = CLOSING.exec(s);
+  if (!m) return false;
+  const rest = m[2].trim();
+  if (rest.length === 0) return true;
+  const words = rest.split(/\s+/);
+  return words.length <= 3 && words.every((w) => /^[A-ZÅÄÖÉ]/.test(w));
+}
+
 /** The RFC 3676 signature separator: "-- " (trailing space optional). */
 export const SIGNATURE_DELIMITER = /^--\s?$/;
 /** "Sent from my iPhone" / "Skickat från min iPhone" and friends. */
@@ -71,7 +94,9 @@ export function isDivider(line: string): boolean {
  * 2. The first forwarded/Outlook header block (From:/Från: + Sent:/Skickat: …)
  *    or "----- Original Message -----" style divider.
  * 3. The first "-- " signature delimiter above that.
- * 4. A "Sent from my iPhone" / "Get Outlook for iOS" line when it is the last
+ * 4. The last closing phrase ("Med vänliga hälsningar", "Mvh Bob", "/Bob")
+ *    with body text above it.
+ * 5. A "Sent from my iPhone" / "Get Outlook for iOS" line when it is the last
  *    line of the author's text.
  *
  * Nothing is collapsed when the whole body would disappear.
@@ -131,7 +156,19 @@ export function splitPlainTextQuotes(text: string): {
   // 3. Signature delimiter.
   if (sigStart < cut) cut = sigStart;
 
-  // 4. "Sent from …" as the last line of the author's text.
+  // 4. Closing phrase: the last "Med vänliga hälsningar" / "Mvh Bob" /
+  //    "/Bob" line with body text above it starts the signature.
+  for (let i = cut - 1; i > 0; i--) {
+    if (
+      isClosingLine(lines[i]) &&
+      lines.slice(0, i).some((l) => l.trim() !== "")
+    ) {
+      cut = i;
+      break;
+    }
+  }
+
+  // 5. "Sent from …" as the last line of the author's text.
   let last = cut - 1;
   while (last >= 0 && lines[last].trim() === "") last--;
   if (last >= 0) {
