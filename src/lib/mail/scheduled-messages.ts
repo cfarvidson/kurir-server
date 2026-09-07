@@ -99,7 +99,7 @@ export const updateScheduledSchema = z.object({
   inReplyToMessageId: z.string().optional(),
   references: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
-  followUpUntil: z.union([z.coerce.date(), z.null()]).optional(),
+  followUpUntil: z.union([z.null(), z.coerce.date()]).optional(),
 });
 
 export type UpdateScheduledInput = z.input<typeof updateScheduledSchema>;
