@@ -35,6 +35,16 @@ describe("countUnreadThreads", () => {
     expect(countUnreadThreads(rows)).toBe(2);
   });
 
+  it("counts a branch split from a broadcast as its own thread (plan 055)", () => {
+    const rows = [
+      { id: "m0", threadId: "<m0@x>", unthread: false },
+      { id: "a1", threadId: "<a1@corp-a>", unthread: false },
+      { id: "a2", threadId: "<a1@corp-a>", unthread: false },
+      { id: "b1", threadId: "<b1@corp-b>", unthread: false },
+    ];
+    expect(countUnreadThreads(rows)).toBe(3);
+  });
+
   it("returns 0 for an empty list", () => {
     expect(countUnreadThreads([])).toBe(0);
   });

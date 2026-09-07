@@ -148,13 +148,13 @@ export async function resolveThread(
       }
     }
 
-    const keyed = ordered
+    const nearestKeyed = ordered
       .map((id) => byId.get(id))
       .find((r) => r && r.threadId);
-    if (keyed?.threadId) {
+    if (nearestKeyed?.threadId) {
       return {
-        threadId: keyed.threadId,
-        splitFromThreadId: keyed.splitFromThreadId ?? null,
+        threadId: nearestKeyed.threadId,
+        splitFromThreadId: nearestKeyed.splitFromThreadId ?? null,
       };
     }
 
@@ -180,13 +180,6 @@ export async function resolveThread(
   return { threadId: opts.messageId || null, splitFromThreadId: null };
 }
 
-/** Thread key only; kept for callers that never write branch rows. */
-export async function resolveThreadId(
-  opts: ThreadAssignInput,
-): Promise<string | null> {
-  return (await resolveThread(opts)).threadId;
-}
-
 /**
  * Back-fill the resolved threadId across every known message in the same
  * conversation (rows the new message references, and rows that reply to those)
@@ -198,14 +191,10 @@ export async function resolveThreadId(
  */
 export async function unifyThreadId(
   userId: string,
-  assignment: ThreadAssignment | string | null,
+  target: ThreadAssignment,
   related: string[],
 ): Promise<void> {
-  const target =
-    typeof assignment === "string"
-      ? { threadId: assignment, splitFromThreadId: null }
-      : assignment;
-  if (!target?.threadId || target.splitFromThreadId || related.length === 0) {
+  if (!target.threadId || target.splitFromThreadId || related.length === 0) {
     return;
   }
   await db.message.updateMany({
@@ -230,13 +219,6 @@ export async function assignThread(
     relatedMessageIds(opts.inReplyTo, opts.references),
   );
   return assignment;
-}
-
-/** Thread key only; see `assignThread` for the branch-aware form. */
-export async function assignThreadId(
-  opts: ThreadAssignInput,
-): Promise<string | null> {
-  return (await assignThread(opts)).threadId;
 }
 
 interface RepairRow {

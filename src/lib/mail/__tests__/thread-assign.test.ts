@@ -160,7 +160,6 @@ vi.mock("@/lib/db", () => ({
 
 import {
   assignThread,
-  assignThreadId,
   isBroadcast,
   nearestFirstAncestorIds,
   repairThreadIds,
@@ -194,11 +193,11 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("assignThreadId", () => {
+describe("assignThread (thread key)", () => {
   it("reuses the threadId of a known related message", async () => {
     rows.push(row({ id: "m1", messageId: "<a@x>", threadId: "<t@x>" }));
 
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<b@x>",
       inReplyTo: "<a@x>",
@@ -212,7 +211,7 @@ describe("assignThreadId", () => {
     const anchor = row({ id: "m1", messageId: "<a@x>", threadId: null });
     rows.push(anchor);
 
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<b@x>",
       inReplyTo: "<a@x>",
@@ -224,7 +223,7 @@ describe("assignThreadId", () => {
   });
 
   it("falls back to the message's own Message-ID for a fresh conversation", async () => {
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<new@x>",
       inReplyTo: null,
@@ -235,7 +234,7 @@ describe("assignThreadId", () => {
   });
 
   it("uses the conversation root from references when no related row exists", async () => {
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<c@x>",
       inReplyTo: "<b@x>",
@@ -255,7 +254,7 @@ describe("assignThreadId", () => {
     const anchor = row({ id: "m2", messageId: "<a@x>", threadId: "<a@x>" });
     rows.push(anchor, sibling);
 
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<c@x>",
       inReplyTo: "<a@x>",
@@ -276,7 +275,7 @@ describe("assignThreadId", () => {
     });
     rows.push(otherUsers);
 
-    const threadId = await assignThreadId({
+    const { threadId } = await assignThread({
       userId: "u1",
       messageId: "<b@x>",
       inReplyTo: "<a@x>",
