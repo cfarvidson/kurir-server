@@ -120,20 +120,33 @@ export function apnsAlertBody(payload: ApnsAlertPayload): string {
 }
 
 /**
- * Background payload. Apple forbids alert/badge/sound on this push type.
- * Used to wake the app so it can drop lock-screen banners for mail that
- * was read on another client.
+ * Nudge payload. Wakes the app so it can drop lock-screen banners for
+ * mail that was read on another client. Apple forbids badge on the
+ * background push type, so a nudge with a badge goes out as a badge-only
+ * alert push: no alert key means nothing is shown, and iOS applies the
+ * badge even when the app is not running.
  */
 export type ApnsBackgroundPayload = {
   /** Message ids just marked read; the app drops matching banners. */
   readIds?: string[];
+  /** New app-icon badge (unread Imbox threads). */
+  badge?: number;
 };
 
 export function apnsBackgroundBody(payload: ApnsBackgroundPayload): string {
   return JSON.stringify({
-    aps: { "content-available": 1 },
+    aps: {
+      "content-available": 1,
+      ...(payload.badge !== undefined ? { badge: payload.badge } : {}),
+    },
     ...(payload.readIds?.length ? { readIds: payload.readIds } : {}),
   });
+}
+
+export function apnsNudgePushType(
+  payload: ApnsBackgroundPayload,
+): "alert" | "background" {
+  return payload.badge !== undefined ? "alert" : "background";
 }
 
 function postApns(
@@ -234,7 +247,7 @@ export async function sendApnsBackground(
   return postApns(
     deviceToken,
     apnsBackgroundBody(payload),
-    "background",
+    apnsNudgePushType(payload),
     undefined,
     opts,
   );

@@ -262,6 +262,12 @@ async function sendIosNudge(userId: string, readIds: string[]) {
   }
   if (subscriptions.length === 0) return;
 
+  // The read that triggered the nudge changed the unread count; carry the
+  // new badge so iOS updates the icon without the app having to sync.
+  const badge = await getImboxUnreadThreadCount(userId)
+    .then((n) => Math.min(n, 99_999))
+    .catch(() => undefined);
+
   const sendIos = apnsConfigured() ? sendApnsBackground : sendRelayBackground;
 
   const results = await Promise.allSettled(
@@ -270,7 +276,7 @@ async function sendIosNudge(userId: string, readIds: string[]) {
       const { result, workedEnv } = await sendIosWithEnvFallback(
         sendIos,
         deviceToken,
-        { readIds },
+        { readIds, ...(badge !== undefined ? { badge } : {}) },
         sub.apnsEnv,
         process.env.APNS_SANDBOX === "true",
       );
