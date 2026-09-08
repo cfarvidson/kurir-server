@@ -142,7 +142,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
         const deviceToken = sub.endpoint.replace(/^apns:/, "");
         // Direct APNs wins when both are configured — the maintainer's own
         // instance must not loop through the relay.
-        const sendIos: IosSend = apnsConfigured()
+        const sendIos = apnsConfigured()
           ? sendApnsNotification
           : sendRelayNotification;
         const { result, workedEnv } = await sendIosWithEnvFallback(
