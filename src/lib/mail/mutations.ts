@@ -5,6 +5,7 @@ import {
   moveToInboxViaImap,
 } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
+import { pushFlagsToImap } from "@/lib/mail/flag-push";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
 import { nudgeIosClients } from "@/lib/mail/push-sender";
 import {
@@ -390,7 +391,12 @@ export async function unarchiveThreadsForUser(
   }
 }
 
-/** Set read state for a whole thread (explicit target state — idempotent). */
+/**
+ * Set read state for a whole thread (explicit target state — idempotent).
+ * DB update now, \\Seen pushed to IMAP via after(): IMAP is what the
+ * CONDSTORE catch-up after a reconnect compares against, so a DB-only read
+ * would be flipped back to unread on the next reconnect.
+ */
 export async function setThreadReadState(
   userId: string,
   messageId: string,
@@ -398,7 +404,7 @@ export async function setThreadReadState(
 ) {
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    select: { id: true, threadId: true },
+    select: { id: true, threadId: true, uid: true, folderId: true },
   });
 
   if (!message) throw new Error("Message not found");
@@ -406,9 +412,9 @@ export async function setThreadReadState(
   const threadMessages = message.threadId
     ? await db.message.findMany({
         where: { userId, threadId: message.threadId },
-        select: { id: true },
+        select: { id: true, uid: true, folderId: true },
       })
-    : [{ id: message.id }];
+    : [message];
 
   await db.message.updateMany({
     where: { id: { in: threadMessages.map((m) => m.id) } },
@@ -421,6 +427,15 @@ export async function setThreadReadState(
       threadMessages.map((m) => m.id),
     );
   }
+
+  after(() =>
+    pushFlagsToImap(
+      userId,
+      threadMessages.map((m) => ({ uid: m.uid, folderId: m.folderId })),
+      "\\Seen",
+      isRead ? "add" : "remove",
+    ).catch((err) => console.error("IMAP \\Seen push failed:", err)),
+  );
 }
 
 /**
