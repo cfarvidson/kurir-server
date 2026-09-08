@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.84] - 2026-09-08
+
+### Fixed
+
+- The silent read nudge now carries the new Imbox unread count as a
+  badge-only alert push, so the iPhone's app-icon badge updates when a
+  mail is read on the web or Mac, whether or not the app is running.
+
 ## [v2026.82] - 2026-09-08
 
 ### Fixed

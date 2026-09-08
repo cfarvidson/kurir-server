@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.84",
+    "date": "2026-09-08",
+    "changes": [
+      "Read nudges carry the new unread count so the iPhone badge updates when mail is read on web or Mac, even with the app closed"
+    ]
+  },
+  {
     "version": "2026.82",
     "date": "2026-09-08",
     "changes": [

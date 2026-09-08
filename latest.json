@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.82",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.82",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.82",
-    "changelog": "Silent read nudges carry the read message ids so iOS and Mac drop lock-screen banners without a sync; IMAP reconnect catch-ups nudge too",
+    "version": "2026.84",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.84",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.84",
+    "changelog": "Read nudges carry the new unread count so the iPhone badge updates when mail is read on web or Mac, even with the app closed",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-08T10:04:44Z"
+    "releasedAt": "2026-09-08T13:06:52Z"
   }
 }
