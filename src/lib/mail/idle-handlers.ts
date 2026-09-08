@@ -534,7 +534,7 @@ async function handleFlagChange(
   });
 
   if (!message.isRead && newFlags.isRead) {
-    nudgeIosClients(userId);
+    nudgeIosClients(userId, [message.id]);
   }
 
   // Monotonic bump — concurrent flag handlers must not clobber a higher value.

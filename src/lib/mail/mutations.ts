@@ -415,7 +415,12 @@ export async function setThreadReadState(
     data: { isRead },
   });
 
-  if (isRead) nudgeIosClients(userId);
+  if (isRead) {
+    nudgeIosClients(
+      userId,
+      threadMessages.map((m) => m.id),
+    );
+  }
 }
 
 /**

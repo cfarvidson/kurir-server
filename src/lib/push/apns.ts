@@ -124,9 +124,15 @@ export function apnsAlertBody(payload: ApnsAlertPayload): string {
  * Used to wake the app so it can drop lock-screen banners for mail that
  * was read on another client.
  */
-export function apnsBackgroundBody(): string {
+export type ApnsBackgroundPayload = {
+  /** Message ids just marked read; the app drops matching banners. */
+  readIds?: string[];
+};
+
+export function apnsBackgroundBody(payload: ApnsBackgroundPayload): string {
   return JSON.stringify({
     aps: { "content-available": 1 },
+    ...(payload.readIds?.length ? { readIds: payload.readIds } : {}),
   });
 }
 
@@ -217,19 +223,19 @@ export async function sendApnsNotification(
 
 /**
  * Silent wake so a running/backgrounded native app can sync and drop
- * banners for mail that was read elsewhere. Does not replace an existing
- * alert: collapse-id is a shared nudge key, not the mail's tag.
+ * banners for mail that was read elsewhere. No collapse id: a collapsed
+ * nudge would drop the earlier one's readIds.
  */
 export async function sendApnsBackground(
   deviceToken: string,
-  _payload?: unknown,
+  payload: ApnsBackgroundPayload,
   opts?: { sandbox?: boolean },
 ): Promise<ApnsSendResult> {
   return postApns(
     deviceToken,
-    apnsBackgroundBody(),
+    apnsBackgroundBody(payload),
     "background",
-    "kurir-nudge",
+    undefined,
     opts,
   );
 }

@@ -20,11 +20,20 @@ describe("APNs payloads", () => {
     expect(parsed.url).toBe("/imbox/m1");
   });
 
-  it("background payload has only content-available", () => {
-    const parsed = JSON.parse(apnsBackgroundBody());
-    expect(parsed).toEqual({ aps: { "content-available": 1 } });
+  it("background payload carries read ids beside content-available", () => {
+    const parsed = JSON.parse(apnsBackgroundBody({ readIds: ["m1", "m2"] }));
+    expect(parsed).toEqual({
+      aps: { "content-available": 1 },
+      readIds: ["m1", "m2"],
+    });
     expect(parsed.aps.alert).toBeUndefined();
     expect(parsed.aps.badge).toBeUndefined();
     expect(parsed.aps.sound).toBeUndefined();
+  });
+
+  it("background payload omits readIds when there are none", () => {
+    expect(JSON.parse(apnsBackgroundBody({}))).toEqual({
+      aps: { "content-available": 1 },
+    });
   });
 });
