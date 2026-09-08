@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.80",
+    "date": "2026-09-08",
+    "changes": [
+      "iOS lock-screen banners disappear when a mail is read on web, iOS, or Mac"
+    ]
+  },
+  {
     "version": "2026.78",
     "date": "2026-09-07",
     "changes": [

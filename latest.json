@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.78",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.78",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.78",
-    "changelog": "Generated drafts no longer invent a sender name; they sign with a name only if it appears in your own earlier mail",
+    "version": "2026.80",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.80",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.80",
+    "changelog": "iOS lock-screen banners disappear when a mail is read on web, iOS, or Mac",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-07T14:28:42Z"
+    "releasedAt": "2026-09-08T07:34:41Z"
   }
 }

@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.80] - 2026-09-08
+
+### Added
+
+- Native clients drop lock-screen banners when a mail is marked read on
+  web, iOS, Mac, or IMAP. A silent APNs nudge wakes a running app so it
+  can remove the matching notification.
+
 ## [v2026.78] - 2026-09-07
 
 ### Fixed
