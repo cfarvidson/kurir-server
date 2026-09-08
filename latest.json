@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.80",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.80",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.80",
-    "changelog": "iOS lock-screen banners disappear when a mail is read on web, iOS, or Mac",
+    "version": "2026.81",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.81",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.81",
+    "changelog": "Fold bilingual sign-offs like Med vänliga hälsningar/Best Regards so the signature hides with the quote",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-08T07:34:41Z"
+    "releasedAt": "2026-09-08T08:05:29Z"
   }
 }

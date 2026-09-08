@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.81] - 2026-09-08
+
+### Fixed
+
+- Bilingual closings (`Med vänliga hälsningar/Best Regards`) start the
+  folded signature, so the company footer hides with the quoted original.
+
 ## [v2026.80] - 2026-09-08
 
 ### Added
