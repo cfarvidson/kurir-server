@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.82",
+    "date": "2026-09-08",
+    "changes": [
+      "Silent read nudges carry the read message ids so iOS and Mac drop lock-screen banners without a sync; IMAP reconnect catch-ups nudge too"
+    ]
+  },
+  {
     "version": "2026.81",
     "date": "2026-09-08",
     "changes": [

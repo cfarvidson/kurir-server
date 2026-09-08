@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.81",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.81",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.81",
-    "changelog": "Fold bilingual sign-offs like Med vänliga hälsningar/Best Regards so the signature hides with the quote",
+    "version": "2026.82",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.82",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.82",
+    "changelog": "Silent read nudges carry the read message ids so iOS and Mac drop lock-screen banners without a sync; IMAP reconnect catch-ups nudge too",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-08T08:05:29Z"
+    "releasedAt": "2026-09-08T10:04:44Z"
   }
 }

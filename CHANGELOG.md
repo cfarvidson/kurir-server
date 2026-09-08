@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.82] - 2026-09-08
+
+### Fixed
+
+- The silent nudge sent when mail is marked read now carries the ids of
+  the messages it covers, so iOS and Mac can drop the matching banners
+  without first syncing. Reads that reach the server through a CONDSTORE
+  catch-up after an IMAP reconnect nudge too, and nudges no longer
+  collapse into each other.
+
 ## [v2026.81] - 2026-09-08
 
 ### Fixed
