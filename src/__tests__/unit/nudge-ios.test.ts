@@ -59,7 +59,7 @@ describe("nudgeIosClients", () => {
     expect(sendApnsBackground).toHaveBeenCalledTimes(1);
     expect(sendApnsBackground).toHaveBeenCalledWith(
       TOKEN,
-      { readIds: ["m1", "m2", "m3"] },
+      { readIds: ["m2", "m1", "m3"] },
       { sandbox: true },
     );
   });

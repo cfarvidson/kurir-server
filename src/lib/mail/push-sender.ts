@@ -224,13 +224,16 @@ export function nudgeIosClients(userId: string, readIds: string[]): void {
   const existing = pendingNudges.get(userId);
   if (existing) clearTimeout(existing.timer);
   const pending = existing?.readIds ?? new Set<string>();
-  for (const id of readIds) pending.add(id);
+  // Re-insert so a re-read id moves to the back: the slice below keeps
+  // the newest reads, whose banners are most likely still on screen.
+  for (const id of readIds) {
+    pending.delete(id);
+    pending.add(id);
+  }
   pendingNudges.set(userId, {
     readIds: pending,
     timer: setTimeout(() => {
       pendingNudges.delete(userId);
-      // Newest reads win when a burst overflows: they are the banners
-      // most likely still on the lock screen.
       void sendIosNudge(userId, [...pending].slice(-NUDGE_MAX_READ_IDS));
     }, NUDGE_DEBOUNCE_MS),
   });

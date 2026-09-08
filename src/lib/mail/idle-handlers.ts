@@ -579,6 +579,7 @@ export async function catchUpAfterReconnect(
 
   let maxModSeq = folder.highestModSeq;
   let changeCount = 0;
+  const readIds: string[] = [];
 
   try {
     for await (const msg of client.fetch(
@@ -615,6 +616,7 @@ export async function catchUpAfterReconnect(
           data: newFlags,
         });
         changeCount++;
+        if (!dbMsg.isRead && newFlags.isRead) readIds.push(dbMsg.id);
         emitToUser(emailConn.userId, {
           type: "flags-changed",
           data: { messageId: dbMsg.id, flags: newFlags },
@@ -639,6 +641,8 @@ export async function catchUpAfterReconnect(
       data: { highestModSeq: maxModSeq },
     });
   }
+
+  if (readIds.length > 0) nudgeIosClients(emailConn.userId, readIds);
 
   if (changeCount > 0) {
     console.log(
