@@ -61,6 +61,11 @@ function ordered(list: Row[], orderBy?: { receivedAt?: "asc" }) {
   );
 }
 
+vi.mock("@/lib/mail/push-sender", () => ({
+  nudgeIosClients: vi.fn(),
+  pushToUser: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     message: {

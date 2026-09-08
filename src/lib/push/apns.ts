@@ -95,27 +95,17 @@ export interface ApnsSendResult {
   reason?: string;
 }
 
-/**
- * Send one alert notification to one device token.
- * Opens a fresh HTTP/2 session per call — fine at personal-server volume.
- */
-export async function sendApnsNotification(
-  deviceToken: string,
-  payload: {
-    title: string;
-    body: string;
-    url: string;
-    tag?: string;
-    badge?: number;
-  },
-  opts?: { sandbox?: boolean },
-): Promise<ApnsSendResult> {
-  const config = getApnsConfig(opts?.sandbox);
-  if (!config) {
-    return { ok: false, gone: false, reason: "not configured" };
-  }
+export type ApnsAlertPayload = {
+  title: string;
+  body: string;
+  url: string;
+  tag?: string;
+  badge?: number;
+};
 
-  const body = JSON.stringify({
+/** Alert payload. Testable without opening HTTP/2. */
+export function apnsAlertBody(payload: ApnsAlertPayload): string {
+  return JSON.stringify({
     aps: {
       alert: { title: payload.title, body: payload.body },
       sound: "default",
@@ -127,6 +117,30 @@ export async function sendApnsNotification(
     },
     url: payload.url,
   });
+}
+
+/**
+ * Background payload. Apple forbids alert/badge/sound on this push type.
+ * Used to wake the app so it can drop lock-screen banners for mail that
+ * was read on another client.
+ */
+export function apnsBackgroundBody(): string {
+  return JSON.stringify({
+    aps: { "content-available": 1 },
+  });
+}
+
+function postApns(
+  deviceToken: string,
+  body: string,
+  pushType: "alert" | "background",
+  collapseId: string | undefined,
+  opts?: { sandbox?: boolean },
+): Promise<ApnsSendResult> {
+  const config = getApnsConfig(opts?.sandbox);
+  if (!config) {
+    return Promise.resolve({ ok: false, gone: false, reason: "not configured" });
+  }
 
   return new Promise((resolve) => {
     const session = connect(config.host);
@@ -139,9 +153,9 @@ export async function sendApnsNotification(
       ":path": `/3/device/${deviceToken}`,
       authorization: `bearer ${providerToken(config)}`,
       "apns-topic": config.bundleId,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
-      "apns-collapse-id": payload.tag?.slice(0, 63) ?? undefined,
+      "apns-push-type": pushType,
+      "apns-priority": pushType === "background" ? "5" : "10",
+      ...(collapseId ? { "apns-collapse-id": collapseId } : {}),
       "apns-id": randomUUID(),
       "content-type": "application/json",
     });
@@ -181,4 +195,41 @@ export async function sendApnsNotification(
 
     req.end(body);
   });
+}
+
+/**
+ * Send one alert notification to one device token.
+ * Opens a fresh HTTP/2 session per call — fine at personal-server volume.
+ */
+export async function sendApnsNotification(
+  deviceToken: string,
+  payload: ApnsAlertPayload,
+  opts?: { sandbox?: boolean },
+): Promise<ApnsSendResult> {
+  return postApns(
+    deviceToken,
+    apnsAlertBody(payload),
+    "alert",
+    payload.tag?.slice(0, 63),
+    opts,
+  );
+}
+
+/**
+ * Silent wake so a running/backgrounded native app can sync and drop
+ * banners for mail that was read elsewhere. Does not replace an existing
+ * alert: collapse-id is a shared nudge key, not the mail's tag.
+ */
+export async function sendApnsBackground(
+  deviceToken: string,
+  _payload?: unknown,
+  opts?: { sandbox?: boolean },
+): Promise<ApnsSendResult> {
+  return postApns(
+    deviceToken,
+    apnsBackgroundBody(),
+    "background",
+    "kurir-nudge",
+    opts,
+  );
 }

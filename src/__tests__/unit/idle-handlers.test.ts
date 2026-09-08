@@ -28,6 +28,7 @@ vi.mock("@/lib/mail/sse-subscribers", () => ({
 
 vi.mock("@/lib/mail/push-sender", () => ({
   pushToUser: vi.fn().mockResolvedValue(undefined),
+  nudgeIosClients: vi.fn(),
 }));
 
 vi.mock("@/lib/mail/flag-push", () => ({

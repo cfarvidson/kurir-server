@@ -6,6 +6,7 @@ import {
 } from "@/lib/mail/archive-imap";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
+import { nudgeIosClients } from "@/lib/mail/push-sender";
 import {
   foldSubjectText,
   scopeMatchesSender,
@@ -413,6 +414,8 @@ export async function setThreadReadState(
     where: { id: { in: threadMessages.map((m) => m.id) } },
     data: { isRead },
   });
+
+  if (isRead) nudgeIosClients(userId);
 }
 
 /**

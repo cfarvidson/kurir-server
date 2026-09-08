@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
+import { nudgeIosClients } from "@/lib/mail/push-sender";
 
 export { threadKeyOf };
 
@@ -136,6 +137,7 @@ export async function getThreadMessages(userId: string, messageId: string) {
         where: { id: { in: unreadMessages.map((m) => m.id) } },
         data: { isRead: true },
       });
+      nudgeIosClients(userId);
     }
 
     return {
@@ -233,6 +235,8 @@ async function finalizeThread(allMessages: ThreadRow[]) {
       where: { id: { in: unreadMessages.map((m) => m.id) } },
       data: { isRead: true },
     });
+    const userId = deduped[0]?.userId;
+    if (userId) nudgeIosClients(userId);
     // Sidebar revalidation is handled by <SidebarRefresh /> in the page component
   }
 

@@ -30,6 +30,7 @@ vi.mock("@/lib/mail/sync-lock", () => ({ isSyncLockHeld: vi.fn() }));
 vi.mock("@/lib/mail/sse-subscribers", () => ({ emitToUser: vi.fn() }));
 vi.mock("@/lib/mail/push-sender", () => ({
   pushToUser: vi.fn().mockResolvedValue(undefined),
+  nudgeIosClients: vi.fn(),
 }));
 vi.mock("@/lib/mail/flag-push", () => ({
   isEcho: vi.fn().mockReturnValue(false),

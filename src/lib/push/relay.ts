@@ -10,6 +10,27 @@ export function relayConfigured(): boolean {
   return !!process.env.PUSH_RELAY_URL;
 }
 
+async function postRelay(
+  deviceToken: string,
+  body: Record<string, unknown>,
+  opts?: { sandbox?: boolean },
+): Promise<ApnsSendResult> {
+  const res = await fetch(`${process.env.PUSH_RELAY_URL}/api/push`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      deviceToken,
+      sandbox: opts?.sandbox ?? process.env.APNS_SANDBOX === "true",
+      ...body,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!res) return { ok: false, gone: false, reason: "relay unreachable" };
+  if (!res.ok)
+    return { ok: false, gone: false, status: res.status, reason: "relay error" };
+  return (await res.json()) as ApnsSendResult;
+}
+
 export async function sendRelayNotification(
   deviceToken: string,
   payload: {
@@ -21,18 +42,13 @@ export async function sendRelayNotification(
   },
   opts?: { sandbox?: boolean },
 ): Promise<ApnsSendResult> {
-  const res = await fetch(`${process.env.PUSH_RELAY_URL}/api/push`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      deviceToken,
-      sandbox: opts?.sandbox ?? process.env.APNS_SANDBOX === "true",
-      notification: payload,
-    }),
-    signal: AbortSignal.timeout(10_000),
-  }).catch(() => null);
-  if (!res) return { ok: false, gone: false, reason: "relay unreachable" };
-  if (!res.ok)
-    return { ok: false, gone: false, status: res.status, reason: "relay error" };
-  return (await res.json()) as ApnsSendResult;
+  return postRelay(deviceToken, { notification: payload }, opts);
+}
+
+export async function sendRelayBackground(
+  deviceToken: string,
+  _payload?: unknown,
+  opts?: { sandbox?: boolean },
+): Promise<ApnsSendResult> {
+  return postRelay(deviceToken, { pushType: "background" }, opts);
 }

@@ -63,6 +63,7 @@ vi.mock("@/lib/mail/connection-manager", () => ({
 vi.mock("@/lib/mail/sse-subscribers", () => ({ emitToUser: vi.fn() }));
 vi.mock("@/lib/mail/push-sender", () => ({
   pushToUser: vi.fn().mockResolvedValue(undefined),
+  nudgeIosClients: vi.fn(),
 }));
 vi.mock("@/lib/mail/flag-push", () => ({ isEcho: vi.fn() }));
 vi.mock("@/lib/mail/sync-lock", () => ({

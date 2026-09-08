@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { type OwnAddresses } from "@/lib/mail/user-emails";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
-import { pushToUser } from "./push-sender";
+import { nudgeIosClients, pushToUser } from "./push-sender";
 import { isSyncLockHeld } from "./sync-lock";
 import {
   connectionManager,
@@ -532,6 +532,10 @@ async function handleFlagChange(
     where: { id: message.id },
     data: newFlags,
   });
+
+  if (!message.isRead && newFlags.isRead) {
+    nudgeIosClients(userId);
+  }
 
   // Monotonic bump — concurrent flag handlers must not clobber a higher value.
   if (modseq) {

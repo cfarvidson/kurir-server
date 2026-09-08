@@ -3,10 +3,15 @@ import { db } from "@/lib/db";
 import { getConfig } from "@/lib/config";
 import {
   apnsConfigured,
+  sendApnsBackground,
   sendApnsNotification,
   type ApnsSendResult,
 } from "@/lib/push/apns";
-import { relayConfigured, sendRelayNotification } from "@/lib/push/relay";
+import {
+  relayConfigured,
+  sendRelayBackground,
+  sendRelayNotification,
+} from "@/lib/push/relay";
 import { getImboxUnreadThreadCount } from "@/lib/mail/unread-count";
 
 let vapidInitialized = false;
@@ -38,9 +43,9 @@ interface PushPayload {
 const recentlyNotified = new Set<string>();
 const DEDUP_TTL_MS = 120_000; // 2 minutes
 
-type IosSend = (
+type IosSend<T> = (
   deviceToken: string,
-  payload: PushPayload & { badge?: number },
+  payload: T,
   opts?: { sandbox?: boolean },
 ) => Promise<ApnsSendResult>;
 
@@ -52,10 +57,10 @@ type IosSend = (
  * token is declared dead. `workedEnv` is the gateway that accepted the token
  * (for persisting on the subscription), null when nothing did.
  */
-export async function sendIosWithEnvFallback(
-  send: IosSend,
+export async function sendIosWithEnvFallback<T>(
+  send: IosSend<T>,
   deviceToken: string,
-  payload: PushPayload & { badge?: number },
+  payload: T,
   knownEnv: string | null,
   defaultSandbox: boolean,
 ): Promise<{
@@ -196,6 +201,86 @@ export async function pushToUser(userId: string, payload: PushPayload) {
   for (const f of failed) {
     if (f.status === "rejected") {
       console.error(`[push] Failure:`, f.reason?.message || f.reason);
+    }
+  }
+}
+
+const NUDGE_DEBOUNCE_MS = 500;
+const pendingNudges = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Wake native clients so they can drop lock-screen banners for mail that
+ * was just marked read. Trailing-debounce per user: a burst of reads
+ * (bulk, thread open) becomes one silent push after the last write.
+ */
+export function nudgeIosClients(userId: string): void {
+  const existing = pendingNudges.get(userId);
+  if (existing) clearTimeout(existing);
+  pendingNudges.set(
+    userId,
+    setTimeout(() => {
+      pendingNudges.delete(userId);
+      void sendIosNudge(userId);
+    }, NUDGE_DEBOUNCE_MS),
+  );
+}
+
+async function sendIosNudge(userId: string) {
+  if (!apnsConfigured() && !relayConfigured()) return;
+
+  let subscriptions: {
+    id: string;
+    endpoint: string;
+    apnsEnv: string | null;
+  }[];
+  try {
+    subscriptions = await db.pushSubscription.findMany({
+      where: { userId, platform: "ios" },
+      select: {
+        id: true,
+        endpoint: true,
+        apnsEnv: true,
+      },
+    });
+  } catch (err) {
+    console.error("[push] Nudge lookup failed:", err);
+    return;
+  }
+  if (subscriptions.length === 0) return;
+
+  const sendIos = apnsConfigured() ? sendApnsBackground : sendRelayBackground;
+
+  const results = await Promise.allSettled(
+    subscriptions.map(async (sub) => {
+      const deviceToken = sub.endpoint.replace(/^apns:/, "");
+      const { result, workedEnv } = await sendIosWithEnvFallback(
+        sendIos,
+        deviceToken,
+        {},
+        sub.apnsEnv,
+        process.env.APNS_SANDBOX === "true",
+      );
+      if (workedEnv && workedEnv !== sub.apnsEnv) {
+        await db.pushSubscription
+          .update({ where: { id: sub.id }, data: { apnsEnv: workedEnv } })
+          .catch(() => {});
+      }
+      if (result.gone) {
+        await db.pushSubscription
+          .delete({ where: { id: sub.id } })
+          .catch(() => {});
+        console.log(`[push] Removed dead APNs token ${sub.id}`);
+      }
+      if (!result.ok) {
+        throw new Error(`APNs ${result.status ?? ""} ${result.reason ?? ""}`);
+      }
+    }),
+  );
+
+  const failed = results.filter((r) => r.status === "rejected");
+  for (const f of failed) {
+    if (f.status === "rejected") {
+      console.error(`[push] Nudge failure:`, f.reason?.message || f.reason);
     }
   }
 }
