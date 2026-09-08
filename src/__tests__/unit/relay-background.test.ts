@@ -24,7 +24,7 @@ describe("sendRelayBackground", () => {
     const { sendRelayBackground } = await import("@/lib/push/relay");
     const result = await sendRelayBackground(
       TOKEN,
-      { readIds: ["m1", "m2"] },
+      { readIds: ["m1", "m2"], badge: 5 },
       { sandbox: true },
     );
 
@@ -36,6 +36,7 @@ describe("sendRelayBackground", () => {
       sandbox: true,
       pushType: "background",
       readIds: ["m1", "m2"],
+      badge: 5,
     });
   });
 

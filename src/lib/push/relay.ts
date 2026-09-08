@@ -55,6 +55,7 @@ export async function sendRelayBackground(
     {
       pushType: "background",
       ...(payload.readIds?.length ? { readIds: payload.readIds } : {}),
+      ...(payload.badge !== undefined ? { badge: payload.badge } : {}),
     },
     opts,
   );

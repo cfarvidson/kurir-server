@@ -10,6 +10,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/mail/unread-count", () => ({
+  imboxBadge: vi.fn(async () => 4),
+}));
+
 const sendApnsBackground = vi.fn();
 const sendRelayBackground = vi.fn();
 vi.mock("@/lib/push/apns", async (importOriginal) => {
@@ -59,7 +63,7 @@ describe("nudgeIosClients", () => {
     expect(sendApnsBackground).toHaveBeenCalledTimes(1);
     expect(sendApnsBackground).toHaveBeenCalledWith(
       TOKEN,
-      { readIds: ["m2", "m1", "m3"] },
+      { readIds: ["m2", "m1", "m3"], badge: 4 },
       { sandbox: true },
     );
   });
@@ -74,6 +78,32 @@ describe("nudgeIosClients", () => {
     expect(sent.readIds).toHaveLength(100);
     expect(sent.readIds[0]).toBe("m20");
     expect(sent.readIds[99]).toBe("m119");
+  });
+
+  it("sends badge 0 so the last read clears the icon", async () => {
+    const { imboxBadge } = await import("@/lib/mail/unread-count");
+    vi.mocked(imboxBadge).mockResolvedValueOnce(0);
+    const { nudgeIosClients } = await import("@/lib/mail/push-sender");
+    nudgeIosClients("user-1", ["m1"]);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sendApnsBackground).toHaveBeenCalledWith(
+      TOKEN,
+      { readIds: ["m1"], badge: 0 },
+      { sandbox: true },
+    );
+  });
+
+  it("still nudges without a badge when the unread count fails", async () => {
+    const { imboxBadge } = await import("@/lib/mail/unread-count");
+    vi.mocked(imboxBadge).mockResolvedValueOnce(undefined);
+    const { nudgeIosClients } = await import("@/lib/mail/push-sender");
+    nudgeIosClients("user-1", ["m1"]);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sendApnsBackground).toHaveBeenCalledWith(
+      TOKEN,
+      { readIds: ["m1"] },
+      { sandbox: true },
+    );
   });
 
   it("does not send when the user has no iOS tokens", async () => {

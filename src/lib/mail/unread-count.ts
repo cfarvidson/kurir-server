@@ -46,3 +46,16 @@ export async function getImboxUnreadThreadCount(
     })),
   );
 }
+
+/** APNs badge limit. */
+const MAX_BADGE = 99_999;
+
+/**
+ * Badge for iOS pushes: the Imbox unread thread count, capped. Undefined
+ * when the count fails so the push still goes out without a badge.
+ */
+export async function imboxBadge(userId: string): Promise<number | undefined> {
+  return getImboxUnreadThreadCount(userId)
+    .then((n) => Math.min(n, MAX_BADGE))
+    .catch(() => undefined);
+}
