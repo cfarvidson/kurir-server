@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.85",
+    "date": "2026-09-08",
+    "changes": [
+      "Mails read in the iOS/macOS app stay read after an IMAP reconnect: \\Seen is now pushed to IMAP"
+    ]
+  },
+  {
     "version": "2026.84",
     "date": "2026-09-08",
     "changes": [

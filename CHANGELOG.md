@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.85] - 2026-09-08
+
+### Fixed
+
+- Mails read in the iOS/macOS app now stay read after an IMAP reconnect.
+  The native read path only updated the database, so the CONDSTORE
+  catch-up after a reconnect saw the message as unseen on IMAP and
+  flipped it back to unread, badge and all. The `\Seen` flag is now
+  pushed to IMAP for the whole thread, add on read and remove on unread.
+
 ## [v2026.84] - 2026-09-08
 
 ### Fixed

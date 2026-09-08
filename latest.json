@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-06T16:30:57Z",
   "beta": {
-    "version": "2026.84",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.84",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.84",
-    "changelog": "Read nudges carry the new unread count so the iPhone badge updates when mail is read on web or Mac, even with the app closed",
+    "version": "2026.85",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.85",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.85",
+    "changelog": "Mails read in the iOS/macOS app now stay read: the \\Seen flag is pushed to IMAP so an IMAP reconnect no longer flips them back to unread",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-08T13:06:52Z"
+    "releasedAt": "2026-09-08T15:22:09Z"
   }
 }
