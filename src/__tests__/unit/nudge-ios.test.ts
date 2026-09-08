@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/mail/unread-count", () => ({
-  getImboxUnreadThreadCount: vi.fn(async () => 4),
+  imboxBadge: vi.fn(async () => 4),
 }));
 
 const sendApnsBackground = vi.fn();
@@ -80,9 +80,22 @@ describe("nudgeIosClients", () => {
     expect(sent.readIds[99]).toBe("m119");
   });
 
+  it("sends badge 0 so the last read clears the icon", async () => {
+    const { imboxBadge } = await import("@/lib/mail/unread-count");
+    vi.mocked(imboxBadge).mockResolvedValueOnce(0);
+    const { nudgeIosClients } = await import("@/lib/mail/push-sender");
+    nudgeIosClients("user-1", ["m1"]);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sendApnsBackground).toHaveBeenCalledWith(
+      TOKEN,
+      { readIds: ["m1"], badge: 0 },
+      { sandbox: true },
+    );
+  });
+
   it("still nudges without a badge when the unread count fails", async () => {
-    const { getImboxUnreadThreadCount } = await import("@/lib/mail/unread-count");
-    vi.mocked(getImboxUnreadThreadCount).mockRejectedValueOnce(new Error("db"));
+    const { imboxBadge } = await import("@/lib/mail/unread-count");
+    vi.mocked(imboxBadge).mockResolvedValueOnce(undefined);
     const { nudgeIosClients } = await import("@/lib/mail/push-sender");
     nudgeIosClients("user-1", ["m1"]);
     await vi.advanceTimersByTimeAsync(500);

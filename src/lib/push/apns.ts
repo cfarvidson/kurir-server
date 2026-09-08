@@ -235,9 +235,10 @@ export async function sendApnsNotification(
 }
 
 /**
- * Silent wake so a running/backgrounded native app can sync and drop
- * banners for mail that was read elsewhere. No collapse id: a collapsed
- * nudge would drop the earlier one's readIds.
+ * Read nudge: wakes a running/backgrounded app so it can drop banners,
+ * and with a badge becomes a badge-only alert push (see
+ * ApnsBackgroundPayload). No collapse id: a collapsed nudge would drop
+ * the earlier one's readIds.
  */
 export async function sendApnsBackground(
   deviceToken: string,

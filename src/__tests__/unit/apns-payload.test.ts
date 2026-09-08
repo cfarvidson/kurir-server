@@ -45,6 +45,8 @@ describe("APNs payloads", () => {
     expect(parsed.aps.alert).toBeUndefined();
     expect(parsed.aps.sound).toBeUndefined();
     expect(apnsNudgePushType(payload)).toBe("alert");
+    expect(JSON.parse(apnsBackgroundBody({ badge: 0 })).aps.badge).toBe(0);
+    expect(apnsNudgePushType({ badge: 0 })).toBe("alert");
     expect(apnsNudgePushType({ readIds: ["m1"] })).toBe("background");
   });
 

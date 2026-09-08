@@ -12,7 +12,7 @@ import {
   sendRelayBackground,
   sendRelayNotification,
 } from "@/lib/push/relay";
-import { getImboxUnreadThreadCount } from "@/lib/mail/unread-count";
+import { imboxBadge } from "@/lib/mail/unread-count";
 
 let vapidInitialized = false;
 function ensureVapid() {
@@ -111,11 +111,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
   if (subscriptions.length === 0) return;
 
   const hasIos = subscriptions.some((s) => s.platform === "ios");
-  const badge = hasIos
-    ? await getImboxUnreadThreadCount(userId)
-        .then((n) => Math.min(n, 99_999))
-        .catch(() => undefined)
-    : undefined;
+  const badge = hasIos ? await imboxBadge(userId) : undefined;
 
   const body = JSON.stringify(payload);
   // topic must be max 32 chars, URL-safe (no angle brackets from Message-IDs)
@@ -264,9 +260,7 @@ async function sendIosNudge(userId: string, readIds: string[]) {
 
   // The read that triggered the nudge changed the unread count; carry the
   // new badge so iOS updates the icon without the app having to sync.
-  const badge = await getImboxUnreadThreadCount(userId)
-    .then((n) => Math.min(n, 99_999))
-    .catch(() => undefined);
+  const badge = await imboxBadge(userId);
 
   const sendIos = apnsConfigured() ? sendApnsBackground : sendRelayBackground;
 
