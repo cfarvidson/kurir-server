@@ -206,26 +206,40 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 }
 
 const NUDGE_DEBOUNCE_MS = 500;
-const pendingNudges = new Map<string, ReturnType<typeof setTimeout>>();
+/** Keeps the APNs payload (4 KB) and the relay body cap comfortably clear. */
+const NUDGE_MAX_READ_IDS = 100;
+const pendingNudges = new Map<
+  string,
+  { timer: ReturnType<typeof setTimeout>; readIds: Set<string> }
+>();
 
 /**
  * Wake native clients so they can drop lock-screen banners for mail that
  * was just marked read. Trailing-debounce per user: a burst of reads
- * (bulk, thread open) becomes one silent push after the last write.
+ * (bulk, thread open) becomes one silent push after the last write,
+ * carrying the ids of every message read in the burst so the app can
+ * clear banners without a sync (iOS suspends it before one finishes).
  */
-export function nudgeIosClients(userId: string): void {
+export function nudgeIosClients(userId: string, readIds: string[]): void {
   const existing = pendingNudges.get(userId);
-  if (existing) clearTimeout(existing);
-  pendingNudges.set(
-    userId,
-    setTimeout(() => {
+  if (existing) clearTimeout(existing.timer);
+  const pending = existing?.readIds ?? new Set<string>();
+  // Re-insert so a re-read id moves to the back: the slice below keeps
+  // the newest reads, whose banners are most likely still on screen.
+  for (const id of readIds) {
+    pending.delete(id);
+    pending.add(id);
+  }
+  pendingNudges.set(userId, {
+    readIds: pending,
+    timer: setTimeout(() => {
       pendingNudges.delete(userId);
-      void sendIosNudge(userId);
+      void sendIosNudge(userId, [...pending].slice(-NUDGE_MAX_READ_IDS));
     }, NUDGE_DEBOUNCE_MS),
-  );
+  });
 }
 
-async function sendIosNudge(userId: string) {
+async function sendIosNudge(userId: string, readIds: string[]) {
   if (!apnsConfigured() && !relayConfigured()) return;
 
   let subscriptions: {
@@ -256,7 +270,7 @@ async function sendIosNudge(userId: string) {
       const { result, workedEnv } = await sendIosWithEnvFallback(
         sendIos,
         deviceToken,
-        {},
+        { readIds },
         sub.apnsEnv,
         process.env.APNS_SANDBOX === "true",
       );

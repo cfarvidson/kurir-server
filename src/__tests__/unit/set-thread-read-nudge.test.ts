@@ -29,17 +29,21 @@ vi.mock("@/lib/mail/flag-push", () => ({ suppressEcho: vi.fn() }));
 describe("setThreadReadState", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("nudges native clients when marking read", async () => {
+  it("nudges native clients with the thread's message ids when marking read", async () => {
     const { db } = await import("@/lib/db");
     vi.mocked(db.message.findFirst).mockResolvedValue({
       id: "m1",
-      threadId: null,
+      threadId: "t1",
     } as never);
-    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([
+      { id: "m1" },
+      { id: "m2" },
+    ] as never);
+    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 2 } as never);
 
     const { setThreadReadState } = await import("@/lib/mail/mutations");
     await setThreadReadState("user-1", "m1", true);
-    expect(nudgeIosClients).toHaveBeenCalledWith("user-1");
+    expect(nudgeIosClients).toHaveBeenCalledWith("user-1", ["m1", "m2"]);
   });
 
   it("does not nudge when marking unread", async () => {

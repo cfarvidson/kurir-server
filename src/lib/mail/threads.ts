@@ -137,7 +137,10 @@ export async function getThreadMessages(userId: string, messageId: string) {
         where: { id: { in: unreadMessages.map((m) => m.id) } },
         data: { isRead: true },
       });
-      nudgeIosClients(userId);
+      nudgeIosClients(
+        userId,
+        unreadMessages.map((m) => m.id),
+      );
     }
 
     return {
@@ -236,7 +239,12 @@ async function finalizeThread(allMessages: ThreadRow[]) {
       data: { isRead: true },
     });
     const userId = deduped[0]?.userId;
-    if (userId) nudgeIosClients(userId);
+    if (userId) {
+      nudgeIosClients(
+        userId,
+        unreadMessages.map((m) => m.id),
+      );
+    }
     // Sidebar revalidation is handled by <SidebarRefresh /> in the page component
   }
 

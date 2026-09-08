@@ -1,4 +1,4 @@
-import type { ApnsSendResult } from "./apns";
+import type { ApnsBackgroundPayload, ApnsSendResult } from "./apns";
 
 /**
  * APNs relay client for self-hosted instances without the .p8 key.
@@ -47,8 +47,15 @@ export async function sendRelayNotification(
 
 export async function sendRelayBackground(
   deviceToken: string,
-  _payload?: unknown,
+  payload: ApnsBackgroundPayload,
   opts?: { sandbox?: boolean },
 ): Promise<ApnsSendResult> {
-  return postRelay(deviceToken, { pushType: "background" }, opts);
+  return postRelay(
+    deviceToken,
+    {
+      pushType: "background",
+      ...(payload.readIds?.length ? { readIds: payload.readIds } : {}),
+    },
+    opts,
+  );
 }
