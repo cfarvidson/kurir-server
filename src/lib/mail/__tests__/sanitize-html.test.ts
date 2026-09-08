@@ -584,6 +584,23 @@ describe("sanitizeEmailHtml", () => {
       expect(html).not.toContain("<blockquote");
     });
 
+    it("starts the signature at a bilingual closing/closing paragraph", () => {
+      const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
+        "<p>Hej</p><p>Vi kan lägga till en email.</p>" +
+          "<p>Med vänliga hälsningar/Best Regards</p>" +
+          "<p>Marcus Paulsson</p>" +
+          "<div style='border:none;border-top:solid #E1E1E1 1.0pt'>" +
+          "<p><b>Från:</b> x<br><b>Skickat:</b> y</p></div>" +
+          "<p>quoted original</p>",
+        { collapseQuotes: true },
+      );
+      expect(quoteCollapsible).toBe(true);
+      expect(html).toContain("Vi kan lägga till");
+      expect(html).not.toContain("Marcus Paulsson");
+      expect(html).not.toContain("Från:");
+      expect(html).not.toContain("quoted original");
+    });
+
     it("starts the signature at the last closing-phrase paragraph", () => {
       const { html, quoteCollapsible } = sanitizeEmailHtmlWithMeta(
         "<div class=WordSection1><p class=MsoNormal>Hej!<o:p></o:p></p>" +

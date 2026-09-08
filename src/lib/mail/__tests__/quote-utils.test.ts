@@ -119,6 +119,32 @@ describe("splitPlainTextQuotes", () => {
     expect(splitPlainTextQuotes(text)).toEqual({ body: text, quoted: null });
   });
 
+  it("starts the signature at a bilingual closing/closing line", () => {
+    const text = [
+      "Hej Carl-Fredrik,",
+      "Tack för ditt mejl!",
+      "",
+      "Vi kan lägga till en email.",
+      "",
+      "Med vänliga hälsningar/Best Regards",
+      "Marcus Paulsson",
+      "",
+      "Chas Partner Network",
+      "",
+      "Från: carl-fredrik@arvidson.io <carl-fredrik@arvidson.io>",
+      "Skickat: Tuesday, 8 September 2026 07:49",
+      "Till: Ramavtal <ramavtal@chas.se>",
+      "Ämne: Felix",
+    ].join("\n");
+    const { body, quoted } = splitPlainTextQuotes(text);
+    expect(body).toBe(
+      "Hej Carl-Fredrik,\nTack för ditt mejl!\n\nVi kan lägga till en email.",
+    );
+    expect(quoted?.startsWith("Med vänliga hälsningar/Best Regards")).toBe(
+      true,
+    );
+  });
+
   it("starts the signature at the last closing phrase", () => {
     const text = [
       "Hej!",
@@ -200,6 +226,12 @@ describe("closingKind / isNameLike", () => {
     expect(closingKind("/Bjørn")).toBe("named");
     expect(closingKind("/nicklas")).toBe("named");
     expect(isClosingLine("Best regards")).toBe(true);
+    expect(closingKind("Med vänliga hälsningar/Best Regards")).toBe("bare");
+    expect(closingKind("Med vänliga hälsningar / Best Regards")).toBe("bare");
+    expect(closingKind("Vänliga hälsningar/Kind regards")).toBe("bare");
+    expect(closingKind("Med vänliga hälsningar/Best regards, Bob")).toBe(
+      "named",
+    );
   });
 
   it("rejects prose, paths and ASCII-boundary false positives", () => {

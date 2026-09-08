@@ -32,12 +32,14 @@ const DIVIDERS: RegExp[] = [
 ];
 
 // Closing phrases that end the author's text; the signature starts there.
-// The phrase must be followed by the end of the line, whitespace or
-// punctuation (JS "\b" is ASCII-only, so "BRÖD" would otherwise match "br").
+// The phrase must be followed by the end of the line, whitespace,
+// punctuation, or a slash that starts a second closing (bilingual
+// "hälsningar/Best regards"). JS "\b" is ASCII-only, so "BRÖD" would
+// otherwise match "br".
 const CLOSING = new RegExp(
   "^(" +
     "med vänliga? hälsningar?|vänliga hälsningar|vänliga hälsningar och tack|med vänlig hälsning|hälsningar|vänligen|allt gott|ha det (?:bra|gott)|tack på förhand|tack så mycket|tack|mvh|mvh\.|vh|best regards|kind regards|warm regards|warmest regards|regards|best wishes|best|all the best|cheers|thanks(?: a lot| again| so much)?|thank you|many thanks|sincerely|yours sincerely|yours truly|yours|br|rgds|take care|talk soon|with kind regards|with best regards|mit freundlichen grüßen|viele grüße|cordialement" +
-    ")(?=$|[\\s,.!])[,.!]?\\s*(.*)$",
+    ")(?=$|[\\s,.!/])[,.!]?\\s*(.*)$",
   "i",
 );
 const LETTER = "A-Za-zÀ-ÖØ-öø-ÿ";
@@ -56,8 +58,8 @@ export type ClosingKind = "none" | "bare" | "named";
 /**
  * Classify a line as a closing: "named" when it carries a name ("Mvh Bob",
  * "Kind regards, Bob Smith", "/Bob"), "bare" for the phrase alone ("Med
- * vänliga hälsningar", "Tack"). Up to three capitalised words may follow
- * the phrase.
+ * vänliga hälsningar", "Tack", "Med vänliga hälsningar/Best Regards").
+ * Up to three capitalised words may follow the phrase.
  */
 export function closingKind(line: string): ClosingKind {
   const s = line.trim();
@@ -68,6 +70,12 @@ export function closingKind(line: string): ClosingKind {
   const m = CLOSING.exec(s);
   if (!m) return "none";
   const rest = m[2].trim();
+  if (rest.startsWith("/")) {
+    const after = rest.slice(1).trim();
+    if (after.length === 0) return "bare";
+    const inner = closingKind(after);
+    if (inner !== "none") return inner;
+  }
   if (rest.length === 0) return "bare";
   const words = rest.split(/\s+/);
   return words.length <= 3 && words.every((w) => STARTS_UPPER.test(w))
