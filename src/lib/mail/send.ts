@@ -9,6 +9,7 @@ import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
 import { deleteDraftForUser } from "@/lib/mail/drafts";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
+import { appendQuoteToHtml, loadReplyQuote } from "@/lib/mail/reply-quote";
 import {
   appendToImapSent,
   createLocalSentMessage,
@@ -158,6 +159,14 @@ export async function sendMailForUser(
     inlineImageIds = converted.inlineImageIds;
   }
 
+  // A reply carries the quoted original below the new text (#177).
+  const quote = await loadReplyQuote(userId, inReplyTo);
+  const outText = quote ? text + quote.text : text;
+  if (quote) {
+    emailHtml = appendQuoteToHtml(emailHtml ?? "", quote.html);
+    displayHtml = appendQuoteToHtml(displayHtml ?? "", quote.html);
+  }
+
   // Load attachments if provided
   const loaded = await loadAttachmentsForSend(
     attachmentIds || [],
@@ -171,7 +180,7 @@ export async function sendMailForUser(
     ...(ccRecipients.length > 0 && { cc: ccRecipients.join(", ") }),
     ...(bccRecipients.length > 0 && { bcc: bccRecipients.join(", ") }),
     subject,
-    text,
+    text: outText,
     html: emailHtml,
     ...(inReplyTo && { inReplyTo }),
     ...(references &&
@@ -206,7 +215,7 @@ export async function sendMailForUser(
     toAddresses: recipients,
     ccAddresses: ccRecipients,
     bccAddresses: bccRecipients,
-    text,
+    text: outText,
     html: displayHtml,
     attachmentIds: loaded.ids,
   });
@@ -241,7 +250,7 @@ export async function sendMailForUser(
     toAddresses: recipients,
     ccAddresses: ccRecipients,
     bccAddresses: bccRecipients,
-    text,
+    text: outText,
     html: emailHtml,
     attachments: loaded.sentAttachments,
   }).catch(console.error);

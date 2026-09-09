@@ -7,6 +7,7 @@ import {
   appendToImapSent,
 } from "@/lib/mail/persist-sent";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
+import { appendQuoteToHtml, buildReplyQuote } from "@/lib/mail/reply-quote";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { rateLimitSend } from "@/lib/rate-limit";
@@ -59,6 +60,11 @@ export async function replyToMessage(
       references: true,
       subject: true,
       fromAddress: true,
+      fromName: true,
+      sentAt: true,
+      receivedAt: true,
+      textBody: true,
+      htmlBody: true,
       replyTo: true,
       emailConnectionId: true,
     },
@@ -102,6 +108,16 @@ export async function replyToMessage(
   // Convert markdown to email HTML
   const converted = convertMarkdownToEmailHtml(body);
 
+  // The quoted original below the new text (#177).
+  const quote = buildReplyQuote(message);
+  const outBody = quote ? body + quote.text : body;
+  const emailHtml = quote
+    ? appendQuoteToHtml(converted.emailHtml, quote.html)
+    : converted.emailHtml;
+  const displayHtml = quote
+    ? appendQuoteToHtml(converted.displayHtml, quote.html)
+    : converted.displayHtml;
+
   // Load attachments if provided
   const loaded = await loadAttachmentsForSend(
     attachmentIds || [],
@@ -115,8 +131,8 @@ export async function replyToMessage(
     ...(ccList.length > 0 && { cc: ccList.join(", ") }),
     ...(bccList.length > 0 && { bcc: bccList.join(", ") }),
     subject,
-    text: body,
-    html: converted.emailHtml,
+    text: outBody,
+    html: emailHtml,
     ...(message.messageId && { inReplyTo: message.messageId }),
     ...(references.length > 0 && {
       references: references.join(" "),
@@ -139,8 +155,8 @@ export async function replyToMessage(
     toAddresses: toList.length > 0 ? toList : [replyTo],
     ccAddresses: ccList,
     bccAddresses: bccList,
-    text: body,
-    html: converted.displayHtml,
+    text: outBody,
+    html: displayHtml,
     attachmentIds: loaded.ids,
   });
 
@@ -155,8 +171,8 @@ export async function replyToMessage(
     toAddresses: toList.length > 0 ? toList : [replyTo],
     ccAddresses: ccList,
     bccAddresses: bccList,
-    text: body,
-    html: converted.emailHtml,
+    text: outBody,
+    html: emailHtml,
     attachments: loaded.sentAttachments,
   }).catch(console.error);
 

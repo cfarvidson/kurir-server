@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { appendQuoteToHtml, loadReplyQuote } from "@/lib/mail/reply-quote";
 import { getConnectionCredentialsInternal } from "@/lib/auth";
 import { sendScheduledEmail } from "@/lib/mail/scheduled-send";
 import {
@@ -165,9 +166,18 @@ export async function insertScheduledMessageForUser(
     }
   }
 
+  // A reply carries the quoted original, like the direct send paths (#177).
+  // Applied here so every later send path (cron, send-now) carries it.
+  const quote = await loadReplyQuote(userId, parsed.inReplyToMessageId);
+  const textBody = quote ? parsed.textBody + quote.text : parsed.textBody;
+  const htmlBody =
+    quote && parsed.htmlBody
+      ? appendQuoteToHtml(parsed.htmlBody, quote.html)
+      : parsed.htmlBody;
+
   // Encrypt body fields at rest
-  const encryptedTextBody = encrypt(parsed.textBody);
-  const encryptedHtmlBody = parsed.htmlBody ? encrypt(parsed.htmlBody) : null;
+  const encryptedTextBody = encrypt(textBody);
+  const encryptedHtmlBody = htmlBody ? encrypt(htmlBody) : null;
 
   // Add 1–14 minutes of jitter so scheduled sends don't land exactly on the hour
   const jitterMs = (1 + Math.random() * 13) * 60_000;
