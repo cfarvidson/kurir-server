@@ -189,15 +189,6 @@ export function ComposeClientPage({
   const [error, setError] = useState<string | null>(null);
   const sendingRef = useRef(false);
   const [isSending, setIsSending] = useState(false);
-  const {
-    attachments,
-    upload,
-    remove,
-    isUploading,
-    setAttachments,
-    getSnapshot,
-  } = useAttachments();
-  const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
 
   // Draft auto-save
   // Plan 037: NEW drafts get a stable per-mount UUID (several new-mail drafts
@@ -220,6 +211,15 @@ export function ComposeClientPage({
     status: draftStatus,
   } = useDraft(userId, draftType, draftContextId);
   const draftLoadedRef = useRef(false);
+  const {
+    attachments,
+    upload,
+    remove,
+    isUploading,
+    setAttachments,
+    getSnapshot,
+  } = useAttachments({ type: draftType, contextMessageId: draftContextId });
+  const savedAttachmentsRef = useRef<UploadedAttachment[]>([]);
 
   // Pre-load forward / scheduled-edit attachments
   useEffect(() => {

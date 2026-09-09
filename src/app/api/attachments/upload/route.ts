@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DraftType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getRequestUserId } from "@/lib/mobile/auth";
-import { uploadPendingAttachment } from "@/lib/mail/attachment-upload";
+import {
+  draftAttachmentBytes,
+  MAX_PENDING_UPLOAD_BYTES,
+  PER_MAIL_LIMIT_ERROR,
+  uploadPendingAttachment,
+} from "@/lib/mail/attachment-upload";
+import type { DraftRef } from "@/lib/mail/draft-context";
 import { rateLimitUploads, tooManyRequests } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PENDING_TOTAL = 25 * 1024 * 1024; // 25MB total pending uploads
 
 export async function POST(request: NextRequest) {
   // Session cookie (web) or bearer token (mobile)
@@ -15,11 +21,20 @@ export async function POST(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return jsonChunkedUpload(request, userId);
+  try {
+    if (contentType.includes("application/json")) {
+      return await jsonChunkedUpload(request, userId);
+    }
+    return await multipartUpload(request, userId);
+  } catch (error) {
+    if (error instanceof InvalidDraftRefError) {
+      return NextResponse.json(
+        { error: "Invalid draft reference" },
+        { status: 400 },
+      );
+    }
+    throw error;
   }
-
-  return multipartUpload(request, userId);
 }
 
 async function jsonChunkedUpload(request: NextRequest, userId: string) {
@@ -31,6 +46,7 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
   }
 
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const draft = parseDraftRef(record.draftType, record.draftContextMessageId);
   const result = await uploadPendingAttachment(userId, {
     filename: typeof record.filename === "string" ? record.filename : undefined,
     contentType:
@@ -38,9 +54,13 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
     data: typeof record.data === "string" ? record.data : undefined,
     uploadId: typeof record.uploadId === "string" ? record.uploadId : undefined,
     done: typeof record.done === "boolean" ? record.done : undefined,
+    draft,
   });
 
   if (!result.ok) {
+    if (result.retryAfter !== undefined) {
+      return tooManyRequests(result.retryAfter);
+    }
     const status = /too large|exceed/i.test(result.error) ? 413 : 400;
     return NextResponse.json({ error: result.error }, { status });
   }
@@ -74,6 +94,11 @@ async function multipartUpload(request: NextRequest, userId: string) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
+  const draft = parseDraftRef(
+    formData.get("draftType"),
+    formData.get("draftContextMessageId"),
+  );
+
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: "File too large (max 10MB)" },
@@ -85,19 +110,9 @@ async function multipartUpload(request: NextRequest, userId: string) {
     return NextResponse.json({ error: "Empty file" }, { status: 400 });
   }
 
-  const pendingTotal = await db.attachment.aggregate({
-    where: { userId, messageId: null },
-    _sum: { size: true },
-  });
-
-  if ((pendingTotal._sum.size || 0) + file.size > MAX_PENDING_TOTAL) {
-    return NextResponse.json(
-      {
-        error:
-          "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
-      },
-      { status: 413 },
-    );
+  const draftBytes = await draftAttachmentBytes(userId, draft);
+  if (draftBytes + file.size > MAX_PENDING_UPLOAD_BYTES) {
+    return NextResponse.json({ error: PER_MAIL_LIMIT_ERROR }, { status: 413 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -119,4 +134,28 @@ async function multipartUpload(request: NextRequest, userId: string) {
     size: attachment.size,
     url: `/api/attachments/${attachment.id}`,
   });
+}
+
+class InvalidDraftRefError extends Error {}
+
+/**
+ * Optional draft the upload belongs to, keyed like the draft upsert
+ * (type + contextMessageId). Both fields travel together: a draftType
+ * without a contextMessageId is invalid. Absent means the cap is checked
+ * against the incoming file alone.
+ */
+function parseDraftRef(
+  type: unknown,
+  contextMessageId: unknown,
+): DraftRef | undefined {
+  if (type === undefined || type === null) return undefined;
+  if (
+    typeof type !== "string" ||
+    !Object.values(DraftType).includes(type as DraftType) ||
+    typeof contextMessageId !== "string" ||
+    contextMessageId.length === 0
+  ) {
+    throw new InvalidDraftRefError();
+  }
+  return { type: type as DraftType, contextMessageId };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import type { DraftRef } from "@/lib/mail/draft-context";
 
 export interface UploadedAttachment {
   id: string;
@@ -23,7 +24,14 @@ interface UseAttachmentsReturn {
   getSnapshot: () => UploadedAttachment[];
 }
 
-export function useAttachments(): UseAttachmentsReturn {
+/**
+ * `draft` names the draft the uploads belong to, keyed like the draft upsert,
+ * so the server can cap attachments per mail. A composer without a draft
+ * concept passes nothing and the cap falls back to the single file.
+ */
+export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
+  const draftType = draft?.type;
+  const draftContextMessageId = draft?.contextMessageId;
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
   const attachmentsRef = useRef<UploadedAttachment[]>([]);
 
@@ -54,6 +62,10 @@ export function useAttachments(): UseAttachmentsReturn {
       try {
         const formData = new FormData();
         formData.append("file", file);
+        if (draftType && draftContextMessageId) {
+          formData.append("draftType", draftType);
+          formData.append("draftContextMessageId", draftContextMessageId);
+        }
 
         const res = await fetch("/api/attachments/upload", {
           method: "POST",
@@ -91,7 +103,7 @@ export function useAttachments(): UseAttachmentsReturn {
         return null;
       }
     },
-    [],
+    [draftType, draftContextMessageId],
   );
 
   const remove = useCallback(async (id: string) => {
