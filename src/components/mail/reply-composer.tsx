@@ -110,7 +110,7 @@ export function ReplyComposer({
     isUploading,
     setAttachments,
     getSnapshot,
-  } = useAttachments();
+  } = useAttachments({ type: DraftType.REPLY, contextMessageId: messageId });
 
   // Draft auto-save
   const {
