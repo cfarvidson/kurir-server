@@ -650,7 +650,10 @@ export async function processMessage(
       ? parsed.references
       : [parsed.references]
     : [];
-  const inReplyTo = envelope.inReplyTo || null;
+  // Read In-Reply-To from the parsed headers like References: iCloud returns
+  // NIL in the ENVELOPE slot when the header is folded onto a continuation
+  // line (any id long enough to push the line past 76 columns).
+  const inReplyTo = parsed.inReplyTo || envelope.inReplyTo || null;
 
   // Shared with the send paths: resolve against related messages, fall back
   // to the conversation root / own Message-ID, and unify the conversation.
