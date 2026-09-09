@@ -1,3 +1,4 @@
+import type { DraftType } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   asBodyBytes,
@@ -13,9 +14,21 @@ import {
 } from "@/lib/mail/attachment-upload-session";
 import { rateLimitUploads } from "@/lib/rate-limit";
 
+/** Cap on one mail's attachments: the draft's rows plus the incoming file. */
 export const MAX_PENDING_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-export type UploadPendingInput = Omit<UploadChunkInput, "userId">;
+export const PER_MAIL_LIMIT_ERROR =
+  "This mail's attachments would exceed the 25MB per mail limit. Remove an attachment first.";
+
+/** The draft being composed, keyed the same way the draft upsert is. */
+export interface DraftRef {
+  type: DraftType;
+  contextMessageId: string;
+}
+
+export type UploadPendingInput = Omit<UploadChunkInput, "userId"> & {
+  draft?: DraftRef;
+};
 
 export type UploadPendingResult =
   | { ok: false; error: string; retryAfter?: number }
@@ -54,20 +67,12 @@ export async function uploadPendingAttachment(
     };
   }
 
-  const pendingTotal = await db.attachment.aggregate({
-    where: { userId, messageId: null },
-    _sum: { size: true },
-  });
   const projected =
-    (pendingTotal._sum.size || 0) +
+    (await draftAttachmentBytes(userId, input.draft)) +
     defaultAttachmentUploadStore.pendingBytes(userId) +
     incomingBytes;
   if (projected > MAX_PENDING_UPLOAD_BYTES) {
-    return {
-      ok: false,
-      error:
-        "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
-    };
+    return { ok: false, error: PER_MAIL_LIMIT_ERROR };
   }
 
   let chunkResult;
@@ -127,6 +132,36 @@ export async function uploadPendingAttachment(
     contentType: attachment.contentType,
     size: attachment.size,
   };
+}
+
+/**
+ * Bytes already attached to the draft being composed. Attachments on other
+ * drafts, or on nothing, do not count. No draft named means nothing counts.
+ */
+export async function draftAttachmentBytes(
+  userId: string,
+  draft: DraftRef | undefined,
+): Promise<number> {
+  if (!draft) return 0;
+  const row = await db.draft.findUnique({
+    where: {
+      userId_type_contextMessageId: {
+        userId,
+        type: draft.type,
+        contextMessageId: draft.contextMessageId,
+      },
+    },
+    select: { attachmentIds: true },
+  });
+  if (!row || row.attachmentIds.length === 0) return 0;
+  const total = await db.attachment.aggregate({
+    where: {
+      id: { in: row.attachmentIds },
+      OR: [{ userId }, { message: { userId } }],
+    },
+    _sum: { size: true },
+  });
+  return total._sum.size || 0;
 }
 
 /** Decoded incoming chunk size, or -1 invalid / -2 empty / 0 when omitted. */

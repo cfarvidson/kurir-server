@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DraftType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getRequestUserId } from "@/lib/mobile/auth";
-import { uploadPendingAttachment } from "@/lib/mail/attachment-upload";
+import {
+  draftAttachmentBytes,
+  MAX_PENDING_UPLOAD_BYTES,
+  PER_MAIL_LIMIT_ERROR,
+  uploadPendingAttachment,
+  type DraftRef,
+} from "@/lib/mail/attachment-upload";
 import { rateLimitUploads, tooManyRequests } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PENDING_TOTAL = 25 * 1024 * 1024; // 25MB total pending uploads
 
 export async function POST(request: NextRequest) {
   // Session cookie (web) or bearer token (mobile)
@@ -31,6 +37,10 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
   }
 
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const draft = parseDraftRef(record.draftType, record.draftContextMessageId);
+  if (draft === "invalid") {
+    return NextResponse.json({ error: "Invalid draftType" }, { status: 400 });
+  }
   const result = await uploadPendingAttachment(userId, {
     filename: typeof record.filename === "string" ? record.filename : undefined,
     contentType:
@@ -38,6 +48,7 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
     data: typeof record.data === "string" ? record.data : undefined,
     uploadId: typeof record.uploadId === "string" ? record.uploadId : undefined,
     done: typeof record.done === "boolean" ? record.done : undefined,
+    draft,
   });
 
   if (!result.ok) {
@@ -77,6 +88,14 @@ async function multipartUpload(request: NextRequest, userId: string) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
+  const draft = parseDraftRef(
+    formData.get("draftType"),
+    formData.get("draftContextMessageId"),
+  );
+  if (draft === "invalid") {
+    return NextResponse.json({ error: "Invalid draftType" }, { status: 400 });
+  }
+
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: "File too large (max 10MB)" },
@@ -88,19 +107,9 @@ async function multipartUpload(request: NextRequest, userId: string) {
     return NextResponse.json({ error: "Empty file" }, { status: 400 });
   }
 
-  const pendingTotal = await db.attachment.aggregate({
-    where: { userId, messageId: null },
-    _sum: { size: true },
-  });
-
-  if ((pendingTotal._sum.size || 0) + file.size > MAX_PENDING_TOTAL) {
-    return NextResponse.json(
-      {
-        error:
-          "Total pending uploads exceed 25MB. Send or remove existing attachments first.",
-      },
-      { status: 413 },
-    );
+  const draftBytes = await draftAttachmentBytes(userId, draft);
+  if (draftBytes + file.size > MAX_PENDING_UPLOAD_BYTES) {
+    return NextResponse.json({ error: PER_MAIL_LIMIT_ERROR }, { status: 413 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -122,4 +131,29 @@ async function multipartUpload(request: NextRequest, userId: string) {
     size: attachment.size,
     url: `/api/attachments/${attachment.id}`,
   });
+}
+
+/**
+ * Optional draft the upload belongs to, keyed like the draft upsert
+ * (type + contextMessageId, defaulting to "__new__"). Absent means the cap
+ * is checked against the incoming file alone.
+ */
+function parseDraftRef(
+  type: unknown,
+  contextMessageId: unknown,
+): DraftRef | undefined | "invalid" {
+  if (type === undefined || type === null) return undefined;
+  if (
+    typeof type !== "string" ||
+    !Object.values(DraftType).includes(type as DraftType)
+  ) {
+    return "invalid";
+  }
+  return {
+    type: type as DraftType,
+    contextMessageId:
+      typeof contextMessageId === "string" && contextMessageId.length > 0
+        ? contextMessageId
+        : "__new__",
+  };
 }
