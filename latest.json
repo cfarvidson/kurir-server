@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.86",
   "changelog": "Replies now carry the quoted original below the new text, and In-Reply-To is read from the parsed headers so replies to Outlook and Gmail ids thread correctly on iCloud",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-09T07:13:40Z"
+  "releasedAt": "2026-09-09T07:13:40Z",
+  "beta": {
+    "version": "2026.87",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.87",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.87",
+    "changelog": "Attaching many photos from the iOS/Mac app works: the upload limit counts files instead of chunks, rate limits answer 429 with Retry-After, and the 25MB cap is per mail",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-09T16:57:02Z"
+  }
 }

@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.87] - 2026-09-09
+
+### Fixed
+
+- The attachment upload rate limit (30 per minute per user) counts files,
+  not chunks. The iOS/Mac app sends anything over 250 KB in 250 KB chunks
+  and every chunk used to be charged, so three photos were enough to trip
+  it. Only the opening chunk is charged now; the web composer's one
+  request per file is charged once as before. (#175)
+- Both upload paths answer 429 with a Retry-After header when the limit
+  is hit. The chunked path used to answer 400 with the message in the
+  body, so the apps could not tell "wait" from "failed". (#175)
+- The 25MB attachment cap is per mail being composed: the current draft's
+  attachments plus the incoming file. It used to sum every unsent
+  attachment the user had anywhere, so leftovers on other drafts ate the
+  budget. The web composer sends the draft key (draftType +
+  draftContextMessageId) so the server knows which mail; the iOS/Mac app
+  sends it from v2026.87. (#175)
+
 ## [v2026.86] - 2026-09-09
 
 ### Added

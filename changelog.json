@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.87",
+    "date": "2026-09-09",
+    "changes": [
+      "The attachment upload rate limit (30 per minute) counts files, not chunks: a photo sent in 250 KB chunks from the iOS/Mac app is charged once",
+      "Both upload paths answer 429 with a Retry-After header when the limit is hit; the chunked path used to answer 400",
+      "The 25MB attachment cap is per mail being composed instead of every unsent attachment the user has; the web composer sends the draft key so the server knows which mail"
+    ]
+  },
+  {
     "version": "2026.86",
     "date": "2026-09-09",
     "changes": [
