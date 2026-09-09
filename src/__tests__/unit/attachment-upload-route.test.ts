@@ -38,6 +38,39 @@ function jsonRequest(body: unknown): NextRequest {
   }) as unknown as NextRequest;
 }
 
+function multipartRequest(
+  file: File,
+  fields: Record<string, string> = {},
+): NextRequest {
+  const formData = new FormData();
+  formData.append("file", file);
+  for (const [key, value] of Object.entries(fields)) {
+    formData.append(key, value);
+  }
+  return new Request("http://localhost/api/attachments/upload", {
+    method: "POST",
+    body: formData,
+  }) as unknown as NextRequest;
+}
+
+const MB = 1024 * 1024;
+
+/**
+ * Real 30/min limiter stand-in: allows the first 30 charges, refuses the
+ * rest with a Retry-After. Tests count how many times a flow charged it.
+ */
+async function useCountingLimiter() {
+  const { rateLimitUploads } = await import("@/lib/rate-limit");
+  let charged = 0;
+  vi.mocked(rateLimitUploads).mockImplementation(async () => {
+    charged += 1;
+    return charged <= 30
+      ? { allowed: true, remaining: 30 - charged, retryAfter: 0 }
+      : { allowed: false, remaining: 0, retryAfter: 3 };
+  });
+  return () => charged;
+}
+
 describe("POST /api/attachments/upload JSON chunks", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -112,5 +145,98 @@ describe("POST /api/attachments/upload JSON chunks", () => {
     const stored = vi.mocked(db.attachment.create).mock.calls[0][0].data
       .content as Buffer;
     expect(Buffer.from(stored).toString("utf8")).toBe("%PDF-1.4 part-a-end");
+  });
+});
+
+describe("POST /api/attachments/upload rate limit per file (#175)", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    defaultAttachmentUploadStore.clear();
+    const { getRequestUserId } = await import("@/lib/mobile/auth");
+    vi.mocked(getRequestUserId).mockResolvedValue("user-1");
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.attachment.aggregate).mockResolvedValue({
+      _sum: { size: 0 },
+    } as never);
+    vi.mocked(db.attachment.create).mockResolvedValue({
+      id: "up-1",
+      filename: "photo.jpg",
+      contentType: "image/jpeg",
+      size: 40,
+    } as never);
+  });
+
+  it("charges the limit once for a file sent in more than 30 chunks", async () => {
+    const charged = await useCountingLimiter();
+    const { POST } = await import("@/app/api/attachments/upload/route");
+
+    const start = await POST(
+      jsonRequest({
+        filename: "photo.jpg",
+        contentType: "image/jpeg",
+        data: Buffer.from("c").toString("base64"),
+        done: false,
+      }),
+    );
+    expect(start.status).toBe(200);
+    const { uploadId } = (await start.json()) as { uploadId: string };
+
+    for (let i = 0; i < 38; i++) {
+      const res = await POST(
+        jsonRequest({ uploadId, data: Buffer.from("c").toString("base64") }),
+      );
+      expect(res.status).toBe(200);
+    }
+    const done = await POST(
+      jsonRequest({
+        uploadId,
+        data: Buffer.from("c").toString("base64"),
+        done: true,
+      }),
+    );
+    expect(done.status).toBe(200);
+    await expect(done.json()).resolves.toMatchObject({ complete: true });
+    expect(charged()).toBe(1);
+  });
+
+  it("still refuses the 31st new file inside a minute with 429 + Retry-After", async () => {
+    await useCountingLimiter();
+    const { POST } = await import("@/app/api/attachments/upload/route");
+
+    for (let i = 0; i < 30; i++) {
+      const res = await POST(
+        jsonRequest({
+          filename: `photo-${i}.jpg`,
+          contentType: "image/jpeg",
+          data: Buffer.from("c").toString("base64"),
+        }),
+      );
+      expect(res.status).toBe(200);
+    }
+
+    const refused = await POST(
+      jsonRequest({
+        filename: "photo-31.jpg",
+        contentType: "image/jpeg",
+        data: Buffer.from("c").toString("base64"),
+      }),
+    );
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("Retry-After")).toBe("3");
+  });
+
+  it("answers 429 with Retry-After on the multipart path too", async () => {
+    const { rateLimitUploads } = await import("@/lib/rate-limit");
+    vi.mocked(rateLimitUploads).mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 7,
+    });
+    const { POST } = await import("@/app/api/attachments/upload/route");
+    const res = await POST(
+      multipartRequest(new File(["hi"], "a.txt", { type: "text/plain" })),
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("7");
   });
 });

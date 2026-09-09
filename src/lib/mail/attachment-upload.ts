@@ -18,7 +18,7 @@ export const MAX_PENDING_UPLOAD_BYTES = 25 * 1024 * 1024;
 export type UploadPendingInput = Omit<UploadChunkInput, "userId">;
 
 export type UploadPendingResult =
-  | { ok: false; error: string }
+  | { ok: false; error: string; retryAfter?: number }
   | { ok: true; complete: false; uploadId: string; receivedBytes: number }
   | {
       ok: true;
@@ -33,12 +33,17 @@ export async function uploadPendingAttachment(
   userId: string,
   input: UploadPendingInput,
 ): Promise<UploadPendingResult> {
-  const rl = await rateLimitUploads(userId);
-  if (!rl.allowed) {
-    return {
-      ok: false,
-      error: `Too many uploads - try again in ${rl.retryAfter} seconds`,
-    };
+  // A file is charged once: only the opening chunk (no uploadId) counts.
+  // Continuation chunks for a session the server already holds pass through.
+  if (!input.uploadId) {
+    const rl = await rateLimitUploads(userId);
+    if (!rl.allowed) {
+      return {
+        ok: false,
+        error: `Too many uploads - try again in ${rl.retryAfter} seconds`,
+        retryAfter: rl.retryAfter,
+      };
+    }
   }
 
   const incomingBytes = incomingChunkLength(input.data);

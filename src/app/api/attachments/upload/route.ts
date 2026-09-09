@@ -41,6 +41,9 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
   });
 
   if (!result.ok) {
+    if (result.retryAfter !== undefined) {
+      return tooManyRequests(result.retryAfter);
+    }
     const status = /too large|exceed/i.test(result.error) ? 413 : 400;
     return NextResponse.json({ error: result.error }, { status });
   }
