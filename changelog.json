@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.86",
+    "date": "2026-09-09",
+    "changes": [
+      "Replies sent from any client now carry the original message below the new text, as an \"On <date>, <name> wrote:\" line and a quote",
+      "In-Reply-To is read from the parsed headers instead of the IMAP ENVELOPE, which iCloud leaves empty for folded headers; replies to Outlook and Gmail ids thread correctly again"
+    ]
+  },
+  {
     "version": "2026.85",
     "date": "2026-09-08",
     "changes": [

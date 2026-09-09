@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.85",
   "changelog": "Mails read in the iOS/macOS app now stay read: the \\Seen flag is pushed to IMAP so an IMAP reconnect no longer flips them back to unread",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-08T15:22:09Z"
+  "releasedAt": "2026-09-08T15:22:09Z",
+  "beta": {
+    "version": "2026.86",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.86",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.86",
+    "changelog": "Replies now carry the quoted original below the new text, and In-Reply-To is read from the parsed headers so replies to Outlook and Gmail ids thread correctly on iCloud",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-09T07:13:40Z"
+  }
 }

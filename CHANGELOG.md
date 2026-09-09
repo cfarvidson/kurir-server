@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.86] - 2026-09-09
+
+### Added
+
+- Replies sent from any client (iOS, macOS, web, MCP, scheduled) now carry
+  the original message below the new text: an "On <date>, <name> <address>
+  wrote:" line followed by the original as a quote, in both the text and
+  the HTML part. The quote is built on the server from the original's plain
+  text, so none of its raw HTML, tracking pixels or inline images is passed
+  on. Kurir's own thread view folds it behind "Show full message". (#177)
+
+### Fixed
+
+- In-Reply-To is read from the parsed headers instead of the IMAP
+  ENVELOPE. iCloud returns an empty ENVELOPE slot when the header is folded
+  onto a continuation line, which is every long Outlook or Gmail id, so
+  replies to those were stored with References but no In-Reply-To since the
+  Sent-folder reconciliation in v2026.49. (#176)
+
 ## [v2026.85] - 2026-09-08
 
 ### Fixed
