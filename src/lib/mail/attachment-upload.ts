@@ -1,4 +1,3 @@
-import type { DraftType } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   asBodyBytes,
@@ -12,19 +11,18 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadChunkInput,
 } from "@/lib/mail/attachment-upload-session";
+import type { DraftRef } from "@/lib/mail/draft-context";
 import { rateLimitUploads } from "@/lib/rate-limit";
 
-/** Cap on one mail's attachments: the draft's rows plus the incoming file. */
+/**
+ * Cap on one mail's attachments: the draft's rows plus the incoming file. The
+ * JSON path also still counts the user's in-flight chunk sessions
+ * (`pendingBytes`), which are user-wide rather than per draft.
+ */
 export const MAX_PENDING_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 export const PER_MAIL_LIMIT_ERROR =
   "This mail's attachments would exceed the 25MB per mail limit. Remove an attachment first.";
-
-/** The draft being composed, keyed the same way the draft upsert is. */
-export interface DraftRef {
-  type: DraftType;
-  contextMessageId: string;
-}
 
 export type UploadPendingInput = Omit<UploadChunkInput, "userId"> & {
   draft?: DraftRef;

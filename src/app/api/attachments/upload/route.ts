@@ -7,8 +7,8 @@ import {
   MAX_PENDING_UPLOAD_BYTES,
   PER_MAIL_LIMIT_ERROR,
   uploadPendingAttachment,
-  type DraftRef,
 } from "@/lib/mail/attachment-upload";
+import type { DraftRef } from "@/lib/mail/draft-context";
 import { rateLimitUploads, tooManyRequests } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -21,11 +21,20 @@ export async function POST(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return jsonChunkedUpload(request, userId);
+  try {
+    if (contentType.includes("application/json")) {
+      return await jsonChunkedUpload(request, userId);
+    }
+    return await multipartUpload(request, userId);
+  } catch (error) {
+    if (error instanceof InvalidDraftRefError) {
+      return NextResponse.json(
+        { error: "Invalid draft reference" },
+        { status: 400 },
+      );
+    }
+    throw error;
   }
-
-  return multipartUpload(request, userId);
 }
 
 async function jsonChunkedUpload(request: NextRequest, userId: string) {
@@ -38,9 +47,6 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
 
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const draft = parseDraftRef(record.draftType, record.draftContextMessageId);
-  if (draft === "invalid") {
-    return NextResponse.json({ error: "Invalid draftType" }, { status: 400 });
-  }
   const result = await uploadPendingAttachment(userId, {
     filename: typeof record.filename === "string" ? record.filename : undefined,
     contentType:
@@ -92,9 +98,6 @@ async function multipartUpload(request: NextRequest, userId: string) {
     formData.get("draftType"),
     formData.get("draftContextMessageId"),
   );
-  if (draft === "invalid") {
-    return NextResponse.json({ error: "Invalid draftType" }, { status: 400 });
-  }
 
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
@@ -133,27 +136,26 @@ async function multipartUpload(request: NextRequest, userId: string) {
   });
 }
 
+class InvalidDraftRefError extends Error {}
+
 /**
  * Optional draft the upload belongs to, keyed like the draft upsert
- * (type + contextMessageId, defaulting to "__new__"). Absent means the cap
- * is checked against the incoming file alone.
+ * (type + contextMessageId). Both fields travel together: a draftType
+ * without a contextMessageId is invalid. Absent means the cap is checked
+ * against the incoming file alone.
  */
 function parseDraftRef(
   type: unknown,
   contextMessageId: unknown,
-): DraftRef | undefined | "invalid" {
+): DraftRef | undefined {
   if (type === undefined || type === null) return undefined;
   if (
     typeof type !== "string" ||
-    !Object.values(DraftType).includes(type as DraftType)
+    !Object.values(DraftType).includes(type as DraftType) ||
+    typeof contextMessageId !== "string" ||
+    contextMessageId.length === 0
   ) {
-    return "invalid";
+    throw new InvalidDraftRefError();
   }
-  return {
-    type: type as DraftType,
-    contextMessageId:
-      typeof contextMessageId === "string" && contextMessageId.length > 0
-        ? contextMessageId
-        : "__new__",
-  };
+  return { type: type as DraftType, contextMessageId };
 }

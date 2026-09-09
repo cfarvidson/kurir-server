@@ -404,8 +404,40 @@ describe("POST /api/attachments/upload 25 MB per mail (#175)", () => {
         contentType: "image/jpeg",
         data: Buffer.from("c").toString("base64"),
         draftType: "BOGUS",
+        draftContextMessageId: "msg-this",
       }),
     );
     expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "Invalid draft reference",
+    });
+  });
+
+  it("rejects a draftType without a draftContextMessageId on both paths", async () => {
+    await useTwoDrafts(0);
+    const { POST } = await import("@/app/api/attachments/upload/route");
+    const { db } = await import("@/lib/db");
+
+    const json = await POST(
+      jsonRequest({
+        filename: "photo.jpg",
+        contentType: "image/jpeg",
+        data: Buffer.from("c").toString("base64"),
+        draftType: "NEW",
+      }),
+    );
+    expect(json.status).toBe(400);
+    await expect(json.json()).resolves.toEqual({
+      error: "Invalid draft reference",
+    });
+
+    const multipart = await POST(
+      multipartRequest(
+        new File(["hi"], "a.txt", { type: "text/plain" }),
+        { draftType: "NEW", draftContextMessageId: "" },
+      ),
+    );
+    expect(multipart.status).toBe(400);
+    expect(db.attachment.create).not.toHaveBeenCalled();
   });
 });

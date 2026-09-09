@@ -1,5 +1,11 @@
 import { DraftType } from "@prisma/client";
 
+/** The draft being composed, keyed the same way the draft upsert is. */
+export interface DraftRef {
+  type: DraftType;
+  contextMessageId: string;
+}
+
 /**
  * Resolve which draft key the full-page composer autosaves under, from its
  * search params (plan 037). Precedence: an explicit forward target -> FORWARD
@@ -16,7 +22,7 @@ export function resolveDraftContext(
     draftType: string | null;
   },
   generateId: () => string,
-): { type: DraftType; contextMessageId: string } {
+): DraftRef {
   if (params.forward) {
     return { type: DraftType.FORWARD, contextMessageId: params.forward };
   }
