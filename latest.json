@@ -1,16 +1,8 @@
 {
-  "version": "2026.86",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.86",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.86",
-  "changelog": "Replies now carry the quoted original below the new text, and In-Reply-To is read from the parsed headers so replies to Outlook and Gmail ids thread correctly on iCloud",
+  "version": "2026.89",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.89",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.89",
+  "changelog": "Weekly dependency update: Next.js, React, zod, lucide-react, mailparser and others move to their latest patch/minor releases",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-09T07:13:40Z",
-  "beta": {
-    "version": "2026.89",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.89",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.89",
-    "changelog": "Weekly dependency update: Next.js, React, zod, lucide-react, mailparser and others move to their latest patch/minor releases",
-    "minVersion": "0.0.0",
-    "releasedAt": "2026-09-14T07:14:16Z"
-  }
+  "releasedAt": "2026-09-14T07:14:16Z"
 }
