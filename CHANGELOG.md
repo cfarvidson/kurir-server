@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.89] - 2026-09-14
+
+### Changed
+
+- Weekly dependency update. Next.js 16.3.5, React 19.3.0, zod 4.6.4,
+  lucide-react 1.45.0, mailparser 3.9.26, marked 18.0.13, dompurify
+  3.4.15, tsdav 2.3.3, tailwind-merge 3.7.0, googleapis 178.1.1,
+  bullmq 5.81.5, @simplewebauthn/server 14.0.2 and the matching type
+  packages. Patch and minor only; no major upgrades. (#180)
+
 ## [v2026.87] - 2026-09-09
 
 ### Fixed

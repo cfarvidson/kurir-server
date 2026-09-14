@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.89",
+    "date": "2026-09-14",
+    "changes": [
+      "Weekly dependency update: Next.js 16.3.5, React 19.3.0, zod, lucide-react, mailparser, marked, dompurify and others move to their latest patch/minor releases"
+    ]
+  },
+  {
     "version": "2026.87",
     "date": "2026-09-09",
     "changes": [
@@ -719,7 +726,9 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": ["Fix paragraph breaks in the compose markdown preview"]
+    "changes": [
+      "Fix paragraph breaks in the compose markdown preview"
+    ]
   },
   {
     "version": "2026.04.26.3",
@@ -770,7 +779,9 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": ["Fix updater status callback blocked by auth middleware"]
+    "changes": [
+      "Fix updater status callback blocked by auth middleware"
+    ]
   },
   {
     "version": "2026.04.10",

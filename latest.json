@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-09T07:13:40Z",
   "beta": {
-    "version": "2026.87",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.87",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.87",
-    "changelog": "Attaching many photos from the iOS/Mac app works: the upload limit counts files instead of chunks, rate limits answer 429 with Retry-After, and the 25MB cap is per mail",
+    "version": "2026.89",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.89",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.89",
+    "changelog": "Weekly dependency update: Next.js, React, zod, lucide-react, mailparser and others move to their latest patch/minor releases",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-09T16:57:02Z"
+    "releasedAt": "2026-09-14T07:14:16Z"
   }
 }
