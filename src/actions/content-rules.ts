@@ -1,19 +1,18 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import type { ContentRuleAction, SubjectRuleScope } from "@prisma/client";
+import type { ContentRuleAction } from "@prisma/client";
 import {
   addContentRuleSenderForUser,
   createContentRuleForUser,
   deleteContentRuleForUser,
-  evaluateContentRulesForUser,
   kickContentRuleEvaluation,
   removeContentRuleSenderForUser,
   updateContentRuleForUser,
-  type ContentRuleRunResult,
+  type ContentRuleSenderInput,
 } from "@/lib/mail/content-rule-store";
-import { DraftGenerationError } from "@/lib/draft-generation/types";
+import { rateLimitContentRules } from "@/lib/rate-limit";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -21,16 +20,6 @@ async function requireUserId(): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
-}
-
-// Rule actions re-file messages, so every category surface may change.
-function revalidateMailSurfaces() {
-  updateTag("sidebar-counts");
-  revalidatePath("/filters");
-  revalidatePath("/imbox");
-  revalidatePath("/feed");
-  revalidatePath("/paper-trail");
-  revalidatePath("/archive");
 }
 
 function failure(err: unknown, fallback: string): ActionResult {
@@ -43,7 +32,7 @@ export async function createContentRule(input: {
   onMatch: ContentRuleAction;
   onNoMatch: ContentRuleAction;
   emailConnectionId?: string | null;
-  sender: { scope: SubjectRuleScope; scopeValue: string };
+  sender: ContentRuleSenderInput;
 }): Promise<ActionResult> {
   const userId = await requireUserId();
   try {
@@ -59,7 +48,7 @@ export async function createContentRule(input: {
 
 export async function addContentRuleSender(
   ruleId: string,
-  sender: { scope: SubjectRuleScope; scopeValue: string },
+  sender: ContentRuleSenderInput,
 ): Promise<ActionResult> {
   const userId = await requireUserId();
   try {
@@ -110,21 +99,18 @@ export async function deleteContentRule(ruleId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Judge unjudged mail now, in the request, so the page can report it. */
-export async function runContentRules(): Promise<
-  ({ ok: true } & ContentRuleRunResult) | { ok: false; error: string }
-> {
+/**
+ * Judge unjudged mail now. The run is detached and coalesced with any
+ * sync-triggered run, so this never holds the request open or doubles
+ * model calls; the page shows the verdicts on its next load.
+ */
+export async function runContentRules(): Promise<ActionResult> {
   const userId = await requireUserId();
-  let result: ContentRuleRunResult;
-  try {
-    result = await evaluateContentRulesForUser(userId);
-  } catch (err) {
-    if (err instanceof DraftGenerationError) {
-      return { ok: false, error: err.message };
-    }
-    console.error("[content-rules] manual run failed", err);
-    return { ok: false, error: "The model could not be reached. Try again." };
+  const limit = await rateLimitContentRules(userId);
+  if (!limit.allowed) {
+    return { ok: false, error: "Too many checks. Try again in a few minutes." };
   }
-  revalidateMailSurfaces();
-  return { ok: true, ...result };
+  kickContentRuleEvaluation(userId);
+  revalidatePath("/filters");
+  return { ok: true };
 }

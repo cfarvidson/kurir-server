@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Sparkles, X } from "lucide-react";
 import type { ContentRuleAction, SubjectRuleScope } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/editorial";
 import { formatDate } from "@/lib/date";
 import {
@@ -58,7 +59,7 @@ function SenderFields({
         value={scope}
         disabled={disabled}
         onChange={(e) => onScope(e.target.value as SubjectRuleScope)}
-        className={`${fieldClass} sm:w-56`}
+        className={cn(fieldClass, "sm:w-56")}
       >
         {SCOPES.map((s) => (
           <option key={s} value={s}>
@@ -423,15 +424,7 @@ export function ContentRulesView({
         toast.error(result.error);
         return;
       }
-      if (result.skipped === "NO_CREDENTIAL") {
-        toast.error("Connect a draft-generation token in Settings first.");
-        return;
-      }
-      toast.success(
-        result.evaluated === 0
-          ? "Nothing new to check."
-          : `Checked ${result.evaluated} ${result.evaluated === 1 ? "message" : "messages"}, ${result.matched} matched.`,
-      );
+      toast.success("Checking in the background. Reload in a moment to see new matches.");
     });
   };
 

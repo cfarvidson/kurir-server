@@ -1,3 +1,4 @@
+import { createUserKicker } from "@/lib/mail/kick-once";
 import { db } from "@/lib/db";
 import {
   materialiseRank,
@@ -57,39 +58,19 @@ export async function recomputePersonRank(
   return ranked.length;
 }
 
-const running = new Set<string>();
-const queued = new Set<string>();
+const ranker = createUserKicker("rank", async (userId) => {
+  const count = await recomputePersonRank(userId);
+  console.log(`[rank] ranked ${count} people for ${userId}`);
+});
 
 /** Start a recompute for `userId` without waiting; coalesces repeats. */
 export function kickRankRecompute(userId: string): void {
-  if (running.has(userId)) {
-    queued.add(userId);
-    return;
-  }
-  running.add(userId);
-  void (async () => {
-    try {
-      // A failure does not drop a kick that landed mid-run: that rerun
-      // still happens (once), and the next completed sync kicks again.
-      do {
-        queued.delete(userId);
-        try {
-          const count = await recomputePersonRank(userId);
-          console.log(`[rank] ranked ${count} people for ${userId}`);
-        } catch (err) {
-          console.error(`[rank] recompute failed for ${userId}`, err);
-        }
-      } while (queued.has(userId));
-    } finally {
-      running.delete(userId);
-    }
-  })();
+  ranker.kick(userId);
 }
 
 /** Test hook: forget in-flight state. */
 export function resetRankKicks(): void {
-  running.clear();
-  queued.clear();
+  ranker.reset();
 }
 
 /**

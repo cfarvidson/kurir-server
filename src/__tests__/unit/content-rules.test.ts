@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildContentRuleRequest,
   contentRuleCoversSender,
+  messageHrefForPlacement,
   normalizeScopeValue,
   parseContentRuleVerdict,
   placementForAction,
@@ -155,5 +156,20 @@ describe("placementForAction", () => {
       isInPaperTrail: false,
       isArchived: true,
     });
+  });
+});
+
+describe("messageHrefForPlacement", () => {
+  const base = { id: "m1", isArchived: false, isInFeed: false, isInPaperTrail: false };
+
+  it("opens the message under its current category, archive first", () => {
+    expect(messageHrefForPlacement({ ...base, isArchived: true, isInFeed: true })).toBe(
+      "/archive/m1",
+    );
+    expect(messageHrefForPlacement({ ...base, isInFeed: true })).toBe("/feed/m1");
+    expect(messageHrefForPlacement({ ...base, isInPaperTrail: true })).toBe(
+      "/paper-trail/m1",
+    );
+    expect(messageHrefForPlacement(base)).toBe("/imbox/m1");
   });
 });

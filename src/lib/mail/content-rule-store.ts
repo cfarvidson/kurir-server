@@ -4,16 +4,19 @@
  * senders to the user's draft-generation model, stores the verdict, and
  * files the message by the rule's actions.
  *
- * Evaluation runs detached after a sync (`kickContentRuleEvaluation`, the
- * same running/queued shape as the Rank recompute) and on demand from the
- * rules page. Without a stored draft-generation credential it is a no-op:
- * rules can be written ahead of time and start judging once a token exists.
+ * Evaluation runs detached after every completed sync and on demand from the
+ * rules page (`kickContentRuleEvaluation`, the shared coalescing kicker).
+ * Without a stored draft-generation credential it is a no-op: rules can be
+ * written ahead of time and start judging once a token exists.
  */
+import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import type { ContentRuleAction, SubjectRuleScope } from "@prisma/client";
 import { loadDraftGenerationSecret, rotateDraftGenerationSecret } from "@/lib/draft-generation/credential";
 import { defaultInferenceAdapter } from "@/lib/draft-generation/providers";
-import type { InferenceAdapter } from "@/lib/draft-generation/types";
+import { DraftGenerationError, type InferenceAdapter } from "@/lib/draft-generation/types";
+import { createUserKicker } from "@/lib/mail/kick-once";
+import { emitToUser } from "@/lib/mail/sse-subscribers";
 import {
   buildContentRuleRequest,
   contentRuleCoversSender,
@@ -26,9 +29,23 @@ import {
 
 /** How far back a new rule looks for mail to judge. */
 const LOOKBACK_DAYS = 30;
-/** Model calls per rule per run; the next sync picks up the rest. */
-const MAX_PER_RULE_PER_RUN = 20;
-const UNREADABLE_REASON = "The model's answer could not be read.";
+/**
+ * Model calls per rule per run. A run that fills this reports `capped`, and
+ * the detached kicker reruns until every rule drains.
+ */
+export const MAX_PER_RULE_PER_RUN = 20;
+
+// A verdict only files mail the user has not acted on. Snoozed, reply-later
+// and follow-up state is the user's own decision and always wins; deleted
+// mail is never touched. Filing into a category additionally requires the
+// message not to be archived (by the user, by a rejected sender, or by a
+// subject rule), so a rule cannot resurrect archived mail.
+const UNTOUCHED = {
+  isDeleted: false,
+  isSnoozed: false,
+  isReplyLater: false,
+  isFollowUp: false,
+} as const;
 
 export interface ContentRuleSenderInput {
   scope: SubjectRuleScope;
@@ -194,20 +211,41 @@ export async function deleteContentRuleForUser(userId: string, ruleId: string) {
 export interface ContentRuleRunResult {
   evaluated: number;
   matched: number;
+  /** Messages a verdict actually re-filed. */
+  refiled: number;
+  /** Some rule still had candidates left after its per-run cap. */
+  capped: boolean;
   skipped?: "NO_CREDENTIAL";
 }
 
+const candidateSelect = {
+  id: true,
+  uid: true,
+  folderId: true,
+  emailConnectionId: true,
+  subject: true,
+  fromAddress: true,
+  fromName: true,
+  receivedAt: true,
+  textBody: true,
+  htmlBody: true,
+} as const;
+
 /**
  * Judge every unjudged message from each rule's senders (bounded per rule
- * per run) and file it by the rule's actions. A model failure stops the run
- * and surfaces to the caller; verdicts stored so far stay stored.
+ * per run) and file it by the rule's actions. A dead or limited credential
+ * (DraftGenerationError) stops the run and surfaces to the caller; any other
+ * failure is confined to its rule so the remaining rules still run. Verdicts
+ * stored so far stay stored.
  */
 export async function evaluateContentRulesForUser(
   userId: string,
   infer: InferenceAdapter = defaultInferenceAdapter,
 ): Promise<ContentRuleRunResult> {
   const credential = await loadDraftGenerationSecret(userId);
-  if (!credential) return { evaluated: 0, matched: 0, skipped: "NO_CREDENTIAL" };
+  if (!credential) {
+    return { evaluated: 0, matched: 0, refiled: 0, capped: false, skipped: "NO_CREDENTIAL" };
+  }
 
   const rules = await db.contentRule.findMany({
     where: { userId },
@@ -219,105 +257,171 @@ export async function evaluateContentRulesForUser(
       onNoMatch: true,
       emailConnectionId: true,
       createdAt: true,
+      updatedAt: true,
       senders: { select: { scope: true, scopeValue: true } },
     },
   });
 
-  let evaluated = 0;
-  let matched = 0;
+  const result: ContentRuleRunResult = { evaluated: 0, matched: 0, refiled: 0, capped: false };
   for (const rule of rules) {
     if (rule.senders.length === 0) continue;
-    const since = new Date(rule.createdAt.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-    const candidates = await db.message.findMany({
-      where: {
-        userId,
-        ...(rule.emailConnectionId ? { emailConnectionId: rule.emailConnectionId } : {}),
-        folder: { specialUse: "inbox" },
-        receivedAt: { gte: since },
-        contentRuleMatches: { none: { ruleId: rule.id } },
-        OR: senderScopeWhere(rule.senders),
-      },
-      orderBy: { receivedAt: "desc" },
-      take: MAX_PER_RULE_PER_RUN,
-      select: {
-        id: true,
-        subject: true,
-        fromAddress: true,
-        fromName: true,
-        receivedAt: true,
-        textBody: true,
-        htmlBody: true,
-      },
-    });
-
-    for (const message of candidates) {
-      if (!contentRuleCoversSender(message.fromAddress, rule.senders)) continue;
-      const raw = await infer({
-        provider: credential.provider,
-        secret: credential.secret,
-        request: buildContentRuleRequest(rule.criterion, message),
-        rotateSecret: (next) => rotateDraftGenerationSecret(userId, next),
-      });
-      const verdict = parseContentRuleVerdict(raw);
-      const stored = verdict ?? { matched: false, reason: UNREADABLE_REASON };
-      await db.contentRuleMatch.upsert({
-        where: { ruleId_messageId: { ruleId: rule.id, messageId: message.id } },
-        update: { matched: stored.matched, reason: stored.reason },
-        create: {
-          ruleId: rule.id,
-          messageId: message.id,
-          matched: stored.matched,
-          reason: stored.reason,
-        },
-      });
-      evaluated++;
-      if (!verdict) continue;
-      if (verdict.matched) matched++;
-      const placement = placementForAction(verdict.matched ? rule.onMatch : rule.onNoMatch);
-      if (placement) {
-        await db.message.update({ where: { id: message.id }, data: placement });
-      }
+    try {
+      await evaluateRule(userId, credential, rule, infer, result);
+    } catch (err) {
+      // Credential trouble affects every rule: stop and let the caller see it.
+      if (err instanceof DraftGenerationError) throw err;
+      console.error(`[content-rules] rule ${rule.id} failed for ${userId}`, err);
     }
   }
-  return { evaluated, matched };
+  if (result.refiled > 0) {
+    // Sidebar counts are cached; a detached run has no request to piggyback
+    // on, so invalidate here (and tolerate a context that cannot).
+    try {
+      revalidateTag("sidebar-counts", { expire: 0 });
+    } catch (err) {
+      console.warn("[content-rules] sidebar-counts revalidation skipped", err);
+    }
+  }
+  return result;
 }
 
-const running = new Set<string>();
-const queued = new Set<string>();
+type RuleForRun = {
+  id: string;
+  criterion: string;
+  onMatch: ContentRuleAction;
+  onNoMatch: ContentRuleAction;
+  emailConnectionId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  senders: { scope: SubjectRuleScope; scopeValue: string }[];
+};
+
+async function evaluateRule(
+  userId: string,
+  credential: { provider: "claudeCode" | "grokBuild"; secret: string },
+  rule: RuleForRun,
+  infer: InferenceAdapter,
+  result: ContentRuleRunResult,
+): Promise<void> {
+  const since = new Date(rule.createdAt.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  const candidates = await db.message.findMany({
+    where: {
+      userId,
+      ...(rule.emailConnectionId ? { emailConnectionId: rule.emailConnectionId } : {}),
+      folder: { specialUse: "inbox" },
+      isDeleted: false,
+      receivedAt: { gte: since },
+      contentRuleMatches: { none: { ruleId: rule.id } },
+      OR: senderScopeWhere(rule.senders),
+    },
+    orderBy: { receivedAt: "desc" },
+    take: MAX_PER_RULE_PER_RUN,
+    select: candidateSelect,
+  });
+  if (candidates.length === MAX_PER_RULE_PER_RUN) result.capped = true;
+
+  // IMAP moves for rule archives, one round-trip per inbox folder.
+  const toArchive = new Map<string, { emailConnectionId: string; uids: number[] }>();
+
+  for (const message of candidates) {
+    if (!contentRuleCoversSender(message.fromAddress, rule.senders)) continue;
+    const raw = await infer({
+      provider: credential.provider,
+      secret: credential.secret,
+      request: buildContentRuleRequest(rule.criterion, message),
+      rotateSecret: (next) => rotateDraftGenerationSecret(userId, next),
+    });
+    const verdict = parseContentRuleVerdict(raw);
+    if (!verdict) {
+      // Nothing stored: the message stays eligible and is retried next run.
+      console.warn(`[content-rules] unreadable verdict for ${message.id} under ${rule.id}`);
+      continue;
+    }
+
+    // The rule may have been edited or deleted while the model was busy;
+    // a verdict for a stale rule is discarded and the message re-judged.
+    const current = await db.contentRule.findUnique({
+      where: { id: rule.id },
+      select: { updatedAt: true },
+    });
+    if (!current) return;
+    if (current.updatedAt.getTime() !== rule.updatedAt.getTime()) return;
+
+    await db.contentRuleMatch.upsert({
+      where: { ruleId_messageId: { ruleId: rule.id, messageId: message.id } },
+      update: { matched: verdict.matched, reason: verdict.reason },
+      create: {
+        ruleId: rule.id,
+        messageId: message.id,
+        matched: verdict.matched,
+        reason: verdict.reason,
+      },
+    });
+    result.evaluated++;
+    if (verdict.matched) result.matched++;
+
+    const placement = placementForAction(verdict.matched ? rule.onMatch : rule.onNoMatch);
+    if (!placement) continue;
+    // Conditional write: the message must still be untouched at write time,
+    // so a verdict that lands after the user archived or snoozed it is a no-op.
+    const written = await db.message.updateMany({
+      where: {
+        id: message.id,
+        ...UNTOUCHED,
+        ...(placement.isArchived ? {} : { isArchived: false }),
+      },
+      data: placement,
+    });
+    if (written.count === 0) continue;
+    result.refiled++;
+    emitToUser(userId, {
+      type: "flags-changed",
+      data: { messageId: message.id, flags: { ...placement } },
+    });
+    if (placement.isArchived) {
+      const bucket = toArchive.get(message.folderId) ?? {
+        emailConnectionId: message.emailConnectionId,
+        uids: [],
+      };
+      bucket.uids.push(message.uid);
+      toArchive.set(message.folderId, bucket);
+    }
+  }
+
+  // Mirror the Archive button: the DB is authoritative, the IMAP move
+  // follows and a broken connection never fails the run. Loaded lazily so
+  // the IDLE path (which imports this module) stays free of the IMAP stack.
+  if (toArchive.size === 0) return;
+  const { moveToArchiveViaImap } = await import("@/lib/mail/archive-imap");
+  for (const [folderId, { emailConnectionId, uids }] of toArchive) {
+    try {
+      await moveToArchiveViaImap(userId, emailConnectionId, folderId, uids);
+    } catch (err) {
+      console.error(`[content-rules] IMAP archive move failed for ${userId}`, err);
+    }
+  }
+}
+
+const kicker = createUserKicker("content-rules", async (userId) => {
+  const result = await evaluateContentRulesForUser(userId);
+  if (result.evaluated > 0) {
+    console.log(
+      `[content-rules] judged ${result.evaluated} messages (${result.matched} matched, ${result.refiled} re-filed) for ${userId}`,
+    );
+  }
+  return result.capped;
+});
 
 /**
- * Detached evaluation after a sync: returns at once, never throws, runs one
- * evaluation per user at a time and once more if kicked mid-run.
+ * Detached evaluation after a sync or from the rules page: returns at once,
+ * never throws, runs one evaluation per user at a time and keeps going while
+ * a rule still has more than one bounded pass of mail to judge.
  */
 export function kickContentRuleEvaluation(userId: string): void {
-  if (running.has(userId)) {
-    queued.add(userId);
-    return;
-  }
-  running.add(userId);
-  void (async () => {
-    try {
-      do {
-        queued.delete(userId);
-        try {
-          const result = await evaluateContentRulesForUser(userId);
-          if (result.evaluated > 0) {
-            console.log(
-              `[content-rules] judged ${result.evaluated} messages (${result.matched} matched) for ${userId}`,
-            );
-          }
-        } catch (err) {
-          console.error(`[content-rules] evaluation failed for ${userId}`, err);
-        }
-      } while (queued.has(userId));
-    } finally {
-      running.delete(userId);
-    }
-  })();
+  kicker.kick(userId);
 }
 
 /** Test hook: forget in-flight state. */
 export function resetContentRuleKicks(): void {
-  running.clear();
-  queued.clear();
+  kicker.reset();
 }

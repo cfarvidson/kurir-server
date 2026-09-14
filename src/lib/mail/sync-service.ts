@@ -1118,9 +1118,8 @@ export async function syncEmailConnection(
     if (!hasRemaining) {
       kickSignatureBackfill(userId);
       kickRankRecompute(userId);
-    }
-    // AI content rules judge the mail this run brought in; detached too.
-    if (processedMessages > 0) {
+      // AI content rules judge what this run brought in and drain any
+      // backlog a capped earlier run left behind; detached too.
       kickContentRuleEvaluation(userId);
     }
 
