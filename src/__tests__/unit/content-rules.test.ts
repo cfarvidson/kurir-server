@@ -36,38 +36,44 @@ describe("normalizeScopeValue", () => {
   });
 });
 
+const since = new Date("2026-09-01T00:00:00Z");
+const before = new Date("2026-08-31T23:59:59Z");
+const after = new Date("2026-09-10T00:00:00Z");
+
 describe("contentRuleCoversSender", () => {
   const senders = [
-    { scope: "ADDRESS" as const, scopeValue: "anna@consult.se" },
-    { scope: "SUBDOMAINS" as const, scopeValue: "broker.io" },
+    { scope: "ADDRESS" as const, scopeValue: "anna@consult.se", since },
+    { scope: "SUBDOMAINS" as const, scopeValue: "broker.io", since },
   ];
 
   it("matches the exact address and any subdomain", () => {
-    expect(contentRuleCoversSender("Anna@Consult.se", senders)).toBe(true);
-    expect(contentRuleCoversSender("x@jobs.broker.io", senders)).toBe(true);
-    expect(contentRuleCoversSender("x@broker.io", senders)).toBe(true);
+    expect(contentRuleCoversSender("Anna@Consult.se", after, senders)).toBe(true);
+    expect(contentRuleCoversSender("x@jobs.broker.io", after, senders)).toBe(true);
+    expect(contentRuleCoversSender("x@broker.io", since, senders)).toBe(true);
   });
 
-  it("misses other senders and an empty list", () => {
-    expect(contentRuleCoversSender("bob@consult.se", senders)).toBe(false);
-    expect(contentRuleCoversSender("x@notbroker.io", senders)).toBe(false);
-    expect(contentRuleCoversSender("anna@consult.se", [])).toBe(false);
+  it("misses other senders, mail older than the sender's since, and an empty list", () => {
+    expect(contentRuleCoversSender("bob@consult.se", after, senders)).toBe(false);
+    expect(contentRuleCoversSender("x@notbroker.io", after, senders)).toBe(false);
+    expect(contentRuleCoversSender("anna@consult.se", before, senders)).toBe(false);
+    expect(contentRuleCoversSender("anna@consult.se", after, [])).toBe(false);
   });
 });
 
 describe("senderScopeWhere", () => {
-  it("builds one case-insensitive clause per scope kind", () => {
+  it("builds one case-insensitive clause per scope kind, each bound to its sender's since", () => {
+    const receivedAt = { gte: since };
     expect(
       senderScopeWhere([
-        { scope: "ADDRESS", scopeValue: "anna@consult.se" },
-        { scope: "DOMAIN", scopeValue: "consult.se" },
-        { scope: "SUBDOMAINS", scopeValue: "broker.io" },
+        { scope: "ADDRESS", scopeValue: "anna@consult.se", since },
+        { scope: "DOMAIN", scopeValue: "consult.se", since },
+        { scope: "SUBDOMAINS", scopeValue: "broker.io", since },
       ]),
     ).toEqual([
-      { fromAddress: { equals: "anna@consult.se", mode: "insensitive" } },
-      { fromAddress: { endsWith: "@consult.se", mode: "insensitive" } },
-      { fromAddress: { endsWith: "@broker.io", mode: "insensitive" } },
-      { fromAddress: { endsWith: ".broker.io", mode: "insensitive" } },
+      { fromAddress: { equals: "anna@consult.se", mode: "insensitive" }, receivedAt },
+      { fromAddress: { endsWith: "@consult.se", mode: "insensitive" }, receivedAt },
+      { fromAddress: { endsWith: "@broker.io", mode: "insensitive" }, receivedAt },
+      { fromAddress: { endsWith: ".broker.io", mode: "insensitive" }, receivedAt },
     ]);
   });
 });

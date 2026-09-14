@@ -40,7 +40,7 @@ const input = {
   criterion: "2 dagar remote",
   onMatch: "IMBOX" as const,
   onNoMatch: "KEEP" as const,
-  sender: { scope: "DOMAIN" as const, scopeValue: "consult.se" },
+  sender: { scope: "DOMAIN" as const, scopeValue: "consult.se", includeExisting: true },
 };
 
 describe("content-rules actions", () => {

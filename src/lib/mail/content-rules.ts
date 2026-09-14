@@ -21,6 +21,8 @@ export type ContentRuleActionKind =
 export interface ContentRuleSenderLike {
   scope: SubjectRuleScopeKind;
   scopeValue: string;
+  /** Earliest receivedAt this sender's mail is judged from. */
+  since: Date;
 }
 
 export const MAX_CRITERION_CHARS = 2000;
@@ -66,45 +68,58 @@ export function normalizeScopeValue(
   return value;
 }
 
-/** True when any of the rule's sender scopes covers this address. */
+/**
+ * True when one of the rule's senders covers this address and the message
+ * arrived on or after that sender's `since`.
+ */
 export function contentRuleCoversSender(
   senderEmail: string,
+  receivedAt: Date,
   senders: ContentRuleSenderLike[],
 ): boolean {
   // scopeMatchesSender only reads scope + scopeValue; the pattern is
   // subject-rule shape it never looks at here.
-  return senders.some((sender) =>
-    scopeMatchesSender(senderEmail, { ...sender, pattern: "" }),
+  return senders.some(
+    (sender) =>
+      receivedAt.getTime() >= sender.since.getTime() &&
+      scopeMatchesSender(senderEmail, { ...sender, pattern: "" }),
   );
 }
 
 /**
- * Prisma `OR` clauses on Message.fromAddress that pre-filter candidates in
- * SQL. The JS predicate above is still the authority; this only keeps the
- * candidate query from scanning every message.
+ * Prisma `OR` clauses that pre-filter candidates in SQL: one per sender,
+ * each pairing the address match with that sender's `since`. The JS
+ * predicate above is still the authority; this only keeps the candidate
+ * query from scanning every message.
  */
 export function senderScopeWhere(senders: ContentRuleSenderLike[]) {
   const clauses: {
     fromAddress: { equals?: string; endsWith?: string; mode: "insensitive" };
+    receivedAt: { gte: Date };
   }[] = [];
   for (const sender of senders) {
+    const receivedAt = { gte: sender.since };
     switch (sender.scope) {
       case "ADDRESS":
         clauses.push({
           fromAddress: { equals: sender.scopeValue, mode: "insensitive" },
+          receivedAt,
         });
         break;
       case "DOMAIN":
         clauses.push({
           fromAddress: { endsWith: "@" + sender.scopeValue, mode: "insensitive" },
+          receivedAt,
         });
         break;
       case "SUBDOMAINS":
         clauses.push({
           fromAddress: { endsWith: "@" + sender.scopeValue, mode: "insensitive" },
+          receivedAt,
         });
         clauses.push({
           fromAddress: { endsWith: "." + sender.scopeValue, mode: "insensitive" },
+          receivedAt,
         });
         break;
     }

@@ -27,8 +27,8 @@ import {
   senderScopeWhere,
 } from "@/lib/mail/content-rules";
 
-/** How far back a new rule looks for mail to judge. */
-const LOOKBACK_DAYS = 30;
+/** How far back "include mail that already arrived" reaches for a sender. */
+export const LOOKBACK_DAYS = 30;
 /**
  * Model calls per rule per run. A run that fills this reports `capped`, and
  * the detached kicker reruns until every rule drains.
@@ -50,6 +50,15 @@ const UNTOUCHED = {
 export interface ContentRuleSenderInput {
   scope: SubjectRuleScope;
   scopeValue: string;
+  /** Also judge this sender's mail from the last LOOKBACK_DAYS days. */
+  includeExisting: boolean;
+}
+
+/** Earliest receivedAt a sender added now should be judged from. */
+function sinceFor(includeExisting: boolean, now = new Date()): Date {
+  return includeExisting
+    ? new Date(now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
+    : now;
 }
 
 export interface CreateContentRuleInput {
@@ -69,7 +78,7 @@ const ruleSelect = {
   createdAt: true,
   senders: {
     orderBy: { createdAt: "asc" as const },
-    select: { id: true, scope: true, scopeValue: true },
+    select: { id: true, scope: true, scopeValue: true, since: true },
   },
   _count: { select: { matches: true } },
   matches: {
@@ -149,7 +158,13 @@ export async function createContentRuleForUser(
       onMatch: input.onMatch,
       onNoMatch: input.onNoMatch,
       emailConnectionId,
-      senders: { create: { scope: input.sender.scope, scopeValue } },
+      senders: {
+        create: {
+          scope: input.sender.scope,
+          scopeValue,
+          since: sinceFor(input.sender.includeExisting),
+        },
+      },
     },
     select: { id: true },
   });
@@ -162,10 +177,17 @@ export async function addContentRuleSenderForUser(
 ) {
   await requireOwnedRule(userId, ruleId);
   const scopeValue = normalizeScopeValue(sender.scope, sender.scopeValue);
+  // Re-adding an existing sender keeps its original since; widening the
+  // window would re-judge nothing anyway (verdicts are kept per message).
   await db.contentRuleSender.upsert({
     where: { ruleId_scope_scopeValue: { ruleId, scope: sender.scope, scopeValue } },
     update: {},
-    create: { ruleId, scope: sender.scope, scopeValue },
+    create: {
+      ruleId,
+      scope: sender.scope,
+      scopeValue,
+      since: sinceFor(sender.includeExisting),
+    },
   });
 }
 
@@ -256,9 +278,8 @@ export async function evaluateContentRulesForUser(
       onMatch: true,
       onNoMatch: true,
       emailConnectionId: true,
-      createdAt: true,
       updatedAt: true,
-      senders: { select: { scope: true, scopeValue: true } },
+      senders: { select: { scope: true, scopeValue: true, since: true } },
     },
   });
 
@@ -291,9 +312,8 @@ type RuleForRun = {
   onMatch: ContentRuleAction;
   onNoMatch: ContentRuleAction;
   emailConnectionId: string | null;
-  createdAt: Date;
   updatedAt: Date;
-  senders: { scope: SubjectRuleScope; scopeValue: string }[];
+  senders: { scope: SubjectRuleScope; scopeValue: string; since: Date }[];
 };
 
 async function evaluateRule(
@@ -303,15 +323,14 @@ async function evaluateRule(
   infer: InferenceAdapter,
   result: ContentRuleRunResult,
 ): Promise<void> {
-  const since = new Date(rule.createdAt.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
   const candidates = await db.message.findMany({
     where: {
       userId,
       ...(rule.emailConnectionId ? { emailConnectionId: rule.emailConnectionId } : {}),
       folder: { specialUse: "inbox" },
       isDeleted: false,
-      receivedAt: { gte: since },
       contentRuleMatches: { none: { ruleId: rule.id } },
+      // Each sender carries its own since, so the window lives in the clauses.
       OR: senderScopeWhere(rule.senders),
     },
     orderBy: { receivedAt: "desc" },
@@ -324,7 +343,7 @@ async function evaluateRule(
   const toArchive = new Map<string, { emailConnectionId: string; uids: number[] }>();
 
   for (const message of candidates) {
-    if (!contentRuleCoversSender(message.fromAddress, rule.senders)) continue;
+    if (!contentRuleCoversSender(message.fromAddress, message.receivedAt, rule.senders)) continue;
     const raw = await infer({
       provider: credential.provider,
       secret: credential.secret,

@@ -522,6 +522,10 @@ model ContentRuleSender {
 
   scope      SubjectRuleScope
   scopeValue String // normalized lowercase address or domain
+  // Earliest receivedAt this sender's mail is judged from: the moment the
+  // sender was added, or 30 days earlier when the user chose to include
+  // mail that had already arrived.
+  since DateTime
 
   ruleId String
   rule   ContentRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)

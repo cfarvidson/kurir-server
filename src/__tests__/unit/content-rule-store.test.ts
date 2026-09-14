@@ -55,9 +55,10 @@ const rule = {
   onMatch: "IMBOX",
   onNoMatch: "ARCHIVE",
   emailConnectionId: null,
-  createdAt: new Date("2026-09-01T00:00:00Z"),
   updatedAt,
-  senders: [{ scope: "DOMAIN", scopeValue: "consult.se" }],
+  senders: [
+    { scope: "DOMAIN", scopeValue: "consult.se", since: new Date("2026-08-02T00:00:00Z") },
+  ],
 };
 
 function message(id: string, fromAddress = "anna@consult.se") {
@@ -192,7 +193,12 @@ describe("evaluateContentRulesForUser", () => {
       folder: { specialUse: "inbox" },
       isDeleted: false,
       contentRuleMatches: { none: { ruleId: "rule-1" } },
-      OR: [{ fromAddress: { endsWith: "@consult.se", mode: "insensitive" } }],
+      OR: [
+        {
+          fromAddress: { endsWith: "@consult.se", mode: "insensitive" },
+          receivedAt: { gte: new Date("2026-08-02T00:00:00Z") },
+        },
+      ],
     });
   });
 
@@ -335,7 +341,11 @@ describe("ownership guards", () => {
     } as never);
 
     await expect(
-      addContentRuleSenderForUser("u1", "rule-1", { scope: "DOMAIN", scopeValue: "x.se" }),
+      addContentRuleSenderForUser("u1", "rule-1", {
+        scope: "DOMAIN",
+        scopeValue: "x.se",
+        includeExisting: false,
+      }),
     ).rejects.toThrow("Rule not found");
     await expect(
       updateContentRuleForUser("u1", "rule-1", { onMatch: "IMBOX" }),
@@ -371,10 +381,37 @@ describe("ownership guards", () => {
         onMatch: "KEEP",
         onNoMatch: "KEEP",
         emailConnectionId: "conn-9",
-        sender: { scope: "DOMAIN", scopeValue: "x.se" },
+        sender: { scope: "DOMAIN", scopeValue: "x.se", includeExisting: false },
       }),
     ).rejects.toThrow("Inbox not found");
     expect(db.contentRule.create).not.toHaveBeenCalled();
+  });
+
+  it("stores a sender's since as now, or 30 days back when existing mail is included", async () => {
+    vi.mocked(db.contentRule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      userId: "u1",
+    } as never);
+    vi.mocked(db.contentRuleSender.upsert).mockResolvedValue({} as never);
+    const start = Date.now();
+
+    await addContentRuleSenderForUser("u1", "rule-1", {
+      scope: "DOMAIN",
+      scopeValue: "x.se",
+      includeExisting: false,
+    });
+    await addContentRuleSenderForUser("u1", "rule-1", {
+      scope: "DOMAIN",
+      scopeValue: "y.se",
+      includeExisting: true,
+    });
+
+    const [onlyNew, existing] = vi
+      .mocked(db.contentRuleSender.upsert)
+      .mock.calls.map((c) => (c[0].create as { since: Date }).since.getTime());
+    expect(onlyNew).toBeGreaterThanOrEqual(start);
+    expect(start - existing).toBeGreaterThanOrEqual(30 * 24 * 60 * 60 * 1000 - 1000);
+    expect(start - existing).toBeLessThan(30 * 24 * 60 * 60 * 1000 + 60_000);
   });
 
   it("deleting an already-gone rule is a no-op", async () => {

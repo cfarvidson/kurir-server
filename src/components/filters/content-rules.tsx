@@ -39,15 +39,19 @@ function scopeText(scope: SubjectRuleScope, value: string) {
 function SenderFields({
   scope,
   value,
+  includeExisting,
   onScope,
   onValue,
+  onIncludeExisting,
   disabled,
   idPrefix,
 }: {
   scope: SubjectRuleScope;
   value: string;
+  includeExisting: boolean;
   onScope: (s: SubjectRuleScope) => void;
   onValue: (v: string) => void;
+  onIncludeExisting: (v: boolean) => void;
   disabled: boolean;
   idPrefix: string;
 }) {
@@ -79,6 +83,17 @@ function SenderFields({
         spellCheck={false}
         className={fieldClass}
       />
+      <select
+        id={`${idPrefix}-apply`}
+        aria-label="Apply to"
+        value={includeExisting ? "existing" : "new"}
+        disabled={disabled}
+        onChange={(e) => onIncludeExisting(e.target.value === "existing")}
+        className={cn(fieldClass, "sm:w-64")}
+      >
+        <option value="new">Only new mail from now on</option>
+        <option value="existing">Also mail from the last 30 days</option>
+      </select>
     </div>
   );
 }
@@ -126,6 +141,7 @@ function NewRuleForm({
   const [criterion, setCriterion] = useState("");
   const [scope, setScope] = useState<SubjectRuleScope>("DOMAIN");
   const [scopeValue, setScopeValue] = useState("");
+  const [includeExisting, setIncludeExisting] = useState(false);
   const [connectionId, setConnectionId] = useState("");
   const [onMatch, setOnMatch] = useState<ContentRuleAction>("KEEP");
   const [onNoMatch, setOnNoMatch] = useState<ContentRuleAction>("KEEP");
@@ -140,7 +156,7 @@ function NewRuleForm({
         onMatch,
         onNoMatch,
         emailConnectionId: connectionId || null,
-        sender: { scope, scopeValue },
+        sender: { scope, scopeValue, includeExisting },
       });
       if (!result.ok) {
         setError(result.error);
@@ -150,7 +166,12 @@ function NewRuleForm({
       setScopeValue("");
       setOnMatch("KEEP");
       setOnNoMatch("KEEP");
-      toast.success("Rule created. Recent mail from the sender is being checked.");
+      toast.success(
+        includeExisting
+          ? "Rule created. Mail from the last 30 days is being checked."
+          : "Rule created. New mail from the sender will be checked.",
+      );
+      setIncludeExisting(false);
     });
   };
 
@@ -186,8 +207,10 @@ function NewRuleForm({
           idPrefix="new-rule-sender"
           scope={scope}
           value={scopeValue}
+          includeExisting={includeExisting}
           onScope={setScope}
           onValue={setScopeValue}
+          onIncludeExisting={setIncludeExisting}
           disabled={isPending}
         />
       </div>
@@ -248,6 +271,7 @@ function RuleCard({
 }) {
   const [scope, setScope] = useState<SubjectRuleScope>("ADDRESS");
   const [scopeValue, setScopeValue] = useState("");
+  const [includeExisting, setIncludeExisting] = useState(false);
   const [onMatch, setOnMatch] = useState<ContentRuleAction>(rule.onMatch);
   const [onNoMatch, setOnNoMatch] = useState<ContentRuleAction>(rule.onNoMatch);
   const [error, setError] = useState<string | null>(null);
@@ -307,7 +331,9 @@ function RuleCard({
               key={s.id}
               className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-sm"
             >
-              <span>{scopeText(s.scope, s.scopeValue)}</span>
+              <span title={`Judged from ${formatDate(s.since)}`}>
+                {scopeText(s.scope, s.scopeValue)}
+              </span>
               <button
                 type="button"
                 aria-label={`Remove ${s.scopeValue}`}
@@ -325,10 +351,15 @@ function RuleCard({
           onSubmit={(e) => {
             e.preventDefault();
             run(
-              () => addContentRuleSender(rule.id, { scope, scopeValue }),
+              () => addContentRuleSender(rule.id, { scope, scopeValue, includeExisting }),
               () => {
                 setScopeValue("");
-                toast.success("Sender added. Its recent mail is being checked.");
+                toast.success(
+                  includeExisting
+                    ? "Sender added. Its mail from the last 30 days is being checked."
+                    : "Sender added. Its new mail will be checked.",
+                );
+                setIncludeExisting(false);
               },
             );
           }}
@@ -338,8 +369,10 @@ function RuleCard({
               idPrefix={`rule-${rule.id}-sender`}
               scope={scope}
               value={scopeValue}
+              includeExisting={includeExisting}
               onScope={setScope}
               onValue={setScopeValue}
+              onIncludeExisting={setIncludeExisting}
               disabled={isPending}
             />
           </div>

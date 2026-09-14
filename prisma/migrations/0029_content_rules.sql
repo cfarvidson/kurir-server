@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS "ContentRuleSender" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "scope" "SubjectRuleScope" NOT NULL,
   "scopeValue" TEXT NOT NULL,
+  "since" TIMESTAMP(3) NOT NULL,
   "ruleId" TEXT NOT NULL,
 
   CONSTRAINT "ContentRuleSender_pkey" PRIMARY KEY ("id"),
