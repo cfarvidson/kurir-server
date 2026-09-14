@@ -13,6 +13,7 @@ import {
   Paperclip,
   Reply,
   SquarePen,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +66,7 @@ export const defaultBadgePreferences: BadgePreferences = {
 export const navigation: NavItem[] = [
   { name: "Imbox", href: "/imbox", icon: Inbox, badgeKey: "imbox" },
   { name: "Screener", href: "/screener", icon: Filter, badgeKey: "screener" },
+  { name: "AI Rules", href: "/filters", icon: Sparkles },
   { name: "The Feed", href: "/feed", icon: Newspaper, badgeKey: "feed" },
   {
     name: "Paper Trail",
