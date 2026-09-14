@@ -22,6 +22,7 @@ import {
   recordSenderSignature,
 } from "@/lib/mail/signature-store";
 import { kickRankRecompute } from "@/lib/mail/person-rank-store";
+import { kickContentRuleEvaluation } from "@/lib/mail/content-rule-store";
 import { matchSubjectRule } from "@/lib/mail/subject-rules";
 import { ingestMeetingFromParsed } from "@/lib/calendar/ingest";
 import type {
@@ -1117,6 +1118,10 @@ export async function syncEmailConnection(
     if (!hasRemaining) {
       kickSignatureBackfill(userId);
       kickRankRecompute(userId);
+    }
+    // AI content rules judge the mail this run brought in; detached too.
+    if (processedMessages > 0) {
+      kickContentRuleEvaluation(userId);
     }
 
     // Move rejected-sender messages out of IMAP inbox

@@ -427,6 +427,8 @@ async function ingestNewMessages(
       `[idle] ${count} new message(s) for connection ${connectionId}`,
     );
     emitToUser(userId, { type: "new-messages", data: { folderId, count } });
+    const { kickContentRuleEvaluation } = await import("./content-rule-store");
+    kickContentRuleEvaluation(userId);
   }
 
   // Send push notifications for new Imbox messages (fire-and-forget)
