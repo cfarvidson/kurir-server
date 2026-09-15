@@ -17,7 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import {
-  navigation,
+  navigationGroups,
   type BadgePreferences,
   badgeKeyToPref,
   defaultBadgePreferences,
@@ -58,12 +58,15 @@ const tabs = [
 const PRIMARY_TAB_HREFS = new Set(["/imbox", "/screener", "/feed"]);
 
 // Everything else is surfaced in the "More" sheet. Deriving these from the
-// shared `navigation` source (rather than a separate hardcoded list) keeps the
-// mobile nav in parity with the desktop sidebar, so destinations like Files
-// can't silently go missing on the PWA.
-const moreItems = navigation.filter(
-  (item) => !PRIMARY_TAB_HREFS.has(item.href),
-);
+// shared `navigationGroups` source (rather than a separate hardcoded list)
+// keeps the mobile nav in parity with the desktop sidebar, so destinations
+// like Files can't silently go missing on the PWA.
+const moreGroups = navigationGroups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !PRIMARY_TAB_HREFS.has(item.href)),
+  }))
+  .filter((group) => group.items.length > 0);
 
 const TRANSITION = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
 
@@ -198,7 +201,11 @@ export function MobileTabBar({
   const activeHref = pendingHref ?? pathname;
 
   // Check if any "more" item is active (to highlight the More tab)
-  const moreHrefs = [...moreItems.map((i) => i.href), "/settings", "/admin"];
+  const moreHrefs = [
+    ...moreGroups.flatMap((group) => group.items.map((item) => item.href)),
+    "/settings",
+    "/admin",
+  ];
   const isMoreActive = moreHrefs.some(
     (href) =>
       activeHref === href || (href !== "/" && activeHref.startsWith(href)),
@@ -287,50 +294,86 @@ export function MobileTabBar({
 
           {/* Navigation items */}
           <nav className="px-4 pb-2">
-            {moreItems.map((item) => {
-              if (item.badgeKey === "scheduled" && badgeCounts.scheduled === 0)
-                return null;
+            {moreGroups.map((group, index) => {
+              const items = group.items.filter(
+                (item) =>
+                  !(
+                    item.badgeKey === "scheduled" && badgeCounts.scheduled === 0
+                  ),
+              );
+              if (items.length === 0) return null;
 
-              const isActive =
-                activeHref === item.href ||
-                (item.href !== "/" && activeHref.startsWith(item.href));
-              const count = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
-              const prefKey = item.badgeKey
-                ? badgeKeyToPref[item.badgeKey]
+              const headingId = group.label
+                ? `more-nav-${group.id}`
                 : undefined;
-              const showBadge =
-                count > 0 && prefKey && badgePreferences[prefKey] !== false;
 
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => {
-                    setPendingHref(item.href);
-                    closeSheet();
-                  }}
+                <div
+                  key={group.id}
                   className={cn(
-                    "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
-                    isActive
-                      ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
-                      : "text-foreground active:bg-muted",
+                    index > 0 && "mt-3",
+                    group.id === "library" &&
+                      "border-t border-border pt-3",
                   )}
+                  role={group.label ? "group" : undefined}
+                  aria-labelledby={headingId}
                 >
-                  <item.icon className="h-5 w-5 text-muted-foreground" />
-                  <span className="flex-1">{item.name}</span>
-                  {showBadge && (
-                    <span
-                      className={cn(
-                        "text-xs font-medium tabular-nums",
-                        item.badgeKey === "followUp"
-                          ? "text-amber-600 dark:text-amber-500"
-                          : "text-primary",
-                      )}
+                  {group.label && (
+                    <p
+                      id={headingId}
+                      className="eyebrow px-4 pb-0.5 text-muted-foreground"
                     >
-                      {count > 99 ? "99+" : count}
-                    </span>
+                      {group.label}
+                    </p>
                   )}
-                </Link>
+                  {items.map((item) => {
+                    const isActive =
+                      activeHref === item.href ||
+                      (item.href !== "/" && activeHref.startsWith(item.href));
+                    const count = item.badgeKey
+                      ? badgeCounts[item.badgeKey]
+                      : 0;
+                    const prefKey = item.badgeKey
+                      ? badgeKeyToPref[item.badgeKey]
+                      : undefined;
+                    const showBadge =
+                      count > 0 &&
+                      prefKey &&
+                      badgePreferences[prefKey] !== false;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => {
+                          setPendingHref(item.href);
+                          closeSheet();
+                        }}
+                        className={cn(
+                          "relative flex items-center gap-3 rounded-md py-2.5 pl-4 pr-3 text-sm font-normal transition-colors",
+                          isActive
+                            ? "font-medium text-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
+                            : "text-foreground active:bg-muted",
+                        )}
+                      >
+                        <item.icon className="h-5 w-5 text-muted-foreground" />
+                        <span className="flex-1">{item.name}</span>
+                        {showBadge && (
+                          <span
+                            className={cn(
+                              "text-xs font-medium tabular-nums",
+                              item.badgeKey === "followUp"
+                                ? "text-amber-600 dark:text-amber-500"
+                                : "text-primary",
+                            )}
+                          >
+                            {count > 99 ? "99+" : count}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
               );
             })}
           </nav>

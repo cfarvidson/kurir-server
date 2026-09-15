@@ -15,15 +15,17 @@ import {
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
-import { navigation } from "./navigation";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
 import { useSync } from "@/hooks/useSync";
 import { requestMailCheck } from "@/lib/mail/check-trigger";
 import { useBadgeCounts } from "@/hooks/use-badge-counts";
 import {
+  type BadgeKey,
   type BadgePreferences,
+  type NavItem,
   badgeKeyToPref,
   defaultBadgePreferences,
+  navigationGroups,
 } from "./navigation";
 
 interface SidebarProps {
@@ -67,6 +69,71 @@ const NAV_SHORTCUTS: Record<string, string> = {
 
 function openCommandPalette() {
   window.dispatchEvent(new CustomEvent("open-command-palette"));
+}
+
+function isNavActive(pathname: string, href: string) {
+  if (href === "/calendar") {
+    return pathname === "/calendar" || pathname.startsWith("/calendar/");
+  }
+  return pathname === href;
+}
+
+function SidebarNavLink({
+  item,
+  pathname,
+  badgeCounts,
+  badgePreferences,
+}: {
+  item: NavItem;
+  pathname: string;
+  badgeCounts: Record<BadgeKey, number>;
+  badgePreferences: BadgePreferences;
+}) {
+  const isActive = isNavActive(pathname, item.href);
+  const shortcutKey = NAV_SHORTCUTS[item.href];
+  const count = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+  const prefKey = item.badgeKey ? badgeKeyToPref[item.badgeKey] : undefined;
+  const showBadge =
+    prefKey !== undefined &&
+    count > 0 &&
+    badgePreferences[prefKey] !== false;
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "group/nav relative flex items-center gap-3 rounded-md py-1.5 pl-4 pr-3 text-sm font-normal transition-colors",
+        isActive
+          ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+      )}
+    >
+      <item.icon className="h-5 w-5" />
+      <span className="flex-1">{item.name}</span>
+      {showBadge ? (
+        <span
+          className={cn(
+            "text-xs font-medium tabular-nums",
+            item.badgeKey === "followUp"
+              ? "text-amber-600 dark:text-amber-500"
+              : "text-primary",
+          )}
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      ) : shortcutKey ? (
+        <span className="hidden items-center gap-0.5 opacity-0 transition-opacity group-hover/nav:opacity-100 lg:inline-flex">
+          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
+            G
+          </kbd>
+          <span className="text-[9px] text-muted-foreground/30">›</span>
+          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
+            {shortcutKey}
+          </kbd>
+        </span>
+      ) : null}
+    </Link>
+  );
 }
 
 export function Sidebar({
@@ -127,57 +194,46 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
-        {navigation.map((item) => {
-          // Hide Scheduled when there are no pending scheduled messages
-          if (item.badgeKey === "scheduled" && badgeCounts.scheduled === 0)
-            return null;
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        {navigationGroups.map((group, index) => {
+          const items = group.items.filter(
+            (item) =>
+              !(item.badgeKey === "scheduled" && badgeCounts.scheduled === 0),
+          );
+          if (items.length === 0) return null;
 
-          const isActive =
-            item.href === "/calendar"
-              ? pathname === "/calendar" || pathname.startsWith("/calendar/")
-              : pathname === item.href;
-          const shortcutKey = NAV_SHORTCUTS[item.href];
+          const headingId = group.label
+            ? `sidebar-nav-${group.id}`
+            : undefined;
+
           return (
-            <Link
-              key={item.name}
-              href={item.href}
+            <div
+              key={group.id}
               className={cn(
-                "group/nav relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
-                isActive
-                  ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                index > 0 && "mt-3",
+                group.id === "library" && "border-t border-sidebar-border pt-3",
               )}
+              role={group.label ? "group" : undefined}
+              aria-labelledby={headingId}
             >
-              <item.icon className="h-5 w-5" />
-              <span className="flex-1">{item.name}</span>
-              {item.badgeKey &&
-              badgeCounts[item.badgeKey] > 0 &&
-              badgePreferences[badgeKeyToPref[item.badgeKey]] !== false ? (
-                <span
-                  className={cn(
-                    "text-xs font-medium tabular-nums",
-                    item.badgeKey === "followUp"
-                      ? "text-amber-600 dark:text-amber-500"
-                      : "text-primary",
-                  )}
+              {group.label && (
+                <p
+                  id={headingId}
+                  className="eyebrow px-4 pb-0.5 text-muted-foreground"
                 >
-                  {badgeCounts[item.badgeKey] > 99
-                    ? "99+"
-                    : badgeCounts[item.badgeKey]}
-                </span>
-              ) : shortcutKey ? (
-                <span className="hidden items-center gap-0.5 opacity-0 transition-opacity group-hover/nav:opacity-100 lg:inline-flex">
-                  <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
-                    G
-                  </kbd>
-                  <span className="text-[9px] text-muted-foreground/30">›</span>
-                  <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/60 bg-muted/40 px-1 font-mono text-[10px] text-muted-foreground/60">
-                    {shortcutKey}
-                  </kbd>
-                </span>
-              ) : null}
-            </Link>
+                  {group.label}
+                </p>
+              )}
+              {items.map((item) => (
+                <SidebarNavLink
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  badgeCounts={badgeCounts}
+                  badgePreferences={badgePreferences}
+                />
+              ))}
+            </div>
           );
         })}
       </nav>

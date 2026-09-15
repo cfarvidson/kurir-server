@@ -63,35 +63,77 @@ export const defaultBadgePreferences: BadgePreferences = {
   showScheduledBadge: true,
 };
 
-export const navigation: NavItem[] = [
-  { name: "Imbox", href: "/imbox", icon: Inbox, badgeKey: "imbox" },
-  { name: "Screener", href: "/screener", icon: Filter, badgeKey: "screener" },
-  { name: "AI Rules", href: "/filters", icon: Sparkles },
-  { name: "The Feed", href: "/feed", icon: Newspaper, badgeKey: "feed" },
+export interface NavGroup {
+  id: string;
+  /** Quiet eyebrow label. Null = unlabeled cluster (primary destinations). */
+  label: string | null;
+  items: NavItem[];
+}
+
+export const navigationGroups: NavGroup[] = [
   {
-    name: "Paper Trail",
-    href: "/paper-trail",
-    icon: Receipt,
-    badgeKey: "paperTrail",
+    id: "mail",
+    label: null,
+    items: [
+      { name: "Imbox", href: "/imbox", icon: Inbox, badgeKey: "imbox" },
+      { name: "The Feed", href: "/feed", icon: Newspaper, badgeKey: "feed" },
+      {
+        name: "Paper Trail",
+        href: "/paper-trail",
+        icon: Receipt,
+        badgeKey: "paperTrail",
+      },
+    ],
   },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
-  { name: "Snoozed", href: "/snoozed", icon: Clock },
-  { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
   {
-    name: "Reply Later",
-    href: "/reply-later",
-    icon: Reply,
-    badgeKey: "replyLater",
+    id: "triage",
+    label: "Triage",
+    items: [
+      { name: "Screener", href: "/screener", icon: Filter, badgeKey: "screener" },
+      { name: "AI Rules", href: "/filters", icon: Sparkles },
+    ],
   },
   {
-    name: "Scheduled",
-    href: "/scheduled",
-    icon: CalendarClock,
-    badgeKey: "scheduled",
+    id: "later",
+    label: "Later",
+    items: [
+      { name: "Snoozed", href: "/snoozed", icon: Clock },
+      {
+        name: "Reply Later",
+        href: "/reply-later",
+        icon: Reply,
+        badgeKey: "replyLater",
+      },
+      { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
+    ],
   },
-  { name: "Drafts", href: "/drafts", icon: SquarePen },
-  { name: "Sent", href: "/sent", icon: Send },
-  { name: "Archive", href: "/archive", icon: Archive },
-  { name: "Files", href: "/files", icon: Paperclip },
-  { name: "Contacts", href: "/contacts", icon: BookUser },
+  {
+    id: "outbound",
+    label: "Outbound",
+    items: [
+      { name: "Drafts", href: "/drafts", icon: SquarePen },
+      {
+        name: "Scheduled",
+        href: "/scheduled",
+        icon: CalendarClock,
+        badgeKey: "scheduled",
+      },
+      { name: "Sent", href: "/sent", icon: Send },
+    ],
+  },
+  {
+    id: "library",
+    label: null,
+    items: [
+      { name: "Calendar", href: "/calendar", icon: Calendar },
+      { name: "Archive", href: "/archive", icon: Archive },
+      { name: "Files", href: "/files", icon: Paperclip },
+      { name: "Contacts", href: "/contacts", icon: BookUser },
+    ],
+  },
 ];
+
+/** Flat list for callers that only need destinations, not grouping. */
+export const navigation: NavItem[] = navigationGroups.flatMap(
+  (group) => group.items,
+);
