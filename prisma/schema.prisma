@@ -80,6 +80,7 @@ model User {
   messageMeetings        MessageMeeting[]
   calendarTombstones     CalendarTombstone[]
   personRanks            PersonRank[]
+  threadNotes            ThreadNote[]
 
   draftGenerationCredential DraftGenerationCredential?
 }
@@ -541,6 +542,9 @@ model ContentRuleMatch {
 
   matched Boolean
   reason  String? @db.Text
+  // Snapshot of the rule action used at judge time, so the mail card can
+  // show what happened even if the rule's actions are edited later.
+  appliedAction ContentRuleAction
 
   ruleId String
   rule   ContentRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
@@ -551,6 +555,23 @@ model ContentRuleMatch {
   @@unique([ruleId, messageId])
   @@index([messageId])
   @@index([ruleId, matched])
+}
+
+// One private note per conversation. threadId is Message.threadId, or the
+// message's own id when that is null. No FK: threads are a string key.
+model ThreadNote {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  body String @db.Text
+
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId String
+
+  @@unique([userId, threadId])
+  @@index([userId])
 }
 
 // ============================================

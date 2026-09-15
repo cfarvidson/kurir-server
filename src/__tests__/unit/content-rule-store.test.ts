@@ -151,6 +151,7 @@ describe("evaluateContentRulesForUser", () => {
         create: expect.objectContaining({
           matched: true,
           reason: "Två dagar remote, Uppsala.",
+          appliedAction: "IMBOX",
         }),
       }),
     );

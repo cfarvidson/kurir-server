@@ -12,6 +12,7 @@ import {
   Printer,
   Reply,
   ReplyAll,
+  Sparkles,
   Split,
 } from "lucide-react";
 import Link from "next/link";
@@ -68,6 +69,7 @@ interface ThreadMessage {
     contentType: string;
   }[];
   meeting?: MeetingCardMeeting | null;
+  contentRuleLogs?: { text: string }[];
 }
 
 /** A thread split from this one (plan 055), rendered under the broadcast card. */
@@ -330,6 +332,21 @@ function MessageBubble({
               />
             </div>
           </button>
+
+          {message.contentRuleLogs && message.contentRuleLogs.length > 0 && (
+            <ul className="mt-0.5 space-y-1 px-3">
+              {message.contentRuleLogs.map((log, i) => (
+                <li
+                  key={`${log.text}-${i}`}
+                  data-content-rule-log
+                  className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground"
+                >
+                  <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+                  <span>{log.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {/* Expanded content */}
           {!collapsed && (

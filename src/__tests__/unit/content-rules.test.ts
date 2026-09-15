@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildContentRuleRequest,
   contentRuleCoversSender,
+  contentRuleLogLine,
   messageHrefForPlacement,
   normalizeScopeValue,
   parseContentRuleVerdict,
@@ -202,6 +203,47 @@ describe("parseContentRuleVerdict", () => {
       matched: false,
       reason: "",
     });
+  });
+});
+
+describe("contentRuleLogLine", () => {
+  it("names the destination and appends the model's reason", () => {
+    expect(
+      contentRuleLogLine({
+        matched: true,
+        reason: "Looks like a newsletter.",
+        appliedAction: "FEED",
+        onMatch: "FEED",
+        onNoMatch: "KEEP",
+      }),
+    ).toEqual({
+      destination: "The Feed",
+      reason: "Looks like a newsletter.",
+      text: "AI filed this in The Feed. Looks like a newsletter.",
+    });
+  });
+
+  it("is silent when the rule left the message where it was", () => {
+    expect(
+      contentRuleLogLine({
+        matched: false,
+        reason: "Not a newsletter.",
+        appliedAction: "KEEP",
+        onMatch: "FEED",
+        onNoMatch: "KEEP",
+      }),
+    ).toBeNull();
+  });
+
+  it("falls back to the current rule actions when no snapshot was stored", () => {
+    expect(
+      contentRuleLogLine({
+        matched: true,
+        reason: null,
+        onMatch: "ARCHIVE",
+        onNoMatch: "KEEP",
+      })?.text,
+    ).toBe("AI filed this in Archive");
   });
 });
 

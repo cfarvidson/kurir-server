@@ -117,6 +117,27 @@ describe("ThreadView per-card reply (plan 055)", () => {
     expect(screen.queryByText("Reply all", { selector: "button" })).toBeNull();
   });
 
+  it("shows the AI filing log on the mail card", () => {
+    render(
+      <ThreadView
+        messages={[
+          message({
+            id: "b1",
+            contentRuleLogs: [
+              {
+                text: "AI filed this in The Feed. Looks like a newsletter.",
+              },
+            ],
+          }),
+        ]}
+        currentUserEmail={ME}
+      />,
+    );
+
+    expect(screen.getByText(/AI filed this in The Feed/)).toBeTruthy();
+    expect(screen.getByText(/Looks like a newsletter/)).toBeTruthy();
+  });
+
   it("marks replied and drafted cards, collapsed or not", () => {
     const { container } = render(
       <ThreadView

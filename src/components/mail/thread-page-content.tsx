@@ -46,6 +46,7 @@ interface ThreadMessage {
     contentType: string;
   }[];
   meeting?: MeetingCardMeeting | null;
+  contentRuleLogs?: { text: string }[];
 }
 
 interface ThreadPageContentProps {
