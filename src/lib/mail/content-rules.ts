@@ -240,6 +240,51 @@ export interface MessagePlacement {
   isArchived: boolean;
 }
 
+/** Short destination names for the mail-card log line. */
+export const CONTENT_RULE_DESTINATIONS: Record<
+  Exclude<ContentRuleActionKind, "KEEP">,
+  string
+> = {
+  IMBOX: "Imbox",
+  FEED: "The Feed",
+  PAPER_TRAIL: "Paper Trail",
+  ARCHIVE: "Archive",
+};
+
+/** Action the rule used (or would use) for this stored verdict. */
+export function contentRuleActionAtVerdict(match: {
+  matched: boolean;
+  appliedAction?: ContentRuleActionKind | null;
+  onMatch: ContentRuleActionKind;
+  onNoMatch: ContentRuleActionKind;
+}): ContentRuleActionKind {
+  if (match.appliedAction) return match.appliedAction;
+  return match.matched ? match.onMatch : match.onNoMatch;
+}
+
+/**
+ * One-line record of an AI rule filing a message. Null when the rule left
+ * the message where the sender's category already put it.
+ */
+export function contentRuleLogLine(match: {
+  matched: boolean;
+  reason?: string | null;
+  appliedAction?: ContentRuleActionKind | null;
+  onMatch: ContentRuleActionKind;
+  onNoMatch: ContentRuleActionKind;
+}): { destination: string; reason: string; text: string } | null {
+  const action = contentRuleActionAtVerdict(match);
+  if (action === "KEEP") return null;
+  const destination = CONTENT_RULE_DESTINATIONS[action];
+  const reason = (match.reason ?? "").trim();
+  const lead = `AI filed this in ${destination}`;
+  return {
+    destination,
+    reason,
+    text: reason ? `${lead}. ${reason}` : lead,
+  };
+}
+
 /** Flag set an action files a message into; null when KEEP leaves it alone. */
 export function placementForAction(
   action: ContentRuleActionKind,

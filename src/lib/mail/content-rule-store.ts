@@ -450,22 +450,26 @@ async function evaluateRule(
     if (!current) return;
     if (current.updatedAt.getTime() !== rule.updatedAt.getTime()) return;
 
+    const appliedAction = verdict.matched ? rule.onMatch : rule.onNoMatch;
     await db.contentRuleMatch.upsert({
       where: { ruleId_messageId: { ruleId: rule.id, messageId: message.id } },
-      update: { matched: verdict.matched, reason: verdict.reason },
+      update: {
+        matched: verdict.matched,
+        reason: verdict.reason,
+        appliedAction,
+      },
       create: {
         ruleId: rule.id,
         messageId: message.id,
         matched: verdict.matched,
         reason: verdict.reason,
+        appliedAction,
       },
     });
     result.evaluated++;
     if (verdict.matched) result.matched++;
 
-    const placement = placementForAction(
-      verdict.matched ? rule.onMatch : rule.onNoMatch,
-    );
+    const placement = placementForAction(appliedAction);
     if (!placement) continue;
     // Conditional write: the message must still be untouched at write time,
     // so a verdict that lands after the user archived or snoozed it is a no-op.

@@ -86,6 +86,15 @@ const threadInclude = {
       },
     },
   },
+  contentRuleMatches: {
+    select: {
+      matched: true,
+      reason: true,
+      appliedAction: true,
+      rule: { select: { onMatch: true, onNoMatch: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  },
 } as const;
 
 /**

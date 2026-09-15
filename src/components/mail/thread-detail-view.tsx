@@ -24,10 +24,14 @@ import { PersonPaneTarget } from "@/components/mail/person-pane-bindings";
 import { personEmailFor } from "@/lib/mail/person-pane";
 import { ThreadKeyboardHandler } from "@/components/mail/thread-keyboard-handler";
 import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
+import { ThreadNoteEditor } from "@/components/mail/thread-note-editor";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
 import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import { ScreenSubjectMenu } from "@/components/screener/screen-subject-menu";
 import { countContentRulesCoveringSender } from "@/lib/mail/content-rule-store";
+import { contentRuleLogLine } from "@/lib/mail/content-rules";
+import { threadNoteKey } from "@/lib/mail/thread-note";
+import { getThreadNote } from "@/lib/mail/thread-notes";
 import { stripReplyPrefixes } from "@/lib/mail/subject-rules";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
@@ -149,6 +153,8 @@ export async function ThreadDetailView({
   }
 
   const subject = targetMessage.subject || "(no subject)";
+  const noteKey = threadNoteKey(targetMessage);
+  const threadNote = await getThreadNote(session.user.id, noteKey);
 
   // Resolve recipient addresses across the whole thread to names in two
   // batched queries (avoids N+1): contacts first, then the Sender rows for
@@ -323,13 +329,33 @@ export async function ThreadDetailView({
               </Link>
             )}
 
+            <ThreadNoteEditor threadId={noteKey} initialBody={threadNote} />
+
             <div className="mt-3 md:mt-6">
               <ThreadPageContent
                 userId={session.user.id}
-                initialMessages={messages.map((message) => ({
-                  ...message,
-                  meeting: serializeMessageMeeting(message.meeting),
-                }))}
+                initialMessages={messages.map((message) => {
+                  const { contentRuleMatches, meeting, ...rest } = message;
+                  return {
+                    ...rest,
+                    meeting: serializeMessageMeeting(meeting),
+                    contentRuleLogs: contentRuleMatches
+                      .map((match) =>
+                        contentRuleLogLine({
+                          matched: match.matched,
+                          reason: match.reason,
+                          appliedAction: match.appliedAction,
+                          onMatch: match.rule.onMatch,
+                          onNoMatch: match.rule.onNoMatch,
+                        }),
+                      )
+                      .filter(
+                        (line): line is NonNullable<typeof line> =>
+                          line !== null,
+                      )
+                      .map((line) => ({ text: line.text })),
+                  };
+                })}
                 currentUserEmail={currentUserEmail}
                 userEmails={[...userEmails]}
                 replyOptions={replyOptions}
