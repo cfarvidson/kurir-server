@@ -10,6 +10,7 @@ vi.mock("@/lib/demo", () => ({
 
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
+  revalidatePath: vi.fn(),
   updateTag: vi.fn(),
 }));
 
@@ -122,6 +123,7 @@ vi.mock("@/lib/db", () => ({
     },
     user: { findUnique: vi.fn(), update: vi.fn() },
     messageMeeting: { findFirst: vi.fn() },
+    calendar: { findFirst: vi.fn() },
     passkey: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -150,7 +152,12 @@ vi.mock("@/lib/calendar/write", () => ({
 vi.mock("@/lib/calendar/rsvp", () => ({
   rsvpToMeetingForUser: vi.fn(),
 }));
+vi.mock("@/lib/calendar/accounts", () => ({
+  listCalendarAccountsForUser: vi.fn(),
+}));
 
+import { revalidatePath } from "next/cache";
+import { listCalendarAccountsForUser } from "@/lib/calendar/accounts";
 import { listVisibleInstancesForUser } from "@/lib/calendar/query";
 import {
   createEventForUser,
@@ -202,6 +209,8 @@ function mockPendingConfirmation(toolName: string, args: unknown) {
   vi.mocked(db.mcpConfirmation.updateMany).mockResolvedValue({ count: 1 });
 }
 
+const TZ = "Europe/Stockholm";
+
 const instance = {
   eventId: "ev-1",
   calendarId: "cal-1",
@@ -229,6 +238,11 @@ describe("MCP calendar tools", () => {
       timezone: "Europe/Stockholm",
     } as never);
     vi.mocked(db.mcpConfirmation.create).mockResolvedValue({} as never);
+    vi.mocked(db.calendar.findFirst).mockResolvedValue({
+      id: "cal-1",
+      name: "Work",
+      isReadOnly: false,
+    } as never);
     vi.mocked(listVisibleInstancesForUser).mockResolvedValue([
       instance,
       { ...instance, eventId: "ev-2", calendarId: "cal-2", title: "Lunch" },
@@ -404,15 +418,15 @@ describe("MCP calendar tools", () => {
       if (result.type === "input_required") {
         expect(result.requestState).toEqual(expect.any(String));
         expect(result.message).toMatch(/Dentist/);
-        expect(result.message).toMatch(/cal-1/);
-        expect(result.message).toMatch(/2026-09-20T07:00:00.000Z/);
+        expect(result.message).toMatch(/Work/);
+        expect(result.message).toMatch(/2026-09-20 09:00 \(Europe\/Stockholm\)/);
       }
       expect(createEventForUser).not.toHaveBeenCalled();
       expect(db.mcpConfirmation.create).toHaveBeenCalled();
     });
 
     it("accept with matching args creates once in the user's timezone", async () => {
-      mockPendingConfirmation("create_event", createArgs);
+      mockPendingConfirmation("create_event", { ...createArgs, timeZone: TZ });
       const result = await call("create_event", createArgs, acceptCtx());
       expect(result).toEqual({
         type: "ok",
@@ -439,7 +453,7 @@ describe("MCP calendar tools", () => {
         end: "2026-09-21",
         allDay: true,
       };
-      mockPendingConfirmation("create_event", args);
+      mockPendingConfirmation("create_event", { ...args, timeZone: TZ });
       const result = await call("create_event", args, acceptCtx());
       expect(result.type).toBe("ok");
       expect(createEventForUser).toHaveBeenCalledWith(
@@ -457,7 +471,7 @@ describe("MCP calendar tools", () => {
     });
 
     it("accept with a swapped start does not create", async () => {
-      mockPendingConfirmation("create_event", createArgs);
+      mockPendingConfirmation("create_event", { ...createArgs, timeZone: TZ });
       const result = await call(
         "create_event",
         { ...createArgs, start: "2026-09-20T08:00" },
@@ -518,7 +532,7 @@ describe("MCP calendar tools", () => {
 
     it("accept deletes the whole series by default", async () => {
       const args = { id: "ev-1" };
-      mockPendingConfirmation("delete_event", { id: "ev-1", range: "all" });
+      mockPendingConfirmation("delete_event", { id: "ev-1", range: "all", timeZone: TZ });
       const result = await call("delete_event", args, acceptCtx());
       expect(result).toEqual({
         type: "ok",
@@ -539,7 +553,7 @@ describe("MCP calendar tools", () => {
         range: "this",
         occurrence: "2026-09-16T07:00:00.000Z",
       };
-      mockPendingConfirmation("delete_event", args);
+      mockPendingConfirmation("delete_event", { ...args, timeZone: TZ });
       const result = await call("delete_event", args, acceptCtx());
       expect(result.type).toBe("ok");
       expect(deleteEventForUser).toHaveBeenCalledWith(
@@ -558,7 +572,7 @@ describe("MCP calendar tools", () => {
     });
 
     it("accept with a swapped id does not delete", async () => {
-      mockPendingConfirmation("delete_event", { id: "ev-1", range: "all" });
+      mockPendingConfirmation("delete_event", { id: "ev-1", range: "all", timeZone: TZ });
       const result = await call("delete_event", { id: "ev-2" }, acceptCtx());
       expect(result).toEqual({
         type: "error",
@@ -682,6 +696,242 @@ describe("MCP calendar tools", () => {
       });
       expect(rsvpToMeetingForUser).not.toHaveBeenCalled();
       expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("review fixes", () => {
+    it("list_calendars returns accounts with their calendars", async () => {
+      vi.mocked(listCalendarAccountsForUser).mockResolvedValue([
+        {
+          id: "acc-1",
+          provider: "GOOGLE",
+          displayName: "Google",
+          principalEmail: "me@gmail.com",
+          lastSyncedAt: new Date("2026-09-15T06:00:00.000Z"),
+          lastError: null,
+          oauthError: null,
+          calendars: [
+            {
+              id: "cal-1",
+              name: "Work",
+              color: "#123456",
+              isVisible: true,
+              isPrimary: true,
+              isReadOnly: false,
+              lastError: null,
+            },
+          ],
+        },
+      ] as never);
+      const result = await call("list_calendars", {});
+      expect(listCalendarAccountsForUser).toHaveBeenCalledWith("u1");
+      expect(result).toEqual({
+        type: "ok",
+        structuredContent: {
+          accounts: [
+            {
+              id: "acc-1",
+              provider: "GOOGLE",
+              displayName: "Google",
+              principalEmail: "me@gmail.com",
+              calendars: [
+                {
+                  id: "cal-1",
+                  name: "Work",
+                  isPrimary: true,
+                  isVisible: true,
+                  isReadOnly: false,
+                },
+              ],
+            },
+          ],
+        },
+      });
+      expect(getTool("list_calendars")?.annotations).toEqual({
+        readOnlyHint: true,
+      });
+    });
+
+    it("write tools carry destructive and open-world annotations", () => {
+      expect(getTool("create_event")?.annotations).toEqual({
+        openWorldHint: true,
+      });
+      expect(getTool("delete_event")?.annotations).toEqual({
+        destructiveHint: true,
+        openWorldHint: true,
+      });
+      expect(getTool("respond_to_event")?.annotations).toEqual({
+        destructiveHint: true,
+        openWorldHint: true,
+      });
+    });
+
+    it("list_events keeps seconds and rejects an impossible date", async () => {
+      await call("list_events", {
+        start: "2026-09-15T09:00:30",
+        end: "2026-09-15T10:00",
+      });
+      expect(listVisibleInstancesForUser).toHaveBeenCalledWith(
+        "u1",
+        new Date("2026-09-15T07:00:30.000Z"),
+        new Date("2026-09-15T08:00:00.000Z"),
+      );
+      const bad = await call("list_events", {
+        start: "2026-02-30T09:00",
+        end: "2026-03-01T09:00",
+      });
+      expect(bad).toMatchObject({ type: "error" });
+      expect(listVisibleInstancesForUser).toHaveBeenCalledTimes(1);
+    });
+
+    it("list_events caps the window at 31 civil days, DST included", async () => {
+      const tooLong = await call("list_events", {
+        start: "2026-09-01",
+        end: "2026-10-03",
+      });
+      expect(tooLong).toMatchObject({
+        type: "error",
+        message: "Range must be at most 31 days",
+      });
+      expect(listVisibleInstancesForUser).not.toHaveBeenCalled();
+      const acrossDst = await call("list_events", {
+        start: "2026-10-25",
+        end: "2026-11-25",
+      });
+      expect(acrossDst.type).toBe("ok");
+    });
+
+    it("create_event checks the calendar before asking for confirmation", async () => {
+      const args = {
+        calendarId: "cal-x",
+        title: "Nope",
+        start: "2026-09-20T09:00",
+        end: "2026-09-20T09:30",
+      };
+      vi.mocked(db.calendar.findFirst).mockResolvedValue(null);
+      const missing = await call("create_event", args);
+      expect(missing).toEqual({ type: "error", message: "not found or not yours" });
+      vi.mocked(db.calendar.findFirst).mockResolvedValue({
+        id: "cal-x",
+        name: "Feed",
+        isReadOnly: true,
+      } as never);
+      const readOnly = await call("create_event", args);
+      expect(readOnly).toEqual({ type: "error", message: "Calendar is read-only" });
+      expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
+      expect(db.calendar.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "cal-x", userId: "u1" } }),
+      );
+    });
+
+    it("create_event all-day rejects a datetime where a date is required", async () => {
+      const result = await call("create_event", {
+        calendarId: "cal-1",
+        title: "Offsite",
+        start: "2026-09-20T09:00",
+        end: "2026-09-21",
+        allDay: true,
+      });
+      expect(result).toMatchObject({ type: "error" });
+      expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
+    });
+
+    it("create_event accept after a timezone change does not create", async () => {
+      const args = {
+        calendarId: "cal-1",
+        title: "Dentist",
+        start: "2026-09-20T09:00",
+        end: "2026-09-20T09:30",
+      };
+      mockPendingConfirmation("create_event", { ...args, timeZone: TZ });
+      vi.mocked(db.user.findUnique).mockResolvedValue({
+        timezone: "UTC",
+      } as never);
+      const result = await call("create_event", args, acceptCtx());
+      expect(result).toEqual({
+        type: "error",
+        message: "confirmation does not match arguments",
+      });
+      expect(createEventForUser).not.toHaveBeenCalled();
+    });
+
+    it("create_event accept revalidates the calendar pages", async () => {
+      const args = {
+        calendarId: "cal-1",
+        title: "Dentist",
+        start: "2026-09-20T09:00",
+        end: "2026-09-20T09:30",
+      };
+      vi.mocked(createEventForUser).mockResolvedValue({ id: "ev-new" });
+      mockPendingConfirmation("create_event", { ...args, timeZone: TZ });
+      await call("create_event", args, acceptCtx());
+      expect(revalidatePath).toHaveBeenCalledWith("/calendar");
+    });
+
+    it("delete_event reads a naive occurrence in the user's timezone", async () => {
+      vi.mocked(getEventForUser).mockResolvedValue({
+        id: "ev-1",
+        title: "Standup",
+        startAt: new Date("2026-09-15T07:00:00.000Z"),
+        rrule: "FREQ=DAILY",
+        calendar: { id: "cal-1", name: "Work", isReadOnly: false },
+      } as never);
+      vi.mocked(deleteEventForUser).mockResolvedValue(undefined);
+      const args = { id: "ev-1", range: "this", occurrence: "2026-09-16T09:00" };
+      mockPendingConfirmation("delete_event", { ...args, timeZone: TZ });
+      const result = await call("delete_event", args, acceptCtx());
+      expect(result.type).toBe("ok");
+      expect(deleteEventForUser).toHaveBeenCalledWith(
+        "u1",
+        "ev-1",
+        "this",
+        new Date("2026-09-16T07:00:00.000Z"),
+      );
+    });
+
+    it("delete_event summary shows local time and range", async () => {
+      vi.mocked(getEventForUser).mockResolvedValue({
+        id: "ev-1",
+        title: "Standup",
+        startAt: new Date("2026-09-15T07:00:00.000Z"),
+        rrule: null,
+        calendar: { id: "cal-1", name: "Work", isReadOnly: false },
+      } as never);
+      const result = await call("delete_event", { id: "ev-1" });
+      expect(result).toMatchObject({ type: "input_required" });
+      if (result.type === "input_required") {
+        expect(result.message).toMatch(/2026-09-15 09:00 \(Europe\/Stockholm\)/);
+      }
+    });
+
+    it.each([
+      ["create_event", { calendarId: "cal-1", title: "Dentist", start: "2026-09-20T09:00", end: "2026-09-20T09:30" }, { calendarId: "cal-1", title: "Dentist", start: "2026-09-20T09:00", end: "2026-09-20T09:30", timeZone: TZ }, () => createEventForUser],
+      ["delete_event", { id: "ev-1" }, { id: "ev-1", range: "all", timeZone: TZ }, () => deleteEventForUser],
+      ["respond_to_event", { messageId: "m1", status: "accepted" }, { messageId: "m1", status: "accepted" }, () => rsvpToMeetingForUser],
+    ] as const)("%s decline does not mutate", async (name, args, hashed, core) => {
+      vi.mocked(getEventForUser).mockResolvedValue({
+        id: "ev-1",
+        title: "Standup",
+        startAt: new Date("2026-09-15T07:00:00.000Z"),
+        rrule: null,
+        calendar: { id: "cal-1", name: "Work", isReadOnly: false },
+      } as never);
+      vi.mocked(db.messageMeeting.findFirst).mockResolvedValue({
+        title: "Planning",
+        startAt: null,
+        organizerEmail: null,
+      } as never);
+      mockPendingConfirmation(name, hashed);
+      const result = await call(
+        name,
+        args as Record<string, unknown>,
+        ctx({
+          requestState: "conf-1",
+          inputResponses: { confirm: { action: "decline" } },
+        }),
+      );
+      expect(result).toEqual({ type: "error", message: "cancelled" });
+      expect(core()).not.toHaveBeenCalled();
     });
   });
 });

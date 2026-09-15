@@ -1,12 +1,15 @@
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { listCalendarAccountsForUser } from "@/lib/calendar/accounts";
 import { normalizeAttendees } from "@/lib/calendar/attendees";
-import { listVisibleInstancesForUser } from "@/lib/calendar/query";
-import type { VisibleInstance } from "@/lib/calendar/query";
-import { rsvpToMeetingForUser } from "@/lib/calendar/rsvp";
+import { serializeRangeInstance } from "@/lib/calendar/mobile";
 import type { EventInput } from "@/lib/calendar/providers/types";
+import { listVisibleInstancesForUser } from "@/lib/calendar/query";
+import { rsvpToMeetingForUser } from "@/lib/calendar/rsvp";
 import {
   addDays,
   allDayRangeUtc,
+  zonedParts,
   zonedWallToUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -30,7 +33,8 @@ export const DEMO_CALENDAR_DISABLED =
   "Calendar changes are disabled on this demo instance.";
 
 const MAX_RANGE_DAYS = 31;
-const MAX_RANGE_MS = MAX_RANGE_DAYS * 86_400_000;
+// One extra hour so 31 civil days that span a DST fall-back still fit.
+const MAX_RANGE_MS = MAX_RANGE_DAYS * 86_400_000 + 3_600_000;
 
 const listEventsSchema = z.object({
   start: z.string().min(1),
@@ -40,26 +44,61 @@ const listEventsSchema = z.object({
 
 const WALL_RE =
   /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/;
+const CIVIL_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function validCivil(year: number, month: number, day: number): boolean {
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
 
 /**
  * Parse an ISO-8601 datetime. A value with an explicit offset (`Z`,
  * `+02:00`) is an instant. A value without one is wall-clock time in
  * `timeZone`, the same rule the web calendar applies to its own inputs.
+ * Impossible dates and times (Feb 30, 25:00) are rejected.
  */
 export function parseWhen(value: string, timeZone: string): Date | null {
   const wall = WALL_RE.exec(value.trim());
   if (wall) {
-    const [, year, month, day, hour, minute] = wall;
-    return zonedWallToUtc(timeZone, {
-      year: Number(year),
-      month: Number(month),
-      day: Number(day),
-      hour: Number(hour ?? 0),
-      minute: Number(minute ?? 0),
-    });
+    const year = Number(wall[1]);
+    const month = Number(wall[2]);
+    const day = Number(wall[3]);
+    const hour = Number(wall[4] ?? 0);
+    const minute = Number(wall[5] ?? 0);
+    const second = Number(wall[6] ?? 0);
+    if (!validCivil(year, month, day) || hour > 23 || minute > 59 || second > 59) {
+      return null;
+    }
+    const base = zonedWallToUtc(timeZone, { year, month, day, hour, minute });
+    return new Date(base.getTime() + second * 1000);
   }
   const instant = new Date(value);
   return Number.isNaN(instant.getTime()) ? null : instant;
+}
+
+function parseCivil(value: string): CivilDate | null {
+  const m = CIVIL_RE.exec(value.trim());
+  if (!m) return null;
+  const civil = { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+  return validCivil(civil.year, civil.month, civil.day) ? civil : null;
+}
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+/** Wall-clock rendering for confirmation prompts: `2026-09-20 09:00 (Europe/Stockholm)`. */
+function formatLocal(date: Date, timeZone: string): string {
+  const p = zonedParts(date, timeZone);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hour)}:${pad2(p.minute)} (${timeZone})`;
+}
+
+function formatCivil(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 async function userTimezone(userId: string): Promise<string> {
@@ -70,24 +109,29 @@ async function userTimezone(userId: string): Promise<string> {
   return user?.timezone || "UTC";
 }
 
-function serializeInstance(row: VisibleInstance) {
-  return {
-    eventId: row.eventId,
-    calendarId: row.calendarId,
-    calendarName: row.calendarName,
-    title: row.title,
-    startAt: row.startAt.toISOString(),
-    endAt: row.endAt.toISOString(),
-    isAllDay: row.isAllDay,
-    isCancelled: row.isCancelled,
-    isException: row.isException,
-    transparency: row.transparency,
-    location: row.location,
-    description: row.description,
-    rrule: row.rrule,
-    isReadOnly: row.isReadOnly,
-    attendees: normalizeAttendees(row.attendeesJson),
-  };
+function revalidateCalendar(): void {
+  revalidatePath("/calendar");
+  revalidatePath("/calendar/day");
+  revalidatePath("/calendar/month");
+}
+
+async function listCalendars(ctx: ToolContext): Promise<ToolResult> {
+  const accounts = await listCalendarAccountsForUser(ctx.userId);
+  return ok({
+    accounts: accounts.map((account) => ({
+      id: account.id,
+      provider: account.provider,
+      displayName: account.displayName,
+      principalEmail: account.principalEmail,
+      calendars: account.calendars.map((calendar) => ({
+        id: calendar.id,
+        name: calendar.name,
+        isPrimary: calendar.isPrimary,
+        isVisible: calendar.isVisible,
+        isReadOnly: calendar.isReadOnly,
+      })),
+    })),
+  });
 }
 
 const getEventSchema = z.object({ id: z.string().min(1) });
@@ -155,7 +199,7 @@ async function listEvents(
   const filtered = parsed.data.calendarId
     ? rows.filter((row) => row.calendarId === parsed.data.calendarId)
     : rows;
-  return ok({ events: filtered.map(serializeInstance) });
+  return ok({ events: filtered.map(serializeRangeInstance) });
 }
 
 const createEventSchema = z.object({
@@ -167,14 +211,6 @@ const createEventSchema = z.object({
   location: z.string().optional(),
   notes: z.string().optional(),
 });
-
-const CIVIL_RE = /^(\d{4})-(\d{2})-(\d{2})/;
-
-function parseCivil(value: string): CivilDate | null {
-  const m = CIVIL_RE.exec(value.trim());
-  if (!m) return null;
-  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
-}
 
 /**
  * Turn tool args into the core's EventInput. Timed events are wall-clock
@@ -220,17 +256,19 @@ function toEventInput(
   };
 }
 
-function formatCreateSummary(calendarId: string, input: EventInput): string {
-  const lines = [
-    `Create event "${input.title}" in calendar ${calendarId}`,
-    input.isAllDay
-      ? `All day: ${input.startAt.toISOString().slice(0, 10)} to ${new Date(
-          input.endAt.getTime() - 86_400_000,
-        )
-          .toISOString()
-          .slice(0, 10)}`
-      : `From: ${input.startAt.toISOString()}\nTo: ${input.endAt.toISOString()}`,
-  ];
+function formatCreateSummary(
+  calendarName: string,
+  input: EventInput,
+  timeZone: string,
+): string {
+  const lines = [`Create event "${input.title}" in calendar ${calendarName}`];
+  if (input.isAllDay) {
+    const lastDay = new Date(input.endAt.getTime() - 86_400_000);
+    lines.push(`All day: ${formatCivil(input.startAt)} to ${formatCivil(lastDay)}`);
+  } else {
+    lines.push(`From: ${formatLocal(input.startAt, timeZone)}`);
+    lines.push(`To: ${formatLocal(input.endAt, timeZone)}`);
+  }
   if (input.location) lines.push(`Location: ${input.location}`);
   if (input.description) lines.push(`Notes: ${input.description}`);
   return lines.join("\n");
@@ -248,17 +286,23 @@ async function createEvent(
   const input = toEventInput(parsed.data, timeZone);
   if (typeof input === "string") return err(input);
 
+  const calendar = await db.calendar.findFirst({
+    where: { id: parsed.data.calendarId, userId: ctx.userId },
+    select: { id: true, name: true, isReadOnly: true },
+  });
+  if (!calendar) return err("not found or not yours");
+  if (calendar.isReadOnly) return err("Calendar is read-only");
+
+  // The timezone decides which instant the user confirms, so it is part of
+  // the hashed args: changing it between prompt and accept is a mismatch.
   return requireConfirmation(
     ctx,
     "create_event",
-    parsed.data,
-    formatCreateSummary(parsed.data.calendarId, input),
+    { ...parsed.data, timeZone },
+    formatCreateSummary(calendar.name, input, timeZone),
     async () => {
-      const created = await createEventForUser(
-        ctx.userId,
-        parsed.data.calendarId,
-        input,
-      );
+      const created = await createEventForUser(ctx.userId, calendar.id, input);
+      revalidateCalendar();
       return ok({ id: created.id });
     },
   );
@@ -287,14 +331,15 @@ function formatDeleteSummary(
   row: Awaited<ReturnType<typeof getEventForUser>>,
   range: (typeof RANGES)[number],
   occurrence: Date | null,
+  timeZone: string,
 ): string {
   const lines = [
     `Delete event "${row.title}" from calendar ${row.calendar.name}`,
-    `Starts: ${row.startAt.toISOString()}`,
+    `Starts: ${row.isAllDay ? formatCivil(row.startAt) : formatLocal(row.startAt, timeZone)}`,
   ];
   if (row.rrule) lines.push(`Recurring: ${row.rrule}`);
   lines.push(`Range: ${range}`);
-  if (occurrence) lines.push(`Occurrence: ${occurrence.toISOString()}`);
+  if (occurrence) lines.push(`Occurrence: ${formatLocal(occurrence, timeZone)}`);
   return lines.join("\n");
 }
 
@@ -306,20 +351,19 @@ async function deleteEvent(
   const parsed = deleteEventSchema.safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
 
+  const timeZone = await userTimezone(ctx.userId);
   let occurrence: Date | null = null;
   if (parsed.data.occurrence) {
-    occurrence = new Date(parsed.data.occurrence);
-    if (Number.isNaN(occurrence.getTime())) {
-      return err("occurrence must be an ISO-8601 datetime");
-    }
+    occurrence = parseWhen(parsed.data.occurrence, timeZone);
+    if (!occurrence) return err("occurrence must be an ISO-8601 datetime");
   }
   const row = await getEventForUser(ctx.userId, parsed.data.id);
 
   return requireConfirmation(
     ctx,
     "delete_event",
-    parsed.data,
-    formatDeleteSummary(row, parsed.data.range, occurrence),
+    { ...parsed.data, timeZone },
+    formatDeleteSummary(row, parsed.data.range, occurrence, timeZone),
     async () => {
       await deleteEventForUser(
         ctx.userId,
@@ -327,6 +371,7 @@ async function deleteEvent(
         parsed.data.range,
         occurrence,
       );
+      revalidateCalendar();
       return ok({ ok: true, id: parsed.data.id });
     },
   );
@@ -357,7 +402,10 @@ async function respondToEvent(
   const lines = [
     `Reply "${parsed.data.status}" to invitation "${meeting.title}"`,
   ];
-  if (meeting.startAt) lines.push(`Starts: ${meeting.startAt.toISOString()}`);
+  if (meeting.startAt) {
+    const timeZone = await userTimezone(ctx.userId);
+    lines.push(`Starts: ${formatLocal(meeting.startAt, timeZone)}`);
+  }
   if (meeting.organizerEmail) lines.push(`Organizer: ${meeting.organizerEmail}`);
   if (parsed.data.calendarId) {
     lines.push(`Add to calendar: ${parsed.data.calendarId}`);
@@ -375,6 +423,7 @@ async function respondToEvent(
         parsed.data.status,
         parsed.data.calendarId,
       );
+      revalidateCalendar();
       return ok({
         ok: true,
         messageId: parsed.data.messageId,
@@ -387,6 +436,15 @@ async function respondToEvent(
 export function registerCalendarTools(
   registerTool: (def: ToolDef) => void,
 ): void {
+  registerTool({
+    name: "list_calendars",
+    description:
+      "List the user's calendar accounts and their calendars (id, name, primary, visible, read-only). Use a calendar id from here for create_event.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+    handler: wrap(listCalendars),
+  });
+
   registerTool({
     name: "list_events",
     description:
@@ -420,7 +478,7 @@ export function registerCalendarTools(
   registerTool({
     name: "create_event",
     description:
-      "Create a calendar event. Asks the user to confirm before writing. start/end are ISO-8601 datetimes read in the user's timezone unless they carry an offset; end is exclusive. For an all-day event (allDay: true) start and end are dates (YYYY-MM-DD) and end is the last day, inclusive. No attendees.",
+      "Create a calendar event in a writable calendar (see list_calendars). Asks the user to confirm before writing. start/end are ISO-8601 datetimes read in the user's timezone unless they carry an offset; end is exclusive. For an all-day event (allDay: true) start and end are dates (YYYY-MM-DD) and end is the last day, inclusive. No attendees.",
     inputSchema: {
       type: "object",
       properties: {
@@ -434,6 +492,7 @@ export function registerCalendarTools(
       },
       required: ["calendarId", "title", "start", "end"],
     },
+    annotations: { openWorldHint: true },
     handler: wrap(createEvent),
   });
 
@@ -450,7 +509,7 @@ export function registerCalendarTools(
       },
       required: ["id"],
     },
-    annotations: { destructiveHint: true },
+    annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(deleteEvent),
   });
 
@@ -467,6 +526,7 @@ export function registerCalendarTools(
       },
       required: ["messageId", "status"],
     },
+    annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(respondToEvent),
   });
 }

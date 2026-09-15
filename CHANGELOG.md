@@ -6,10 +6,11 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ### Added
 
-- Calendar tools on the MCP server at `/mcp`. An agent can list events in
-  a window (`list_events`), read one event (`get_event`), create an event
-  (`create_event`), delete an event or one occurrence of a series
-  (`delete_event`) and reply to a mailed invitation (`respond_to_event`).
+- Calendar tools on the MCP server at `/mcp`. An agent can list your
+  calendars (`list_calendars`), list events in a window (`list_events`),
+  read one event (`get_event`), create an event (`create_event`), delete an
+  event or one occurrence of a series (`delete_event`) and reply to a mailed
+  invitation (`respond_to_event`).
   Writes ask for a confirmation in the client first, the same way sending
   mail does, and are refused on the demo instance. Times without an offset
   are read in your Kurir timezone.
