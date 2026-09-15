@@ -62,4 +62,41 @@ describe("extractLinks", () => {
       "now.example.com/x",
     ]);
   });
+
+  it("drops font/CDN hosts and asset files", () => {
+    expect(
+      accept("https://fonts.googleapis.com/css2?family=Inter", null),
+    ).toBeNull();
+    expect(
+      accept("https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css", null),
+    ).toBeNull();
+    expect(accept("https://cdn.example.com/theme.css", "theme")).toBeNull();
+  });
+
+  it("drops email-chrome titles and paths", () => {
+    expect(accept("https://aikido.dev/login", "Login")).toBeNull();
+    expect(accept("https://aikido.dev/docs", "Docs")).toBeNull();
+    expect(accept("https://aikido.dev/blog", "Blog")).toBeNull();
+    expect(accept("https://aikido.dev/integrations", "Integrations")).toBeNull();
+    expect(accept("https://aikido.dev/trust-center", "Trust Center")).toBeNull();
+    expect(accept("https://aikido.dev/", "Home")).toBeNull();
+    expect(accept("https://aikido.dev/public-api", "Public API")).toBeNull();
+  });
+
+  it("keeps distinctive content links", () => {
+    const issue = accept(
+      "https://app.aikido.dev/issues/abc123",
+      "View critical issue",
+    );
+    expect(issue?.key).toBe("app.aikido.dev/issues/abc123");
+    const doc = accept("https://docs.example.com/q3", "Q3 budget");
+    expect(doc?.title).toBe("Q3 budget");
+  });
+
+  it("dedupes tracking-query variants of the same path", () => {
+    const a = accept("https://app.example.com/report?utm_source=mail&utm_medium=email", null);
+    const b = accept("https://app.example.com/report?utm_campaign=digest", null);
+    expect(a?.key).toBe(b?.key);
+    expect(a?.key).toBe("app.example.com/report");
+  });
 });
