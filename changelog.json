@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.93",
+    "date": "2026-09-15",
+    "changes": [
+      "AI Rules: edit a rule's wording in place, with an option to check the mail it already judged again under the new wording",
+      "Thread header: a sparkle link opens AI Rules for that sender, tinted when a rule already covers it; the page lists those rules first and prefills the address"
+    ]
+  },
+  {
     "version": "2026.92",
     "date": "2026-09-15",
     "changes": [

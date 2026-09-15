@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.93] - 2026-09-15
+
+### Added
+
+- AI Rules: the wording of an existing rule can be edited in place. Saving
+  offers to check the mail the rule already judged again under the new
+  wording; otherwise only new mail is judged with it.
+- A sparkle link in the thread header opens AI Rules for that sender,
+  tinted when a rule already covers the sender. The page lists covering
+  rules first and prefills the address in the new-rule and add-sender
+  forms.
+
 ## [v2026.92] - 2026-09-15
 
 ### Added
