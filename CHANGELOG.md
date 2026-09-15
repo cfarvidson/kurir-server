@@ -4,6 +4,23 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.92] - 2026-09-15
+
+### Added
+
+- AI content rules, under the new AI Rules page in the sidebar. Write a
+  plain-language criterion ("an assignment with two remote days, on-site
+  in Uppsala or Stockholm"), pick the senders it applies to (an address, a
+  domain, or a domain with its subdomains; more can be added later), and
+  choose what happens on a match and on a miss: leave the mail, file it in
+  Imbox, The Feed or Paper Trail, or block it. Your connected
+  draft-generation model judges each mail once, in the background after
+  every sync, and the page lists the matches with the model's reason. When
+  you add a sender you choose whether only new mail or also the last 30
+  days is judged. A verdict never touches mail you have snoozed, flagged
+  for follow-up or reply-later, and never pulls archived mail back out.
+  (#181)
+
 ## [v2026.89] - 2026-09-14
 
 ### Changed

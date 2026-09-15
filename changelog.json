@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.92",
+    "date": "2026-09-15",
+    "changes": [
+      "AI Rules: write a plain-language criterion per sender or domain and let your connected draft-generation model judge each mail; matches and misses can be left alone, filed in Imbox, The Feed or Paper Trail, or blocked",
+      "Senders can be added to a rule later; each one asks whether only new mail or also the last 30 days should be judged",
+      "Rule verdicts never touch snoozed, follow-up or reply-later mail and never pull archived mail back into a category"
+    ]
+  },
+  {
     "version": "2026.89",
     "date": "2026-09-14",
     "changes": [
@@ -726,9 +735,7 @@
   {
     "version": "2026.05.15",
     "date": "2026-05-15",
-    "changes": [
-      "Fix paragraph breaks in the compose markdown preview"
-    ]
+    "changes": ["Fix paragraph breaks in the compose markdown preview"]
   },
   {
     "version": "2026.04.26.3",
@@ -779,9 +786,7 @@
   {
     "version": "2026.04.10.2",
     "date": "2026-04-10",
-    "changes": [
-      "Fix updater status callback blocked by auth middleware"
-    ]
+    "changes": ["Fix updater status callback blocked by auth middleware"]
   },
   {
     "version": "2026.04.10",

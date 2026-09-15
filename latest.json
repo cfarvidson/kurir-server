@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.89",
   "changelog": "Weekly dependency update: Next.js, React, zod, lucide-react, mailparser and others move to their latest patch/minor releases",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-14T07:14:16Z"
+  "releasedAt": "2026-09-14T07:14:16Z",
+  "beta": {
+    "version": "2026.92",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.92",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.92",
+    "changelog": "AI content rules: write a plain-language criterion per sender or domain, let your connected draft-generation model judge each mail, and file matches or misses into Imbox, The Feed, Paper Trail or the archive",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-15T06:34:39Z"
+  }
 }
