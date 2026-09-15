@@ -9,7 +9,9 @@ import {
   messageHrefForPlacement,
   normalizeScopeValue,
   parseContentRuleVerdict,
+  parseSenderParam,
   placementForAction,
+  rulesCoveringSender,
   senderScopeWhere,
   MAX_BODY_CHARS,
 } from "@/lib/mail/content-rules";
@@ -47,16 +49,62 @@ describe("contentRuleCoversSender", () => {
   ];
 
   it("matches the exact address and any subdomain", () => {
-    expect(contentRuleCoversSender("Anna@Consult.se", after, senders)).toBe(true);
-    expect(contentRuleCoversSender("x@jobs.broker.io", after, senders)).toBe(true);
+    expect(contentRuleCoversSender("Anna@Consult.se", after, senders)).toBe(
+      true,
+    );
+    expect(contentRuleCoversSender("x@jobs.broker.io", after, senders)).toBe(
+      true,
+    );
     expect(contentRuleCoversSender("x@broker.io", since, senders)).toBe(true);
   });
 
   it("misses other senders, mail older than the sender's since, and an empty list", () => {
-    expect(contentRuleCoversSender("bob@consult.se", after, senders)).toBe(false);
-    expect(contentRuleCoversSender("x@notbroker.io", after, senders)).toBe(false);
-    expect(contentRuleCoversSender("anna@consult.se", before, senders)).toBe(false);
+    expect(contentRuleCoversSender("bob@consult.se", after, senders)).toBe(
+      false,
+    );
+    expect(contentRuleCoversSender("x@notbroker.io", after, senders)).toBe(
+      false,
+    );
+    expect(contentRuleCoversSender("anna@consult.se", before, senders)).toBe(
+      false,
+    );
     expect(contentRuleCoversSender("anna@consult.se", after, [])).toBe(false);
+  });
+});
+
+describe("parseSenderParam", () => {
+  it("accepts one plausible address, lowercased and trimmed", () => {
+    expect(parseSenderParam(" Anna@Consult.se ")).toBe("anna@consult.se");
+  });
+
+  it("ignores missing, repeated, malformed, or oversized values", () => {
+    expect(parseSenderParam(undefined)).toBeNull();
+    expect(parseSenderParam(["a@b.se", "c@d.se"])).toBeNull();
+    expect(parseSenderParam("consult.se")).toBeNull();
+    expect(parseSenderParam("a@b")).toBeNull();
+    expect(parseSenderParam("a b@c.se")).toBeNull();
+    expect(parseSenderParam(`${"a".repeat(250)}@b.se`)).toBeNull();
+  });
+});
+
+describe("rulesCoveringSender", () => {
+  it("keeps only the rules whose senders cover the address today", () => {
+    const rules = [
+      {
+        id: "r1",
+        senders: [
+          { scope: "DOMAIN" as const, scopeValue: "consult.se", since },
+        ],
+      },
+      {
+        id: "r2",
+        senders: [{ scope: "ADDRESS" as const, scopeValue: "bob@x.se", since }],
+      },
+      { id: "r3", senders: [] },
+    ];
+    expect(
+      rulesCoveringSender("anna@consult.se", rules, after).map((r) => r.id),
+    ).toEqual(["r1"]);
   });
 });
 
@@ -70,10 +118,22 @@ describe("senderScopeWhere", () => {
         { scope: "SUBDOMAINS", scopeValue: "broker.io", since },
       ]),
     ).toEqual([
-      { fromAddress: { equals: "anna@consult.se", mode: "insensitive" }, receivedAt },
-      { fromAddress: { endsWith: "@consult.se", mode: "insensitive" }, receivedAt },
-      { fromAddress: { endsWith: "@broker.io", mode: "insensitive" }, receivedAt },
-      { fromAddress: { endsWith: ".broker.io", mode: "insensitive" }, receivedAt },
+      {
+        fromAddress: { equals: "anna@consult.se", mode: "insensitive" },
+        receivedAt,
+      },
+      {
+        fromAddress: { endsWith: "@consult.se", mode: "insensitive" },
+        receivedAt,
+      },
+      {
+        fromAddress: { endsWith: "@broker.io", mode: "insensitive" },
+        receivedAt,
+      },
+      {
+        fromAddress: { endsWith: ".broker.io", mode: "insensitive" },
+        receivedAt,
+      },
     ]);
   });
 });
@@ -89,7 +149,10 @@ describe("buildContentRuleRequest", () => {
   };
 
   it("puts the criterion and a text rendering of the mail in the user turn", () => {
-    const request = buildContentRuleRequest("2 dagar remote i Uppsala", message);
+    const request = buildContentRuleRequest(
+      "2 dagar remote i Uppsala",
+      message,
+    );
     expect(request.system).toMatch(/JSON/);
     expect(request.user).toContain("2 dagar remote i Uppsala");
     expect(request.user).toContain("Anna <anna@consult.se>");
@@ -166,13 +229,20 @@ describe("placementForAction", () => {
 });
 
 describe("messageHrefForPlacement", () => {
-  const base = { id: "m1", isArchived: false, isInFeed: false, isInPaperTrail: false };
+  const base = {
+    id: "m1",
+    isArchived: false,
+    isInFeed: false,
+    isInPaperTrail: false,
+  };
 
   it("opens the message under its current category, archive first", () => {
-    expect(messageHrefForPlacement({ ...base, isArchived: true, isInFeed: true })).toBe(
-      "/archive/m1",
+    expect(
+      messageHrefForPlacement({ ...base, isArchived: true, isInFeed: true }),
+    ).toBe("/archive/m1");
+    expect(messageHrefForPlacement({ ...base, isInFeed: true })).toBe(
+      "/feed/m1",
     );
-    expect(messageHrefForPlacement({ ...base, isInFeed: true })).toBe("/feed/m1");
     expect(messageHrefForPlacement({ ...base, isInPaperTrail: true })).toBe(
       "/paper-trail/m1",
     );

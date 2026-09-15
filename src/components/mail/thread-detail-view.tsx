@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Split } from "lucide-react";
+import { ArrowLeft, Sparkles, Split } from "lucide-react";
 import { ThreadPageContent } from "@/components/mail/thread-page-content";
 import {
   getThreadMessages,
@@ -27,6 +27,7 @@ import { MobileThreadActions } from "@/components/mail/mobile-thread-actions";
 import { UnthreadToggle } from "@/components/mail/unthread-toggle";
 import { ScreenDomainMenu } from "@/components/screener/screen-domain-menu";
 import { ScreenSubjectMenu } from "@/components/screener/screen-subject-menu";
+import { countContentRulesCoveringSender } from "@/lib/mail/content-rule-store";
 import { stripReplyPrefixes } from "@/lib/mail/subject-rules";
 import { BackFallback } from "@/components/mail/back-fallback";
 import { cn } from "@/lib/utils";
@@ -129,6 +130,13 @@ export async function ThreadDetailView({
   );
   const currentUserEmail = userInfo.email;
   const userEmails = userInfo.allEmails;
+  // The header's "AI rules" link tells at a glance whether any rule already
+  // judges this sender; only external senders can have rules.
+  const senderEmail = targetMessage.sender?.email ?? "";
+  const aiRuleCount =
+    !isSentView && senderEmail.includes("@")
+      ? await countContentRulesCoveringSender(session.user.id, senderEmail)
+      : 0;
   const isOwn = (addr: string) =>
     userEmails.has(addr.trim().toLowerCase()) ||
     isOwnAddress(addr, userInfo.own);
@@ -250,6 +258,21 @@ export async function ThreadDetailView({
                   senderId={targetMessage.sender.id}
                   domain={targetMessage.sender.email.split("@")[1]}
                 />
+                <Link
+                  href={`/filters?sender=${encodeURIComponent(targetMessage.sender.email)}`}
+                  aria-label="AI rules for this sender"
+                  title={
+                    aiRuleCount === 0
+                      ? "AI rules for this sender"
+                      : `${aiRuleCount} AI ${aiRuleCount === 1 ? "rule applies" : "rules apply"} to this sender`
+                  }
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground",
+                    aiRuleCount > 0 ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Link>
               </>
             )}
             <UnthreadToggle

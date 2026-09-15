@@ -12,11 +12,7 @@ import { plainTextFromBodies } from "@/lib/mcp/serialize";
 import type { InferenceRequest } from "@/lib/draft-generation/types";
 
 export type ContentRuleActionKind =
-  | "KEEP"
-  | "IMBOX"
-  | "FEED"
-  | "PAPER_TRAIL"
-  | "ARCHIVE";
+  "KEEP" | "IMBOX" | "FEED" | "PAPER_TRAIL" | "ARCHIVE";
 
 export interface ContentRuleSenderLike {
   scope: SubjectRuleScopeKind;
@@ -87,6 +83,30 @@ export function contentRuleCoversSender(
 }
 
 /**
+ * The `?sender=` query the thread view links with: an address, or nothing.
+ * Anything that is not a plausible single address is ignored rather than
+ * prefilled, so a hand-edited URL cannot seed the forms with junk.
+ */
+export function parseSenderParam(
+  raw: string | string[] | undefined,
+): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim().toLowerCase();
+  if (value.length === 0 || value.length > 254) return null;
+  if (!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(value)) return null;
+  return value;
+}
+
+/** Rules whose sender scopes cover mail from `senderEmail` arriving now. */
+export function rulesCoveringSender<
+  T extends { senders: ContentRuleSenderLike[] },
+>(senderEmail: string, rules: T[], now = new Date()): T[] {
+  return rules.filter((rule) =>
+    contentRuleCoversSender(senderEmail, now, rule.senders),
+  );
+}
+
+/**
  * Prisma `OR` clauses that pre-filter candidates in SQL: one per sender,
  * each pairing the address match with that sender's `since`. The JS
  * predicate above is still the authority; this only keeps the candidate
@@ -108,17 +128,26 @@ export function senderScopeWhere(senders: ContentRuleSenderLike[]) {
         break;
       case "DOMAIN":
         clauses.push({
-          fromAddress: { endsWith: "@" + sender.scopeValue, mode: "insensitive" },
+          fromAddress: {
+            endsWith: "@" + sender.scopeValue,
+            mode: "insensitive",
+          },
           receivedAt,
         });
         break;
       case "SUBDOMAINS":
         clauses.push({
-          fromAddress: { endsWith: "@" + sender.scopeValue, mode: "insensitive" },
+          fromAddress: {
+            endsWith: "@" + sender.scopeValue,
+            mode: "insensitive",
+          },
           receivedAt,
         });
         clauses.push({
-          fromAddress: { endsWith: "." + sender.scopeValue, mode: "insensitive" },
+          fromAddress: {
+            endsWith: "." + sender.scopeValue,
+            mode: "insensitive",
+          },
           receivedAt,
         });
         break;
@@ -178,7 +207,9 @@ export interface ContentRuleVerdict {
  * Read the model's JSON verdict. Tolerates prose or a code fence around the
  * object; null when there is no object or `match` is not a boolean.
  */
-export function parseContentRuleVerdict(raw: string): ContentRuleVerdict | null {
+export function parseContentRuleVerdict(
+  raw: string,
+): ContentRuleVerdict | null {
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
   if (start === -1 || end <= start) return null;
@@ -195,7 +226,9 @@ export function parseContentRuleVerdict(raw: string): ContentRuleVerdict | null 
   return {
     matched: match,
     reason:
-      typeof reason === "string" ? reason.trim().slice(0, MAX_REASON_CHARS) : "",
+      typeof reason === "string"
+        ? reason.trim().slice(0, MAX_REASON_CHARS)
+        : "",
   };
 }
 

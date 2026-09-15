@@ -11,6 +11,7 @@ import {
   removeContentRuleSenderForUser,
   updateContentRuleForUser,
   type ContentRuleSenderInput,
+  type UpdateContentRuleInput,
 } from "@/lib/mail/content-rule-store";
 import { rateLimitContentRules } from "@/lib/rate-limit";
 
@@ -76,14 +77,16 @@ export async function removeContentRuleSender(
 
 export async function updateContentRule(
   ruleId: string,
-  data: { criterion?: string; onMatch?: ContentRuleAction; onNoMatch?: ContentRuleAction },
+  data: UpdateContentRuleInput,
 ): Promise<ActionResult> {
   const userId = await requireUserId();
+  let rejudge = false;
   try {
-    await updateContentRuleForUser(userId, ruleId, data);
+    ({ rejudge } = await updateContentRuleForUser(userId, ruleId, data));
   } catch (err) {
     return failure(err, "Could not save the rule.");
   }
+  if (rejudge) kickContentRuleEvaluation(userId);
   revalidatePath("/filters");
   return { ok: true };
 }
