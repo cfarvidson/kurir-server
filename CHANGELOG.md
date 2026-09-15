@@ -4,6 +4,24 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.95] - 2026-09-15
+
+### Added
+
+- Private notes on a thread, which never go out with a reply. When an
+  AI rule files a message, the card shows where it went and the model's
+  reason.
+- The sidebar groups Imbox, The Feed and Paper Trail together, then
+  Triage, Later, Outbound, and the rest after a hairline. Desktop and
+  the mobile More sheet share the same groups.
+
+### Changed
+
+- Links exchanged in the person pane drops email chrome (Login, Docs,
+  Blog, Trust Center, font CDNs) and footer URLs that repeat across
+  many mails. Unique content links stay; the section still hides when
+  empty.
+
 ## [v2026.94] - 2026-09-15
 
 ### Added

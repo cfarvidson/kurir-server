@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.95",
+    "date": "2026-09-15",
+    "changes": [
+      "Private notes on a thread, which never go out with a reply; when an AI rule files a message the card shows where it went and the model's reason",
+      "Sidebar: Imbox, The Feed and Paper Trail sit together, then Triage, Later, Outbound, and the rest",
+      "Person pane: Links exchanged drops email chrome (Login/Docs/Blog, font CDNs) and footer URLs that repeat across many mails"
+    ]
+  },
+  {
     "version": "2026.94",
     "date": "2026-09-15",
     "changes": [
