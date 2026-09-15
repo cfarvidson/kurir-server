@@ -4,6 +4,8 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.94] - 2026-09-15
+
 ### Added
 
 - Calendar tools on the MCP server at `/mcp`. An agent can list your

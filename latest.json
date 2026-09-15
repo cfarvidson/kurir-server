@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-14T07:14:16Z",
   "beta": {
-    "version": "2026.93",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.93",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.93",
-    "changelog": "AI Rules: edit a rule's wording in place with an option to re-check mail it already judged, and open a sender's rules straight from the thread header",
+    "version": "2026.94",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.94",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.94",
+    "changelog": "Calendar tools on the MCP server: agents can list calendars and events, read an event, create or delete events and reply to invitations, with a confirmation before every write",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-15T07:55:56Z"
+    "releasedAt": "2026-09-15T08:23:04Z"
   }
 }

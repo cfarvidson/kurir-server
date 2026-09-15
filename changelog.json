@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.94",
+    "date": "2026-09-15",
+    "changes": [
+      "MCP: calendar tools on /mcp. An agent can list calendars (list_calendars), list events in a window (list_events), read one event (get_event), create an event (create_event), delete an event or one occurrence of a series (delete_event) and reply to a mailed invitation (respond_to_event)",
+      "MCP calendar writes ask for a confirmation in the client first, like sending mail, and are refused on the demo instance; times without an offset are read in your Kurir timezone"
+    ]
+  },
+  {
     "version": "2026.93",
     "date": "2026-09-15",
     "changes": [
