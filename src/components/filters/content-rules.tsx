@@ -13,6 +13,7 @@ import {
   CONTENT_RULE_ACTIONS,
   MAX_CRITERION_CHARS,
   SCOPE_LABELS,
+  contentRuleCoversSender,
   messageHrefForPlacement,
 } from "@/lib/mail/content-rules";
 import type { ContentRuleListItem } from "@/lib/mail/content-rule-store";
@@ -135,12 +136,16 @@ function ActionSelect({
 
 function NewRuleForm({
   connections,
+  focusSender,
 }: {
   connections: { id: string; email: string }[];
+  focusSender: string | null;
 }) {
   const [criterion, setCriterion] = useState("");
-  const [scope, setScope] = useState<SubjectRuleScope>("DOMAIN");
-  const [scopeValue, setScopeValue] = useState("");
+  const [scope, setScope] = useState<SubjectRuleScope>(
+    focusSender ? "ADDRESS" : "DOMAIN",
+  );
+  const [scopeValue, setScopeValue] = useState(focusSender ?? "");
   const [includeExisting, setIncludeExisting] = useState(false);
   const [connectionId, setConnectionId] = useState("");
   const [onMatch, setOnMatch] = useState<ContentRuleAction>("KEEP");
@@ -255,7 +260,10 @@ function NewRuleForm({
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={isPending || !criterion.trim() || !scopeValue.trim()}>
+      <Button
+        type="submit"
+        disabled={isPending || !criterion.trim() || !scopeValue.trim()}
+      >
         {isPending ? "Creating…" : "Create rule"}
       </Button>
     </form>
@@ -265,15 +273,25 @@ function NewRuleForm({
 function RuleCard({
   rule,
   connections,
+  focusSender,
 }: {
   rule: ContentRuleListItem;
   connections: { id: string; email: string }[];
+  focusSender: string | null;
 }) {
+  const coversFocus =
+    focusSender !== null &&
+    contentRuleCoversSender(focusSender, new Date(), rule.senders);
   const [scope, setScope] = useState<SubjectRuleScope>("ADDRESS");
-  const [scopeValue, setScopeValue] = useState("");
+  const [scopeValue, setScopeValue] = useState(
+    focusSender && !coversFocus ? focusSender : "",
+  );
   const [includeExisting, setIncludeExisting] = useState(false);
   const [onMatch, setOnMatch] = useState<ContentRuleAction>(rule.onMatch);
   const [onNoMatch, setOnNoMatch] = useState<ContentRuleAction>(rule.onNoMatch);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(rule.criterion);
+  const [recheck, setRecheck] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -281,7 +299,10 @@ function RuleCard({
     ? connections.find((c) => c.id === rule.emailConnectionId)?.email
     : null;
 
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, done?: () => void) => {
+  const run = (
+    fn: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    done?: () => void,
+  ) => {
     setError(null);
     startTransition(async () => {
       const result = await fn();
@@ -293,34 +314,133 @@ function RuleCard({
     });
   };
 
-  const saveActions = (next: { onMatch?: ContentRuleAction; onNoMatch?: ContentRuleAction }) => {
+  const saveActions = (next: {
+    onMatch?: ContentRuleAction;
+    onNoMatch?: ContentRuleAction;
+  }) => {
     if (next.onMatch) setOnMatch(next.onMatch);
     if (next.onNoMatch) setOnNoMatch(next.onNoMatch);
-    run(() => updateContentRule(rule.id, next), () => toast.success("Rule updated"));
+    run(
+      () => updateContentRule(rule.id, next),
+      () => toast.success("Rule updated"),
+    );
+  };
+
+  const saveCriterion = () => {
+    if (draft.trim() === rule.criterion) {
+      setEditing(false);
+      return;
+    }
+    run(
+      () => updateContentRule(rule.id, { criterion: draft, recheck }),
+      () => {
+        setEditing(false);
+        toast.success(
+          recheck
+            ? "Rule updated. Its mail is being checked again."
+            : "Rule updated. New mail is checked with the new wording.",
+        );
+      },
+    );
   };
 
   return (
     <article className="space-y-4 border-b border-border py-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-lead text-foreground">{rule.criterion}</p>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <form
+              className="space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveCriterion();
+              }}
+            >
+              <textarea
+                id={`rule-${rule.id}-criterion`}
+                aria-label="What should the model look for?"
+                value={draft}
+                disabled={isPending}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={3}
+                maxLength={MAX_CRITERION_CHARS}
+                autoFocus
+                className={fieldClass}
+              />
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={recheck}
+                  disabled={isPending}
+                  onChange={(e) => setRecheck(e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                Check mail this rule has already judged again
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isPending || !draft.trim()}
+                >
+                  {isPending ? "Saving…" : "Save"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => setEditing(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-lead text-foreground">{rule.criterion}</p>
+          )}
           <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+            {coversFocus && (
+              <span className="mr-2 rounded-sm bg-primary/10 px-1.5 py-0.5 text-primary">
+                Applies to {focusSender}
+              </span>
+            )}
             {inbox ? `${inbox} · ` : ""}
             {rule._count.matches} checked · {rule.matches.length}
             {rule.matches.length === 20 ? "+" : ""} matched
           </p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={isPending}
-          onClick={() =>
-            run(() => deleteContentRule(rule.id), () => toast.success("Rule deleted"))
-          }
-        >
-          Delete
-        </Button>
+        <div className="flex shrink-0 gap-1">
+          {!editing && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                setDraft(rule.criterion);
+                setRecheck(false);
+                setEditing(true);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isPending}
+            onClick={() =>
+              run(
+                () => deleteContentRule(rule.id),
+                () => toast.success("Rule deleted"),
+              )
+            }
+          >
+            Delete
+          </Button>
+        </div>
       </div>
 
       <div>
@@ -351,7 +471,12 @@ function RuleCard({
           onSubmit={(e) => {
             e.preventDefault();
             run(
-              () => addContentRuleSender(rule.id, { scope, scopeValue, includeExisting }),
+              () =>
+                addContentRuleSender(rule.id, {
+                  scope,
+                  scopeValue,
+                  includeExisting,
+                }),
               () => {
                 setScopeValue("");
                 toast.success(
@@ -443,12 +568,22 @@ export function ContentRulesView({
   rules,
   connections,
   modelConnected,
+  focusSender,
 }: {
   rules: ContentRuleListItem[];
   connections: { id: string; email: string }[];
   modelConnected: boolean;
+  /** Address the thread view linked with: prefilled and its rules listed first. */
+  focusSender: string | null;
 }) {
   const [isChecking, startChecking] = useTransition();
+  const now = new Date();
+  const covering = focusSender
+    ? rules.filter((r) => contentRuleCoversSender(focusSender, now, r.senders))
+    : [];
+  const ordered = focusSender
+    ? [...covering, ...rules.filter((r) => !covering.includes(r))]
+    : rules;
 
   const checkNow = () => {
     startChecking(async () => {
@@ -457,7 +592,9 @@ export function ContentRulesView({
         toast.error(result.error);
         return;
       }
-      toast.success("Checking in the background. Reload in a moment to see new matches.");
+      toast.success(
+        "Checking in the background. Reload in a moment to see new matches.",
+      );
     });
   };
 
@@ -465,9 +602,29 @@ export function ContentRulesView({
     <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-6">
       <p className="text-sm leading-relaxed text-muted-foreground">
         Describe in plain words what to look for in mail from a sender. Kurir
-        asks your draft-generation model about each new message from that
-        sender and files it by the answer.
+        asks your draft-generation model about each new message from that sender
+        and files it by the answer.
       </p>
+
+      {focusSender && (
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border p-3 text-sm">
+          <p>
+            <span className="font-medium text-foreground">{focusSender}</span>
+            <span className="text-muted-foreground">
+              {" · "}
+              {covering.length === 0
+                ? "no rule checks this sender yet"
+                : `${covering.length} ${covering.length === 1 ? "rule checks" : "rules check"} this sender`}
+            </span>
+          </p>
+          <Link
+            href="/filters"
+            className="text-xs text-muted-foreground underline underline-offset-2"
+          >
+            Show all rules
+          </Link>
+        </div>
+      )}
 
       {!modelConnected && (
         <div className="mt-4 rounded-lg border border-border p-3 text-sm">
@@ -486,7 +643,7 @@ export function ContentRulesView({
       <section className="mt-8">
         <SectionHeading eyebrow="New" title="Add a rule" />
         <div className="mt-4">
-          <NewRuleForm connections={connections} />
+          <NewRuleForm connections={connections} focusSender={focusSender} />
         </div>
       </section>
 
@@ -510,8 +667,13 @@ export function ContentRulesView({
           <p className="mt-4 text-sm text-muted-foreground">No rules yet.</p>
         ) : (
           <div className="mt-2">
-            {rules.map((rule) => (
-              <RuleCard key={rule.id} rule={rule} connections={connections} />
+            {ordered.map((rule) => (
+              <RuleCard
+                key={rule.id}
+                rule={rule}
+                connections={connections}
+                focusSender={focusSender}
+              />
             ))}
           </div>
         )}

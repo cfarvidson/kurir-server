@@ -27,11 +27,13 @@ import {
   createContentRule,
   deleteContentRule,
   runContentRules,
+  updateContentRule,
 } from "@/actions/content-rules";
 import {
   createContentRuleForUser,
   deleteContentRuleForUser,
   kickContentRuleEvaluation,
+  updateContentRuleForUser,
 } from "@/lib/mail/content-rule-store";
 import { auth } from "@/lib/auth";
 import { rateLimitContentRules } from "@/lib/rate-limit";
@@ -40,7 +42,11 @@ const input = {
   criterion: "2 dagar remote",
   onMatch: "IMBOX" as const,
   onNoMatch: "KEEP" as const,
-  sender: { scope: "DOMAIN" as const, scopeValue: "consult.se", includeExisting: true },
+  sender: {
+    scope: "DOMAIN" as const,
+    scopeValue: "consult.se",
+    includeExisting: true,
+  },
 };
 
 describe("content-rules actions", () => {
@@ -73,13 +79,47 @@ describe("content-rules actions", () => {
       new Error("Enter a domain, like example.com."),
     );
     const result = await createContentRule(input);
-    expect(result).toEqual({ ok: false, error: "Enter a domain, like example.com." });
+    expect(result).toEqual({
+      ok: false,
+      error: "Enter a domain, like example.com.",
+    });
     expect(kickContentRuleEvaluation).not.toHaveBeenCalled();
   });
 
+  it("kicks a fresh check only when an edit asked to re-judge", async () => {
+    vi.mocked(updateContentRuleForUser).mockResolvedValueOnce({
+      rejudge: false,
+    });
+    await expect(
+      updateContentRule("rule-1", { onMatch: "FEED" }),
+    ).resolves.toEqual({ ok: true });
+    expect(kickContentRuleEvaluation).not.toHaveBeenCalled();
+
+    vi.mocked(updateContentRuleForUser).mockResolvedValueOnce({
+      rejudge: true,
+    });
+    await expect(
+      updateContentRule("rule-1", { criterion: "new wording", recheck: true }),
+    ).resolves.toEqual({ ok: true });
+    expect(updateContentRuleForUser).toHaveBeenLastCalledWith(
+      "user-1",
+      "rule-1",
+      {
+        criterion: "new wording",
+        recheck: true,
+      },
+    );
+    expect(kickContentRuleEvaluation).toHaveBeenCalledWith("user-1");
+  });
+
   it("maps a store rejection on delete to a typed failure", async () => {
-    vi.mocked(deleteContentRuleForUser).mockRejectedValue(new Error("Rule not found"));
-    expect(await deleteContentRule("rule-9")).toEqual({ ok: false, error: "Rule not found" });
+    vi.mocked(deleteContentRuleForUser).mockRejectedValue(
+      new Error("Rule not found"),
+    );
+    expect(await deleteContentRule("rule-9")).toEqual({
+      ok: false,
+      error: "Rule not found",
+    });
   });
 
   it("Check now kicks the detached run and is rate limited", async () => {

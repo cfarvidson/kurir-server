@@ -12,9 +12,15 @@
 import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import type { ContentRuleAction, SubjectRuleScope } from "@prisma/client";
-import { loadDraftGenerationSecret, rotateDraftGenerationSecret } from "@/lib/draft-generation/credential";
+import {
+  loadDraftGenerationSecret,
+  rotateDraftGenerationSecret,
+} from "@/lib/draft-generation/credential";
 import { defaultInferenceAdapter } from "@/lib/draft-generation/providers";
-import { DraftGenerationError, type InferenceAdapter } from "@/lib/draft-generation/types";
+import {
+  DraftGenerationError,
+  type InferenceAdapter,
+} from "@/lib/draft-generation/types";
 import { createUserKicker } from "@/lib/mail/kick-once";
 import { emitToUser } from "@/lib/mail/sse-subscribers";
 import {
@@ -24,6 +30,7 @@ import {
   normalizeScopeValue,
   parseContentRuleVerdict,
   placementForAction,
+  rulesCoveringSender,
   senderScopeWhere,
 } from "@/lib/mail/content-rules";
 
@@ -117,11 +124,27 @@ export async function listContentRulesForUser(userId: string) {
   });
 }
 
+/** How many of the user's rules judge mail from this address today. */
+export async function countContentRulesCoveringSender(
+  userId: string,
+  senderEmail: string,
+): Promise<number> {
+  const rules = await db.contentRule.findMany({
+    where: { userId },
+    select: {
+      senders: { select: { scope: true, scopeValue: true, since: true } },
+    },
+  });
+  return rulesCoveringSender(senderEmail, rules).length;
+}
+
 function cleanCriterion(raw: string): string {
   const criterion = raw.trim();
   if (!criterion) throw new Error("Describe what the model should look for.");
   if (criterion.length > MAX_CRITERION_CHARS) {
-    throw new Error(`Keep the criterion under ${MAX_CRITERION_CHARS} characters.`);
+    throw new Error(
+      `Keep the criterion under ${MAX_CRITERION_CHARS} characters.`,
+    );
   }
   return criterion;
 }
@@ -140,7 +163,10 @@ export async function createContentRuleForUser(
   input: CreateContentRuleInput,
 ) {
   const criterion = cleanCriterion(input.criterion);
-  const scopeValue = normalizeScopeValue(input.sender.scope, input.sender.scopeValue);
+  const scopeValue = normalizeScopeValue(
+    input.sender.scope,
+    input.sender.scopeValue,
+  );
   const emailConnectionId = input.emailConnectionId || null;
   if (emailConnectionId) {
     const connection = await db.emailConnection.findUnique({
@@ -180,7 +206,9 @@ export async function addContentRuleSenderForUser(
   // Re-adding an existing sender keeps its original since; widening the
   // window would re-judge nothing anyway (verdicts are kept per message).
   await db.contentRuleSender.upsert({
-    where: { ruleId_scope_scopeValue: { ruleId, scope: sender.scope, scopeValue } },
+    where: {
+      ruleId_scope_scopeValue: { ruleId, scope: sender.scope, scopeValue },
+    },
     update: {},
     create: {
       ruleId,
@@ -203,20 +231,48 @@ export async function removeContentRuleSenderForUser(
   await db.contentRuleSender.delete({ where: { id: senderRowId } });
 }
 
+export interface UpdateContentRuleInput {
+  criterion?: string;
+  onMatch?: ContentRuleAction;
+  onNoMatch?: ContentRuleAction;
+  /**
+   * With a new criterion: forget every stored verdict so the rule judges its
+   * senders' mail again under the new wording. Mail the rule archived stays
+   * archived (a re-judgement never resurrects archived mail); the rest is
+   * re-filed by the fresh verdict.
+   */
+  recheck?: boolean;
+}
+
+/** Whether the update should trigger a fresh evaluation run. */
 export async function updateContentRuleForUser(
   userId: string,
   ruleId: string,
-  data: { criterion?: string; onMatch?: ContentRuleAction; onNoMatch?: ContentRuleAction },
-) {
+  data: UpdateContentRuleInput,
+): Promise<{ rejudge: boolean }> {
   await requireOwnedRule(userId, ruleId);
-  await db.contentRule.update({
+  const rejudge = Boolean(data.recheck && data.criterion !== undefined);
+  const update = db.contentRule.update({
     where: { id: ruleId },
     data: {
-      ...(data.criterion !== undefined ? { criterion: cleanCriterion(data.criterion) } : {}),
+      ...(data.criterion !== undefined
+        ? { criterion: cleanCriterion(data.criterion) }
+        : {}),
       ...(data.onMatch ? { onMatch: data.onMatch } : {}),
       ...(data.onNoMatch ? { onNoMatch: data.onNoMatch } : {}),
     },
   });
+  if (rejudge) {
+    // Same transaction: a run that reads the new criterion also sees the
+    // cleared verdicts, never the old verdicts under the new wording.
+    await db.$transaction([
+      db.contentRuleMatch.deleteMany({ where: { ruleId } }),
+      update,
+    ]);
+  } else {
+    await update;
+  }
+  return { rejudge };
 }
 
 /** Delete a rule. Placements it made are materialized and stay. */
@@ -266,7 +322,13 @@ export async function evaluateContentRulesForUser(
 ): Promise<ContentRuleRunResult> {
   const credential = await loadDraftGenerationSecret(userId);
   if (!credential) {
-    return { evaluated: 0, matched: 0, refiled: 0, capped: false, skipped: "NO_CREDENTIAL" };
+    return {
+      evaluated: 0,
+      matched: 0,
+      refiled: 0,
+      capped: false,
+      skipped: "NO_CREDENTIAL",
+    };
   }
 
   const rules = await db.contentRule.findMany({
@@ -283,7 +345,12 @@ export async function evaluateContentRulesForUser(
     },
   });
 
-  const result: ContentRuleRunResult = { evaluated: 0, matched: 0, refiled: 0, capped: false };
+  const result: ContentRuleRunResult = {
+    evaluated: 0,
+    matched: 0,
+    refiled: 0,
+    capped: false,
+  };
   for (const rule of rules) {
     if (rule.senders.length === 0) continue;
     try {
@@ -291,7 +358,10 @@ export async function evaluateContentRulesForUser(
     } catch (err) {
       // Credential trouble affects every rule: stop and let the caller see it.
       if (err instanceof DraftGenerationError) throw err;
-      console.error(`[content-rules] rule ${rule.id} failed for ${userId}`, err);
+      console.error(
+        `[content-rules] rule ${rule.id} failed for ${userId}`,
+        err,
+      );
     }
   }
   if (result.refiled > 0) {
@@ -326,7 +396,9 @@ async function evaluateRule(
   const candidates = await db.message.findMany({
     where: {
       userId,
-      ...(rule.emailConnectionId ? { emailConnectionId: rule.emailConnectionId } : {}),
+      ...(rule.emailConnectionId
+        ? { emailConnectionId: rule.emailConnectionId }
+        : {}),
       folder: { specialUse: "inbox" },
       isDeleted: false,
       contentRuleMatches: { none: { ruleId: rule.id } },
@@ -340,10 +412,20 @@ async function evaluateRule(
   if (candidates.length === MAX_PER_RULE_PER_RUN) result.capped = true;
 
   // IMAP moves for rule archives, one round-trip per inbox folder.
-  const toArchive = new Map<string, { emailConnectionId: string; uids: number[] }>();
+  const toArchive = new Map<
+    string,
+    { emailConnectionId: string; uids: number[] }
+  >();
 
   for (const message of candidates) {
-    if (!contentRuleCoversSender(message.fromAddress, message.receivedAt, rule.senders)) continue;
+    if (
+      !contentRuleCoversSender(
+        message.fromAddress,
+        message.receivedAt,
+        rule.senders,
+      )
+    )
+      continue;
     const raw = await infer({
       provider: credential.provider,
       secret: credential.secret,
@@ -353,7 +435,9 @@ async function evaluateRule(
     const verdict = parseContentRuleVerdict(raw);
     if (!verdict) {
       // Nothing stored: the message stays eligible and is retried next run.
-      console.warn(`[content-rules] unreadable verdict for ${message.id} under ${rule.id}`);
+      console.warn(
+        `[content-rules] unreadable verdict for ${message.id} under ${rule.id}`,
+      );
       continue;
     }
 
@@ -379,7 +463,9 @@ async function evaluateRule(
     result.evaluated++;
     if (verdict.matched) result.matched++;
 
-    const placement = placementForAction(verdict.matched ? rule.onMatch : rule.onNoMatch);
+    const placement = placementForAction(
+      verdict.matched ? rule.onMatch : rule.onNoMatch,
+    );
     if (!placement) continue;
     // Conditional write: the message must still be untouched at write time,
     // so a verdict that lands after the user archived or snoozed it is a no-op.
@@ -416,7 +502,10 @@ async function evaluateRule(
     try {
       await moveToArchiveViaImap(userId, emailConnectionId, folderId, uids);
     } catch (err) {
-      console.error(`[content-rules] IMAP archive move failed for ${userId}`, err);
+      console.error(
+        `[content-rules] IMAP archive move failed for ${userId}`,
+        err,
+      );
     }
   }
 }

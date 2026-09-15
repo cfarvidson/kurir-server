@@ -28,11 +28,16 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    contentRuleSender: { upsert: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
-    contentRuleMatch: { upsert: vi.fn() },
+    contentRuleSender: {
+      upsert: vi.fn(),
+      findUnique: vi.fn(),
+      delete: vi.fn(),
+    },
+    contentRuleMatch: { upsert: vi.fn(), deleteMany: vi.fn() },
     emailConnection: { findUnique: vi.fn() },
     message: { findMany: vi.fn(), updateMany: vi.fn() },
     draftGenerationCredential: { findUnique: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
@@ -57,7 +62,11 @@ const rule = {
   emailConnectionId: null,
   updatedAt,
   senders: [
-    { scope: "DOMAIN", scopeValue: "consult.se", since: new Date("2026-08-02T00:00:00Z") },
+    {
+      scope: "DOMAIN",
+      scopeValue: "consult.se",
+      since: new Date("2026-08-02T00:00:00Z"),
+    },
   ],
 };
 
@@ -88,7 +97,9 @@ beforeEach(() => {
   resetContentRuleKicks();
   vi.mocked(db.contentRuleMatch.upsert).mockResolvedValue({} as never);
   vi.mocked(db.message.updateMany).mockResolvedValue({ count: 1 } as never);
-  vi.mocked(db.contentRule.findUnique).mockResolvedValue({ updatedAt } as never);
+  vi.mocked(db.contentRule.findUnique).mockResolvedValue({
+    updatedAt,
+  } as never);
 });
 
 describe("evaluateContentRulesForUser", () => {
@@ -124,7 +135,12 @@ describe("evaluateContentRulesForUser", () => {
 
     const result = await evaluateContentRulesForUser("u1", infer);
 
-    expect(result).toEqual({ evaluated: 2, matched: 1, refiled: 2, capped: false });
+    expect(result).toEqual({
+      evaluated: 2,
+      matched: 1,
+      refiled: 2,
+      capped: false,
+    });
     expect(infer).toHaveBeenCalledTimes(2);
     expect(infer.mock.calls[0][0].request.user).toContain(
       "2 dagar remote i Uppsala",
@@ -132,7 +148,10 @@ describe("evaluateContentRulesForUser", () => {
     expect(db.contentRuleMatch.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { ruleId_messageId: { ruleId: "rule-1", messageId: "m-hit" } },
-        create: expect.objectContaining({ matched: true, reason: "Två dagar remote, Uppsala." }),
+        create: expect.objectContaining({
+          matched: true,
+          reason: "Två dagar remote, Uppsala.",
+        }),
       }),
     );
     // Filing into a category only touches untouched, unarchived mail.
@@ -158,7 +177,12 @@ describe("evaluateContentRulesForUser", () => {
       },
       data: expect.objectContaining({ isInImbox: false, isArchived: true }),
     });
-    expect(moveToArchiveViaImap).toHaveBeenCalledWith("u1", "conn-1", "folder-inbox", [100]);
+    expect(moveToArchiveViaImap).toHaveBeenCalledWith(
+      "u1",
+      "conn-1",
+      "folder-inbox",
+      [100],
+    );
     expect(emitToUser).toHaveBeenCalledTimes(2);
     expect(revalidateTag).toHaveBeenCalledWith("sidebar-counts", { expire: 0 });
   });
@@ -172,7 +196,12 @@ describe("evaluateContentRulesForUser", () => {
 
     const result = await evaluateContentRulesForUser("u1", infer);
 
-    expect(result).toEqual({ evaluated: 1, matched: 0, refiled: 0, capped: false });
+    expect(result).toEqual({
+      evaluated: 1,
+      matched: 0,
+      refiled: 0,
+      capped: false,
+    });
     expect(moveToArchiveViaImap).not.toHaveBeenCalled();
     expect(revalidateTag).not.toHaveBeenCalled();
   });
@@ -211,7 +240,12 @@ describe("evaluateContentRulesForUser", () => {
 
     const result = await evaluateContentRulesForUser("u1", infer);
 
-    expect(result).toEqual({ evaluated: 0, matched: 0, refiled: 0, capped: false });
+    expect(result).toEqual({
+      evaluated: 0,
+      matched: 0,
+      refiled: 0,
+      capped: false,
+    });
     expect(db.contentRuleMatch.upsert).not.toHaveBeenCalled();
     expect(db.message.updateMany).not.toHaveBeenCalled();
     warn.mockRestore();
@@ -249,7 +283,12 @@ describe("evaluateContentRulesForUser", () => {
 
     const result = await evaluateContentRulesForUser("u1", infer);
 
-    expect(result).toEqual({ evaluated: 1, matched: 1, refiled: 0, capped: false });
+    expect(result).toEqual({
+      evaluated: 1,
+      matched: 1,
+      refiled: 0,
+      capped: false,
+    });
     expect(infer).toHaveBeenCalledTimes(1);
     expect(db.message.updateMany).not.toHaveBeenCalled();
   });
@@ -258,7 +297,9 @@ describe("evaluateContentRulesForUser", () => {
     mockCredential();
     vi.mocked(db.contentRule.findMany).mockResolvedValue([rule] as never);
     vi.mocked(db.message.findMany).mockResolvedValue(
-      Array.from({ length: MAX_PER_RULE_PER_RUN }, (_, i) => message(`m-${i}`)) as never,
+      Array.from({ length: MAX_PER_RULE_PER_RUN }, (_, i) =>
+        message(`m-${i}`),
+      ) as never,
     );
     const infer = vi.fn<InferenceAdapter>(async () => '{"match": false}');
 
@@ -271,12 +312,17 @@ describe("evaluateContentRulesForUser", () => {
   it("stops the whole run on a credential error but confines other failures to their rule", async () => {
     mockCredential();
     const other = { ...rule, id: "rule-2" };
-    vi.mocked(db.contentRule.findMany).mockResolvedValue([rule, other] as never);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([
+      rule,
+      other,
+    ] as never);
     vi.mocked(db.message.findMany).mockResolvedValue([message("m-1")] as never);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Rule 1's match write blows up (rule deleted mid-run); rule 2 still runs.
-    vi.mocked(db.contentRuleMatch.upsert).mockRejectedValueOnce(new Error("FK"));
+    vi.mocked(db.contentRuleMatch.upsert).mockRejectedValueOnce(
+      new Error("FK"),
+    );
     const infer = vi.fn<InferenceAdapter>(async () => '{"match": true}');
     const result = await evaluateContentRulesForUser("u1", infer);
     expect(infer).toHaveBeenCalledTimes(2);
@@ -285,12 +331,17 @@ describe("evaluateContentRulesForUser", () => {
     // A dead token is fatal for every rule.
     vi.clearAllMocks();
     mockCredential();
-    vi.mocked(db.contentRule.findMany).mockResolvedValue([rule, other] as never);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([
+      rule,
+      other,
+    ] as never);
     vi.mocked(db.message.findMany).mockResolvedValue([message("m-1")] as never);
     const dead = vi.fn<InferenceAdapter>(async () => {
       throw new DraftGenerationError("TOKEN_DEAD", "dead");
     });
-    await expect(evaluateContentRulesForUser("u1", dead)).rejects.toThrow("dead");
+    await expect(evaluateContentRulesForUser("u1", dead)).rejects.toThrow(
+      "dead",
+    );
     expect(dead).toHaveBeenCalledTimes(1);
     error.mockRestore();
   });
@@ -319,7 +370,9 @@ describe("kickContentRuleEvaluation", () => {
     vi.mocked(db.contentRule.findMany).mockResolvedValue([rule] as never);
     vi.mocked(db.message.findMany)
       .mockResolvedValueOnce(
-        Array.from({ length: MAX_PER_RULE_PER_RUN }, (_, i) => message(`m-${i}`)) as never,
+        Array.from({ length: MAX_PER_RULE_PER_RUN }, (_, i) =>
+          message(`m-${i}`),
+        ) as never,
       )
       .mockResolvedValue([] as never);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -331,6 +384,63 @@ describe("kickContentRuleEvaluation", () => {
     expect(db.message.findMany).toHaveBeenCalledTimes(2);
     log.mockRestore();
   }, 10_000);
+});
+
+describe("updateContentRuleForUser", () => {
+  beforeEach(() => {
+    vi.mocked(db.contentRule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      userId: "u1",
+    } as never);
+    vi.mocked(db.contentRule.update).mockResolvedValue({} as never);
+    vi.mocked(db.contentRuleMatch.deleteMany).mockResolvedValue({
+      count: 3,
+    } as never);
+  });
+
+  it("rewrites the criterion and, on recheck, forgets every verdict in one transaction", async () => {
+    const result = await updateContentRuleForUser("u1", "rule-1", {
+      criterion: "  two remote days  ",
+      recheck: true,
+    });
+
+    expect(result).toEqual({ rejudge: true });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.contentRuleMatch.deleteMany).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1" },
+    });
+    expect(db.contentRule.update).toHaveBeenCalledWith({
+      where: { id: "rule-1" },
+      data: { criterion: "two remote days" },
+    });
+  });
+
+  it("keeps stored verdicts when only the wording or the actions change", async () => {
+    await expect(
+      updateContentRuleForUser("u1", "rule-1", { criterion: "new wording" }),
+    ).resolves.toEqual({ rejudge: false });
+    await expect(
+      updateContentRuleForUser("u1", "rule-1", {
+        onMatch: "FEED",
+        recheck: true,
+      }),
+    ).resolves.toEqual({ rejudge: false });
+
+    expect(db.contentRuleMatch.deleteMany).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.contentRule.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an empty criterion before writing", async () => {
+    await expect(
+      updateContentRuleForUser("u1", "rule-1", {
+        criterion: "   ",
+        recheck: true,
+      }),
+    ).rejects.toThrow("Describe what the model should look for.");
+    expect(db.contentRule.update).not.toHaveBeenCalled();
+    expect(db.contentRuleMatch.deleteMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("ownership guards", () => {
@@ -410,13 +520,17 @@ describe("ownership guards", () => {
       .mocked(db.contentRuleSender.upsert)
       .mock.calls.map((c) => (c[0].create as { since: Date }).since.getTime());
     expect(onlyNew).toBeGreaterThanOrEqual(start);
-    expect(start - existing).toBeGreaterThanOrEqual(30 * 24 * 60 * 60 * 1000 - 1000);
+    expect(start - existing).toBeGreaterThanOrEqual(
+      30 * 24 * 60 * 60 * 1000 - 1000,
+    );
     expect(start - existing).toBeLessThan(30 * 24 * 60 * 60 * 1000 + 60_000);
   });
 
   it("deleting an already-gone rule is a no-op", async () => {
     vi.mocked(db.contentRule.findUnique).mockResolvedValue(null);
-    await expect(deleteContentRuleForUser("u1", "rule-x")).resolves.toBeUndefined();
+    await expect(
+      deleteContentRuleForUser("u1", "rule-x"),
+    ).resolves.toBeUndefined();
     expect(db.contentRule.delete).not.toHaveBeenCalled();
   });
 });

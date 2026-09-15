@@ -5,13 +5,20 @@ import { PageMasthead } from "@/components/layout/page-masthead";
 import { ContentRulesView } from "@/components/filters/content-rules";
 import { listContentRulesForUser } from "@/lib/mail/content-rule-store";
 import { getDraftGenerationStatus } from "@/lib/draft-generation/credential";
+import { parseSenderParam } from "@/lib/mail/content-rules";
 
-export default async function FiltersPage() {
+export default async function FiltersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sender?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
   const userId = session.user.id;
+  // Linked from a thread header: prefill the sender and surface its rules.
+  const focusSender = parseSenderParam((await searchParams).sender);
 
   const [rules, connections, draftGeneration] = await Promise.all([
     listContentRulesForUser(userId),
@@ -39,6 +46,7 @@ export default async function FiltersPage() {
           rules={rules}
           connections={connections}
           modelConnected={draftGeneration.connected}
+          focusSender={focusSender}
         />
       </div>
     </div>
