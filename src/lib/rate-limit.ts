@@ -149,6 +149,17 @@ export async function rateLimitDraftGeneration(
 }
 
 /**
+ * Rate limit manual AI content-rule checks ("Check now"). A check only kicks
+ * a coalesced background run, so this bounds churn rather than model spend:
+ * 10 per 10 minutes per user.
+ */
+export async function rateLimitContentRules(
+  userId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`contentrules:${userId}`, 10, 600);
+}
+
+/**
  * Rate limit mobile login attempts (passkey options + verify + refresh).
  * 20 per 10 minutes per IP.
  */

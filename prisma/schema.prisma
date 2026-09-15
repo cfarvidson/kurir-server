@@ -68,6 +68,7 @@ model User {
   messageTombstones MessageTombstone[]
   domainRules       DomainRule[]
   subjectRules      SubjectRule[]
+  contentRules      ContentRule[]
   mcpTokens             McpToken[]
   mcpAuthorizationCodes McpAuthorizationCode[]
   mcpConfirmations      McpConfirmation[]
@@ -292,6 +293,7 @@ model EmailConnection {
   scheduledMessages ScheduledMessage[]
   domainRules       DomainRule[]
   subjectRules      SubjectRule[]
+  contentRules      ContentRule[]
   calendarAccounts  CalendarAccount[]
 
   @@unique([userId, email])
@@ -471,6 +473,87 @@ model SubjectRule {
 }
 
 // ============================================
+// AI CONTENT RULES
+// ============================================
+
+// What an AI content rule does with a message once the model has answered.
+// KEEP leaves the message where the sender's own decision put it.
+enum ContentRuleAction {
+  KEEP
+  IMBOX
+  FEED
+  PAPER_TRAIL
+  ARCHIVE
+}
+
+// AI content rule: a natural-language criterion ("an assignment with two
+// remote days, on-site in Uppsala or Stockholm") evaluated by the user's own
+// draft-generation model against mail from the rule's senders. Every message
+// in scope is judged once per rule (ContentRuleMatch), and the rule's two
+// actions decide where a judged message is filed.
+model ContentRule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  criterion String @db.Text
+
+  onMatch   ContentRuleAction @default(KEEP)
+  onNoMatch ContentRuleAction @default(KEEP)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Null = every inbox the user has connected.
+  emailConnectionId String?
+  emailConnection   EmailConnection? @relation(fields: [emailConnectionId], references: [id], onDelete: Cascade)
+
+  senders ContentRuleSender[]
+  matches ContentRuleMatch[]
+
+  @@index([userId])
+  @@index([emailConnectionId])
+}
+
+// One sender scope a content rule applies to; a rule has many.
+model ContentRuleSender {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  scope      SubjectRuleScope
+  scopeValue String // normalized lowercase address or domain
+  // Earliest receivedAt this sender's mail is judged from: the moment the
+  // sender was added, or 30 days earlier when the user chose to include
+  // mail that had already arrived.
+  since DateTime
+
+  ruleId String
+  rule   ContentRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, scope, scopeValue])
+}
+
+// The model's verdict for one message under one rule. Stored for misses too,
+// so a message is never sent to the model twice for the same rule.
+model ContentRuleMatch {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  matched Boolean
+  reason  String? @db.Text
+
+  ruleId String
+  rule   ContentRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, messageId])
+  @@index([messageId])
+  @@index([ruleId, matched])
+}
+
+// ============================================
 // FOLDER/MAILBOX
 // ============================================
 
@@ -607,6 +690,7 @@ model Message {
 
   attachments Attachment[]
   meeting     MessageMeeting?
+  contentRuleMatches ContentRuleMatch[]
 
   // Full-text search (managed by prisma/migrations/search_vector.sql, not Prisma)
   search_vector Unsupported("tsvector")?
