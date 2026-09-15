@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.96",
+    "date": "2026-09-15",
+    "changes": [
+      "Mobile API for AI content rules, so iOS and Mac can list, create, edit, and Check now"
+    ]
+  },
+  {
     "version": "2026.95",
     "date": "2026-09-15",
     "changes": [

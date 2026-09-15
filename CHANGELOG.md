@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.96] - 2026-09-15
+
+### Added
+
+- Mobile API for AI content rules (`/api/mobile/content-rules`) so iOS and
+  Mac can list, create, edit, and run the same rules as the web page.
+
 ## [v2026.95] - 2026-09-15
 
 ### Added

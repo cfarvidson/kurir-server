@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-14T07:14:16Z",
   "beta": {
-    "version": "2026.95",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.95",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.95",
-    "changelog": "Sidebar groups the three mailboxes; private thread notes and an AI filing log; person-pane Links exchanged drops email chrome",
+    "version": "2026.96",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.96",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.96",
+    "changelog": "Mobile API for AI content rules, so iOS and Mac can list, create, edit, and Check now",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-15T14:17:52Z"
+    "releasedAt": "2026-09-15T15:17:40Z"
   }
 }
