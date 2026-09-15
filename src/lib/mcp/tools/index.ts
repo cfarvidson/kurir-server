@@ -1,4 +1,5 @@
 import type { ToolDef } from "@/lib/mcp/types";
+import { registerCalendarTools } from "@/lib/mcp/tools/calendar";
 import { registerContactTools } from "@/lib/mcp/tools/contacts";
 import { registerMailTools } from "@/lib/mcp/tools/mail";
 import { registerScreenerTools } from "@/lib/mcp/tools/screener";
@@ -24,3 +25,4 @@ registerSendTools(registerTool);
 registerScreenerTools(registerTool);
 registerContactTools(registerTool);
 registerSettingsTools(registerTool);
+registerCalendarTools(registerTool);

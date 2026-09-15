@@ -1,7 +1,8 @@
 # MCP calendar tools - design
 
-Date: 2026-09-04. Status: spike. Do not register tools until a follow-on
-plan. Attendees on create are deferred to
+Date: 2026-09-04. Status: implemented 2026-09-15 in
+`src/lib/mcp/tools/calendar.ts` (v1 tools below; `delete_event` also takes
+`occurrence` for `this` / `thisAndFollowing`). Attendees on create are deferred to
 `docs/specs/2026-09-04-web-event-attendees-design.md`.
 
 Calendar is a first-class nav item. MCP at `/mcp` can already read and

@@ -478,6 +478,11 @@ async function loadCalendar(
   return row;
 }
 
+/** One event the user owns, with its calendar and account, for read paths. */
+export async function getEventForUser(userId: string, eventId: string) {
+  return loadEvent(userId, eventId);
+}
+
 async function loadEvent(userId: string, eventId: string) {
   const row = await db.calendarEvent.findFirst({
     where: { id: eventId, userId },

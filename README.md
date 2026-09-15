@@ -32,8 +32,10 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 
 Point Claude at `https://<your-domain>/mcp` as a custom connector. Sign in
 with your Kurir passkey and approve access. The agent can read and search
-mail, triage, screen senders, and change your own settings. Sending and
-other destructive actions ask for a confirmation in Claude first. Revoke
+mail, triage, screen senders, list and read calendar events, and change
+your own settings. Sending, creating or deleting events, replying to
+invitations and other destructive actions ask for a confirmation in Claude
+first. Revoke
 access under Settings → Connected apps.
 
 Clients identify themselves with a Client ID Metadata Document (Claude does
