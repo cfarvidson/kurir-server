@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { splitPlainTextQuotes } from "@/lib/mail/quote-utils";
 import { isKnownTrackerUrl } from "@/lib/mail/tracker-detection";
 
+// Keep the chrome/asset/recurring rules in sync with kurir-ios PersonLinks.swift.
+
 export type PersonLink = {
   id: string;
   url: string;
@@ -15,6 +17,151 @@ const HREF_RE =
 const BARE_URL_RE = /https?:\/\/[^\s<>"'\)\]]+/gi;
 const QUOTE_CUT_RE =
   /<blockquote\b|class=["'][^"']*\b(gmail_quote|moz-cite-prefix|yahoo_quoted|protonmail_quote)\b/i;
+
+/** A path that shows up in this many of the scanned mails is footer chrome. */
+export const RECURRING_LINK_THRESHOLD = 3;
+
+const ASSET_HOSTS = [
+  "fonts.googleapis.com",
+  "fonts.gstatic.com",
+  "ajax.googleapis.com",
+  "cdn.jsdelivr.net",
+  "unpkg.com",
+  "cdnjs.cloudflare.com",
+  "maxcdn.bootstrapcdn.com",
+  "use.typekit.net",
+  "use.fontawesome.com",
+  "kit.fontawesome.com",
+];
+
+const ASSET_EXTENSIONS = new Set([
+  ".css",
+  ".js",
+  ".mjs",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".eot",
+  ".otf",
+  ".map",
+  ".ico",
+]);
+
+const CHROME_TITLES = new Set([
+  "login",
+  "log in",
+  "sign in",
+  "sign up",
+  "register",
+  "docs",
+  "documentation",
+  "blog",
+  "integrations",
+  "public api",
+  "api",
+  "trust center",
+  "privacy",
+  "privacy policy",
+  "terms",
+  "terms of service",
+  "help",
+  "support",
+  "contact",
+  "about",
+  "home",
+  "website",
+  "follow us",
+  "view in browser",
+  "preferences",
+  "cookie policy",
+  "legal",
+  "security",
+  "pricing",
+  "careers",
+  "twitter",
+  "facebook",
+  "linkedin",
+  "instagram",
+  "youtube",
+  "x",
+]);
+
+const CHROME_PATHS = new Set([
+  "",
+  "/",
+  "/login",
+  "/signin",
+  "/sign-in",
+  "/log-in",
+  "/signup",
+  "/sign-up",
+  "/register",
+  "/docs",
+  "/documentation",
+  "/blog",
+  "/privacy",
+  "/privacy-policy",
+  "/terms",
+  "/terms-of-service",
+  "/about",
+  "/about-us",
+  "/help",
+  "/support",
+  "/contact",
+  "/contact-us",
+  "/integrations",
+  "/pricing",
+  "/careers",
+  "/legal",
+  "/cookies",
+  "/cookie-policy",
+  "/security",
+  "/trust",
+  "/trust-center",
+  "/status",
+  "/faq",
+  "/news",
+  "/download",
+  "/public-api",
+  "/api",
+]);
+
+const CHROME_SEGMENTS = new Set([
+  "login",
+  "signin",
+  "sign-in",
+  "log-in",
+  "signup",
+  "sign-up",
+  "register",
+  "docs",
+  "documentation",
+  "blog",
+  "privacy",
+  "privacy-policy",
+  "terms",
+  "terms-of-service",
+  "cookie-policy",
+  "trust-center",
+  "unsubscribe",
+  "integrations",
+  "public-api",
+]);
+
+const TRACKING_PARAMS = new Set([
+  "fbclid",
+  "gclid",
+  "dclid",
+  "msclkid",
+  "twclid",
+  "igshid",
+  "mc_cid",
+  "mc_eid",
+  "_hsenc",
+  "_hsmi",
+  "vero_id",
+  "wickedid",
+]);
 
 export function visibleHtml(html: string): string {
   const match = QUOTE_CUT_RE.exec(html);
@@ -50,11 +197,68 @@ function displayUrl(url: URL): string {
   return scheme >= 0 ? text.slice(scheme + 3) : text;
 }
 
-export function dedupKey(url: URL): string {
-  let path = url.pathname;
+function hostIs(hostname: string, listed: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === listed || host.endsWith(`.${listed}`);
+}
+
+function normalizedPath(url: URL): string {
+  let path = url.pathname || "/";
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  const query = url.search ? url.search : "";
-  return url.hostname.toLowerCase() + path + query;
+  return path;
+}
+
+function lastSegment(path: string): string {
+  const parts = path.split("/").filter(Boolean);
+  return (parts[parts.length - 1] ?? "").toLowerCase();
+}
+
+function extensionOf(path: string): string {
+  const base = lastSegment(path);
+  const dot = base.lastIndexOf(".");
+  if (dot <= 0) return "";
+  return base.slice(dot).toLowerCase();
+}
+
+function normalizedTitle(title: string | null | undefined): string {
+  return (title ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isTrackingParam(name: string): boolean {
+  const key = name.toLowerCase();
+  return key.startsWith("utm_") || TRACKING_PARAMS.has(key);
+}
+
+function queryWithoutTracking(url: URL): string {
+  const params = new URLSearchParams(url.search);
+  for (const key of [...params.keys()]) {
+    if (isTrackingParam(key)) params.delete(key);
+  }
+  const kept = params.toString();
+  return kept ? `?${kept}` : "";
+}
+
+export function pathKey(url: URL): string {
+  return url.hostname.toLowerCase() + normalizedPath(url);
+}
+
+function isAssetHost(hostname: string): boolean {
+  return ASSET_HOSTS.some((listed) => hostIs(hostname, listed));
+}
+
+function isChromeLink(url: URL, title: string | null): boolean {
+  const path = normalizedPath(url).toLowerCase();
+  if (CHROME_PATHS.has(path)) return true;
+  if (CHROME_SEGMENTS.has(lastSegment(path))) return true;
+  if (ASSET_EXTENSIONS.has(extensionOf(path))) return true;
+  if (isAssetHost(url.hostname)) return true;
+  const label = normalizedTitle(title);
+  if (label && CHROME_TITLES.has(label)) return true;
+  return false;
+}
+
+export function dedupKey(url: URL): string {
+  return pathKey(url) + queryWithoutTracking(url);
 }
 
 export function accept(
@@ -74,6 +278,7 @@ export function accept(
   if (isKnownTrackerUrl(trimmed)) return null;
   const combined = `${title ?? ""} ${url.pathname} ${url.hostname}`.toLowerCase();
   if (combined.includes("unsubscribe")) return null;
+  if (isChromeLink(url, title)) return null;
   const key = dedupKey(url);
   const label =
     title && title.length > 0 && !title.startsWith("http")
@@ -146,22 +351,51 @@ export async function loadPersonLinks(
     orderBy: { receivedAt: "desc" },
     take: 40,
   });
-  const byKey = new Map<string, PersonLink>();
-  const order: string[] = [];
+  type Hit = {
+    path: string;
+    extracted: { url: string; title: string; key: string };
+    messageId: string;
+    receivedAt: Date;
+  };
+  const hits: Hit[] = [];
+  const pathCounts = new Map<string, number>();
+
   for (const message of messages) {
     if (!message.textBody) continue;
+    const seenPaths = new Set<string>();
     for (const extracted of extractLinks(null, message.textBody)) {
-      if (!byKey.has(extracted.key)) {
-        order.push(extracted.key);
-        byKey.set(extracted.key, {
-          id: extracted.key,
-          url: extracted.url,
-          title: extracted.title,
-          messageId: message.id,
-          receivedAt: message.receivedAt,
-        });
+      let path: string;
+      try {
+        path = pathKey(new URL(extracted.url));
+      } catch {
+        continue;
+      }
+      hits.push({
+        path,
+        extracted,
+        messageId: message.id,
+        receivedAt: message.receivedAt,
+      });
+      if (!seenPaths.has(path)) {
+        seenPaths.add(path);
+        pathCounts.set(path, (pathCounts.get(path) ?? 0) + 1);
       }
     }
+  }
+
+  const byKey = new Map<string, PersonLink>();
+  const order: string[] = [];
+  for (const hit of hits) {
+    if ((pathCounts.get(hit.path) ?? 0) >= RECURRING_LINK_THRESHOLD) continue;
+    if (byKey.has(hit.extracted.key)) continue;
+    order.push(hit.extracted.key);
+    byKey.set(hit.extracted.key, {
+      id: hit.extracted.key,
+      url: hit.extracted.url,
+      title: hit.extracted.title,
+      messageId: hit.messageId,
+      receivedAt: hit.receivedAt,
+    });
   }
   return order.map((key) => byKey.get(key)!);
 }
