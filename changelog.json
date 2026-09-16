@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.98",
+    "date": "2026-09-16",
+    "changes": [
+      "Snooze and follow-up use the same near-term days as iOS/macOS: Tomorrow, then the next two weekdays at 08:00, labeled by weekday name"
+    ]
+  },
+  {
     "version": "2026.96",
     "date": "2026-09-15",
     "changes": [

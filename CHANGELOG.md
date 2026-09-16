@@ -4,6 +4,13 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.98] - 2026-09-16
+
+### Changed
+
+- Snooze and follow-up use the same near-term days as iOS/macOS: Tomorrow,
+  then the next two weekdays at 08:00, labeled by weekday name.
+
 ## [v2026.96] - 2026-09-15
 
 ### Added
