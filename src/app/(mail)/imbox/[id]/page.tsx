@@ -45,6 +45,7 @@ export default async function ImboxDetailPage({
             messageId={messageId}
             followUpAt={followUpAt}
             isFollowUp={isFollowUp}
+            timezone={timezone}
           />
           <SnoozeButton
             messageId={messageId}

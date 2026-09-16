@@ -42,6 +42,7 @@ export default async function PaperTrailDetailPage({
             messageId={messageId}
             followUpAt={followUpAt}
             isFollowUp={isFollowUp}
+            timezone={timezone}
           />
           <SnoozeButton
             messageId={messageId}

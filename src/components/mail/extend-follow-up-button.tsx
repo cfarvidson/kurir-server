@@ -10,11 +10,13 @@ import { FollowUpPicker } from "@/components/mail/follow-up-picker";
 interface ExtendFollowUpButtonProps {
   messageId: string;
   returnPath?: string;
+  timezone?: string;
 }
 
 export function ExtendFollowUpButton({
   messageId,
   returnPath = "/follow-up",
+  timezone,
 }: ExtendFollowUpButtonProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -32,6 +34,7 @@ export function ExtendFollowUpButton({
   return (
     <FollowUpPicker
       onFollowUp={handleExtend}
+      timezone={timezone}
       align="end"
       trigger={
         <button className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">

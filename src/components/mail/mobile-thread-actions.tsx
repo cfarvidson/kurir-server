@@ -106,6 +106,7 @@ export function MobileThreadActions({
         {showFollowUp && (
           <FollowUpPicker
             onFollowUp={handleFollowUp}
+            timezone={timezone}
             align="center"
             side="top"
             trigger={

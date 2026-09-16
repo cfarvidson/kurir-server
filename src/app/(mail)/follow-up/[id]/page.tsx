@@ -19,13 +19,17 @@ export default async function FollowUpDetailPage({
       returnPath="/follow-up"
       searchQuery={q}
       mobileActions={{ showFollowUp: true }}
-      actions={({ messageId, returnPath }) => (
+      actions={({ messageId, returnPath, timezone }) => (
         <>
           <DismissFollowUpButton
             messageId={messageId}
             returnPath={returnPath}
           />
-          <ExtendFollowUpButton messageId={messageId} returnPath={returnPath} />
+          <ExtendFollowUpButton
+            messageId={messageId}
+            returnPath={returnPath}
+            timezone={timezone}
+          />
         </>
       )}
     />
