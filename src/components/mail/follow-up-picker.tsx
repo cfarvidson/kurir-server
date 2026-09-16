@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, CalendarDays, CalendarRange, Loader2 } from "lucide-react";
+import {
+  Clock,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  Loader2,
+} from "lucide-react";
 import { keyboardState } from "@/lib/keyboard-state";
 import { cn } from "@/lib/utils";
 import {
@@ -9,44 +15,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  listFollowUpPresets,
+  type FollowUpPresetId,
+} from "@/lib/mail/follow-up-presets";
 
-interface FollowUpOption {
-  label: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  getDuration: () => number; // milliseconds
-}
-
-const FOLLOW_UP_OPTIONS: FollowUpOption[] = [
-  {
-    label: "1 day",
-    description: "Tomorrow",
-    icon: Clock,
-    getDuration: () => 24 * 60 * 60 * 1000,
-  },
-  {
-    label: "3 days",
-    description: "In 3 days",
-    icon: CalendarDays,
-    getDuration: () => 3 * 24 * 60 * 60 * 1000,
-  },
-  {
-    label: "1 week",
-    description: "In 7 days",
-    icon: CalendarRange,
-    getDuration: () => 7 * 24 * 60 * 60 * 1000,
-  },
-  {
-    label: "2 weeks",
-    description: "In 14 days",
-    icon: CalendarRange,
-    getDuration: () => 14 * 24 * 60 * 60 * 1000,
-  },
-];
+const PRESET_ICONS: Record<
+  FollowUpPresetId,
+  React.ComponentType<{ className?: string }>
+> = {
+  oneDay: Clock,
+  twoDays: CalendarDays,
+  threeDays: Calendar,
+  oneWeek: CalendarRange,
+  twoWeeks: CalendarRange,
+};
 
 interface FollowUpPickerProps {
   onFollowUp: (until: Date) => void;
   isPending?: boolean;
+  timezone?: string;
   trigger: React.ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom" | "left" | "right";
@@ -57,12 +45,16 @@ interface FollowUpPickerProps {
 export function FollowUpPicker({
   onFollowUp,
   isPending = false,
+  timezone = "UTC",
   trigger,
   align = "end",
   side,
   open,
   onOpenChange,
 }: FollowUpPickerProps) {
+  const now = new Date();
+  const options = listFollowUpPresets(now, timezone);
+
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open ?? internalOpen;
   const handleOpenChange = (o: boolean) => {
@@ -72,9 +64,8 @@ export function FollowUpPicker({
 
   const [focusedOption, setFocusedOption] = useState(0);
 
-  const handleSelect = (option: FollowUpOption) => {
+  const handleSelect = (until: Date) => {
     handleOpenChange(false);
-    const until = new Date(Date.now() + option.getDuration());
     onFollowUp(until);
   };
 
@@ -95,11 +86,10 @@ export function FollowUpPicker({
 
   const selectOption = useCallback(
     (index: number) => {
-      if (index >= 0 && index < FOLLOW_UP_OPTIONS.length) {
-        handleSelect(FOLLOW_UP_OPTIONS[index]);
-      }
+      const until = options[index]?.until;
+      if (until) handleSelect(until);
     },
-    [handleSelect],
+    [options, handleSelect],
   );
 
   // Keyboard navigation: j/k, arrows, Enter, number keys
@@ -111,7 +101,7 @@ export function FollowUpPicker({
         case "ArrowDown": {
           e.preventDefault();
           setFocusedOption((prev) =>
-            Math.min(prev + 1, FOLLOW_UP_OPTIONS.length - 1),
+            Math.min(prev + 1, options.length - 1),
           );
           break;
         }
@@ -128,7 +118,7 @@ export function FollowUpPicker({
         }
         default: {
           const num = parseInt(e.key);
-          if (num >= 1 && num <= FOLLOW_UP_OPTIONS.length) {
+          if (num >= 1 && num <= options.length) {
             e.preventDefault();
             selectOption(num - 1);
           }
@@ -154,12 +144,12 @@ export function FollowUpPicker({
               Follow up if no reply in
             </p>
           </div>
-          {FOLLOW_UP_OPTIONS.map((option, index) => {
-            const Icon = option.icon;
+          {options.map((option, index) => {
+            const Icon = PRESET_ICONS[option.id];
             return (
               <button
-                key={option.label}
-                onClick={() => handleSelect(option)}
+                key={option.id}
+                onClick={() => handleSelect(option.until)}
                 onMouseEnter={() => setFocusedOption(index)}
                 disabled={isPending}
                 className={cn(

@@ -8,6 +8,7 @@ import {
   Sunrise,
   Calendar,
   CalendarClock,
+  CalendarDays,
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,116 +17,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  buildDateInTimezone,
+  defaultCustomSnooze,
+  listSnoozePresets,
+  todayIsoDate,
+  type SnoozePresetId,
+} from "@/lib/mail/snooze-presets";
 
-function getDateInTimezone(date: Date, tz: string): Date {
-  const str = date.toLocaleString("en-US", { timeZone: tz });
-  return new Date(str);
-}
-
-function buildDateInTimezone(
-  tz: string,
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-): Date {
-  const probe = new Date(year, month, day, hour, minute);
-  const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC" });
-  const tzStr = probe.toLocaleString("en-US", { timeZone: tz });
-  const diff = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-  return new Date(probe.getTime() + diff);
-}
-
-interface SnoozeOption {
-  label: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  getDate: (now: Date, tz: string) => Date | null;
-}
-
-function getSnoozeOptions(now: Date, tz: string): SnoozeOption[] {
-  const local = getDateInTimezone(now, tz);
-  const dayOfWeek = local.getDay();
-
-  const options: SnoozeOption[] = [
-    {
-      label: "Later today",
-      description: local.getHours() < 15 ? "6:00 PM" : "+3 hours",
-      icon: Clock,
-      getDate: (now, tz) => {
-        const local = getDateInTimezone(now, tz);
-        if (local.getHours() < 15) {
-          return buildDateInTimezone(
-            tz,
-            local.getFullYear(),
-            local.getMonth(),
-            local.getDate(),
-            18,
-            0,
-          );
-        }
-        return new Date(now.getTime() + 3 * 60 * 60 * 1000);
-      },
-    },
-    {
-      label: "Tomorrow morning",
-      description: "8:00 AM",
-      icon: Sunrise,
-      getDate: (_now, tz) => {
-        const local = getDateInTimezone(_now, tz);
-        return buildDateInTimezone(
-          tz,
-          local.getFullYear(),
-          local.getMonth(),
-          local.getDate() + 1,
-          8,
-          0,
-        );
-      },
-    },
-  ];
-
-  if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-    const daysUntilSaturday = 6 - dayOfWeek;
-    options.push({
-      label: "This weekend",
-      description: "Saturday 8:00 AM",
-      icon: Sun,
-      getDate: (_now, tz) => {
-        const local = getDateInTimezone(_now, tz);
-        return buildDateInTimezone(
-          tz,
-          local.getFullYear(),
-          local.getMonth(),
-          local.getDate() + daysUntilSaturday,
-          8,
-          0,
-        );
-      },
-    });
-  }
-
-  const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
-  options.push({
-    label: "Next week",
-    description: "Monday 8:00 AM",
-    icon: Calendar,
-    getDate: (_now, tz) => {
-      const local = getDateInTimezone(_now, tz);
-      return buildDateInTimezone(
-        tz,
-        local.getFullYear(),
-        local.getMonth(),
-        local.getDate() + daysUntilMonday,
-        8,
-        0,
-      );
-    },
-  });
-
-  return options;
-}
+const PRESET_ICONS: Record<
+  SnoozePresetId,
+  React.ComponentType<{ className?: string }>
+> = {
+  laterToday: Clock,
+  tomorrow: Sunrise,
+  dayAfter: CalendarDays,
+  inThreeDays: Calendar,
+  weekend: Sun,
+  nextWeek: Calendar,
+  custom: CalendarClock,
+};
 
 interface SnoozPickerProps {
   onSnooze: (until: Date) => void;
@@ -149,7 +60,8 @@ export function SnoozePicker({
   onOpenChange,
 }: SnoozPickerProps) {
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = todayIsoDate(now, timezone);
+  const customDefault = defaultCustomSnooze(now, timezone);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open ?? internalOpen;
@@ -159,11 +71,12 @@ export function SnoozePicker({
     if (!o) setShowCustom(false);
   };
   const [showCustom, setShowCustom] = useState(false);
-  const [customDate, setCustomDate] = useState(todayStr);
-  const [customTime, setCustomTime] = useState("08:00");
+  const [customDate, setCustomDate] = useState(customDefault.date);
+  const [customTime, setCustomTime] = useState(customDefault.time);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
-  const options = getSnoozeOptions(now, timezone);
+  const presets = listSnoozePresets(now, timezone);
+  const options = presets.filter((preset) => preset.until);
   const [focusedOption, setFocusedOption] = useState(0);
 
   // Reset focused option when opening
@@ -183,16 +96,23 @@ export function SnoozePicker({
 
   const selectOption = useCallback(
     (index: number) => {
-      const date = options[index]?.getDate(now, timezone);
+      const date = options[index]?.until;
       if (date) {
         handleOpenChange(false);
         onSnooze(date);
       }
     },
-    [options, now, timezone, handleOpenChange, onSnooze],
+    [options, handleOpenChange, onSnooze],
   );
 
-  // Total items: preset options + "Pick date & time"
+  const openCustom = () => {
+    const next = defaultCustomSnooze(now, timezone);
+    setCustomDate(next.date);
+    setCustomTime(next.time);
+    setShowCustom(true);
+  };
+
+  // Total items: dated presets + "Pick a date…"
   const totalItems = options.length + 1;
   const customIndex = options.length;
 
@@ -216,7 +136,7 @@ export function SnoozePicker({
         case "Enter": {
           e.preventDefault();
           if (focusedOption === customIndex) {
-            setShowCustom(true);
+            openCustom();
           } else {
             selectOption(focusedOption);
           }
@@ -279,13 +199,12 @@ export function SnoozePicker({
               <p className="eyebrow text-muted-foreground">Snooze until</p>
             </div>
             {options.map((option, index) => {
-              const Icon = option.icon;
+              const Icon = PRESET_ICONS[option.id];
               return (
                 <button
-                  key={option.label}
+                  key={option.id}
                   onClick={() => {
-                    const date = option.getDate(now, timezone);
-                    if (date) handleSnooze(date);
+                    if (option.until) handleSnooze(option.until);
                   }}
                   onMouseEnter={() => setFocusedOption(index)}
                   disabled={isPending}
@@ -309,7 +228,7 @@ export function SnoozePicker({
             })}
             <div className="border-t border-border" />
             <button
-              onClick={() => setShowCustom(true)}
+              onClick={openCustom}
               onMouseEnter={() => setFocusedOption(customIndex)}
               disabled={isPending}
               className={cn(
@@ -318,7 +237,7 @@ export function SnoozePicker({
               )}
             >
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Pick date &amp; time</span>
+              <span className="font-medium">Pick a date…</span>
             </button>
           </div>
         ) : (

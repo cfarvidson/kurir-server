@@ -22,6 +22,7 @@ interface FollowUpButtonProps {
   messageId: string;
   followUpAt?: Date | null;
   isFollowUp?: boolean;
+  timezone?: string;
 }
 
 function formatRelativeDate(date: Date): string {
@@ -40,6 +41,7 @@ export function FollowUpButton({
   messageId,
   followUpAt,
   isFollowUp,
+  timezone,
 }: FollowUpButtonProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -126,6 +128,7 @@ export function FollowUpButton({
             <FollowUpPicker
               onFollowUp={handleExtend}
               isPending={isPending}
+              timezone={timezone}
               align="end"
               trigger={
                 <button
@@ -191,6 +194,7 @@ export function FollowUpButton({
             <FollowUpPicker
               onFollowUp={handleSetFollowUp}
               isPending={isPending}
+              timezone={timezone}
               align="end"
               trigger={
                 <button
@@ -213,6 +217,7 @@ export function FollowUpButton({
     <FollowUpPicker
       onFollowUp={handleSetFollowUp}
       isPending={isPending}
+      timezone={timezone}
       align="end"
       trigger={
         <button

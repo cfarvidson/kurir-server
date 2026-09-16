@@ -42,6 +42,7 @@ export default async function FeedDetailPage({
             messageId={messageId}
             followUpAt={followUpAt}
             isFollowUp={isFollowUp}
+            timezone={timezone}
           />
           <SnoozeButton
             messageId={messageId}
