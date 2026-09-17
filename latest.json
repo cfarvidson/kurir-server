@@ -1,16 +1,8 @@
 {
-  "version": "2026.89",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.89",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.89",
-  "changelog": "Weekly dependency update: Next.js, React, zod, lucide-react, mailparser and others move to their latest patch/minor releases",
+  "version": "2026.98",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.98",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.98",
+  "changelog": "Snooze and follow-up offer Tomorrow plus the next two weekdays at 08:00, matching iOS/macOS",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-14T07:14:16Z",
-  "beta": {
-    "version": "2026.98",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.98",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.98",
-    "changelog": "Snooze and follow-up offer Tomorrow plus the next two weekdays at 08:00, matching iOS/macOS",
-    "minVersion": "0.0.0",
-    "releasedAt": "2026-09-16T06:52:46Z"
-  }
+  "releasedAt": "2026-09-16T06:52:46Z"
 }
