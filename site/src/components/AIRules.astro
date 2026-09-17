@@ -1,0 +1,137 @@
+---
+const base = import.meta.env.BASE_URL;
+
+const points = [
+  {
+    title: "Judged once, in the background",
+    body: "Each new mail from the rule's senders is checked after sync. Add a sender and choose whether the last 30 days are checked too.",
+  },
+  {
+    title: "Your own subscription",
+    body: "Runs on the Claude Pro/Max or SuperGrok seat you connected for drafts. No API key, no per-token bill.",
+  },
+  {
+    title: "Stays out of your way",
+    body: "A verdict never touches snoozed, follow-up or reply-later mail, and never pulls archived mail back out.",
+  },
+];
+---
+
+<section class="px-6 py-24 md:py-32" id="ai-rules">
+  <div class="mx-auto max-w-landing">
+    <div class="reveal grid items-end gap-6 md:grid-cols-12 md:gap-16">
+      <div class="md:col-span-7">
+        <p
+          class="text-xs font-semibold uppercase tracking-[0.15em] text-accent"
+        >
+          AI Rules
+        </p>
+        <h2
+          class="mt-3 text-3xl font-bold leading-[1.15] tracking-tight text-balance text-ink md:text-[2.75rem]"
+        >
+          Sort mail by what it says, not just who sent it.
+        </h2>
+      </div>
+      <p
+        class="reveal reveal-delay-1 text-lg leading-relaxed text-ink-light md:col-span-5"
+      >
+        Some senders mix the mail you want with the mail you don't. Describe
+        the good ones in plain language, and a model reads each new message
+        and files it where it belongs.
+      </p>
+    </div>
+
+    <div
+      class="reveal reveal-delay-2 mt-14 grid overflow-hidden rounded-2xl border border-surface-200 bg-white md:grid-cols-12"
+    >
+      <div class="px-8 py-8 md:col-span-7 md:px-10 md:py-10">
+        <p
+          class="text-xs font-medium uppercase tracking-[0.12em] text-ink-muted"
+        >
+          What should the model look for?
+        </p>
+        <p class="mt-3 font-display text-2xl leading-snug text-ink md:text-[1.75rem]">
+          &ldquo;An assignment with two remote days a week, on-site in Uppsala
+          or Stockholm&rdquo;
+        </p>
+
+        <p
+          class="mt-8 text-xs font-medium uppercase tracking-[0.12em] text-ink-muted"
+        >
+          Mail from
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span
+            class="rounded-full border border-surface-200 bg-surface-50 px-3 py-1 font-mono text-sm text-ink"
+            >consult.se</span
+          >
+          <span
+            class="rounded-full border border-surface-200 bg-surface-50 px-3 py-1 font-mono text-sm text-ink"
+            >anna@brokers.io</span
+          >
+        </div>
+
+        <dl class="mt-8 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-xl border border-surface-200 px-4 py-3">
+            <dt class="text-xs text-ink-muted">When it matches</dt>
+            <dd class="mt-1 font-medium text-ink">File in Imbox</dd>
+          </div>
+          <div class="rounded-xl border border-surface-200 px-4 py-3">
+            <dt class="text-xs text-ink-muted">When it does not match</dt>
+            <dd class="mt-1 font-medium text-ink">Block (archive)</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div
+        class="flex flex-col justify-center border-t border-surface-200 bg-ink px-8 py-10 md:col-span-5 md:border-l md:border-t-0 md:px-10"
+      >
+        <p
+          class="text-xs font-medium uppercase tracking-[0.12em] text-white/65"
+        >
+          Matched mail
+        </p>
+        <div
+          class="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/5"
+        >
+          <div class="border-b border-white/10 px-4 py-3">
+            <p class="text-sm font-medium text-white">
+              Senior developer, 6 months, Stockholm
+            </p>
+            <p class="mt-0.5 text-xs text-white/50">
+              Anna Berg &middot; Filed in Imbox
+            </p>
+          </div>
+          <p class="px-4 py-3.5 text-sm leading-relaxed text-white/80">
+            On-site in Stockholm three days a week, remote the other two.
+            Matches the criterion.
+          </p>
+        </div>
+        <p class="mt-4 text-sm leading-relaxed text-white/70">
+          Every match shows where it went and the model's reason, on the AI
+          Rules page and on the mail itself.
+        </p>
+      </div>
+    </div>
+
+    <ul class="mt-10 grid gap-8 md:grid-cols-3">
+      {
+        points.map((p, i) => (
+          <li class={`reveal reveal-delay-${i + 1}`}>
+            <h3 class="font-sans text-lg font-bold text-ink">{p.title}</h3>
+            <p class="mt-2 leading-relaxed text-ink-light">{p.body}</p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="reveal mt-10 text-sm leading-relaxed text-ink-muted">
+      Mail from the senders a rule covers is sent to Anthropic or xAI to be
+      judged. Nothing else is. Needs a connected model, see
+      <a
+        href={`${base}docs/draft-generation`}
+        class="text-accent underline-offset-2 hover:underline">Draft Generation</a
+      >.
+    </p>
+  </div>
+</section>
