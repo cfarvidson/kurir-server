@@ -9,9 +9,7 @@ vi.mock("@/lib/mobile/auth", () => ({ requireMobileAuth: vi.fn() }));
 
 vi.mock("next/cache", () => ({
   updateTag: vi.fn(() => {
-    throw new Error(
-      "updateTag can only be called from within a Server Action",
-    );
+    throw new Error("updateTag can only be called from within a Server Action");
   }),
   revalidatePath: vi.fn(() => {
     throw new Error(
@@ -39,13 +37,15 @@ vi.mock("@/lib/mail/content-rule-store", () => ({
   addContentRuleSenderForUser: vi.fn(),
   removeContentRuleSenderForUser: vi.fn(),
   updateContentRuleForUser: vi.fn(),
+  listContentRuleJudgementsForUser: vi.fn(),
   deleteContentRuleForUser: vi.fn(),
   kickContentRuleEvaluation: vi.fn(),
 }));
 
-function makeRequest(body?: unknown) {
+function makeRequest(body?: unknown, query = "") {
   return {
     headers: { get: () => null },
+    nextUrl: { searchParams: new URLSearchParams(query) },
     json: async () => {
       if (body === undefined) throw new Error("no body");
       return body;
@@ -86,6 +86,7 @@ const ruleRow = {
     },
   ],
   _count: { matches: 0 },
+  matchedCount: 0,
   matches: [],
 };
 
@@ -99,9 +100,10 @@ async function sendersRoute() {
   return import("@/app/api/mobile/content-rules/[id]/senders/route");
 }
 async function senderRoute() {
-  return import(
-    "@/app/api/mobile/content-rules/[id]/senders/[senderId]/route"
-  );
+  return import("@/app/api/mobile/content-rules/[id]/senders/[senderId]/route");
+}
+async function judgementsRoute() {
+  return import("@/app/api/mobile/content-rules/[id]/judgements/route");
 }
 async function runRoute() {
   return import("@/app/api/mobile/content-rules/run/route");
@@ -126,9 +128,8 @@ describe("mobile content-rules routes", () => {
   });
 
   it("lists the caller's rules", async () => {
-    const { listContentRulesForUser } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { listContentRulesForUser } =
+      await import("@/lib/mail/content-rule-store");
     vi.mocked(listContentRulesForUser).mockResolvedValue([ruleRow] as never);
     const { GET } = await listRoute();
     const res = await GET(makeRequest());
@@ -157,9 +158,8 @@ describe("mobile content-rules routes", () => {
   });
 
   it("returns the store's validation message as 400", async () => {
-    const { createContentRuleForUser } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { createContentRuleForUser } =
+      await import("@/lib/mail/content-rule-store");
     vi.mocked(createContentRuleForUser).mockRejectedValue(
       new Error("Enter a domain, like example.com."),
     );
@@ -172,9 +172,8 @@ describe("mobile content-rules routes", () => {
   });
 
   it("returns 404 when updating someone else's rule", async () => {
-    const { updateContentRuleForUser } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { updateContentRuleForUser } =
+      await import("@/lib/mail/content-rule-store");
     vi.mocked(updateContentRuleForUser).mockRejectedValue(
       new Error("Rule not found"),
     );
@@ -211,9 +210,8 @@ describe("mobile content-rules routes", () => {
   });
 
   it("deletes a rule", async () => {
-    const { deleteContentRuleForUser } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { deleteContentRuleForUser } =
+      await import("@/lib/mail/content-rule-store");
     const { DELETE } = await detailRoute();
     const res = await DELETE(makeRequest(), params({ id: "rule-1" }));
     expect(res.status).toBe(200);
@@ -247,9 +245,8 @@ describe("mobile content-rules routes", () => {
   });
 
   it("returns 404 when removing someone else's sender", async () => {
-    const { removeContentRuleSenderForUser } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { removeContentRuleSenderForUser } =
+      await import("@/lib/mail/content-rule-store");
     vi.mocked(removeContentRuleSenderForUser).mockRejectedValue(
       new Error("Sender not found"),
     );
@@ -262,14 +259,83 @@ describe("mobile content-rules routes", () => {
   });
 
   it("kicks Check now", async () => {
-    const { kickContentRuleEvaluation } = await import(
-      "@/lib/mail/content-rule-store"
-    );
+    const { kickContentRuleEvaluation } =
+      await import("@/lib/mail/content-rule-store");
     const { POST } = await runRoute();
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
     expect(kickContentRuleEvaluation).toHaveBeenCalledWith(USER);
+  });
+
+  it("lists every verdict for a rule, misses included", async () => {
+    const { listContentRuleJudgementsForUser } =
+      await import("@/lib/mail/content-rule-store");
+    vi.mocked(listContentRuleJudgementsForUser).mockResolvedValue({
+      judgedCount: 2,
+      matchedCount: 1,
+      nextCursor: "match-2",
+      judgements: [
+        {
+          id: "match-1",
+          matched: true,
+          reason: "Two remote days",
+          appliedAction: "IMBOX",
+          createdAt: new Date("2026-09-02T00:00:00Z"),
+          message: {
+            id: "msg-1",
+            subject: "Uppdrag i Uppsala",
+            fromAddress: "hej@consult.se",
+            fromName: "Consult",
+            receivedAt: new Date("2026-09-01T00:00:00Z"),
+          },
+        },
+        {
+          id: "match-2",
+          matched: false,
+          reason: "On site five days",
+          appliedAction: "KEEP",
+          createdAt: new Date("2026-09-01T00:00:00Z"),
+          message: {
+            id: "msg-2",
+            subject: null,
+            fromAddress: "hej@consult.se",
+            fromName: null,
+            receivedAt: new Date("2026-08-31T00:00:00Z"),
+          },
+        },
+      ],
+    } as never);
+    const { GET } = await judgementsRoute();
+    const res = await GET(
+      makeRequest(undefined, "limit=2&cursor=match-0"),
+      params({ id: "rule-1" }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.judgedCount).toBe(2);
+    expect(body.matchedCount).toBe(1);
+    expect(body.nextCursor).toBe("match-2");
+    expect(body.judgements.map((j: { matched: boolean }) => j.matched)).toEqual(
+      [true, false],
+    );
+    expect(body.judgements[0].messageId).toBe("msg-1");
+    expect(listContentRuleJudgementsForUser).toHaveBeenCalledWith(
+      USER,
+      "rule-1",
+      { limit: 2, cursor: "match-0" },
+    );
+  });
+
+  it("returns 404 for another user's judged mail", async () => {
+    const { listContentRuleJudgementsForUser } =
+      await import("@/lib/mail/content-rule-store");
+    vi.mocked(listContentRuleJudgementsForUser).mockRejectedValue(
+      new Error("Rule not found"),
+    );
+    const { GET } = await judgementsRoute();
+    const res = await GET(makeRequest(), params({ id: "rule-x" }));
+    expect(res.status).toBe(404);
   });
 
   it("returns 429 when Check now is rate-limited", async () => {

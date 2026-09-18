@@ -56,6 +56,7 @@ export function serializeRule(
     createdAt: rule.createdAt,
     senders: rule.senders,
     matchCount: rule._count.matches,
+    matchedCount: rule.matchedCount,
     matches: rule.matches.map((match) => ({
       id: match.id,
       reason: match.reason,

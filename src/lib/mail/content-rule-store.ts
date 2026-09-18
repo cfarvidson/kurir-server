@@ -117,11 +117,90 @@ export type ContentRuleListItem = Awaited<
 >[number];
 
 export async function listContentRulesForUser(userId: string) {
-  return db.contentRule.findMany({
+  const rules = await db.contentRule.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
     select: ruleSelect,
   });
+  // `_count.matches` is every verdict, hits and misses alike. The matched
+  // half needs its own grouped count: Prisma cannot put the same relation
+  // in `_count` twice under two filters.
+  const matched = rules.length
+    ? await db.contentRuleMatch.groupBy({
+        by: ["ruleId"],
+        where: { ruleId: { in: rules.map((rule) => rule.id) }, matched: true },
+        _count: { _all: true },
+      })
+    : [];
+  const matchedByRule = new Map(
+    matched.map((row) => [row.ruleId, row._count._all]),
+  );
+  return rules.map((rule) => ({
+    ...rule,
+    matchedCount: matchedByRule.get(rule.id) ?? 0,
+  }));
+}
+
+/** How many verdicts one page of judged mail carries at most. */
+export const MAX_JUDGEMENTS_PER_PAGE = 100;
+
+export interface ListContentRuleJudgementsOptions {
+  limit?: number;
+  /** Id of the last verdict on the previous page. */
+  cursor?: string;
+}
+
+/**
+ * One page of a rule's stored verdicts, newest first — misses included, so
+ * the caller can show what the model looked at and how it ruled, not only
+ * what it filed. Paged by verdict id.
+ */
+export async function listContentRuleJudgementsForUser(
+  userId: string,
+  ruleId: string,
+  options: ListContentRuleJudgementsOptions = {},
+) {
+  await requireOwnedRule(userId, ruleId);
+  const limit = Math.min(
+    Math.max(Math.trunc(options.limit ?? 50), 1),
+    MAX_JUDGEMENTS_PER_PAGE,
+  );
+  const rows = await db.contentRuleMatch.findMany({
+    where: { ruleId },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit + 1,
+    ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
+    select: {
+      id: true,
+      matched: true,
+      reason: true,
+      appliedAction: true,
+      createdAt: true,
+      message: {
+        select: {
+          id: true,
+          subject: true,
+          fromAddress: true,
+          fromName: true,
+          receivedAt: true,
+        },
+      },
+    },
+  });
+  const judgements = rows.slice(0, limit);
+  const [judgedCount, matchedCount] = await Promise.all([
+    db.contentRuleMatch.count({ where: { ruleId } }),
+    db.contentRuleMatch.count({ where: { ruleId, matched: true } }),
+  ]);
+  return {
+    judgements,
+    judgedCount,
+    matchedCount,
+    nextCursor:
+      rows.length > limit
+        ? (judgements[judgements.length - 1]?.id ?? null)
+        : null,
+  };
 }
 
 /** How many of the user's rules judge mail from this address today. */
