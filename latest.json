@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.98",
   "changelog": "Snooze and follow-up offer Tomorrow plus the next two weekdays at 08:00, matching iOS/macOS",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-16T06:52:46Z"
+  "releasedAt": "2026-09-16T06:52:46Z",
+  "beta": {
+    "version": "2026.105",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.105",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.105",
+    "changelog": "AI Rules can show the mail behind a rule's counter: every message judged, matched or not, with the model's reason",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-18T08:46:13Z"
+  }
 }

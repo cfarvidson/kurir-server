@@ -4,6 +4,21 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.105] - 2026-09-18
+
+### Added
+
+- `GET /api/mobile/content-rules/:id/judgements`: one page of a rule's
+  stored verdicts, newest first and misses included, each with the
+  message, the model's reason, and the action taken at judge time. Native
+  uses it for the judged-mail view behind a rule's counter.
+
+### Changed
+
+- The mobile rule payload carries `matchedCount` next to the judged total,
+  so a client can say how much of the judged mail matched rather than
+  labelling every verdict a match.
+
 ## [v2026.98] - 2026-09-16
 
 ### Changed

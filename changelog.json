@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.105",
+    "date": "2026-09-18",
+    "changes": [
+      "AI Rules: tap a rule's counter to see the mail it has judged, each with the verdict, the model's reason, and where the message went",
+      "The rule now reports how much of the judged mail actually matched instead of labelling every verdict a match"
+    ]
+  },
+  {
     "version": "2026.98",
     "date": "2026-09-16",
     "changes": [
