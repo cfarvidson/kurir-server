@@ -8,7 +8,7 @@ import {
   checkExpiredFollowUps,
   wakeExpiredSnoozes,
 } from "@/lib/jobs/maintenance-tasks";
-import { pushToUser } from "@/lib/mail/push-sender";
+import { pushNewImboxMessages } from "@/lib/mail/imbox-push";
 import { selectImboxPushes } from "@/lib/mail/push-select";
 import { rateLimitSync, tooManyRequests } from "@/lib/rate-limit";
 
@@ -206,17 +206,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[push] Found ${imboxPushes.length} new Imbox messages`);
 
-    for (const m of imboxPushes) {
-      console.log(
-        `[push] Sending notification: "${m.subject}" from ${m.fromName || m.fromAddress}`,
-      );
-      pushToUser(userId, {
-        title: m.fromName || m.fromAddress,
-        body: m.subject || "(no subject)",
-        url: `/imbox/${m.id}`,
-        tag: m.threadId || m.id,
-      }).catch((err) => console.error("[push] sync error:", err));
-    }
+    await pushNewImboxMessages(userId, imboxPushes);
   }
 
   return NextResponse.json({

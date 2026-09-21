@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { type OwnAddresses } from "@/lib/mail/user-emails";
 import { emitToUser } from "./sse-subscribers";
 import { isEcho } from "./flag-push";
-import { nudgeIosClients, pushToUser } from "./push-sender";
+import { pushNewImboxMessages } from "./imbox-push";
+import { nudgeIosClients } from "./push-sender";
 import { isSyncLockHeld } from "./sync-lock";
 import {
   connectionManager,
@@ -439,14 +440,8 @@ async function ingestNewMessages(
       byThread.set(m.threadId || m.id, m);
     }
 
-    for (const m of byThread.values()) {
-      pushToUser(userId, {
-        title: m.fromName || m.fromAddress,
-        body: m.subject || "(no subject)",
-        url: `/imbox/${m.id}`,
-        tag: m.threadId || m.id,
-      }).catch((err) => console.error("[push] error:", err));
-    }
+    // Mail an AI rule will judge is held until its verdict is in.
+    await pushNewImboxMessages(userId, [...byThread.values()]);
   }
 
   return count;
