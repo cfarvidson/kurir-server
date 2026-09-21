@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-16T06:52:46Z",
   "beta": {
-    "version": "2026.111",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.111",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.111",
-    "changelog": "See at a glance whether an AI rule matched a mail, in the mail list and the person pane",
+    "version": "2026.113",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.113",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.113",
+    "changelog": "A calmer person pane: essentials visible, repeated subjects grouped, the rest folded away",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-21T10:35:57Z"
+    "releasedAt": "2026-09-21T11:50:43Z"
   }
 }

@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.113] - 2026-09-21
+
+### Changed
+
+- The person pane is calmer. Name, a one-line summary ("926 in · 0 out ·
+  since Oct 2021"), when they usually write, the three latest subjects
+  (repeated subjects collapse into one row with a count) and the top
+  people stay visible. Details, Links and Appointments fold behind rows
+  with counts and remember whether you opened them. Search opens from an
+  icon in the pane header, and Direct only moved to the View all page.
+  iOS and macOS get the same pane.
+
 ## [v2026.111] - 2026-09-21
 
 ### Added

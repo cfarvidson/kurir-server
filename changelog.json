@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.113",
+    "date": "2026-09-21",
+    "changes": [
+      "A calmer person pane: the essentials stay visible, repeated subjects collapse into one row, and Details, Links and Appointments fold away until you open them"
+    ]
+  },
+  {
     "version": "2026.111",
     "date": "2026-09-21",
     "changes": [
