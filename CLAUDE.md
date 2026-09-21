@@ -113,6 +113,15 @@ CalVer `YYYY.MICRO` (e.g. `2026.29`) - a four-digit year and ONE serial per year
 - **Stuck sync lock:** If sync crashes, `isSyncing` stays `true` and blocks future syncs ("Sync already in progress"). Stale lock auto-clears after 5 minutes, or fix manually: `docker compose exec postgres psql -U kurir -c 'UPDATE "SyncState" SET "isSyncing" = false;'`
 - **Tests:** Vitest. Unit tests in `src/__tests__/unit/`, integration in `src/__tests__/integration/`. Config in `vitest.config.mjs` (`@/` alias resolves). Run with `pnpm test`. Pure-function/policy modules (e.g. `src/lib/mail/attachment-types.ts`) are the highest-value coverage targets — keep security-sensitive classification logic tested.
 
+## Feature parity with iOS/macOS
+
+Kurir has three clients: the web app in this repo, and the iOS and macOS apps in `/Users/cfa/code/kurir-ios`. Every user-facing feature or UI change must land in all three, in the same task, without the user asking for it.
+
+- A feature or UI change here gets the matching change in kurir-ios (iOS and macOS), and the other way around. Same behavior, same labels, same place in the UI, adapted to each platform's conventions.
+- If the apps need new or changed API data, add it to the sync/API in this repo as part of the same work.
+- Plan, build and verify both repos together. Tickets and PRs for the feature cover both repos, or link each other.
+- Skip the other side only when the change cannot apply there (server-only internals, deploy, platform-specific bugs). Say in the summary that it was skipped and why.
+
 ## Workflow
 
 - Ship changes on a new branch in a git worktree, then open a PR — don't commit feature work directly to `main`. Use the `cfarvidson/` branch prefix.
