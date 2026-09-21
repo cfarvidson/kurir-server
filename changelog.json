@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.107",
+    "date": "2026-09-21",
+    "changes": [
+      "Attaching photos that are too large now offers to compress them instead of failing: an image over 10 MB, or a pick that would take the mail past 25 MB",
+      "Compression keeps as much quality as the mail allows: full resolution first, JPEG quality between 0.6 and 0.9 per image, and files that already fit are left alone"
+    ]
+  },
+  {
     "version": "2026.105",
     "date": "2026-09-18",
     "changes": [

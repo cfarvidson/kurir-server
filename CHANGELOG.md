@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.107] - 2026-09-21
+
+### Added
+
+- The web composers offer to compress images that would not fit the mail:
+  when a picked image is over the 10 MB file limit, or the pick would take
+  the mail past 25 MB. Each image gets a share of what is left of the mail,
+  and the JPEG quality is picked per image between 0.6 and 0.9 at full
+  resolution; the resolution only steps down when that is not enough. Files
+  that already fit, GIF, SVG and non-images are never touched. Send waits
+  while images compress. Matches iOS/macOS in the same release.
+
 ## [v2026.105] - 2026-09-18
 
 ### Added
