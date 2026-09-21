@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.108] - 2026-09-21
+
+### Changed
+
+- The web composers compress images that would not fit the mail without
+  asking first. v2026.107 showed a confirm box, and declining dropped the
+  pick; the server would have rejected the originals anyway. When and how
+  much is compressed is unchanged. Matches iOS/macOS in the same release.
+
 ## [v2026.107] - 2026-09-21
 
 ### Added

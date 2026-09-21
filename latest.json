@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-16T06:52:46Z",
   "beta": {
-    "version": "2026.107",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.107",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.107",
-    "changelog": "Web compose offers to compress images that would not fit the mail (over 10 MB, or past 25 MB per mail), keeping as much quality as the mail allows",
+    "version": "2026.108",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.108",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.108",
+    "changelog": "Images that would not fit the mail are compressed automatically when attached, without asking first",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-21T07:26:45Z"
+    "releasedAt": "2026-09-21T08:07:22Z"
   }
 }

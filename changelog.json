@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.108",
+    "date": "2026-09-21",
+    "changes": [
+      "Photos that are too large for the mail are now compressed automatically when you attach them, without a question first"
+    ]
+  },
+  {
     "version": "2026.107",
     "date": "2026-09-21",
     "changes": [
