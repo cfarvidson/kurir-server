@@ -3,9 +3,8 @@
 import { useState, useCallback, useRef } from "react";
 import type { DraftRef } from "@/lib/mail/draft-context";
 import {
-  compressionOfferMessage,
-  compressionOfferReason,
   compressToFit,
+  needsCompression,
 } from "@/lib/mail/attachment-compression";
 
 export interface UploadedAttachment {
@@ -22,9 +21,8 @@ interface UseAttachmentsReturn {
   upload: (file: File) => Promise<UploadedAttachment | null>;
   /**
    * Run on a pick before uploading it. When the pick would trip an upload
-   * limit that compressing its images can fix, offers that and returns the
-   * compressed files; declining returns nothing, since the server would
-   * reject the pick as it is.
+   * limit that compressing its images can fix, returns it with those images
+   * compressed, without asking.
    */
   prepare: (files: File[]) => Promise<File[]>;
   isCompressing: boolean;
@@ -65,9 +63,7 @@ export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
     const attachedBytes = attachmentsRef.current
       .filter((a) => a.status !== "error")
       .reduce((sum, a) => sum + a.size, 0);
-    const reason = compressionOfferReason(files, attachedBytes);
-    if (!reason) return files;
-    if (!confirm(compressionOfferMessage(reason))) return [];
+    if (!needsCompression(files, attachedBytes)) return files;
     setIsCompressing(true);
     try {
       return await compressToFit(files, attachedBytes);

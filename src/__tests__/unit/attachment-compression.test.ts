@@ -2,18 +2,18 @@
  * Unit tests for browser-side attachment compression.
  *
  * Covers:
- * - when the composer offers to compress a pick (file over 10 MB, mail over
- *   25 MB) and when it stays quiet
+ * - when a pick is compressed (file over 10 MB, mail over 25 MB) and when it
+ *   is left alone
  * - how the mail's remaining bytes are shared between the images
  * - compressToFit() leaves fitting files alone, lowers quality before
  *   resolution, and steps resolution down when the quality floor is not enough
  */
 import { describe, it, expect } from "vitest";
 import {
-  compressionOfferReason,
   compressToFit,
   imageAllowance,
   MIN_QUALITY,
+  needsCompression,
   type ImageOpener,
 } from "@/lib/mail/attachment-compression";
 
@@ -41,31 +41,25 @@ function fakeOpener(bytesAtBest: number, log: [number | null, number][] = []) {
   return open;
 }
 
-describe("compressionOfferReason", () => {
-  it("stays quiet when the pick fits", () => {
-    expect(compressionOfferReason([file(8 * MB), file(3 * MB)], 10 * MB)).toBeNull();
+describe("needsCompression", () => {
+  it("leaves a pick that fits alone", () => {
+    expect(needsCompression([file(8 * MB), file(3 * MB)], 10 * MB)).toBe(false);
   });
 
-  it("offers when an image is over the file limit", () => {
-    const picked = [file(11 * MB), file(1 * MB), file(12 * MB)];
-    expect(compressionOfferReason(picked, 0)).toEqual({
-      kind: "imagesTooLarge",
-      count: 2,
-    });
+  it("compresses when an image is over the file limit", () => {
+    expect(needsCompression([file(11 * MB), file(1 * MB)], 0)).toBe(true);
   });
 
-  it("offers when images would overfill the mail", () => {
-    expect(compressionOfferReason([file(4 * MB), file(4 * MB)], 20 * MB)).toEqual({
-      kind: "mailTooLarge",
-    });
+  it("compresses when images would overfill the mail", () => {
+    expect(needsCompression([file(4 * MB), file(4 * MB)], 20 * MB)).toBe(true);
   });
 
-  it("stays quiet when nothing in the pick can be compressed", () => {
+  it("leaves a pick alone when it holds no still image", () => {
     const picked = [
       file(11 * MB, "report.pdf", "application/pdf"),
       file(11 * MB, "clip.gif", "image/gif"),
     ];
-    expect(compressionOfferReason(picked, 24 * MB)).toBeNull();
+    expect(needsCompression(picked, 24 * MB)).toBe(false);
   });
 });
 
