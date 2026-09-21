@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-16T06:52:46Z",
   "beta": {
-    "version": "2026.114",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.114",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.114",
-    "changelog": "Person pane Links only for Imbox senders; the apps open threads from high-volume senders quickly again",
+    "version": "2026.115",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.115",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.115",
+    "changelog": "Mail from a sender with an AI rule no longer pushes before the rule has judged it",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-21T13:47:51Z"
+    "releasedAt": "2026-09-21T14:00:49Z"
   }
 }

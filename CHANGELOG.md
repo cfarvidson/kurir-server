@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.115] - 2026-09-21
+
+### Fixed
+
+- A sender with an AI rule still produced a push notification the moment
+  the mail arrived, before the rule had judged it. The push now waits for
+  the verdict and goes out only if the mail is still in the Imbox, so mail
+  the rule files into The Feed, Paper Trail or the archive stays quiet.
+  Mail no AI rule covers pushes at once as before, and a rule run that
+  fails or has no AI credential still releases the notification.
+
 ## [v2026.114] - 2026-09-21
 
 ### Changed

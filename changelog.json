@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.115",
+    "date": "2026-09-21",
+    "changes": [
+      "Mail from a sender with an AI rule no longer sends a push before the rule has judged it: the notification waits for the verdict and only goes out if the mail stays in the Imbox"
+    ]
+  },
+  {
     "version": "2026.114",
     "date": "2026-09-21",
     "changes": [
