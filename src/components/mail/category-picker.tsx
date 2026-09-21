@@ -23,11 +23,14 @@ const CATEGORY_CONFIG = {
 interface CategoryPickerProps {
   senderId: string;
   currentCategory: SenderCategory;
+  /** Called after the server has stored the new category. */
+  onChanged?: (category: SenderCategory) => void;
 }
 
 export function CategoryPicker({
   senderId,
   currentCategory,
+  onChanged,
 }: CategoryPickerProps) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -66,7 +69,10 @@ export function CategoryPicker({
       action: () => changeSenderCategory(senderId, category),
       applyOptimistic: () => setOptimisticCategory(category),
       revert: () => setOptimisticCategory(previous),
-      reconcile,
+      reconcile: () => {
+        reconcile();
+        onChanged?.(category);
+      },
       errorLabel: "Couldn't move sender — please try again",
     });
   }

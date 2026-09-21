@@ -21,6 +21,7 @@ import {
   PERSON_PANE_DEBOUNCE_MS,
   groupThreadsBySubject,
   recentSubject,
+  showsPersonLinks,
   showsPersonPane,
 } from "@/lib/mail/person-pane";
 import {
@@ -411,6 +412,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   // The aside is display:none below lg; do not fetch for a phone.
   const [wide, setWide] = useState(false);
   const requestSeq = useRef(0);
+  // Bumped when the sender's list changes, so Links refetch. The fetch
+  // effect otherwise only reruns for a new person or a new search.
+  const [categoryRevision, setCategoryRevision] = useState(0);
 
   useEffect(() => {
     setOwnEmails(ownEmails);
@@ -476,7 +480,7 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [active, email, query]);
+  }, [active, email, query, categoryRevision]);
 
   if (!visible) return null;
 
@@ -618,6 +622,20 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                     <CategoryPicker
                       senderId={showing.sender.id}
                       currentCategory={showing.sender.category}
+                      onChanged={(category) => {
+                        setData((prev) =>
+                          prev?.sender
+                            ? {
+                                ...prev,
+                                sender: { ...prev.sender, category },
+                                links: showsPersonLinks(category)
+                                  ? prev.links
+                                  : [],
+                              }
+                            : prev,
+                        );
+                        setCategoryRevision((revision) => revision + 1);
+                      }}
                     />
                   ) : showing.sender?.status === "PENDING" ? (
                     <span className="eyebrow text-muted-foreground">
