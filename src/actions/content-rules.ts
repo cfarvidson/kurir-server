@@ -8,6 +8,7 @@ import {
   createContentRuleForUser,
   deleteContentRuleForUser,
   kickContentRuleEvaluation,
+  listContentRulesForUser,
   removeContentRuleSenderForUser,
   updateContentRuleForUser,
   type ContentRuleSenderInput,
@@ -45,6 +46,26 @@ export async function createContentRule(input: {
   kickContentRuleEvaluation(userId);
   revalidatePath("/filters");
   return { ok: true };
+}
+
+/** The rules the "AI rule" menu offers to add a sender to. */
+export async function listContentRulesForPicker(): Promise<
+  {
+    id: string;
+    criterion: string;
+    senders: { scope: ContentRuleSenderInput["scope"]; scopeValue: string }[];
+  }[]
+> {
+  const userId = await requireUserId();
+  const rules = await listContentRulesForUser(userId);
+  return rules.map((rule) => ({
+    id: rule.id,
+    criterion: rule.criterion,
+    senders: rule.senders.map((s) => ({
+      scope: s.scope,
+      scopeValue: s.scopeValue,
+    })),
+  }));
 }
 
 export async function addContentRuleSender(
