@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.110] - 2026-09-21
+
+### Added
+
+- "Re-check last 30 days" on each AI rule judges the rule's mail from the
+  last 30 days again, also for senders added without looking back. Mail the
+  rule already archived stays archived. Rate limited like Check now. iOS
+  and macOS get the same button in this release, together with visible
+  Edit and Delete buttons on each rule.
+
 ## [v2026.109] - 2026-09-21
 
 ### Added

@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.110",
+    "date": "2026-09-21",
+    "changes": [
+      "Re-check an AI rule's mail from the last 30 days with one button",
+      "Edit, Re-check and Delete buttons on each AI rule in the apps"
+    ]
+  },
+  {
     "version": "2026.109",
     "date": "2026-09-21",
     "changes": [
