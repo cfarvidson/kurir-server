@@ -2,6 +2,11 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { DraftRef } from "@/lib/mail/draft-context";
+import {
+  compressionOfferMessage,
+  compressionOfferReason,
+  compressToFit,
+} from "@/lib/mail/attachment-compression";
 
 export interface UploadedAttachment {
   id: string;
@@ -15,6 +20,14 @@ export interface UploadedAttachment {
 interface UseAttachmentsReturn {
   attachments: UploadedAttachment[];
   upload: (file: File) => Promise<UploadedAttachment | null>;
+  /**
+   * Run on a pick before uploading it. When the pick would trip an upload
+   * limit that compressing its images can fix, offers that and returns the
+   * compressed files; declining returns nothing, since the server would
+   * reject the pick as it is.
+   */
+  prepare: (files: File[]) => Promise<File[]>;
+  isCompressing: boolean;
   remove: (id: string) => Promise<void>;
   totalSize: number;
   isUploading: boolean;
@@ -42,7 +55,26 @@ export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
     .filter((a) => a.status !== "error")
     .reduce((sum, a) => sum + a.size, 0);
 
-  const isUploading = attachments.some((a) => a.status === "uploading");
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  // Compressing counts as uploading so the composers hold Send through it.
+  const isUploading =
+    isCompressing || attachments.some((a) => a.status === "uploading");
+
+  const prepare = useCallback(async (files: File[]): Promise<File[]> => {
+    const attachedBytes = attachmentsRef.current
+      .filter((a) => a.status !== "error")
+      .reduce((sum, a) => sum + a.size, 0);
+    const reason = compressionOfferReason(files, attachedBytes);
+    if (!reason) return files;
+    if (!confirm(compressionOfferMessage(reason))) return [];
+    setIsCompressing(true);
+    try {
+      return await compressToFit(files, attachedBytes);
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
 
   const upload = useCallback(
     async (file: File): Promise<UploadedAttachment | null> => {
@@ -129,6 +161,8 @@ export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
   return {
     attachments,
     upload,
+    prepare,
+    isCompressing,
     remove,
     totalSize,
     isUploading,

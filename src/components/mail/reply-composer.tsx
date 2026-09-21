@@ -106,6 +106,8 @@ export function ReplyComposer({
   const {
     attachments,
     upload,
+    prepare,
+    isCompressing,
     remove,
     isUploading,
     setAttachments,
@@ -623,6 +625,8 @@ export function ReplyComposer({
               disabled={sendingRef.current}
               attachments={attachments}
               onFileUpload={upload}
+              onFilesPrepare={prepare}
+              isCompressing={isCompressing}
               onFileRemove={remove}
               onSubmit={handleSend}
               onSchedule={() => setSchedulePickerOpen(true)}
