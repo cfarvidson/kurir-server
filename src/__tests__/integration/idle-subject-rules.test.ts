@@ -12,6 +12,7 @@ const dbMock = {
   emailConnection: { findUnique: vi.fn() },
   domainRule: { findMany: vi.fn() },
   subjectRule: { findMany: vi.fn() },
+  contentRule: { findMany: vi.fn().mockResolvedValue([]) },
   folder: { findUnique: vi.fn(), findFirst: vi.fn() },
   message: {
     findFirst: vi.fn(),

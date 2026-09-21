@@ -21,6 +21,7 @@ import {
   DraftGenerationError,
   type InferenceAdapter,
 } from "@/lib/draft-generation/types";
+import { releaseHeldPushes, takeHeldPushes } from "@/lib/mail/imbox-push";
 import { createUserKicker } from "@/lib/mail/kick-once";
 import { emitToUser } from "@/lib/mail/sse-subscribers";
 import {
@@ -647,13 +648,19 @@ async function evaluateRule(
 }
 
 const kicker = createUserKicker("content-rules", async (userId) => {
-  const result = await evaluateContentRulesForUser(userId);
-  if (result.evaluated > 0) {
-    console.log(
-      `[content-rules] judged ${result.evaluated} messages (${result.matched} matched, ${result.refiled} re-filed) for ${userId}`,
-    );
+  // Pushes held for mail this run judges go out when it ends, however it ends.
+  const heldPushes = takeHeldPushes(userId);
+  try {
+    const result = await evaluateContentRulesForUser(userId);
+    if (result.evaluated > 0) {
+      console.log(
+        `[content-rules] judged ${result.evaluated} messages (${result.matched} matched, ${result.refiled} re-filed) for ${userId}`,
+      );
+    }
+    return result.capped;
+  } finally {
+    await releaseHeldPushes(userId, heldPushes);
   }
-  return result.capped;
 });
 
 /**

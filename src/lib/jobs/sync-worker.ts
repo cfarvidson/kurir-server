@@ -2,7 +2,7 @@ import { Worker, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { syncEmailConnection, type SyncResult } from "@/lib/mail/sync-service";
 import { claimSyncLock, releaseSyncLock } from "@/lib/mail/sync-lock";
-import { pushToUser } from "@/lib/mail/push-sender";
+import { pushNewImboxMessages } from "@/lib/mail/imbox-push";
 import { selectImboxPushes } from "@/lib/mail/push-select";
 import { connectionManager } from "@/lib/mail/connection-manager";
 import { sseSubscribers, emitToUser } from "@/lib/mail/sse-subscribers";
@@ -61,14 +61,7 @@ async function processSyncJob(job: Job<SyncJobData>): Promise<void> {
     // Send push notifications for the Imbox messages this sync ingested.
     // Pushing from the sync results (not a createdAt window) survives long
     // multi-folder jobs that finish well after the messages were saved.
-    for (const m of selectImboxPushes(result.results)) {
-      pushToUser(userId, {
-        title: m.fromName || m.fromAddress,
-        body: m.subject || "(no subject)",
-        url: `/imbox/${m.id}`,
-        tag: m.threadId || m.id,
-      }).catch((err) => console.error("[sync-worker] push error:", err));
-    }
+    await pushNewImboxMessages(userId, selectImboxPushes(result.results));
   } catch (err) {
     await releaseSyncLock(emailConnectionId, String(err));
     throw err; // Let BullMQ handle retry
