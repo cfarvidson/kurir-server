@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.114",
+    "date": "2026-09-21",
+    "changes": [
+      "The person pane shows Links only for Imbox senders; newsletters and receipts in The Feed and Paper Trail no longer get a Links section",
+      "The iOS and macOS apps open threads from high-volume senders quickly again: the pane's link scan no longer holds up the mail database"
+    ]
+  },
+  {
     "version": "2026.113",
     "date": "2026-09-21",
     "changes": [

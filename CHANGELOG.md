@@ -4,6 +4,24 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.114] - 2026-09-21
+
+### Changed
+
+- The person pane shows Links only for Imbox senders. A sender in The
+  Feed or Paper Trail sends newsletters and receipts, whose links were
+  noise, so they get no Links section and the scan is skipped for them.
+  People you have only written to keep their links. iOS and macOS follow
+  the same rule, and apply it to their Files section too.
+
+### Fixed
+
+- iOS and macOS: opening a thread from a high-volume sender could take
+  seconds. The person pane scanned every fetched mail from the sender for
+  links while holding the mail database, and did it again on every write.
+  The scan now covers the 40 newest fetched mails, as on the web, runs
+  once per person and no longer blocks the database.
+
 ## [v2026.113] - 2026-09-21
 
 ### Changed
