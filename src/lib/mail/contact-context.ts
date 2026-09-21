@@ -4,6 +4,7 @@ import { getPersonProfile } from "@/lib/mail/person-profile";
 import { loadPersonNetwork } from "@/lib/mail/person-network";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
 import { loadPersonLinks } from "@/lib/mail/person-links";
+import { showsPersonLinks } from "@/lib/mail/person-pane";
 import { appointmentsForPerson } from "@/lib/mail/person-appointments";
 import { AI_VERDICT_SELECT, summarizeAIVerdict } from "@/lib/mail/content-rules";
 import {
@@ -66,11 +67,12 @@ export async function getContactContext(
 ) {
   const limit = CONTACT_CONTEXT_THREAD_LIMIT;
   const tz = options.tz ?? "UTC";
+  const senderQuery = db.sender.findFirst({
+    where: { userId, email },
+  });
   const [sender, dateRange, recentMessages, profile, network, links, appointments, scheduleInstances, judgedMessages] =
     await Promise.all([
-    db.sender.findFirst({
-      where: { userId, email },
-    }),
+    senderQuery,
     db.message.aggregate({
       where: { userId, fromAddress: email },
       _min: { receivedAt: true },
@@ -103,7 +105,9 @@ export async function getContactContext(
     // Network (kurir-ios#117): shared-thread and same-domain people by
     // strength. The full list; the pane caps at NETWORK_LIMIT with Show all.
     getOwnAddresses(userId).then((own) => loadPersonNetwork(userId, email, own)),
-    loadPersonLinks(userId, email),
+    senderQuery.then((found) =>
+      showsPersonLinks(found?.category) ? loadPersonLinks(userId, email) : [],
+    ),
     appointmentsForPerson(userId, email),
     loadScheduleInstances(userId),
     // Mail from this person an AI rule has judged, hit or miss.

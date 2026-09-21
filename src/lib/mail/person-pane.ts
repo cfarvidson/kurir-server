@@ -34,6 +34,17 @@ export function personEmailFor(
 }
 
 /**
+ * Links only for people: a Feed or Paper Trail sender's mail is newsletters
+ * and receipts, whose links are noise. No sender row (someone you only
+ * wrote to) counts as a person. Same rule as `PersonPane.showsLinks` on iOS.
+ */
+export function showsPersonLinks(
+  category: string | null | undefined,
+): boolean {
+  return category !== "FEED" && category !== "PAPER_TRAIL";
+}
+
+/**
  * Lists whose pages host the pane (list, search, and their thread pages).
  * Only lists rendered through InfiniteMessageList / MessageList feed the
  * store; a page without a feeder would show a stale person.

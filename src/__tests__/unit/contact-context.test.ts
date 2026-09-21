@@ -208,4 +208,15 @@ describe("getContactContext", () => {
       }),
     ]);
   });
+
+  it("skips the link scan for a Feed sender", async () => {
+    const db = await seed();
+    const { loadPersonLinks } = await import("@/lib/mail/person-links");
+    vi.mocked(db.sender.findFirst).mockResolvedValue({
+      category: "FEED",
+    } as never);
+    const context = await getContactContext("u1", "news@x.y");
+    expect(loadPersonLinks).not.toHaveBeenCalled();
+    expect(context.links).toEqual([]);
+  });
 });

@@ -3,6 +3,7 @@ import {
   groupThreadsBySubject,
   recentSubject,
   personEmailFor,
+  showsPersonLinks,
   showsPersonPane,
   threadIsDirect,
 } from "@/lib/mail/person-pane";
@@ -126,5 +127,15 @@ describe("recentSubject", () => {
     ).toBe("Version 2026.112 (255)");
     expect(recentSubject("Lunch?", "App Store Connect")).toBe("Lunch?");
     expect(recentSubject(null, "A")).toBe("(no subject)");
+  });
+});
+
+describe("showsPersonLinks", () => {
+  it("hides links for Feed and Paper Trail senders only", () => {
+    expect(showsPersonLinks("IMBOX")).toBe(true);
+    expect(showsPersonLinks(null)).toBe(true);
+    expect(showsPersonLinks(undefined)).toBe(true);
+    expect(showsPersonLinks("FEED")).toBe(false);
+    expect(showsPersonLinks("PAPER_TRAIL")).toBe(false);
   });
 });
