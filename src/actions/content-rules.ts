@@ -9,6 +9,7 @@ import {
   deleteContentRuleForUser,
   kickContentRuleEvaluation,
   listContentRulesForUser,
+  recheckContentRuleForUser,
   removeContentRuleSenderForUser,
   updateContentRuleForUser,
   type ContentRuleSenderInput,
@@ -119,6 +120,25 @@ export async function deleteContentRule(ruleId: string): Promise<ActionResult> {
   } catch (err) {
     return failure(err, "Could not delete the rule.");
   }
+  revalidatePath("/filters");
+  return { ok: true };
+}
+
+/** Judge the rule's mail from the last 30 days again, rate limited like Check now. */
+export async function recheckContentRule(
+  ruleId: string,
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  const limit = await rateLimitContentRules(userId);
+  if (!limit.allowed) {
+    return { ok: false, error: "Too many checks. Try again in a few minutes." };
+  }
+  try {
+    await recheckContentRuleForUser(userId, ruleId);
+  } catch (err) {
+    return failure(err, "Could not re-check the rule.");
+  }
+  kickContentRuleEvaluation(userId);
   revalidatePath("/filters");
   return { ok: true };
 }

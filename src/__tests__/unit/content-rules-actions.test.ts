@@ -14,6 +14,7 @@ vi.mock("@/lib/mail/content-rule-store", () => ({
   createContentRuleForUser: vi.fn(),
   deleteContentRuleForUser: vi.fn(),
   kickContentRuleEvaluation: vi.fn(),
+  recheckContentRuleForUser: vi.fn(),
   removeContentRuleSenderForUser: vi.fn(),
   updateContentRuleForUser: vi.fn(),
 }));
@@ -26,6 +27,7 @@ vi.mock("@/lib/rate-limit", () => ({
 import {
   createContentRule,
   deleteContentRule,
+  recheckContentRule,
   runContentRules,
   updateContentRule,
 } from "@/actions/content-rules";
@@ -33,6 +35,7 @@ import {
   createContentRuleForUser,
   deleteContentRuleForUser,
   kickContentRuleEvaluation,
+  recheckContentRuleForUser,
   updateContentRuleForUser,
 } from "@/lib/mail/content-rule-store";
 import { auth } from "@/lib/auth";
@@ -120,6 +123,21 @@ describe("content-rules actions", () => {
       ok: false,
       error: "Rule not found",
     });
+  });
+
+  it("Re-check last 30 days re-judges the rule, kicks a run, and is rate limited", async () => {
+    expect(await recheckContentRule("rule-1")).toEqual({ ok: true });
+    expect(recheckContentRuleForUser).toHaveBeenCalledWith("user-1", "rule-1");
+    expect(kickContentRuleEvaluation).toHaveBeenCalledWith("user-1");
+
+    vi.mocked(rateLimitContentRules).mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 60,
+    });
+    const limited = await recheckContentRule("rule-1");
+    expect(limited.ok).toBe(false);
+    expect(recheckContentRuleForUser).toHaveBeenCalledTimes(1);
   });
 
   it("Check now kicks the detached run and is rate limited", async () => {
