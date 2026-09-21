@@ -354,6 +354,31 @@ export async function updateContentRuleForUser(
   return { rejudge };
 }
 
+/**
+ * Judge the rule's mail from the last LOOKBACK_DAYS days again: every
+ * sender's window reaches back that far, and the verdicts inside it are
+ * forgotten. Only inbox mail is a candidate, so mail the rule archived
+ * stays archived. Both writes share a transaction so a run never sees the
+ * wider window with the old verdicts still in place.
+ */
+export async function recheckContentRuleForUser(
+  userId: string,
+  ruleId: string,
+  now = new Date(),
+): Promise<void> {
+  await requireOwnedRule(userId, ruleId);
+  const from = sinceFor(true, now);
+  await db.$transaction([
+    db.contentRuleSender.updateMany({
+      where: { ruleId, since: { gt: from } },
+      data: { since: from },
+    }),
+    db.contentRuleMatch.deleteMany({
+      where: { ruleId, message: { receivedAt: { gte: from } } },
+    }),
+  ]);
+}
+
 /** Delete a rule. Placements it made are materialized and stay. */
 export async function deleteContentRuleForUser(userId: string, ruleId: string) {
   const rule = await db.contentRule.findUnique({

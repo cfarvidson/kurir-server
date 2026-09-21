@@ -14,6 +14,7 @@ import {
   evaluateContentRulesForUser,
   kickContentRuleEvaluation,
   MAX_PER_RULE_PER_RUN,
+  recheckContentRuleForUser,
   removeContentRuleSenderForUser,
   resetContentRuleKicks,
   updateContentRuleForUser,
@@ -30,6 +31,7 @@ vi.mock("@/lib/db", () => ({
     },
     contentRuleSender: {
       upsert: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
@@ -441,6 +443,43 @@ describe("updateContentRuleForUser", () => {
     ).rejects.toThrow("Describe what the model should look for.");
     expect(db.contentRule.update).not.toHaveBeenCalled();
     expect(db.contentRuleMatch.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("recheckContentRuleForUser", () => {
+  it("widens every sender to 30 days back and forgets the verdicts inside it, in one transaction", async () => {
+    vi.mocked(db.contentRule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      userId: "u1",
+    } as never);
+    vi.mocked(db.contentRuleSender.updateMany).mockResolvedValue({
+      count: 1,
+    } as never);
+    vi.mocked(db.contentRuleMatch.deleteMany).mockResolvedValue({
+      count: 4,
+    } as never);
+    vi.mocked(db.$transaction).mockClear();
+    const now = new Date("2026-09-21T12:00:00Z");
+    const from = new Date("2026-08-22T12:00:00Z");
+
+    await recheckContentRuleForUser("u1", "rule-1", now);
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.contentRuleSender.updateMany).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1", since: { gt: from } },
+      data: { since: from },
+    });
+    expect(db.contentRuleMatch.deleteMany).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1", message: { receivedAt: { gte: from } } },
+    });
+
+    vi.mocked(db.contentRule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      userId: "someone-else",
+    } as never);
+    await expect(
+      recheckContentRuleForUser("u1", "rule-1", now),
+    ).rejects.toThrow("Rule not found");
   });
 });
 

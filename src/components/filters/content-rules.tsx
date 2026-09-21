@@ -21,6 +21,7 @@ import {
   addContentRuleSender,
   createContentRule,
   deleteContentRule,
+  recheckContentRule,
   removeContentRuleSender,
   runContentRules,
   updateContentRule,
@@ -426,6 +427,23 @@ function RuleCard({
               Edit
             </Button>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isPending}
+            onClick={() =>
+              run(
+                () => recheckContentRule(rule.id),
+                () =>
+                  toast.success(
+                    "Mail from the last 30 days is being checked again.",
+                  ),
+              )
+            }
+          >
+            Re-check last 30 days
+          </Button>
           <Button
             type="button"
             variant="ghost"
