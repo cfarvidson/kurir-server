@@ -22,6 +22,7 @@ import {
   groupThreadsBySubject,
   recentSubject,
   showsPersonPane,
+  visibleRecentThreads,
 } from "@/lib/mail/person-pane";
 import {
   civilFromZoned,
@@ -408,6 +409,11 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [data, setData] = useState<PaneData | null>(null);
   const [loading, setLoading] = useState(false);
+  // Last unfiltered Recent list. Search responses replace `data`, and the
+  // idle section must keep showing this rather than those hits.
+  const [baselineThreads, setBaselineThreads] = useState<PaneThread[]>([]);
+  // The query `data` was loaded for. Empty until the first response.
+  const [loadedQuery, setLoadedQuery] = useState("");
   // The aside is display:none below lg; do not fetch for a phone.
   const [wide, setWide] = useState(false);
   const requestSeq = useRef(0);
@@ -434,6 +440,8 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
     setSearchOpen(false);
     setShowAllLinks(false);
     setShowAllAppointments(false);
+    setBaselineThreads([]);
+    setLoadedQuery("");
   }, [email]);
 
   useEffect(() => {
@@ -463,6 +471,8 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
         const json = (await res.json()) as PaneData;
         // Stale guard: only the latest request may paint.
         if (seq !== requestSeq.current) return;
+        if (!q) setBaselineThreads(json.recentThreads);
+        setLoadedQuery(q);
         setData(json);
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
@@ -654,8 +664,21 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                     </Link>
                   </div>
                   {(() => {
+                    const recent = visibleRecentThreads({
+                      filtering,
+                      settled: query.trim() === loadedQuery,
+                      loaded: showing.recentThreads,
+                      baseline: baselineThreads,
+                    });
+                    if (recent.pending) {
+                      return (
+                        <p className="px-2 text-xs text-muted-foreground">
+                          Searching…
+                        </p>
+                      );
+                    }
                     const groups = groupThreadsBySubject(
-                      showing.recentThreads,
+                      recent.threads,
                       (thread) => thread.subject,
                     );
                     if (groups.length === 0) {
@@ -667,9 +690,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                         </p>
                       );
                     }
-                    const shown = filtering
-                      ? groups
-                      : groups.slice(0, RECENT_LIMIT);
+                    const shown = recent.cap
+                      ? groups.slice(0, RECENT_LIMIT)
+                      : groups;
                     return (
                       <div className={cn("space-y-0.5", loading && "opacity-60")}>
                         {shown.map(({ thread, count }) => (
