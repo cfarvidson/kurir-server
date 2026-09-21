@@ -2,6 +2,7 @@
 
 import type { PersonRank } from "@/lib/mail/person-stats";
 import {
+  factLine,
   formatBusyHours,
   formatDate,
   formatRank,
@@ -10,6 +11,7 @@ import {
   histogramFractions,
 } from "@/lib/mail/person-format";
 import { cn } from "@/lib/utils";
+import { PaneDisclosure } from "@/components/mail/pane-disclosure";
 
 /**
  * `PersonStats` as it arrives over JSON (dates as ISO strings) or straight
@@ -36,10 +38,10 @@ function StatCell({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * The Stats section: counts, first/last contact, median response times,
- * a 24-bar arrival-hour histogram, and Rank. Bars are plain divs on the
- * primary token; no chart library. Client component fed by the JSON of
- * `getContactContext`.
+ * The facts: an in/out/since line, busy hours and a 24-bar arrival-hour
+ * histogram, then a Details disclosure with reply times, first/last
+ * contact and Rank. Bars are plain divs on the primary token; no chart
+ * library. Client component fed by the JSON of `getContactContext`.
  */
 export function PersonStatsSection({
   stats,
@@ -62,11 +64,9 @@ export function PersonStatsSection({
 
   return (
     <div className={cn("space-y-3", className)} data-testid="person-stats">
-      <p className="eyebrow text-muted-foreground">Stats</p>
-
-      {replies && (
-        <p className="text-xs font-medium tabular-nums text-foreground">{replies}</p>
-      )}
+      <p className="text-xs font-medium tabular-nums text-foreground">
+        {factLine(stats, timeZone)}
+      </p>
       {busyHours && (
         <p className="text-xs font-medium tabular-nums text-foreground">
           {busyHours}
@@ -106,26 +106,38 @@ export function PersonStatsSection({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-        <StatCell label="Sent to them" value={String(stats.sentToThem)} />
-        <StatCell label="Received" value={String(stats.receivedFromThem)} />
-        {stats.firstAt && (
-          <StatCell label="First contact" value={formatDate(new Date(stats.firstAt))} />
-        )}
-        {stats.lastAt && (
-          <StatCell label="Last contact" value={formatDate(new Date(stats.lastAt))} />
-        )}
-        {yours && <StatCell label="You reply in" value={yours} />}
-      </div>
-
-      {rank && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium tabular-nums text-foreground">
-            {rank.badge}
-          </span>{" "}
-          {rank.tail}
-        </p>
-      )}
+      <PaneDisclosure name="details" title="Details">
+        <div className="space-y-3">
+          {replies && (
+            <p className="text-xs font-medium tabular-nums text-foreground">
+              {replies}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+            {stats.firstAt && (
+              <StatCell
+                label="First contact"
+                value={formatDate(new Date(stats.firstAt))}
+              />
+            )}
+            {stats.lastAt && (
+              <StatCell
+                label="Last contact"
+                value={formatDate(new Date(stats.lastAt))}
+              />
+            )}
+            {yours && <StatCell label="You reply in" value={yours} />}
+          </div>
+          {rank && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium tabular-nums text-foreground">
+                {rank.badge}
+              </span>{" "}
+              {rank.tail}
+            </p>
+          )}
+        </div>
+      </PaneDisclosure>
     </div>
   );
 }

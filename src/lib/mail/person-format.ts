@@ -99,3 +99,29 @@ export function formatRepliesIn(seconds: number | null): string | null {
   const time = formatResponseTime(seconds);
   return time ? `Replies in ${time}` : null;
 }
+
+/** "Oct 2021" in the profile's zone. */
+function formatMonthYear(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone,
+  }).formatToParts(date);
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  return `${month} ${year}`;
+}
+
+/** "926 in · 0 out · since Oct 2021"; no "since" part without a first contact. */
+export function factLine(
+  stats: {
+    receivedFromThem: number;
+    sentToThem: number;
+    firstAt: Date | string | null;
+  },
+  timeZone: string,
+): string {
+  const counts = `${stats.receivedFromThem} in · ${stats.sentToThem} out`;
+  if (!stats.firstAt) return counts;
+  return `${counts} · since ${formatMonthYear(new Date(stats.firstAt), timeZone)}`;
+}

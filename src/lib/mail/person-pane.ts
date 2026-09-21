@@ -83,3 +83,61 @@ export function threadIsDirect(
     .filter(Boolean);
   return people.every((p) => allowed.has(p)) && people.includes(personLower);
 }
+
+/** localStorage key prefix for the pane's disclosures ("1" = open). */
+export const PERSON_PANE_SECTION_KEY_PREFIX = "kurir:person-pane-section:";
+
+const REPLY_PREFIX = /^(re|fwd?|sv|vb|aw|wg)\s*(\[\d+\])?\s*:\s*/i;
+
+/** Subject without reply/forward prefixes, whitespace collapsed, lowercased. */
+function normalizeSubject(subject: string | null | undefined): string {
+  let rest = (subject ?? "").trim();
+  for (;;) {
+    const next = rest.replace(REPLY_PREFIX, "");
+    if (next === rest) break;
+    rest = next;
+  }
+  return rest.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * Recent in the pane: threads with the same normalized subject collapse
+ * into one row. Input is newest first; each group keeps its newest thread
+ * and the order of first appearance. An empty subject never groups.
+ */
+export function groupThreadsBySubject<T>(
+  threads: T[],
+  subjectOf: (thread: T) => string | null | undefined,
+): { thread: T; count: number }[] {
+  const groups: { thread: T; count: number }[] = [];
+  const byKey = new Map<string, { thread: T; count: number }>();
+  for (const thread of threads) {
+    const key = normalizeSubject(subjectOf(thread));
+    const existing = key ? byKey.get(key) : undefined;
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    const group = { thread, count: 1 };
+    groups.push(group);
+    if (key) byKey.set(key, group);
+  }
+  return groups;
+}
+
+/**
+ * The subject for a Recent row: a leading "<sender name>:" is dropped so
+ * the part that tells rows apart survives truncation ("App Store Connect:
+ * Version 2026.112" reads "Version 2026.112"). Mirrors iOS `recentSubject`.
+ */
+export function recentSubject(
+  subject: string | null | undefined,
+  senderName: string,
+): string {
+  const text = (subject ?? "").trim();
+  const name = senderName.trim();
+  if (!name || !text.toLowerCase().startsWith(`${name.toLowerCase()}:`)) {
+    return text || "(no subject)";
+  }
+  return text.slice(name.length + 1).trim() || text;
+}

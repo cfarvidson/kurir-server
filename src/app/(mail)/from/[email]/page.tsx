@@ -71,6 +71,7 @@ export default async function PersonHistoryPage({
           <ContactThreadList
             conversations={conversations}
             contactName={displayName}
+            personEmails={emails}
           />
         )}
       </div>

@@ -564,6 +564,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
           <ContactThreadList
             conversations={conversations}
             contactName={displayName}
+            personEmails={contact.emails.map((e) => e.email)}
           />
         )}
       </div>

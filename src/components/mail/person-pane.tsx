@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ExternalLink,
+  CalendarPlus,
+  ChevronDown,
   Mail,
   PanelRightClose,
   PanelRightOpen,
@@ -18,24 +19,25 @@ import { cn } from "@/lib/utils";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import {
   PERSON_PANE_DEBOUNCE_MS,
+  groupThreadsBySubject,
+  recentSubject,
   showsPersonPane,
-  threadIsDirect,
 } from "@/lib/mail/person-pane";
 import {
   civilFromZoned,
   formatDateParam,
 } from "@/lib/calendar/view-time";
-import {
-  NETWORK_LIMIT,
-  networkStrengthLabel,
-  type NetworkNeighbor,
-} from "@/lib/mail/person-network-format";
+import type { NetworkNeighbor } from "@/lib/mail/person-network-format";
 import {
   aiVerdictOutcome,
   type AIVerdict,
 } from "@/lib/mail/content-rules";
 import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { CategoryPicker } from "@/components/mail/category-picker";
+import {
+  PaneDisclosure,
+  usePaneSectionOpen,
+} from "@/components/mail/pane-disclosure";
 import {
   PersonProfileHeader,
   type PersonProfileHeaderData,
@@ -124,119 +126,146 @@ function timeAgo(iso: string): string {
   return `${Math.floor(diffDays / 365)}y ago`;
 }
 
+const PEOPLE_LIMIT = 3;
+
 /**
- * Network (kurir-ios#117): people on shared threads and on the same domain,
- * strongest first. Choosing one switches the pane to that person.
+ * People (kurir-ios#117): the first few people on shared threads by name;
+ * the rest of them and everyone on the same domain sit behind a toggle.
+ * Choosing one switches the pane to that person.
  */
-function NetworkSection({
+function PeopleSection({
   network,
-  showAll,
-  onToggleShowAll,
+  personEmail,
   onSelect,
 }: {
   network: NetworkNeighbor[];
-  showAll: boolean;
-  onToggleShowAll: () => void;
+  personEmail: string;
   onSelect: (neighbor: NetworkNeighbor) => void;
 }) {
-  const shown = showAll ? network : network.slice(0, NETWORK_LIMIT);
-  const hidden = network.length - NETWORK_LIMIT;
+  const [expanded, toggleExpanded] = usePaneSectionOpen("people");
+  if (network.length === 0) return null;
+  const shared = network.filter((n) => n.kind === "sharedThread");
+  const shown = shared.slice(0, PEOPLE_LIMIT);
+  const hidden = [
+    ...shared.slice(PEOPLE_LIMIT),
+    ...network.filter((n) => n.kind === "domain"),
+  ];
+  const domain = personEmail.split("@")[1] ?? "";
+  const allDomain = hidden.every((n) => n.kind === "domain");
+  const moreLabel =
+    allDomain && domain
+      ? `+${hidden.length} more at ${domain}`
+      : `+${hidden.length} more`;
+
+  const row = (neighbor: NetworkNeighbor) => (
+    <button
+      key={neighbor.email}
+      type="button"
+      onClick={() => onSelect(neighbor)}
+      title={neighbor.email}
+      className="block w-full truncate rounded-md px-2 py-1 text-left text-xs font-medium transition-colors hover:bg-muted"
+    >
+      {neighbor.displayName || neighbor.email.split("@")[0]}
+    </button>
+  );
+
   return (
     <div className="mt-4">
-      <p className="eyebrow mb-2 text-muted-foreground">Network</p>
+      <p className="eyebrow mb-2 text-muted-foreground">People</p>
       <div className="space-y-0.5">
-        {shown.map((neighbor) => (
-          <button
-            key={neighbor.email}
-            type="button"
-            onClick={() => onSelect(neighbor)}
-            className="block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
-          >
-            <p className="truncate text-xs font-medium">
-              {neighbor.displayName || neighbor.email.split("@")[0]}
-            </p>
-            <p className="truncate text-[10px] text-muted-foreground">
-              <span className="tabular-nums">
-                {networkStrengthLabel(neighbor)}
-              </span>
-              {" · "}
-              {neighbor.email}
-            </p>
-          </button>
-        ))}
+        {shown.map(row)}
+        {expanded && hidden.map(row)}
       </div>
-      {hidden > 0 && (
+      {hidden.length > 0 && (
         <button
           type="button"
-          onClick={onToggleShowAll}
-          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary transition-colors hover:text-primary/80"
+          onClick={toggleExpanded}
+          aria-expanded={expanded}
+          className="mt-1 flex items-center gap-1 px-2 text-xs font-medium tabular-nums text-primary transition-colors hover:text-primary/80"
         >
-          {showAll ? "Show fewer" : `Show all (${network.length})`}
+          {expanded ? "Show fewer" : moreLabel}
+          <ChevronDown
+            className={cn("size-3 transition-transform", expanded && "rotate-180")}
+          />
         </button>
       )}
     </div>
   );
 }
 
-/** What AI rules concluded about this person's latest judged mail. */
-function AIVerdictsSection({ verdicts }: { verdicts: PaneAIVerdict[] }) {
-  if (verdicts.length === 0) return null;
+/** The latest AI rule verdict on this person's mail, as one line. */
+function AIVerdictLine({ verdict }: { verdict: PaneAIVerdict }) {
+  const title = verdict.reason
+    ? `"${verdict.criterion}" - ${verdict.reason}`
+    : `"${verdict.criterion}"`;
   return (
-    <div className="mt-4">
-      <p className="eyebrow mb-2 text-muted-foreground">AI rules</p>
-      <div className="space-y-0.5">
-        {verdicts.map((verdict) => (
-          <Link
-            key={verdict.id}
-            href={`${getThreadRoute(verdict)}/${verdict.id}`}
-            data-ai-verdict={verdict.matched ? "matched" : "no-match"}
-            title={`"${verdict.criterion}"`}
-            className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
-          >
-            <p className="truncate text-xs font-medium">
-              {verdict.subject || "(no subject)"}
-            </p>
-            <p
-              className={cn(
-                "mt-0.5 flex items-center gap-1 text-[10px] font-medium",
-                verdict.matched ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              <Sparkles className="size-3 shrink-0" />
-              <span className="truncate">{aiVerdictOutcome(verdict)}</span>
-              <span className="shrink-0 font-normal text-muted-foreground">
-                · {timeAgo(verdict.receivedAt)}
-              </span>
-            </p>
-            {verdict.reason && (
-              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
-                {verdict.reason}
-              </p>
-            )}
-          </Link>
-        ))}
-      </div>
-    </div>
+    <Link
+      href={`${getThreadRoute(verdict)}/${verdict.id}`}
+      data-ai-verdict={verdict.matched ? "matched" : "no-match"}
+      title={title}
+      className={cn(
+        "mt-4 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+        verdict.matched ? "text-primary" : "text-muted-foreground",
+      )}
+    >
+      <Sparkles className="size-3 shrink-0" />
+      <span className="truncate">{aiVerdictOutcome(verdict)}</span>
+      <span className="shrink-0 font-normal text-muted-foreground">
+        · {timeAgo(verdict.receivedAt)}
+      </span>
+    </Link>
   );
 }
 
 const LINK_LIMIT = 12;
 const APPOINTMENT_LIMIT = 12;
+const UPCOMING_LIMIT = 2;
+
+function isPast(appointment: PaneAppointment): boolean {
+  return new Date(appointment.startAt).getTime() < Date.now();
+}
+
+function ShowAllButton({
+  total,
+  showAll,
+  onToggle,
+}: {
+  total: number;
+  showAll: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="mt-1 px-2 text-xs font-medium tabular-nums text-primary"
+    >
+      {showAll ? "Show fewer" : `Show all (${total})`}
+    </button>
+  );
+}
 
 function LinksSection({
   links,
+  filtering,
   showAll,
   onToggleShowAll,
 }: {
   links: PaneLink[];
+  filtering: boolean;
   showAll: boolean;
   onToggleShowAll: () => void;
 }) {
   if (links.length === 0) return null;
   const shown = showAll ? links : links.slice(0, LINK_LIMIT);
   return (
-    <div className="mt-4">
-      <p className="eyebrow mb-2 text-muted-foreground">Links exchanged</p>
+    <PaneDisclosure
+      name="links"
+      title="Links"
+      count={links.length}
+      forceOpen={filtering}
+      className="mt-4"
+    >
       <div className="space-y-0.5">
         {shown.map((link) => (
           <a
@@ -254,70 +283,108 @@ function LinksSection({
         ))}
       </div>
       {links.length > LINK_LIMIT && (
-        <button
-          type="button"
-          onClick={onToggleShowAll}
-          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary"
-        >
-          {showAll ? "Show fewer" : `Show all (${links.length})`}
-        </button>
+        <ShowAllButton
+          total={links.length}
+          showAll={showAll}
+          onToggle={onToggleShowAll}
+        />
       )}
+    </PaneDisclosure>
+  );
+}
+
+function AppointmentRows({
+  appointments,
+  timeZone,
+}: {
+  appointments: PaneAppointment[];
+  timeZone: string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      {appointments.map((appointment) => {
+        const start = new Date(appointment.startAt);
+        const href = `/calendar/day?date=${formatDateParam(civilFromZoned(start, timeZone))}`;
+        const when = appointment.isAllDay
+          ? `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · All-day`
+          : start.toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+        return (
+          <Link
+            key={appointment.id}
+            href={href}
+            className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+          >
+            <p className="truncate text-xs font-medium">{appointment.title}</p>
+            <p className="text-[10px] tabular-nums text-muted-foreground">{when}</p>
+          </Link>
+        );
+      })}
     </div>
   );
 }
 
+/**
+ * The next upcoming appointments stay visible; the rest (later upcoming
+ * and past) sit in a disclosure. Input is upcoming soonest first, then
+ * past newest first.
+ */
 function AppointmentsSection({
   appointments,
   timeZone,
+  filtering,
   showAll,
   onToggleShowAll,
 }: {
   appointments: PaneAppointment[];
   timeZone: string;
+  filtering: boolean;
   showAll: boolean;
   onToggleShowAll: () => void;
 }) {
   if (appointments.length === 0) return null;
-  const shown = showAll ? appointments : appointments.slice(0, APPOINTMENT_LIMIT);
+  const pinned = appointments.filter((a) => !isPast(a)).slice(0, UPCOMING_LIMIT);
+  const rest = appointments.filter((a) => !pinned.includes(a));
+  const shownRest = showAll ? rest : rest.slice(0, APPOINTMENT_LIMIT);
   return (
     <div className="mt-4">
-      <p className="eyebrow mb-2 text-muted-foreground">Appointments</p>
-      <div className="space-y-0.5">
-        {shown.map((appointment) => {
-          const start = new Date(appointment.startAt);
-          const href = `/calendar/day?date=${formatDateParam(civilFromZoned(start, timeZone))}`;
-          const when = appointment.isAllDay
-            ? `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · All-day`
-            : start.toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-          return (
-            <Link
-              key={appointment.id}
-              href={href}
-              className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
-            >
-              <p className="truncate text-xs font-medium">{appointment.title}</p>
-              <p className="text-[10px] tabular-nums text-muted-foreground">{when}</p>
-            </Link>
-          );
-        })}
-      </div>
-      {appointments.length > APPOINTMENT_LIMIT && (
-        <button
-          type="button"
-          onClick={onToggleShowAll}
-          className="mt-1 px-2 text-xs font-medium tabular-nums text-primary"
+      {pinned.length > 0 && (
+        <>
+          <p className="eyebrow mb-2 text-muted-foreground">Appointments</p>
+          <AppointmentRows appointments={pinned} timeZone={timeZone} />
+        </>
+      )}
+      {rest.length > 0 && (
+        <PaneDisclosure
+          name="appointments"
+          title={
+            pinned.length === 0
+              ? "Appointments"
+              : `${rest.length} ${rest.every(isPast) ? "earlier" : "more"}`
+          }
+          count={pinned.length === 0 ? rest.length : undefined}
+          forceOpen={filtering}
+          className={pinned.length > 0 ? "mt-2" : undefined}
         >
-          {showAll ? "Show fewer" : `Show all (${appointments.length})`}
-        </button>
+          <AppointmentRows appointments={shownRest} timeZone={timeZone} />
+          {rest.length > APPOINTMENT_LIMIT && (
+            <ShowAllButton
+              total={rest.length}
+              showAll={showAll}
+              onToggle={onToggleShowAll}
+            />
+          )}
+        </PaneDisclosure>
       )}
     </div>
   );
 }
+
+const RECENT_LIMIT = 3;
 
 /**
  * Xobni-style persistent person column (kurir-ios#115). Lives in the mail
@@ -335,10 +402,10 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   const hydrateCollapsed = usePersonPaneStore((s) => s.hydrateCollapsed);
 
   const [query, setQuery] = useState("");
-  const [showAllNetwork, setShowAllNetwork] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [showAllAppointments, setShowAllAppointments] = useState(false);
-  const [directOnly, setDirectOnly] = useState(false);
   const [data, setData] = useState<PaneData | null>(null);
   const [loading, setLoading] = useState(false);
   // The aside is display:none below lg; do not fetch for a phone.
@@ -361,14 +428,17 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  // A new person starts from a blank filter and a capped Network.
+  // A new person starts from a closed, blank search and capped lists.
   useEffect(() => {
     setQuery("");
-    setShowAllNetwork(false);
+    setSearchOpen(false);
     setShowAllLinks(false);
     setShowAllAppointments(false);
-    setDirectOnly(false);
   }, [email]);
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
 
   const visible = showsPersonPane(pathname);
   const active = visible && !collapsed && wide;
@@ -432,14 +502,34 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
     showing?.sender?.displayName ||
     (email ? email.split("@")[0] : "");
   const filtering = query.trim().length > 0;
+  const showSearch = searchOpen || query.length > 0;
+  const closeSearch = () => {
+    setQuery("");
+    setSearchOpen(false);
+  };
 
   return (
     <aside
       className="hidden w-[280px] shrink-0 flex-col border-l bg-background lg:flex"
       aria-label="Person"
     >
-      <div className="flex items-center justify-between px-4 pt-3">
-        <span className="eyebrow text-muted-foreground">Person</span>
+      <div className="flex items-center gap-1 px-4 pt-3">
+        <span className="eyebrow mr-auto text-muted-foreground">Person</span>
+        {email && (
+          <button
+            type="button"
+            onClick={() => (showSearch ? closeSearch() : setSearchOpen(true))}
+            className={cn(
+              "rounded-md p-1 transition-colors hover:bg-muted hover:text-foreground",
+              showSearch ? "text-foreground" : "text-muted-foreground",
+            )}
+            aria-label="Search profile"
+            aria-expanded={showSearch}
+            title="Search profile"
+          >
+            <Search className="size-4" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setCollapsed(true)}
@@ -461,48 +551,58 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           {/* Search inside the profile: conversations, links, appointments */}
-          <label className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
-            <Search className="size-3.5 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search profile"
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              aria-label="Search profile"
-            />
-            {query && (
+          {showSearch && (
+            <label className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
+              <Search className="size-3.5 shrink-0 text-muted-foreground" />
+              <input
+                ref={searchInput}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeSearch();
+                }}
+                placeholder="Search profile"
+                className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                aria-label="Search profile"
+              />
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={closeSearch}
                 className="text-muted-foreground hover:text-foreground"
                 aria-label="Clear profile search"
               >
                 <X className="size-3.5" />
               </button>
-            )}
-          </label>
+            </label>
+          )}
 
           <div className="p-4">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{name}</p>
-              <p className="truncate text-xs text-muted-foreground">{email}</p>
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <Link
-                href={`/compose?to=${encodeURIComponent(email)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
-                className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
-              >
-                Email
-              </Link>
-              {showing?.scheduleDraft && (
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{name}</p>
+                <p className="truncate text-xs text-muted-foreground">{email}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-0.5">
                 <Link
-                  href={`/compose?to=${encodeURIComponent(showing.scheduleDraft.to)}&subject=${encodeURIComponent(showing.scheduleDraft.subject)}&body=${encodeURIComponent(showing.scheduleDraft.body)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
-                  className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                  href={`/compose?to=${encodeURIComponent(email)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
+                  className="rounded-md p-1 text-primary transition-colors hover:bg-muted hover:text-primary/80"
+                  aria-label="Email"
+                  title="Email"
                 >
-                  Schedule time
+                  <Mail className="size-4" />
                 </Link>
-              )}
+                {showing?.scheduleDraft && (
+                  <Link
+                    href={`/compose?to=${encodeURIComponent(showing.scheduleDraft.to)}&subject=${encodeURIComponent(showing.scheduleDraft.subject)}&body=${encodeURIComponent(showing.scheduleDraft.body)}&from=${encodeURIComponent(pathname ?? "/imbox")}`}
+                    className="rounded-md p-1 text-primary transition-colors hover:bg-muted hover:text-primary/80"
+                    aria-label="Schedule time"
+                    title="Schedule time"
+                  >
+                    <CalendarPlus className="size-4" />
+                  </Link>
+                )}
+              </div>
             </div>
 
             {showing ? (
@@ -532,83 +632,79 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                   )}
                 </div>
 
-                <AIVerdictsSection verdicts={showing.aiVerdicts ?? []} />
-
-                {/* First/last contact, counts, reply times, histogram, Rank */}
+                {/* Fact line, busy hours, histogram; Details behind a click */}
                 <PersonStatsSection
                   stats={showing.profile.stats}
                   timeZone={showing.profile.timeZone}
                   className="mt-4"
                 />
 
-                {showing.network.length > 0 && (
-                  <NetworkSection
-                    network={showing.network}
-                    showAll={showAllNetwork}
-                    onToggleShowAll={() => setShowAllNetwork((v) => !v)}
-                    onSelect={(neighbor) => setEmail(neighbor.email)}
-                  />
-                )}
-
                 <div className="mt-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="eyebrow text-muted-foreground">
-                      Conversations
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setDirectOnly((v) => !v)}
-                      className="text-[11px] font-medium text-primary"
+                    <p className="eyebrow text-muted-foreground">Recent</p>
+                    <Link
+                      href={
+                        showing.sender
+                        ? `/contacts/${showing.sender.id}`
+                        : `/from/${encodeURIComponent(email)}`
+                      }
+                      className="text-[11px] font-medium text-primary transition-colors hover:text-primary/80"
                     >
-                      {directOnly ? "All" : "Direct only"}
-                    </button>
+                      View all
+                    </Link>
                   </div>
                   {(() => {
-                    const threads = showing.recentThreads.filter(
-                      (thread) =>
-                        !directOnly ||
-                        threadIsDirect(thread, email, ownEmails),
+                    const groups = groupThreadsBySubject(
+                      showing.recentThreads,
+                      (thread) => thread.subject,
                     );
-                    if (threads.length === 0) {
+                    if (groups.length === 0) {
                       return (
-                    <p className="px-2 text-xs text-muted-foreground">
-                      {directOnly
-                        ? "No direct conversations."
-                        : filtering
-                        ? "No conversations match."
-                        : "No conversations yet."}
-                    </p>
+                        <p className="px-2 text-xs text-muted-foreground">
+                          {filtering
+                            ? "No conversations match."
+                            : "No conversations yet."}
+                        </p>
                       );
                     }
+                    const shown = filtering
+                      ? groups
+                      : groups.slice(0, RECENT_LIMIT);
                     return (
-                    <div className={cn("space-y-1", loading && "opacity-60")}>
-                      {threads.map((thread) => {
-                        const route = getThreadRoute(thread);
-                        return (
+                      <div className={cn("space-y-0.5", loading && "opacity-60")}>
+                        {shown.map(({ thread, count }) => (
                           <Link
                             key={thread.id}
-                            href={`${route}/${thread.id}`}
-                            className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+                            href={`${getThreadRoute(thread)}/${thread.id}`}
+                            className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted"
                           >
-                            <p className="truncate text-xs font-medium">
-                              {thread.subject || "(no subject)"}
-                            </p>
-                            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span>{timeAgo(thread.receivedAt)}</span>
-                              {thread.threadCount > 1 && (
-                                <span className="font-mono tabular-nums">
-                                  ·{thread.threadCount}
-                                </span>
-                              )}
-                              {thread.isArchived && <span>Archive</span>}
-                            </div>
+                            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                              {recentSubject(thread.subject, name)}
+                            </span>
+                            {count > 1 && (
+                              <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                                ×{count}
+                              </span>
+                            )}
+                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                              {timeAgo(thread.receivedAt)}
+                            </span>
                           </Link>
-                        );
-                      })}
-                    </div>
+                        ))}
+                      </div>
                     );
                   })()}
                 </div>
+
+                <PeopleSection
+                  network={showing.network}
+                  personEmail={email}
+                  onSelect={(neighbor) => setEmail(neighbor.email)}
+                />
+
+                {showing.aiVerdicts?.[0] && (
+                  <AIVerdictLine verdict={showing.aiVerdicts[0]} />
+                )}
 
                 <LinksSection
                   links={(showing.links ?? []).filter((link) => {
@@ -619,6 +715,7 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                       link.url.toLowerCase().includes(needle)
                     );
                   })}
+                  filtering={filtering}
                   showAll={showAllLinks}
                   onToggleShowAll={() => setShowAllLinks((v) => !v)}
                 />
@@ -641,21 +738,11 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                     },
                   )}
                   timeZone={showing.profile.timeZone}
+                  filtering={filtering}
                   showAll={showAllAppointments}
                   onToggleShowAll={() => setShowAllAppointments((v) => !v)}
                 />
 
-                <Link
-                  href={
-                    showing.sender
-                      ? `/contacts/${showing.sender.id}`
-                      : `/from/${encodeURIComponent(email)}`
-                  }
-                  className="mt-4 flex items-center gap-1.5 text-xs font-medium text-primary transition-colors hover:text-primary/80"
-                >
-                  View all
-                  <ExternalLink className="size-3" />
-                </Link>
               </>
             ) : (
               <p className="mt-6 text-center text-xs text-muted-foreground">

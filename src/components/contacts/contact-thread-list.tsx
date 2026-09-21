@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { listLabelForSearchHit } from "@/lib/mail/list-contract";
+import { threadIsDirect } from "@/lib/mail/person-pane";
+import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { Paperclip } from "lucide-react";
 
 interface Conversation {
@@ -12,6 +15,8 @@ interface Conversation {
   subject: string | null;
   snippet: string | null;
   fromAddress: string;
+  toAddresses?: string[];
+  ccAddresses?: string[];
   fromName: string | null;
   receivedAt: Date;
   isRead: boolean;
@@ -32,19 +37,46 @@ interface Conversation {
 interface ContactThreadListProps {
   conversations: Conversation[];
   contactName: string;
+  /** This person's addresses, for the Direct only filter. */
+  personEmails: string[];
 }
 
 export function ContactThreadList({
   conversations,
   contactName,
+  personEmails,
 }: ContactThreadListProps) {
+  const ownEmails = usePersonPaneStore((s) => s.ownEmails);
+  const [directOnly, setDirectOnly] = useState(false);
+  // Direct: only this person (any of their addresses) and us on the thread.
+  const shown = directOnly
+    ? conversations.filter((msg) =>
+        personEmails.some((email) =>
+          threadIsDirect(msg, email, [...ownEmails, ...personEmails]),
+        ),
+      )
+    : conversations;
   return (
     <div>
-      <div className="px-4 py-3 text-xs font-medium text-muted-foreground/70 md:px-6">
-        {conversations.length} conversation
-        {conversations.length !== 1 ? "s" : ""}
+      <div className="flex items-center justify-between px-4 py-3 md:px-6">
+        <span className="text-xs font-medium text-muted-foreground/70">
+          {shown.length} conversation
+          {shown.length !== 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          onClick={() => setDirectOnly((v) => !v)}
+          className="text-[11px] font-medium text-primary"
+        >
+          {directOnly ? "All" : "Direct only"}
+        </button>
       </div>
-      {conversations.map((msg) => {
+      {shown.length === 0 && (
+        <p className="px-4 text-xs text-muted-foreground md:px-6">
+          No direct conversations.
+        </p>
+      )}
+      {shown.map((msg) => {
         const hasThread = msg.threadCount > 1;
         return (
           <Link

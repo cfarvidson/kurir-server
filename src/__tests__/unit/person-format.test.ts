@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  factLine,
   formatBusyHours,
   formatRank,
   formatRepliesIn,
@@ -81,5 +82,20 @@ describe("formatRepliesIn", () => {
     expect(formatRepliesIn(4 * 3600)).toBe("Replies in 4h");
     expect(formatRepliesIn(45 * 60)).toBe("Replies in 45m");
     expect(formatRepliesIn(null)).toBeNull();
+  });
+});
+
+describe("factLine", () => {
+  it("counts in and out, with the first contact month in the zone", () => {
+    const stats = {
+      receivedFromThem: 926,
+      sentToThem: 0,
+      firstAt: "2021-10-31T23:30:00Z",
+    };
+    expect(factLine(stats, "UTC")).toBe("926 in · 0 out · since Oct 2021");
+    expect(factLine(stats, "Europe/Stockholm")).toBe(
+      "926 in · 0 out · since Nov 2021",
+    );
+    expect(factLine({ ...stats, firstAt: null }, "UTC")).toBe("926 in · 0 out");
   });
 });

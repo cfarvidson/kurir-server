@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  groupThreadsBySubject,
+  recentSubject,
   personEmailFor,
   showsPersonPane,
   threadIsDirect,
@@ -91,5 +93,38 @@ describe("showsPersonPane", () => {
     ]) {
       expect(showsPersonPane(path), String(path)).toBe(false);
     }
+  });
+});
+
+describe("groupThreadsBySubject", () => {
+  it("groups reply/forward variants under the newest thread, in order", () => {
+    const threads = [
+      { id: "1", subject: "SV: Re: Lunch  plans" },
+      { id: "2", subject: "Invoice" },
+      { id: "3", subject: "lunch plans" },
+      { id: "4", subject: "" },
+      { id: "5", subject: "Fwd[2]: RE: Lunch Plans" },
+      { id: "6", subject: null },
+    ];
+    const groups = groupThreadsBySubject(threads, (t) => t.subject);
+    expect(groups.map((g) => [g.thread.id, g.count])).toEqual([
+      ["1", 3],
+      ["2", 1],
+      ["4", 1],
+      ["6", 1],
+    ]);
+  });
+});
+
+describe("recentSubject", () => {
+  it("drops a leading sender name so the distinguishing part shows", () => {
+    expect(
+      recentSubject(
+        "App Store Connect: Version 2026.112 (255)",
+        "App Store Connect",
+      ),
+    ).toBe("Version 2026.112 (255)");
+    expect(recentSubject("Lunch?", "App Store Connect")).toBe("Lunch?");
+    expect(recentSubject(null, "A")).toBe("(no subject)");
   });
 });
