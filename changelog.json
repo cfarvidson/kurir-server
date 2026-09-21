@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.109",
+    "date": "2026-09-21",
+    "changes": [
+      "Create an AI rule for a sender, or add the sender to an existing rule, straight from the mail list or the open mail"
+    ]
+  },
+  {
     "version": "2026.108",
     "date": "2026-09-21",
     "changes": [

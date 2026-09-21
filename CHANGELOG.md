@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.109] - 2026-09-21
+
+### Added
+
+- "AI rule" from the mail list (hover action) and the open mail (the
+  sparkles button in the header): pick the sender's address, domain or
+  *.domain, then create a new AI rule for it or add it to an existing one.
+  Rules that already cover that exact scope are checked. The header button
+  replaces the link to the AI Rules page. Matches iOS/macOS in the same
+  release.
+
 ## [v2026.108] - 2026-09-21
 
 ### Changed

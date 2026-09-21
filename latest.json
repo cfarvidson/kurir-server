@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-16T06:52:46Z",
   "beta": {
-    "version": "2026.108",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.108",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.108",
-    "changelog": "Images that would not fit the mail are compressed automatically when attached, without asking first",
+    "version": "2026.109",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.109",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.109",
+    "changelog": "Create an AI rule for a sender, or add the sender to an existing rule, straight from the mail list or the open mail",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-21T08:07:22Z"
+    "releasedAt": "2026-09-21T08:42:48Z"
   }
 }
