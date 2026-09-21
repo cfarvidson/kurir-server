@@ -34,6 +34,11 @@ vi.mock("@/actions/snooze", () => ({
 }));
 vi.mock("@/actions/follow-up", () => ({ setFollowUp: vi.fn() }));
 vi.mock("@/actions/read-status", () => ({ toggleReadStatus: vi.fn() }));
+vi.mock("@/actions/content-rules", () => ({
+  addContentRuleSender: vi.fn(),
+  createContentRule: vi.fn(),
+  listContentRulesForPicker: vi.fn(),
+}));
 
 import { MessageRow } from "../message-list";
 

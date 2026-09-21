@@ -16,6 +16,7 @@ import {
   Loader2,
   Mail,
   Paperclip,
+  Sparkles,
 } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
@@ -24,6 +25,7 @@ import { toggleReadStatus } from "@/actions/read-status";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
 import { FollowUpPicker } from "@/components/mail/follow-up-picker";
+import { AIRuleMenu } from "@/components/filters/ai-rule-menu";
 import { SwipeableRow } from "@/components/mail/swipeable-row";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { usePendingArchiveFilter } from "@/lib/mail/optimistic-archive";
@@ -204,6 +206,9 @@ export function MessageRow({
     ? `${basePath}/${message.id}?q=${encodeURIComponent(q)}`
     : `${basePath}/${message.id}`;
   const countLabel = threadCountLabel(message.threadCount);
+  // Own mail has no sender to rule on.
+  const showAIRuleAction =
+    list !== "sent" && message.fromAddress.includes("@");
 
   // Listen for keyboard-triggered snooze
   useEffect(() => {
@@ -446,7 +451,8 @@ export function MessageRow({
       {(showArchiveAction ||
         showUnarchiveAction ||
         showSnoozeAction ||
-        showFollowUpAction) &&
+        showFollowUpAction ||
+        showAIRuleAction) &&
         !isSelectionMode && (
           <div
             className="absolute top-3 right-3 z-10 hidden items-center rounded-lg border border-border bg-background md:flex md:right-5 md:pointer-events-none md:opacity-0 md:transition-opacity md:group-hover:pointer-events-auto md:group-hover:opacity-100"
@@ -472,6 +478,17 @@ export function MessageRow({
                     />
                     Follow up
                     <RowActionKbd>F</RowActionKbd>
+                  </button>
+                }
+              />
+            )}
+            {showAIRuleAction && (
+              <AIRuleMenu
+                senderEmail={message.fromAddress}
+                trigger={
+                  <button className={rowActionBtnClass} title="AI rule">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI rule
                   </button>
                 }
               />
