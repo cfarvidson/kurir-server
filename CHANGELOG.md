@@ -4,6 +4,18 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.111] - 2026-09-21
+
+### Added
+
+- Mail an AI rule has judged shows it in the list: "Matched" or "No
+  match" next to the sender, with the rule, where the mail went and the
+  model's reason on hover. The person pane gets an AI rules section with
+  the verdicts on that person's latest judged mail. iOS and macOS show
+  the same, carried by a new `aiVerdict` field in the mobile sync.
+- Migration 0031 makes the apps re-sync mail judged before this release,
+  so its verdicts show up too.
+
 ## [v2026.110] - 2026-09-21
 
 ### Added

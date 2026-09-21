@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.111",
+    "date": "2026-09-21",
+    "changes": [
+      "See at a glance whether an AI rule matched a mail: a marker in the mail list and an AI rules section in the person pane, with the rule's reason"
+    ]
+  },
+  {
     "version": "2026.110",
     "date": "2026-09-21",
     "changes": [
