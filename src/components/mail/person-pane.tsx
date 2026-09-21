@@ -9,6 +9,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Search,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -29,6 +30,10 @@ import {
   networkStrengthLabel,
   type NetworkNeighbor,
 } from "@/lib/mail/person-network-format";
+import {
+  aiVerdictOutcome,
+  type AIVerdict,
+} from "@/lib/mail/content-rules";
 import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { CategoryPicker } from "@/components/mail/category-picker";
 import {
@@ -70,6 +75,16 @@ interface PaneAppointment {
   attendees?: { email: string; name: string | null }[];
 }
 
+interface PaneAIVerdict extends AIVerdict {
+  id: string;
+  subject: string | null;
+  receivedAt: string;
+  isInImbox: boolean;
+  isInFeed: boolean;
+  isInPaperTrail: boolean;
+  isArchived: boolean;
+}
+
 interface PaneData {
   email: string;
   sender: {
@@ -92,6 +107,8 @@ interface PaneData {
   network: NetworkNeighbor[];
   links: PaneLink[];
   appointments: PaneAppointment[];
+  /** Newest AI rule verdicts on this person's mail, hits and misses. */
+  aiVerdicts?: PaneAIVerdict[];
   scheduleDraft: { to: string; subject: string; body: string };
 }
 
@@ -157,6 +174,48 @@ function NetworkSection({
           {showAll ? "Show fewer" : `Show all (${network.length})`}
         </button>
       )}
+    </div>
+  );
+}
+
+/** What AI rules concluded about this person's latest judged mail. */
+function AIVerdictsSection({ verdicts }: { verdicts: PaneAIVerdict[] }) {
+  if (verdicts.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="eyebrow mb-2 text-muted-foreground">AI rules</p>
+      <div className="space-y-0.5">
+        {verdicts.map((verdict) => (
+          <Link
+            key={verdict.id}
+            href={`${getThreadRoute(verdict)}/${verdict.id}`}
+            data-ai-verdict={verdict.matched ? "matched" : "no-match"}
+            title={`"${verdict.criterion}"`}
+            className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+          >
+            <p className="truncate text-xs font-medium">
+              {verdict.subject || "(no subject)"}
+            </p>
+            <p
+              className={cn(
+                "mt-0.5 flex items-center gap-1 text-[10px] font-medium",
+                verdict.matched ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Sparkles className="size-3 shrink-0" />
+              <span className="truncate">{aiVerdictOutcome(verdict)}</span>
+              <span className="shrink-0 font-normal text-muted-foreground">
+                · {timeAgo(verdict.receivedAt)}
+              </span>
+            </p>
+            {verdict.reason && (
+              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+                {verdict.reason}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -472,6 +531,8 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
                     </span>
                   )}
                 </div>
+
+                <AIVerdictsSection verdicts={showing.aiVerdicts ?? []} />
 
                 {/* First/last contact, counts, reply times, histogram, Rank */}
                 <PersonStatsSection

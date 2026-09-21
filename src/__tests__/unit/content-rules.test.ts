@@ -4,6 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  aiVerdictOutcome,
   buildContentRuleRequest,
   contentRuleCoversSender,
   contentRuleLogLine,
@@ -14,6 +15,7 @@ import {
   placementForAction,
   rulesCoveringSender,
   senderScopeWhere,
+  summarizeAIVerdict,
   MAX_BODY_CHARS,
 } from "@/lib/mail/content-rules";
 
@@ -289,5 +291,39 @@ describe("messageHrefForPlacement", () => {
       "/paper-trail/m1",
     );
     expect(messageHrefForPlacement(base)).toBe("/imbox/m1");
+  });
+});
+
+describe("summarizeAIVerdict / aiVerdictOutcome", () => {
+  it("picks a match over newer misses and is null when nothing judged the message", () => {
+    const miss = {
+      matched: false,
+      reason: "Only on-site",
+      appliedAction: "KEEP" as const,
+      rule: { criterion: "remote" },
+    };
+    const hit = {
+      matched: true,
+      reason: "  Two remote days ",
+      appliedAction: "IMBOX" as const,
+      rule: { criterion: "Uppsala" },
+    };
+    expect(summarizeAIVerdict([])).toBeNull();
+    expect(summarizeAIVerdict([miss, hit])).toEqual({
+      matched: true,
+      appliedAction: "IMBOX",
+      reason: "Two remote days",
+      criterion: "Uppsala",
+    });
+    expect(summarizeAIVerdict([miss])?.matched).toBe(false);
+  });
+
+  it("says whether the rule matched and where the message went", () => {
+    expect(aiVerdictOutcome({ matched: true, appliedAction: "PAPER_TRAIL" })).toBe(
+      "Matched · filed in Paper Trail",
+    );
+    expect(aiVerdictOutcome({ matched: false, appliedAction: "KEEP" })).toBe(
+      "No match · left in place",
+    );
   });
 });

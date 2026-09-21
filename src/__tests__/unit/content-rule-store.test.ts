@@ -37,7 +37,7 @@ vi.mock("@/lib/db", () => ({
     },
     contentRuleMatch: { upsert: vi.fn(), deleteMany: vi.fn() },
     emailConnection: { findUnique: vi.fn() },
-    message: { findMany: vi.fn(), updateMany: vi.fn() },
+    message: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     draftGenerationCredential: { findUnique: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
   },
@@ -294,6 +294,11 @@ describe("evaluateContentRulesForUser", () => {
     });
     expect(infer).toHaveBeenCalledTimes(1);
     expect(db.message.updateMany).not.toHaveBeenCalled();
+    // The verdict still bumps the message so the mobile sync re-sends it.
+    expect(db.message.update).toHaveBeenCalledWith({
+      where: { id: "m-1" },
+      data: { updatedAt: expect.any(Date) },
+    });
   });
 
   it("reports capped when a rule filled its per-run budget", async () => {
@@ -471,6 +476,16 @@ describe("recheckContentRuleForUser", () => {
     });
     expect(db.contentRuleMatch.deleteMany).toHaveBeenCalledWith({
       where: { ruleId: "rule-1", message: { receivedAt: { gte: from } } },
+    });
+    // Messages losing a verdict are bumped so the mobile sync drops it.
+    expect(db.message.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: "u1",
+        contentRuleMatches: {
+          some: { ruleId: "rule-1", message: { receivedAt: { gte: from } } },
+        },
+      },
+      data: { updatedAt: expect.any(Date) },
     });
 
     vi.mocked(db.contentRule.findUnique).mockResolvedValue({

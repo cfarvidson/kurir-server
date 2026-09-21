@@ -54,6 +54,20 @@ const UNTOUCHED = {
   isFollowUp: false,
 } as const;
 
+/**
+ * Bump updatedAt on messages whose verdicts are about to change, so the
+ * mobile sync (cursored on updatedAt) re-sends their aiVerdict.
+ */
+function touchJudgedMessages(
+  userId: string,
+  matchWhere: { ruleId: string; message?: { receivedAt: { gte: Date } } },
+) {
+  return db.message.updateMany({
+    where: { userId, contentRuleMatches: { some: matchWhere } },
+    data: { updatedAt: new Date() },
+  });
+}
+
 export interface ContentRuleSenderInput {
   scope: SubjectRuleScope;
   scopeValue: string;
@@ -345,6 +359,7 @@ export async function updateContentRuleForUser(
     // Same transaction: a run that reads the new criterion also sees the
     // cleared verdicts, never the old verdicts under the new wording.
     await db.$transaction([
+      touchJudgedMessages(userId, { ruleId }),
       db.contentRuleMatch.deleteMany({ where: { ruleId } }),
       update,
     ]);
@@ -373,6 +388,10 @@ export async function recheckContentRuleForUser(
       where: { ruleId, since: { gt: from } },
       data: { since: from },
     }),
+    touchJudgedMessages(userId, {
+      ruleId,
+      message: { receivedAt: { gte: from } },
+    }),
     db.contentRuleMatch.deleteMany({
       where: { ruleId, message: { receivedAt: { gte: from } } },
     }),
@@ -387,7 +406,10 @@ export async function deleteContentRuleForUser(userId: string, ruleId: string) {
   });
   if (!rule) return;
   if (rule.userId !== userId) throw new Error("Rule not found");
-  await db.contentRule.delete({ where: { id: ruleId } });
+  await db.$transaction([
+    touchJudgedMessages(userId, { ruleId }),
+    db.contentRule.delete({ where: { id: ruleId } }),
+  ]);
 }
 
 export interface ContentRuleRunResult {
@@ -569,6 +591,12 @@ async function evaluateRule(
         reason: verdict.reason,
         appliedAction,
       },
+    });
+    // The verdict alone may leave the message where it was; bump it so
+    // the mobile sync still carries the new aiVerdict.
+    await db.message.update({
+      where: { id: message.id },
+      data: { updatedAt: new Date() },
     });
     result.evaluated++;
     if (verdict.matched) result.matched++;

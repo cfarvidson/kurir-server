@@ -83,6 +83,17 @@ describe("contactConversationWhere", () => {
 describe("getContactContext", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  /** Conversation rows for the thread query, `judged` for the AI verdict query. */
+  async function mockMessages(rows: unknown[], judged: unknown[] = []) {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation(((args: {
+      where: { contentRuleMatches?: unknown };
+    }) =>
+      Promise.resolve(
+        args.where.contentRuleMatches ? judged : rows,
+      )) as never);
+  }
+
   async function seed() {
     const { db } = await import("@/lib/db");
     vi.mocked(db.sender.findFirst).mockResolvedValue(null as never);
@@ -90,7 +101,7 @@ describe("getContactContext", () => {
       _min: { receivedAt: null },
       _max: { receivedAt: null },
     } as never);
-    vi.mocked(db.message.findMany).mockResolvedValue([
+    await mockMessages([
       {
         id: "arch",
         subject: "Budget follow-up",
@@ -107,7 +118,7 @@ describe("getContactContext", () => {
         ccAddresses: [],
         sender: null,
       },
-    ] as never);
+    ]);
     return db;
   }
 
@@ -144,7 +155,7 @@ describe("getContactContext", () => {
 
   it("caps the collapsed threads at the pane limit", async () => {
     const db = await seed();
-    vi.mocked(db.message.findMany).mockResolvedValue(
+    await mockMessages(
       Array.from({ length: 12 }, (_, i) => ({
         id: `m${i}`,
         subject: `s${i}`,
@@ -160,11 +171,41 @@ describe("getContactContext", () => {
         toAddresses: ["me@z"],
         ccAddresses: [],
         sender: null,
-      })) as never,
+      })),
     );
     const context = await getContactContext("user-1", "ada@x.y");
     expect(context.recentThreads).toHaveLength(CONTACT_CONTEXT_THREAD_LIMIT);
     const args = vi.mocked(db.message.findMany).mock.calls[0][0]!;
     expect(args.take).toBeGreaterThanOrEqual(50);
+  });
+
+  it("carries the newest AI verdicts on the person's mail, a match over misses", async () => {
+    const db = await seed();
+    const rows = (await db.message.findMany({ where: {} } as never)) as unknown[];
+    await mockMessages(rows, [
+      {
+        id: "m1",
+        subject: "Uppdrag i Uppsala",
+        receivedAt: new Date("2026-01-03"),
+        isInImbox: true,
+        isInFeed: false,
+        isInPaperTrail: false,
+        isArchived: false,
+        contentRuleMatches: [
+          { matched: false, reason: "No", appliedAction: "KEEP", rule: { criterion: "b" } },
+          { matched: true, reason: " Remote ", appliedAction: "IMBOX", rule: { criterion: "a" } },
+        ],
+      },
+    ]);
+    const context = await getContactContext("user-1", "ada@x.y");
+    expect(context.aiVerdicts).toEqual([
+      expect.objectContaining({
+        id: "m1",
+        matched: true,
+        appliedAction: "IMBOX",
+        reason: "Remote",
+        criterion: "a",
+      }),
+    ]);
   });
 });

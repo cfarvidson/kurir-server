@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getThreadCounts } from "@/lib/mail/threads";
+import { AI_VERDICT_SELECT, summarizeAIVerdict } from "@/lib/mail/content-rules";
 
 const CATEGORY_FILTERS = {
   imbox: {
@@ -60,6 +61,7 @@ export const MESSAGE_SELECT = {
   sender: {
     select: { id: true, displayName: true, email: true, unthread: true },
   },
+  contentRuleMatches: AI_VERDICT_SELECT,
 } as const;
 
 export function encodeCursor(msg: {
@@ -168,9 +170,10 @@ export async function getMessages(
 
   const threadCounts = await getThreadCounts(userId, messages);
 
-  const withCounts = messages.map((m) => ({
+  const withCounts = messages.map(({ contentRuleMatches, ...m }) => ({
     ...m,
     threadCount: threadCounts.get(m.id) ?? 1,
+    aiVerdict: summarizeAIVerdict(contentRuleMatches),
   }));
 
   const lastMsg = messages[messages.length - 1];

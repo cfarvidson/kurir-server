@@ -285,6 +285,61 @@ export function contentRuleLogLine(match: {
   };
 }
 
+/** What the AI rules concluded about one message, for list rows and the person pane. */
+export interface AIVerdict {
+  matched: boolean;
+  appliedAction: ContentRuleActionKind;
+  reason: string | null;
+  criterion: string;
+}
+
+/** Relation select for the verdicts summarizeAIVerdict reads. */
+export const AI_VERDICT_SELECT = {
+  select: {
+    matched: true,
+    reason: true,
+    appliedAction: true,
+    rule: { select: { criterion: true } },
+  },
+  orderBy: { createdAt: "desc" },
+} as const;
+
+/**
+ * One verdict per message: a match wins over misses, since the matching
+ * rule is the one that decided where the message went; otherwise the
+ * newest miss. Null when no rule has judged the message.
+ */
+export function summarizeAIVerdict(
+  matches: {
+    matched: boolean;
+    reason: string | null;
+    appliedAction: ContentRuleActionKind;
+    rule: { criterion: string };
+  }[],
+): AIVerdict | null {
+  const pick = matches.find((match) => match.matched) ?? matches[0];
+  if (!pick) return null;
+  return {
+    matched: pick.matched,
+    appliedAction: pick.appliedAction,
+    reason: pick.reason?.trim() || null,
+    criterion: pick.rule.criterion,
+  };
+}
+
+/** "Matched · filed in Imbox", "No match · left in place". */
+export function aiVerdictOutcome(verdict: {
+  matched: boolean;
+  appliedAction: ContentRuleActionKind;
+}): string {
+  const lead = verdict.matched ? "Matched" : "No match";
+  const where =
+    verdict.appliedAction === "KEEP"
+      ? "left in place"
+      : `filed in ${CONTENT_RULE_DESTINATIONS[verdict.appliedAction]}`;
+  return `${lead} · ${where}`;
+}
+
 /** Flag set an action files a message into; null when KEEP leaves it alone. */
 export function placementForAction(
   action: ContentRuleActionKind,

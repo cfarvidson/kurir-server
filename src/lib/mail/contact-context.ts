@@ -5,6 +5,7 @@ import { loadPersonNetwork } from "@/lib/mail/person-network";
 import { getOwnAddresses } from "@/lib/mail/user-emails";
 import { loadPersonLinks } from "@/lib/mail/person-links";
 import { appointmentsForPerson } from "@/lib/mail/person-appointments";
+import { AI_VERDICT_SELECT, summarizeAIVerdict } from "@/lib/mail/content-rules";
 import {
   loadScheduleInstances,
   scheduleDraft,
@@ -23,6 +24,9 @@ export interface ContactContextOptions {
 
 /** Conversations shown in the pane (the old thread column showed 5). */
 export const CONTACT_CONTEXT_THREAD_LIMIT = 8;
+
+/** Newest AI rule verdicts on the person's mail shown in the pane. */
+export const CONTACT_CONTEXT_AI_VERDICT_LIMIT = 6;
 
 /** Mail exchanged with `email` across all lists, optionally filtered by `q`. */
 export function contactConversationWhere(
@@ -62,7 +66,7 @@ export async function getContactContext(
 ) {
   const limit = CONTACT_CONTEXT_THREAD_LIMIT;
   const tz = options.tz ?? "UTC";
-  const [sender, dateRange, recentMessages, profile, network, links, appointments, scheduleInstances] =
+  const [sender, dateRange, recentMessages, profile, network, links, appointments, scheduleInstances, judgedMessages] =
     await Promise.all([
     db.sender.findFirst({
       where: { userId, email },
@@ -102,6 +106,27 @@ export async function getContactContext(
     loadPersonLinks(userId, email),
     appointmentsForPerson(userId, email),
     loadScheduleInstances(userId),
+    // Mail from this person an AI rule has judged, hit or miss.
+    db.message.findMany({
+      where: {
+        userId,
+        fromAddress: email,
+        isDeleted: false,
+        contentRuleMatches: { some: {} },
+      },
+      select: {
+        id: true,
+        subject: true,
+        receivedAt: true,
+        isInImbox: true,
+        isInFeed: true,
+        isInPaperTrail: true,
+        isArchived: true,
+        contentRuleMatches: AI_VERDICT_SELECT,
+      },
+      orderBy: { receivedAt: "desc" },
+      take: CONTACT_CONTEXT_AI_VERDICT_LIMIT,
+    }),
   ]);
 
   const collapsed = collapseToThreads(recentMessages);
@@ -130,6 +155,10 @@ export async function getContactContext(
     })),
     links,
     appointments,
+    aiVerdicts: judgedMessages.flatMap(({ contentRuleMatches, ...message }) => {
+      const verdict = summarizeAIVerdict(contentRuleMatches);
+      return verdict ? [{ ...message, ...verdict }] : [];
+    }),
     scheduleDraft: scheduleDraft(email, scheduleInstances, new Date(), tz),
   };
 }

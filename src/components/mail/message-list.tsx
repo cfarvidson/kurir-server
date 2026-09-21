@@ -38,6 +38,7 @@ import {
   threadCountLabel,
   type MailListId,
 } from "@/lib/mail/list-contract";
+import { aiVerdictOutcome, type AIVerdict } from "@/lib/mail/content-rules";
 import { toast } from "sonner";
 
 export interface MessageItem {
@@ -57,6 +58,8 @@ export interface MessageItem {
   followUpAt?: Date | null;
   isFollowUp?: boolean;
   listLabel?: string | null;
+  /** What an AI rule concluded about this message; null when none judged it. */
+  aiVerdict?: AIVerdict | null;
   sender?: {
     id?: string;
     displayName: string | null;
@@ -160,6 +163,30 @@ export function MessageList({
         ))}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Row marker for a message an AI rule has judged, hit or miss. */
+function AIVerdictBadge({ verdict }: { verdict: AIVerdict }) {
+  const title = [
+    `AI rule: ${aiVerdictOutcome(verdict)}`,
+    `"${verdict.criterion}"`,
+    verdict.reason,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return (
+    <span
+      data-ai-verdict={verdict.matched ? "matched" : "no-match"}
+      title={title}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 text-[11px] font-medium",
+        verdict.matched ? "text-primary" : "text-muted-foreground",
+      )}
+    >
+      <Sparkles className="h-3.5 w-3.5" />
+      {verdict.matched ? "Matched" : "No match"}
+    </span>
   );
 }
 
@@ -403,6 +430,7 @@ export function MessageRow({
           {message.hasAttachments && (
             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
+          {message.aiVerdict && <AIVerdictBadge verdict={message.aiVerdict} />}
           <span
             className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
             suppressHydrationWarning

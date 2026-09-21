@@ -1,4 +1,9 @@
 import { serializeMobileMeeting } from "@/lib/calendar/meeting-card";
+import {
+  AI_VERDICT_SELECT,
+  summarizeAIVerdict,
+  type AIVerdict,
+} from "@/lib/mail/content-rules";
 
 /**
  * Message metadata shape shared by the mobile sync and search endpoints.
@@ -55,6 +60,7 @@ export const MESSAGE_SELECT = {
       calendarEvent: { select: { attendeesJson: true } },
     },
   },
+  contentRuleMatches: AI_VERDICT_SELECT,
 } as const;
 
 /**
@@ -85,28 +91,41 @@ type MobileMeetingRow = {
   calendarEvent?: { attendeesJson: unknown } | null;
 };
 
+type AIVerdictRow = Parameters<typeof summarizeAIVerdict>[0][number];
+
 /**
- * Sync/search presentation: flat folderRole, and `meeting` only when a
- * MessageMeeting row exists (native Task 7). Omit the key otherwise.
+ * Sync/search presentation: flat folderRole, `meeting` only when a
+ * MessageMeeting row exists (native Task 7), and `aiVerdict` only when an
+ * AI rule has judged the message. Omit those keys otherwise.
  */
-type PresentedMobileMessage<T> = Omit<T, "folder" | "meeting"> & {
+type PresentedMobileMessage<T> = Omit<
+  T,
+  "folder" | "meeting" | "contentRuleMatches"
+> & {
   folderRole: string | null;
   meeting?: ReturnType<typeof serializeMobileMeeting>;
+  aiVerdict?: AIVerdict;
 };
 
 export function presentMobileMessages<
   T extends {
     folder: { specialUse: string | null } | null;
     meeting?: MobileMeetingRow | null;
+    contentRuleMatches?: AIVerdictRow[];
   },
 >(rows: T[]): Array<PresentedMobileMessage<T>> {
   // TS can't relate the chained generic Omits, hence the cast.
   return flattenFolderRole(rows).map((row) => {
-    const { meeting, ...rest } = row as typeof row & {
+    const { meeting, contentRuleMatches, ...rest } = row as typeof row & {
       meeting?: MobileMeetingRow | null;
+      contentRuleMatches?: AIVerdictRow[];
     };
     const serialized = serializeMobileMeeting(meeting);
-    if (!serialized) return rest;
-    return { ...rest, meeting: serialized };
+    const aiVerdict = summarizeAIVerdict(contentRuleMatches ?? []);
+    return {
+      ...rest,
+      ...(serialized ? { meeting: serialized } : {}),
+      ...(aiVerdict ? { aiVerdict } : {}),
+    };
   }) as Array<PresentedMobileMessage<T>>;
 }

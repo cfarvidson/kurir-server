@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     network: context.network,
     links: context.links,
     appointments: context.appointments,
+    aiVerdicts: context.aiVerdicts,
     scheduleDraft: context.scheduleDraft,
   });
 }
