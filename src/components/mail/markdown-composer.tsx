@@ -18,6 +18,9 @@ interface MarkdownComposerProps {
   disabled?: boolean;
   attachments: UploadedAttachment[];
   onFileUpload: (file: File) => Promise<UploadedAttachment | null>;
+  /** `prepare` from useAttachments: may compress the pick, or drop it. */
+  onFilesPrepare: (files: File[]) => Promise<File[]>;
+  isCompressing: boolean;
   onFileRemove: (id: string) => void;
   /** Minimum height in px */
   minHeight?: number;
@@ -43,6 +46,8 @@ export function MarkdownComposer({
   disabled = false,
   attachments,
   onFileUpload,
+  onFilesPrepare,
+  isCompressing,
   onFileRemove,
   minHeight = 200,
   onSubmit,
@@ -139,12 +144,14 @@ export function MarkdownComposer({
   );
 
   const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      for (const file of Array.from(files)) {
+    async (files: FileList | File[]) => {
+      // Copied first: the file input empties its FileList right after this.
+      const picked = await onFilesPrepare(Array.from(files));
+      for (const file of picked) {
         handleFileUpload(file);
       }
     },
-    [handleFileUpload],
+    [handleFileUpload, onFilesPrepare],
   );
 
   // Drag & drop handlers
@@ -272,6 +279,12 @@ export function MarkdownComposer({
           />
         </TabsContent>
       </Tabs>
+
+      {isCompressing && (
+        <p className="mt-3 text-xs text-muted-foreground" role="status">
+          Compressing images…
+        </p>
+      )}
 
       {/* Attachment chips (non-image files — images are shown inline) */}
       <div className="mt-3 border-t border-border pt-3 empty:hidden">

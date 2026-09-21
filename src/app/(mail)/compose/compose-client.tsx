@@ -214,6 +214,8 @@ export function ComposeClientPage({
   const {
     attachments,
     upload,
+    prepare,
+    isCompressing,
     remove,
     isUploading,
     setAttachments,
@@ -1067,6 +1069,8 @@ export function ComposeClientPage({
               placeholder="Write your message..."
               attachments={attachments}
               onFileUpload={upload}
+              onFilesPrepare={prepare}
+              isCompressing={isCompressing}
               onFileRemove={remove}
               onSubmit={handleSend}
               onSchedule={() => setScheduleOpen(true)}
