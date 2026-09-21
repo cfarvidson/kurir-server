@@ -1,16 +1,8 @@
 {
-  "version": "2026.98",
-  "image": "ghcr.io/cfarvidson/kurir-server:v2026.98",
-  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.98",
-  "changelog": "Snooze and follow-up offer Tomorrow plus the next two weekdays at 08:00, matching iOS/macOS",
+  "version": "2026.115",
+  "image": "ghcr.io/cfarvidson/kurir-server:v2026.115",
+  "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.115",
+  "changelog": "Mail from a sender with an AI rule no longer pushes before the rule has judged it",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-16T06:52:46Z",
-  "beta": {
-    "version": "2026.115",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.115",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.115",
-    "changelog": "Mail from a sender with an AI rule no longer pushes before the rule has judged it",
-    "minVersion": "0.0.0",
-    "releasedAt": "2026-09-21T14:00:49Z"
-  }
+  "releasedAt": "2026-09-21T14:00:49Z"
 }
