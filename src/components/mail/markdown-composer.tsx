@@ -18,7 +18,7 @@ interface MarkdownComposerProps {
   disabled?: boolean;
   attachments: UploadedAttachment[];
   onFileUpload: (file: File) => Promise<UploadedAttachment | null>;
-  /** `prepare` from useAttachments: may compress the pick, or drop it. */
+  /** `prepare` from useAttachments: compresses the pick when it has to. */
   onFilesPrepare: (files: File[]) => Promise<File[]>;
   isCompressing: boolean;
   onFileRemove: (id: string) => void;

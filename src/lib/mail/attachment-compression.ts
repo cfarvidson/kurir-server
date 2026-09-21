@@ -27,10 +27,6 @@ export const PIXEL_SIZES: (number | null)[] = [
   1024,
 ];
 
-export type CompressionOfferReason =
-  | { kind: "imagesTooLarge"; count: number }
-  | { kind: "mailTooLarge" };
-
 /** A decoded image that can be re-encoded at a size and quality. */
 export interface OpenImage {
   longestEdge: number;
@@ -59,28 +55,19 @@ export function isCompressible(file: File): boolean {
 }
 
 /**
- * Null when the pick can go up as it is, or when nothing in it is an image
- * that compression could help with.
+ * True when the pick would trip a limit and holds an image that compression
+ * could help with: an image over the file limit, or a pick that takes the
+ * mail past its limit.
  */
-export function compressionOfferReason(
+export function needsCompression(
   picked: File[],
   attachedBytes: number,
   { maxFileBytes = MAX_FILE_BYTES, maxMailBytes = MAX_MAIL_BYTES }: Limits = {},
-): CompressionOfferReason | null {
+): boolean {
   const images = picked.filter(isCompressible);
-  const oversized = images.filter((f) => f.size > maxFileBytes).length;
-  if (oversized > 0) return { kind: "imagesTooLarge", count: oversized };
+  if (images.some((f) => f.size > maxFileBytes)) return true;
   const total = attachedBytes + picked.reduce((sum, f) => sum + f.size, 0);
-  if (total > maxMailBytes && images.length > 0) return { kind: "mailTooLarge" };
-  return null;
-}
-
-export function compressionOfferMessage(reason: CompressionOfferReason): string {
-  if (reason.kind === "imagesTooLarge") {
-    const subject = reason.count === 1 ? "1 image is" : `${reason.count} images are`;
-    return `${subject} over the 10 MB limit for a single file. Compress to make them small enough to attach?`;
-  }
-  return "These files would take the mail past the 25 MB limit. Compress the images to make the mail smaller?";
+  return total > maxMailBytes && images.length > 0;
 }
 
 /**
