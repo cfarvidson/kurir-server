@@ -6,6 +6,7 @@ import {
   showsPersonLinks,
   showsPersonPane,
   threadIsDirect,
+  visibleRecentThreads,
 } from "@/lib/mail/person-pane";
 
 describe("personEmailFor", () => {
@@ -127,6 +128,51 @@ describe("recentSubject", () => {
     ).toBe("Version 2026.112 (255)");
     expect(recentSubject("Lunch?", "App Store Connect")).toBe("Lunch?");
     expect(recentSubject(null, "A")).toBe("(no subject)");
+  });
+});
+
+describe("visibleRecentThreads", () => {
+  const history = ["one", "two", "three", "four"];
+
+  it("does not treat a pending search as the full history or the previous hits", () => {
+    expect(
+      visibleRecentThreads({
+        filtering: true,
+        settled: false,
+        loaded: ["old hit"],
+        baseline: history,
+      }),
+    ).toEqual({ pending: true, threads: [], cap: false });
+  });
+
+  it("keeps the idle list pending until the baseline has landed", () => {
+    expect(
+      visibleRecentThreads({
+        filtering: false,
+        settled: false,
+        loaded: ["hit"],
+        baseline: null,
+      }),
+    ).toEqual({ pending: true, threads: [], cap: false });
+  });
+
+  it("shows every settled hit, and caps the idle list", () => {
+    expect(
+      visibleRecentThreads({
+        filtering: true,
+        settled: true,
+        loaded: ["hit"],
+        baseline: history,
+      }),
+    ).toEqual({ pending: false, threads: ["hit"], cap: false });
+    expect(
+      visibleRecentThreads({
+        filtering: false,
+        settled: false,
+        loaded: ["hit"],
+        baseline: history,
+      }),
+    ).toEqual({ pending: false, threads: history, cap: true });
   });
 });
 
