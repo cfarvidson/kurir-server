@@ -49,18 +49,23 @@ export function showsPersonLinks(
  * pending: the full history must not appear as if every thread matched,
  * and the previous search's hits must not stay under the new text.
  * `cap` is the idle list, which shows `limit` subject groups, not every
- * thread. The settled search shows every hit.
+ * thread. The settled search shows every hit. The baseline is null until
+ * the idle response has landed, which the aborted first load leaves behind
+ * when the user types at once; the idle list is pending until then.
  */
 export function visibleRecentThreads<T>(input: {
   filtering: boolean;
   settled: boolean;
   loaded: T[];
-  baseline: T[];
+  baseline: T[] | null;
 }): { pending: boolean; threads: T[]; cap: boolean } {
   if (input.filtering && !input.settled) {
     return { pending: true, threads: [], cap: false };
   }
   if (!input.filtering) {
+    if (input.baseline === null) {
+      return { pending: true, threads: [], cap: false };
+    }
     return { pending: false, threads: input.baseline, cap: true };
   }
   return { pending: false, threads: input.loaded, cap: false };

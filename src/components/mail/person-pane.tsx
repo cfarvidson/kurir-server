@@ -411,7 +411,9 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
   const [loading, setLoading] = useState(false);
   // Last unfiltered Recent list. Search responses replace `data`, and the
   // idle section must keep showing this rather than those hits.
-  const [baselineThreads, setBaselineThreads] = useState<PaneThread[]>([]);
+  const [baselineThreads, setBaselineThreads] = useState<PaneThread[] | null>(
+    null,
+  );
   // The query `data` was loaded for. Empty until the first response.
   const [loadedQuery, setLoadedQuery] = useState("");
   // The aside is display:none below lg; do not fetch for a phone.
@@ -440,7 +442,7 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
     setSearchOpen(false);
     setShowAllLinks(false);
     setShowAllAppointments(false);
-    setBaselineThreads([]);
+    setBaselineThreads(null);
     setLoadedQuery("");
   }, [email]);
 

@@ -145,6 +145,17 @@ describe("visibleRecentThreads", () => {
     ).toEqual({ pending: true, threads: [], cap: false });
   });
 
+  it("keeps the idle list pending until the baseline has landed", () => {
+    expect(
+      visibleRecentThreads({
+        filtering: false,
+        settled: false,
+        loaded: ["hit"],
+        baseline: null,
+      }),
+    ).toEqual({ pending: true, threads: [], cap: false });
+  });
+
   it("shows every settled hit, and caps the idle list", () => {
     expect(
       visibleRecentThreads({
