@@ -66,13 +66,13 @@ export function CategoryPicker({
     inFlight.current = true;
     const previous = optimisticCategory;
     runOptimisticSenderAction({
-      action: () => changeSenderCategory(senderId, category),
-      applyOptimistic: () => setOptimisticCategory(category),
-      revert: () => setOptimisticCategory(previous),
-      reconcile: () => {
-        reconcile();
+      action: async () => {
+        await changeSenderCategory(senderId, category);
         onChanged?.(category);
       },
+      applyOptimistic: () => setOptimisticCategory(category),
+      revert: () => setOptimisticCategory(previous),
+      reconcile,
       errorLabel: "Couldn't move sender — please try again",
     });
   }
