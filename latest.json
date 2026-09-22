@@ -4,5 +4,13 @@
   "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.115",
   "changelog": "Mail from a sender with an AI rule no longer pushes before the rule has judged it",
   "minVersion": "0.0.0",
-  "releasedAt": "2026-09-21T14:00:49Z"
+  "releasedAt": "2026-09-21T14:00:49Z",
+  "beta": {
+    "version": "2026.116",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.116",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.116",
+    "changelog": "Person pane: Links follow a sender between lists, and a profile search no longer shows the whole history while it waits",
+    "minVersion": "0.0.0",
+    "releasedAt": "2026-09-22T05:25:05Z"
+  }
 }

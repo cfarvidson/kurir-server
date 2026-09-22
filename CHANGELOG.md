@@ -4,6 +4,26 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.116] - 2026-09-22
+
+### Fixed
+
+- The person pane's Links section follows a sender between lists. Moving
+  someone to Imbox fetches their links; moving them to The Feed or Paper
+  Trail clears the section at once. A move the server rejects no longer
+  swaps the pane's list.
+- Searching inside the person pane no longer shows the whole history, or
+  the previous search's hits, while the request is in flight. Recent says
+  "Searching…" until the response matches the text, and clearing the field
+  brings back the idle list.
+- iOS and macOS 2026.116 carry the same two person pane fixes, and also:
+  a new AI rule takes the web's defaults for its entry point (Settings
+  leaves mail in place, "AI rule…" on a sender files in Imbox and judges
+  the last 30 days); a photo that cannot be decoded at full size is still
+  compressed at the next size; the person pane reads only that person's
+  appointments instead of decoding the whole calendar; Send stays disabled
+  until attachments are actually uploaded, including during compression.
+
 ## [v2026.115] - 2026-09-21
 
 ### Fixed
