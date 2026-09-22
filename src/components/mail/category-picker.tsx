@@ -23,11 +23,14 @@ const CATEGORY_CONFIG = {
 interface CategoryPickerProps {
   senderId: string;
   currentCategory: SenderCategory;
+  /** Called after the server has stored the new category. */
+  onChanged?: (category: SenderCategory) => void;
 }
 
 export function CategoryPicker({
   senderId,
   currentCategory,
+  onChanged,
 }: CategoryPickerProps) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -63,7 +66,10 @@ export function CategoryPicker({
     inFlight.current = true;
     const previous = optimisticCategory;
     runOptimisticSenderAction({
-      action: () => changeSenderCategory(senderId, category),
+      action: async () => {
+        await changeSenderCategory(senderId, category);
+        onChanged?.(category);
+      },
       applyOptimistic: () => setOptimisticCategory(category),
       revert: () => setOptimisticCategory(previous),
       reconcile,
