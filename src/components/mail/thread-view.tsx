@@ -287,9 +287,10 @@ function MessageBubble({
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
         "group relative scroll-mt-4 rounded-xl",
-        // Highlighter wash: the linked message reads like a marked passage.
+        // Terracotta wash: the linked message reads as one marked block,
+        // header and card together, in the app's own accent.
         isFocused &&
-          "bg-amber-100/70 ring-1 ring-amber-300/70 dark:bg-amber-400/15 dark:ring-amber-400/40",
+          "bg-primary/[0.06] ring-1 ring-primary/35 dark:bg-primary/10 dark:ring-primary/45",
       )}
       ref={cardRef}
       data-message-card={message.id}
@@ -331,7 +332,7 @@ function MessageBubble({
               {isFocused && (
                 <span
                   data-card-badge="linked"
-                  className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300"
+                  className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary"
                 >
                   linked
                 </span>
@@ -399,7 +400,14 @@ function MessageBubble({
           {/* Expanded content */}
           {!collapsed && (
             <div style={{ overflowAnchor: "none" }}>
-              <div className="mt-1 rounded-lg border border-border/60 bg-card px-3 py-3 md:px-4 md:py-4">
+              <div
+                className={cn(
+                  "mt-1 rounded-lg border border-border/60 bg-card px-3 py-3 md:px-4 md:py-4",
+                  // The linked card lifts off its wash with a shadow instead
+                  // of the hairline.
+                  isFocused && "border-transparent shadow-md",
+                )}
+              >
                 {/* Recipients + actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-xs text-muted-foreground">
