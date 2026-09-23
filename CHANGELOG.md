@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.117] - 2026-09-23
+
+### Fixed
+
+- Search finds mail by the sender's address, and by a name that only
+  appears in the address. From, To and Cc addresses are now in the search
+  index, whole and split into their parts, so "monika", "kulturforeningen"
+  and the full address all hit. Existing mail is reindexed on upgrade.
+- Swedish search words match as typed: the index no longer applies
+  English stemming, so "fakturan" prefix-matches "fakturan" and "faktura"
+  finds both, and short words like "in" are no longer dropped.
+- The From filter matches part of the address or the display name, and a
+  filter (From, Domain, Has attachment, Date) runs on its own without
+  search words, listing the filtered mail newest first. The filter chips
+  stay while one is set.
+- iOS and macOS 2026.116 build 111 carry the same From filter behaviour:
+  a chip alone searches, the chips stay while one is set, and Cancel or
+  the field's clear button leaves search altogether.
+
 ## [v2026.116] - 2026-09-22
 
 ### Fixed

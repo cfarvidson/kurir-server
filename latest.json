@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.116",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.116",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.116",
-    "changelog": "Person pane: Links follow a sender between lists, and a profile search no longer shows the whole history while it waits",
+    "version": "2026.117",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.117",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.117",
+    "changelog": "Search finds mail by address and name, Swedish words match as typed, and a From filter works without search words",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-22T05:25:05Z"
+    "releasedAt": "2026-09-23T12:08:37Z"
   }
 }
