@@ -7,6 +7,7 @@ import { DraftType } from "@prisma/client";
 import { loadAttachmentsForSend } from "@/lib/mail/attachment-helpers";
 import { buildSmtpAuth } from "@/lib/mail/auth-helpers";
 import { findOrCreateContactForEmail } from "@/lib/mail/contacts";
+import { approveRecipients } from "@/lib/mail/approve-recipients";
 import { deleteDraftForUser } from "@/lib/mail/drafts";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import { appendQuoteToHtml, loadReplyQuote } from "@/lib/mail/reply-quote";
@@ -237,6 +238,17 @@ export async function sendMailForUser(
     findOrCreateContactForEmail(userId, recipient).catch((err) => {
       console.error("Auto-create contact failed:", err);
     });
+  }
+
+  // Writing to someone screens them in: their reply lands in the Imbox.
+  try {
+    await approveRecipients(userId, resolvedConnectionId, [
+      ...recipients,
+      ...ccRecipients,
+      ...bccRecipients,
+    ]);
+  } catch (err) {
+    console.error("Screening in recipients failed:", err);
   }
 
   // Append to IMAP Sent folder (fire-and-forget)
