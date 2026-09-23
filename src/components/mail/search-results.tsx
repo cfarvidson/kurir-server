@@ -74,17 +74,22 @@ interface SearchResultsProps {
   showFollowUpAction?: boolean;
   showUnarchiveAction?: boolean;
   list?: MailListId;
+  /** A chip filter is set, so messages list even without a query. */
+  constrained?: boolean;
 }
 
 /**
  * People / Messages / Appointments / Files (kurir-ios#125). People answer from the first
  * character, ordered by Rank, and stream to the page first; message and
  * file hits need two characters and arrive behind a Suspense boundary.
+ * With a chip filter set the messages group runs on an empty query too.
  */
 export async function SearchResults(props: SearchResultsProps) {
-  const { userId, query } = props;
-  const fullSearch = query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
-  const contacts = await searchContacts(userId, query);
+  const { userId, query, constrained } = props;
+  const wordSearch = query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
+  const fullSearch = wordSearch || Boolean(constrained);
+  const contacts =
+    query.trim().length > 0 ? await searchContacts(userId, query) : [];
 
   if (!fullSearch && contacts.length === 0) {
     return (
@@ -137,12 +142,15 @@ async function MessageAndFileResults({
   showFollowUpAction,
   showUnarchiveAction,
   list,
+  constrained,
   hasPeople,
 }: SearchResultsProps & { hasPeople: boolean }) {
+  // Files and appointments have no chip filters: they need search words.
+  const wordSearch = query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
   const [messages, files, appointments] = await Promise.all([
-    searchMessages(userId, query, categoryFilter),
-    searchFiles(userId, query),
-    searchAppointments(userId, query),
+    searchMessages(userId, query, categoryFilter, 50, { constrained }),
+    wordSearch ? searchFiles(userId, query) : [],
+    wordSearch ? searchAppointments(userId, query) : [],
   ]);
 
   if (messages.length === 0 && files.length === 0 && appointments.length === 0) {
@@ -151,7 +159,11 @@ async function MessageAndFileResults({
       <EmptyState
         icon={emptyIcon || <BookUser />}
         title="No results found"
-        description={`No people, messages, appointments or files match “${query}”`}
+        description={
+          wordSearch
+            ? `No people, messages, appointments or files match “${query}”`
+            : "No messages match the filters"
+        }
       />
     );
   }

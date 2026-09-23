@@ -13,7 +13,10 @@ import {
   type MailSearchQuery,
   isSearchQuery,
 } from "@/lib/mail/list-contract";
-import { searchFilterSql } from "@/lib/mail/search";
+import {
+  hasSearchConstraints,
+  searchFilterSql,
+} from "@/lib/mail/search";
 
 export default async function FeedPage({
   searchParams,
@@ -27,7 +30,8 @@ export default async function FeedPage({
   }
 
   const params = await searchParams;
-  const isSearching = isSearchQuery(params.q);
+  const constrained = hasSearchConstraints(params);
+  const isSearching = isSearchQuery(params.q) || constrained;
 
   return (
     <div className="flex h-full flex-col">
@@ -41,7 +45,8 @@ export default async function FeedPage({
         {isSearching ? (
           <SearchResults
             userId={session.user.id}
-            query={params.q!}
+            query={params.q ?? ""}
+            constrained={constrained}
             categoryFilter={searchFilterSql("feed", params)}
             basePath="/feed"
             list="feed"

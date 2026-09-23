@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireMobileAuth } from "@/lib/mobile/auth";
 import { rateLimitUser, tooManyRequests } from "@/lib/rate-limit";
 import {
+  constraintsAreEmpty,
   mergeSearchFilters,
   parseSearchDate,
   searchMessages,
@@ -22,7 +23,9 @@ import {
  * Full-text search across the user's mail, optionally scoped to a list
  * category and chip filters. Delegates to the same FTS query as the web
  * client. Returns full sync-shaped message metadata so the app can upsert
- * hits that aren't in its local store yet.
+ * hits that aren't in its local store yet. `q` may be empty when a chip
+ * filter (from, domain, hasAttachment, after, before) is set: the filtered
+ * mail is then listed newest first.
  */
 
 const MAX_LIMIT = 50;
@@ -47,10 +50,7 @@ export async function GET(req: NextRequest) {
   const limitCheck = await rateLimitUser(userId);
   if (!limitCheck.allowed) return tooManyRequests(limitCheck.retryAfter);
 
-  const q = req.nextUrl.searchParams.get("q")?.trim();
-  if (!q) {
-    return NextResponse.json({ error: "Missing query" }, { status: 400 });
-  }
+  const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
   const categoryParam = req.nextUrl.searchParams.get("category") || null;
   if (categoryParam && !SEARCH_CATEGORIES.has(categoryParam as SearchCategory)) {
@@ -77,18 +77,24 @@ export async function GET(req: NextRequest) {
 
   const hasAttachment =
     req.nextUrl.searchParams.get("hasAttachment") === "true";
+  const constraints = {
+    from: req.nextUrl.searchParams.get("from"),
+    domain: req.nextUrl.searchParams.get("domain"),
+    hasAttachment,
+    after,
+    before,
+  };
+  const constrained = !constraintsAreEmpty(constraints);
+  if (!q && !constrained) {
+    return NextResponse.json({ error: "Missing query" }, { status: 400 });
+  }
 
   const hits = await searchMessages(
     userId,
     q,
-    mergeSearchFilters(searchCategoryFilter(category), {
-      from: req.nextUrl.searchParams.get("from"),
-      domain: req.nextUrl.searchParams.get("domain"),
-      hasAttachment,
-      after,
-      before,
-    }),
+    mergeSearchFilters(searchCategoryFilter(category), constraints),
     limit,
+    { constrained },
   );
   if (hits.length === 0) {
     return NextResponse.json({ messages: [] });

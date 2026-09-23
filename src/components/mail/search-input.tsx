@@ -98,7 +98,11 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
   };
 
   const [isFocused, setIsFocused] = useState(false);
-  const showChips = Boolean(list) && value.trim().length >= 2;
+  // Chips stay while one is set, so clearing the words keeps "from monika"
+  // running on its own; the field's × exits the search altogether.
+  const showChips =
+    Boolean(list) &&
+    (value.trim().length >= 2 || hasActiveFilterChip(searchParams));
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -154,6 +158,12 @@ export function SearchInput({ list }: { list?: SearchCategory }) {
   );
 }
 
+function hasActiveFilterChip(searchParams: URLSearchParams): boolean {
+  return ["from", "domain", "hasAttachment", "after", "before"].some((key) =>
+    Boolean(searchParams.get(key)),
+  );
+}
+
 function SearchFilterChips({
   searchParams,
   onPatch,
@@ -173,7 +183,7 @@ function SearchFilterChips({
       <TextFilterChip
         idle="From"
         value={from}
-        placeholder="sender@example.com"
+        placeholder="Name or address"
         onApply={(next) => onPatch({ from: next })}
         onClear={() => onPatch({ from: null })}
       />

@@ -112,6 +112,21 @@ export function constraintsAreEmpty(constraints: SearchConstraints): boolean {
   );
 }
 
+/** Whether the URL carries a chip filter that can stand without a query. */
+export function hasSearchConstraints(params: MailSearchQuery): boolean {
+  return !constraintsAreEmpty({
+    from: params.from,
+    domain: params.domain,
+    hasAttachment: params.hasAttachment === "true",
+    after: parseSearchDate(params.after),
+    before: parseSearchDate(params.before),
+  });
+}
+
+function likeContains(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
 /** Extra AND-clauses for chip filters. Empty when every chip is idle. */
 export function searchConstraintFilter(
   constraints: SearchConstraints,
@@ -119,7 +134,11 @@ export function searchConstraintFilter(
   const parts: Prisma.Sql[] = [];
   const from = normalizeSearchFrom(constraints.from);
   if (from) {
-    parts.push(Prisma.sql`AND LOWER("fromAddress") = ${from}`);
+    // Part of the address or of the display name: "monika" is enough.
+    const pattern = likeContains(from);
+    parts.push(
+      Prisma.sql`AND (LOWER("fromAddress") LIKE ${pattern} OR LOWER(COALESCE("fromName", '')) LIKE ${pattern})`,
+    );
   }
   const domain = normalizeSearchDomain(constraints.domain);
   if (domain) {
@@ -166,14 +185,29 @@ export function searchFilterSql(
   );
 }
 
+/**
+ * Full-text hits for `query`, ranked. With `constrained` (a chip filter is
+ * part of `categoryFilter`) an empty query lists the filtered mail newest
+ * first instead, so "everything from monika" needs no search words.
+ */
 export async function searchMessages(
   userId: string,
   query: string,
   categoryFilter: Prisma.Sql,
   limit = 50,
+  options: { constrained?: boolean } = {},
 ): Promise<MessageSearchResult[]> {
   const prefixQuery = buildPrefixQuery(query);
-  if (!prefixQuery) return [];
+  if (!prefixQuery && !options.constrained) return [];
+
+  // 'simple' matches the search_vector trigger (0032): no stemming, no
+  // stop words, so a Swedish prefix matches exactly what was typed.
+  const match = prefixQuery
+    ? Prisma.sql`AND "search_vector" @@ to_tsquery('simple', ${prefixQuery})`
+    : Prisma.empty;
+  const rank = prefixQuery
+    ? Prisma.sql`ts_rank("search_vector", to_tsquery('simple', ${prefixQuery})) DESC,`
+    : Prisma.empty;
 
   return db.$queryRaw<MessageSearchResult[]>(Prisma.sql`
     SELECT ${searchSelectSql()},
@@ -185,10 +219,10 @@ export async function searchMessages(
       ) AS "isSent"
     FROM "Message"
     WHERE "userId" = ${userId}
-      AND "search_vector" @@ to_tsquery('english', ${prefixQuery})
+      ${match}
       ${categoryFilter}
     ORDER BY
-      ts_rank("search_vector", to_tsquery('english', ${prefixQuery})) DESC,
+      ${rank}
       "receivedAt" DESC
     LIMIT ${limit}
   `);
