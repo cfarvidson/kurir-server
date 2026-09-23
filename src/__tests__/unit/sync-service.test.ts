@@ -518,6 +518,31 @@ describe("domain rules at sync (plan 033)", () => {
     expect(createArg.create.decidedByRuleId).toBeUndefined();
   });
 
+  it("screens in the recipients of a mail the user sent", async () => {
+    const db = await mockPersistence({ status: "APPROVED", category: "IMBOX" });
+
+    const { processMessage } = await import("@/lib/mail/sync-service");
+    const sent = fakeMsg("me@example.com");
+    sent.envelope.to = [{ address: "konsument@it-auktion.se" }];
+    sent.envelope.cc = [{ address: "me@example.com" }];
+    await processMessage(sent, "user-1", "conn-1", "folder-1", {
+      isInbox: false,
+      own: { emails: ["me@example.com"], domains: [] },
+    });
+
+    // Once for the own From address, once for the external recipient.
+    const emails = vi
+      .mocked(db.sender.upsert)
+      .mock.calls.map((c: any) => c[0].where.emailConnectionId_email.email);
+    expect(emails).toEqual(["me@example.com", "konsument@it-auktion.se"]);
+    expect(db.sender.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: "APPROVED", category: "IMBOX" }),
+        update: {},
+      }),
+    );
+  });
+
   it("loads the connection's rules once per sync run", async () => {
     const { getConnectionCredentialsInternal } = await import("@/lib/auth");
     vi.mocked(getConnectionCredentialsInternal).mockResolvedValue({

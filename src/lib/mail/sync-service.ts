@@ -15,6 +15,7 @@ import {
   storedContentToBuffer,
 } from "@/lib/mail/attachment-bytes";
 import { matchDomainRule } from "@/lib/mail/domain-rules";
+import { approveRecipients } from "@/lib/mail/approve-recipients";
 import { assignThread, repairThreadIds } from "@/lib/mail/thread-assign";
 import { createSnippet } from "@/lib/mail/snippet";
 import {
@@ -609,6 +610,20 @@ export async function processMessage(
     own,
     domainRules,
   );
+
+  // Mail the user sent (Sent folder, or a copy anywhere) screens in its
+  // recipients, so a reply lands in the Imbox even when the mail was sent
+  // from another client.
+  if (own && isOwnAddress(fromAddress, own)) {
+    const recipients = [...(envelope.to ?? []), ...(envelope.cc ?? [])]
+      .map((a) => a.address || "")
+      .filter(Boolean);
+    try {
+      await approveRecipients(userId, emailConnectionId, recipients, own);
+    } catch (err) {
+      console.error("Screening in recipients failed:", err);
+    }
+  }
 
   // Only categorize inbox messages; sent/other folders skip categorization.
   // A matching subject rule overrides the sender's decision for this message
