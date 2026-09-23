@@ -1,4 +1,6 @@
 import { ThreadDetailView } from "@/components/mail/thread-detail-view";
+import { PinButton } from "@/components/mail/pin-button";
+import { ReplyLaterButton } from "@/components/mail/reply-later-button";
 import { ArchiveButton } from "@/components/mail/archive-button";
 import { SnoozeButton } from "@/components/mail/snooze-button";
 import { FollowUpButton } from "@/components/mail/follow-up-button";
@@ -30,6 +32,8 @@ export default async function FeedDetailPage({
         timezone,
         followUpAt,
         isFollowUp,
+        isReplyLater,
+        isPinned,
       }) => (
         <>
           <ArchiveKeyboardShortcut
@@ -38,6 +42,8 @@ export default async function FeedDetailPage({
             threadKey={threadKey}
             threadId={threadId}
           />
+          <PinButton messageId={messageId} isPinned={isPinned} />
+          <ReplyLaterButton messageId={messageId} isReplyLater={isReplyLater} />
           <FollowUpButton
             messageId={messageId}
             followUpAt={followUpAt}

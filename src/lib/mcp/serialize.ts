@@ -18,6 +18,7 @@ export type MailRowInput = {
   snoozedUntil?: Date | string | null;
   followUpAt?: Date | string | null;
   isReplyLater?: boolean;
+  isFlagged?: boolean;
   scheduledFor?: Date | string | null;
   textBody?: string | null;
   htmlBody?: string | null;
@@ -46,6 +47,7 @@ export type CompactMailRow = {
   snoozedUntil?: string;
   followUpUntil?: string;
   replyLater?: boolean;
+  pinned?: boolean;
   scheduledFor?: string;
 };
 
@@ -121,6 +123,7 @@ export function serializeMailRow(msg: MailRowInput): CompactMailRow {
   const followUpUntil = toIso(msg.followUpAt);
   if (followUpUntil) row.followUpUntil = followUpUntil;
   if (msg.isReplyLater) row.replyLater = true;
+  if (msg.isFlagged) row.pinned = true;
   const scheduledFor = toIso(msg.scheduledFor);
   if (scheduledFor) row.scheduledFor = scheduledFor;
   return row;

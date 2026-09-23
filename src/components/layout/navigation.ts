@@ -11,6 +11,7 @@ import {
   Receipt,
   BookUser,
   Paperclip,
+  Pin,
   Reply,
   SquarePen,
   Sparkles,
@@ -105,6 +106,7 @@ export const navigationGroups: NavGroup[] = [
         badgeKey: "replyLater",
       },
       { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
+      { name: "Pinned", href: "/pinned", icon: Pin },
     ],
   },
   {

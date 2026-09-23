@@ -1,12 +1,12 @@
 import { ThreadDetailView } from "@/components/mail/thread-detail-view";
-import { PinButton } from "@/components/mail/pin-button";
 import { ArchiveButton } from "@/components/mail/archive-button";
-import { SnoozeButton } from "@/components/mail/snooze-button";
+import { UnarchiveButton } from "@/components/mail/unarchive-button";
 import { FollowUpButton } from "@/components/mail/follow-up-button";
+import { PinButton } from "@/components/mail/pin-button";
 import { ReplyLaterButton } from "@/components/mail/reply-later-button";
 import { ArchiveKeyboardShortcut } from "@/components/mail/archive-keyboard-shortcut";
 
-export default async function ImboxDetailPage({
+export default async function PinnedDetailPage({
   params,
   searchParams,
 }: {
@@ -19,11 +19,10 @@ export default async function ImboxDetailPage({
   return (
     <ThreadDetailView
       messageId={id}
-      categoryLabel="Imbox"
-      returnPath="/imbox"
+      categoryLabel="Pinned"
+      returnPath="/pinned"
       searchQuery={q}
-      mobileActions={{ showArchive: true, showSnooze: true, showFollowUp: true }}
-      hideHeaderActionsOnMobile
+      mobileActions={{ showFollowUp: true, showPin: true }}
       actions={({
         messageId,
         returnPath,
@@ -34,6 +33,7 @@ export default async function ImboxDetailPage({
         isFollowUp,
         isReplyLater,
         isPinned,
+        isArchived,
       }) => (
         <>
           <ArchiveKeyboardShortcut
@@ -41,6 +41,7 @@ export default async function ImboxDetailPage({
             returnPath={returnPath}
             threadKey={threadKey}
             threadId={threadId}
+            action={isArchived ? "unarchive" : "archive"}
           />
           <PinButton messageId={messageId} isPinned={isPinned} />
           <ReplyLaterButton messageId={messageId} isReplyLater={isReplyLater} />
@@ -50,17 +51,21 @@ export default async function ImboxDetailPage({
             isFollowUp={isFollowUp}
             timezone={timezone}
           />
-          <SnoozeButton
-            messageId={messageId}
-            returnPath={returnPath}
-            timezone={timezone}
-          />
-          <ArchiveButton
-            messageId={messageId}
-            returnPath={returnPath}
-            threadKey={threadKey}
-            threadId={threadId}
-          />
+          {isArchived ? (
+            <UnarchiveButton
+              messageId={messageId}
+              returnPath={returnPath}
+              threadKey={threadKey}
+              threadId={threadId}
+            />
+          ) : (
+            <ArchiveButton
+              messageId={messageId}
+              returnPath={returnPath}
+              threadKey={threadKey}
+              threadId={threadId}
+            />
+          )}
         </>
       )}
     />

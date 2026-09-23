@@ -97,6 +97,14 @@ describe("listActionSet", () => {
       archive: false,
       unarchive: false,
     });
+    // Pinned mixes archived and live threads: follow-up only, the row's
+    // pin toggle is the action (plan 056).
+    expect(listActionSet("pinned")).toEqual({
+      followUp: true,
+      snooze: false,
+      archive: false,
+      unarchive: false,
+    });
   });
 });
 
@@ -123,6 +131,7 @@ describe("emptyCopy", () => {
       "archive",
       "sent",
       "reply-later",
+      "pinned",
     ] as const;
     for (const list of lists) {
       expect(emptyCopy(list).title.length).toBeGreaterThan(0);
@@ -138,9 +147,10 @@ describe("showsSections / showsSearch", () => {
     expect(showsSections("reply-later")).toBe(false);
   });
 
-  it("search on seven lists, not Reply Later", () => {
+  it("search on eight lists, not Reply Later", () => {
     expect(showsSearch("imbox")).toBe(true);
     expect(showsSearch("sent")).toBe(true);
+    expect(showsSearch("pinned")).toBe(true);
     expect(showsSearch("reply-later")).toBe(false);
   });
 });

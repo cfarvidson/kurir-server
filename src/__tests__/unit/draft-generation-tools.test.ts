@@ -39,6 +39,7 @@ describe("search_mail", () => {
         ccAddresses: [],
         receivedAt: new Date("2026-03-04T10:00:00Z"),
         isRead: true,
+        isFlagged: false,
         hasAttachments: true,
         snoozedUntil: null,
         followUpAt: null,

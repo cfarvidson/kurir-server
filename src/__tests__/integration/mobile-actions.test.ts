@@ -13,6 +13,7 @@ vi.mock("@/lib/mail/mutations", () => ({
   setThreadFollowUp: vi.fn(),
   dismissThreadFollowUp: vi.fn(),
   setThreadReplyLater: vi.fn(),
+  setThreadPinned: vi.fn(),
   approveSenderForUser: vi.fn(),
   rejectSenderForUser: vi.fn(),
   skipSenderForUser: vi.fn(),
@@ -161,11 +162,19 @@ describe("POST /api/mobile/actions", () => {
           { id: "2", type: "dismissFollowUp", messageId: "m2" },
           { id: "3", type: "setReplyLater", messageId: "m3" },
           { id: "4", type: "clearReplyLater", messageId: "m4" },
+          { id: "5", type: "setPinned", messageId: "m5", isPinned: true },
+          { id: "6", type: "setPinned", messageId: "m6", isPinned: false },
         ],
       }),
     );
 
     expect(res.status).toBe(200);
+    expect(mutations.setThreadPinned).toHaveBeenCalledWith("user-1", "m5", true);
+    expect(mutations.setThreadPinned).toHaveBeenCalledWith(
+      "user-1",
+      "m6",
+      false,
+    );
     expect(mutations.setThreadFollowUp).toHaveBeenCalledWith(
       "user-1",
       "m1",
@@ -192,7 +201,20 @@ describe("POST /api/mobile/actions", () => {
       { id: "2", ok: true },
       { id: "3", ok: true },
       { id: "4", ok: true },
+      { id: "5", ok: true },
+      { id: "6", ok: true },
     ]);
+  });
+
+  it("rejects setPinned without the isPinned flag", async () => {
+    await mockAuthed();
+    const { POST } = await import("@/app/api/mobile/actions/route");
+    const res = await POST(
+      makeRequest({
+        actions: [{ id: "1", type: "setPinned", messageId: "m1" }],
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("dispatches the new sender screener actions to their cores", async () => {

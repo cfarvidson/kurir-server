@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Clock, Bell, CornerDownLeft } from "lucide-react";
+import { Archive, Clock, Bell, CornerDownLeft, Pin, PinOff } from "lucide-react";
 import { toast } from "sonner";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation, unsnoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
+import { setPinned } from "@/actions/pin";
 import { performOptimisticArchive } from "@/lib/mail/optimistic-archive";
 import { performOptimisticSnooze } from "@/lib/mail/optimistic-snooze";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
@@ -22,6 +23,8 @@ interface MobileThreadActionsProps {
   showArchive?: boolean;
   showSnooze?: boolean;
   showFollowUp?: boolean;
+  showPin?: boolean;
+  isPinned?: boolean;
 }
 
 export function MobileThreadActions({
@@ -33,9 +36,16 @@ export function MobileThreadActions({
   showArchive = true,
   showSnooze = true,
   showFollowUp = true,
+  showPin = false,
+  isPinned = false,
 }: MobileThreadActionsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const handlePin = () => {
+    toast.success(isPinned ? "Unpinned" : "Pinned");
+    setPinned(messageId, !isPinned).then(() => router.refresh());
+  };
 
   const handleArchive = () => {
     performOptimisticArchive({
@@ -102,6 +112,23 @@ export function MobileThreadActions({
           <CornerDownLeft className="h-5 w-5" />
           <span>Reply</span>
         </button>
+
+        {showPin && (
+          <button
+            onClick={handlePin}
+            className={cn(
+              buttonBase,
+              isPinned ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {isPinned ? (
+              <PinOff className="h-5 w-5" />
+            ) : (
+              <Pin className="h-5 w-5" />
+            )}
+            <span>{isPinned ? "Unpin" : "Pin"}</span>
+          </button>
+        )}
 
         {showFollowUp && (
           <FollowUpPicker

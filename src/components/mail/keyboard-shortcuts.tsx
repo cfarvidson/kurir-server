@@ -23,6 +23,7 @@ const listShortcuts: ShortcutEntry[] = [
   { keys: ["e"], description: "Archive" },
   { keys: ["s"], description: "Snooze" },
   { keys: ["f"], description: "Follow up" },
+  { keys: ["p"], description: "Pin / unpin" },
   { keys: ["x"], description: "Select / deselect" },
   { keys: ["Shift", "U"], description: "Toggle read / unread", mode: "combo" },
   { keys: ["/"], description: "Search" },

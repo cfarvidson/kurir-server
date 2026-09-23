@@ -1,4 +1,5 @@
 import { ThreadDetailView } from "@/components/mail/thread-detail-view";
+import { PinButton } from "@/components/mail/pin-button";
 import { ClearReplyLaterButton } from "@/components/mail/clear-reply-later-button";
 
 export default async function ReplyLaterDetailPage({
@@ -17,8 +18,11 @@ export default async function ReplyLaterDetailPage({
       categoryLabel="Reply Later"
       returnPath="/reply-later"
       searchQuery={q}
-      actions={({ messageId, returnPath }) => (
-        <ClearReplyLaterButton messageId={messageId} returnPath={returnPath} />
+      actions={({ messageId, returnPath, isPinned }) => (
+        <>
+          <PinButton messageId={messageId} isPinned={isPinned} />
+          <ClearReplyLaterButton messageId={messageId} returnPath={returnPath} />
+        </>
       )}
     />
   );
