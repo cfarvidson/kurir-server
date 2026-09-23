@@ -122,6 +122,13 @@ export async function ThreadDetailView({
   const { messages, markedRead } = threadResult;
 
   const targetMessage = messages.find((m) => m.id === messageId) || messages[0];
+  // A search hit or person-pane row links to one message: open the thread
+  // on that card. A plain list row links to the newest message, which is
+  // open anyway, so it gets no mark.
+  const focusedMessageId =
+    searchQuery || targetMessage.id !== messages[messages.length - 1].id
+      ? targetMessage.id
+      : null;
   // Thread collapse key so the list components / pending-archive store can drop
   // every sibling row of this thread on optimistic archive.
   const threadKey = threadKeyOf(targetMessage);
@@ -368,6 +375,7 @@ export async function ThreadDetailView({
                 userEmails={[...userEmails]}
                 replyOptions={replyOptions}
                 initialReplyTargetId={initialReplyTargetId}
+                focusedMessageId={focusedMessageId}
                 draftContextIds={draftContextIds}
                 branches={branches}
                 emailConnectionId={targetMessage.emailConnectionId}

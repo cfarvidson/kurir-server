@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import {
   Printer,
   Reply,
   ReplyAll,
+  Send,
   Sparkles,
   Split,
 } from "lucide-react";
@@ -27,7 +28,7 @@ import {
   resolveRecipientName,
   type RecipientNameMap,
 } from "@/lib/mail/recipient-names";
-import { cardLabel } from "@/lib/mail/thread-card";
+import { cardLabel, senderInitial } from "@/lib/mail/thread-card";
 import { sanitizeEmailHtml } from "@/lib/mail/sanitize-html";
 import { BlockedTrackersIndicator } from "@/components/mail/blocked-trackers-indicator";
 import {
@@ -91,6 +92,11 @@ interface ThreadViewProps {
   replyTargetId?: string | null;
   /** Cards the user has already replied to (see answeredMessageIds). */
   answeredIds?: Set<string>;
+  /**
+   * The card a search hit or person-pane row linked to: it opens expanded,
+   * marked, and scrolled into view. Null for a plain list open.
+   */
+  focusedMessageId?: string | null;
   /** Cards with a saved reply draft. */
   draftIds?: Set<string>;
   /** Cards whose reply-all would add recipients beyond the primary one. */
@@ -206,6 +212,7 @@ function MessageBubble({
   label,
   isCollapsed: initialCollapsed,
   isFirst,
+  isFocused = false,
   isReplyTarget = false,
   isAnswered = false,
   hasDraft = false,
@@ -222,6 +229,8 @@ function MessageBubble({
   label: string;
   isCollapsed: boolean;
   isFirst: boolean;
+  /** Linked to directly: expanded, marked, scrolled into view. */
+  isFocused?: boolean;
   isReplyTarget?: boolean;
   isAnswered?: boolean;
   hasDraft?: boolean;
@@ -237,6 +246,11 @@ function MessageBubble({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [quotesCollapsed, setQuotesCollapsed] = useState(true);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // jsdom has no scrollIntoView.
+    if (isFocused) cardRef.current?.scrollIntoView?.({ block: "start" });
+  }, [isFocused]);
   // Reported by the sanitizer once the HTML body has rendered client-side:
   // the body has a quoted / signature tail hidden behind the toggle.
   const [htmlTailCollapsible, setHtmlTailCollapsible] = useState(false);
@@ -271,12 +285,38 @@ function MessageBubble({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="group relative"
+      className={cn(
+        "group relative scroll-mt-4 rounded-xl",
+        // Highlighter wash: the linked message reads like a marked passage.
+        isFocused &&
+          "bg-amber-100/70 ring-1 ring-amber-300/70 dark:bg-amber-400/15 dark:ring-amber-400/40",
+      )}
+      ref={cardRef}
+      data-message-card={message.id}
+      data-focused={isFocused || undefined}
+      data-own={isFromCurrentUser || undefined}
     >
       {/* Mobile divider between messages */}
       {!isFirst && <div className="mb-2 border-t border-border/30 md:hidden" />}
 
-      <div className="flex">
+      <div className="flex gap-3 pl-2">
+        {/* Sender disc: initial for received mail, paperplane for own. */}
+        <div
+          className={cn(
+            "mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+            isFromCurrentUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground",
+          )}
+          aria-label={isFromCurrentUser ? "Sent by you" : "Received"}
+          role="img"
+        >
+          {isFromCurrentUser ? (
+            <Send className="h-3 w-3" />
+          ) : (
+            senderInitial(message.fromAddress, message.fromName)
+          )}
+        </div>
         {/* Content */}
         <div className="min-w-0 flex-1 pb-4 md:pb-8">
           {/* Header — always visible */}
@@ -288,6 +328,14 @@ function MessageBubble({
               <span className="text-sm font-semibold leading-none tracking-tight">
                 {label}
               </span>
+              {isFocused && (
+                <span
+                  data-card-badge="linked"
+                  className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300"
+                >
+                  linked
+                </span>
+              )}
               {isAnswered && (
                 <span
                   data-card-badge="replied"
@@ -545,6 +593,7 @@ export function ThreadView({
   userEmails,
   replyTargetId = null,
   answeredIds,
+  focusedMessageId = null,
   draftIds,
   replyAllIds,
   onReply,
@@ -567,8 +616,11 @@ export function ThreadView({
           message={message}
           isFromCurrentUser={isOwn(message.fromAddress)}
           label={cardLabel(message, isOwn, nameFor)}
-          isCollapsed={i < messages.length - 1}
+          isCollapsed={
+            i < messages.length - 1 && message.id !== focusedMessageId
+          }
           isFirst={i === 0}
+          isFocused={message.id === focusedMessageId}
           isReplyTarget={message.id === replyTargetId}
           isAnswered={answeredIds?.has(message.id) ?? false}
           hasDraft={draftIds?.has(message.id) ?? false}

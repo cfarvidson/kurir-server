@@ -58,6 +58,8 @@ interface ThreadPageContentProps {
   replyOptions: Record<string, ReplyOptions>;
   /** Card the composer targets when the thread opens. */
   initialReplyTargetId: string;
+  /** The linked card (search hit, person-pane row) to open on; see ThreadView. */
+  focusedMessageId?: string | null;
   /** Cards that already have a saved reply draft. */
   draftContextIds?: string[];
   branches?: ThreadBranchLink[];
@@ -75,6 +77,7 @@ export function ThreadPageContent({
   userEmails,
   replyOptions,
   initialReplyTargetId,
+  focusedMessageId = null,
   draftContextIds = [],
   branches = [],
   emailConnectionId,
@@ -214,6 +217,7 @@ export function ThreadPageContent({
         userEmails={userEmailSet}
         replyTargetId={replyTargetId}
         answeredIds={answeredIds}
+        focusedMessageId={focusedMessageId}
         draftIds={draftIds}
         replyAllIds={replyAllIds}
         onReply={handleCardReply}
