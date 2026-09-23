@@ -117,6 +117,35 @@ describe("ThreadView per-card reply (plan 055)", () => {
     expect(screen.queryByText("Reply all", { selector: "button" })).toBeNull();
   });
 
+  it("opens the linked card expanded and marked, and marks own mail", () => {
+    render(
+      <ThreadView
+        messages={[
+          message({ id: "a1", textBody: "older body" }),
+          message({
+            id: "s1",
+            fromAddress: ME,
+            fromName: null,
+            toAddresses: ["anna@corp-a.example"],
+            textBody: "newest body",
+          }),
+        ]}
+        currentUserEmail={ME}
+        focusedMessageId="a1"
+      />,
+    );
+
+    const linked = document.querySelector('[data-message-card="a1"]')!;
+    expect(linked.getAttribute("data-focused")).toBe("true");
+    expect(within(linked as HTMLElement).getByText("older body")).toBeTruthy();
+    expect(within(linked as HTMLElement).getByText("linked")).toBeTruthy();
+    expect(within(linked as HTMLElement).getByLabelText("Received").textContent).toBe("A");
+    const own = document.querySelector('[data-message-card="s1"]')!;
+    expect(own.getAttribute("data-own")).toBe("true");
+    expect(within(own as HTMLElement).getByLabelText("Sent by you")).toBeTruthy();
+    expect(linked.getAttribute("data-own")).toBeNull();
+  });
+
   it("shows the AI filing log on the mail card", () => {
     render(
       <ThreadView

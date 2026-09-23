@@ -140,6 +140,20 @@ export function cardLabel(
 }
 
 /**
+ * One uppercase letter for the sender disc: the name's first letter, else
+ * the address's. Quotes and whitespace around a name are skipped.
+ */
+export function senderInitial(
+  fromAddress: string,
+  fromName: string | null | undefined,
+): string {
+  const name = (fromName ?? "").replace(/^[\s"']+|[\s"']+$/g, "");
+  const source = name || fromAddress;
+  const first = source.match(/[\p{L}\p{N}]/u)?.[0];
+  return first ? first.toUpperCase() : "?";
+}
+
+/**
  * Db ids of cards the user has replied to: an own message in the thread
  * replies to them (inReplyTo), or the server flagged them answered.
  */
