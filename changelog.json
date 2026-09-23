@@ -1,5 +1,15 @@
 [
   {
+    "version": "2026.118",
+    "date": "2026-09-23",
+    "changes": [
+      "Writing to someone screens them in: their reply lands in the Imbox instead of the Screener, whether the mail was sent from Kurir or from another client",
+      "A thread opened from a search hit or a person's Recent list opens on that mail: expanded, scrolled into view and marked with a terracotta wash and a Linked badge",
+      "Every mail in a thread gets a sender disc: the sender's initial for received mail, a paperplane for your own, so the two read apart at a glance",
+      "iOS and macOS 2026.116 build 112 carry the same thread view, and a search hit there now opens the mail instead of the person pane"
+    ]
+  },
+  {
     "version": "2026.117",
     "date": "2026-09-23",
     "changes": [

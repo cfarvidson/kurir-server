@@ -4,6 +4,28 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.118] - 2026-09-23
+
+### Fixed
+
+- Writing to someone screens them in. The first reply from a person you
+  mailed first used to land in the Screener, because sending mail never
+  created a sender record for the recipient. Every To, Cc and Bcc address
+  of a mail sent from Kurir, and the To and Cc of mail sent from another
+  client (seen at Sent-folder sync), is now approved into the Imbox. A
+  sender already waiting in the Screener moves to the Imbox; rejected
+  senders stay rejected. Replies already in the Screener are not moved.
+
+### Changed
+
+- A thread opened from a search hit or from a person's Recent list opens
+  on that mail: expanded, scrolled into view and set on a light terracotta
+  wash with a Linked badge.
+- Every mail in a thread gets a disc in the left gutter: the sender's
+  initial for received mail, a paperplane for your own.
+- iOS and macOS 2026.116 build 112 carry the same thread view, and a
+  search hit there opens the mail instead of the person pane.
+
 ## [v2026.117] - 2026-09-23
 
 ### Fixed
