@@ -7,12 +7,20 @@
 import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { searchMessages } from "@/lib/mail/search";
+import { mergeSearchFilters, searchMessages } from "@/lib/mail/search";
 
 const stamp = Date.now();
 const token = `uniquefts${stamp}`;
 
-async function seedUser(email: string, subject: string, body: string) {
+async function seedUser(
+  email: string,
+  subject: string,
+  body: string,
+  from: { address: string; name: string | null } = {
+    address: "seller@example.com",
+    name: "Seller",
+  },
+) {
   const user = await db.user.create({
     data: { displayName: email },
   });
@@ -39,8 +47,8 @@ async function seedUser(email: string, subject: string, body: string) {
       emailConnectionId: connection.id,
       folderId: folder.id,
       uid: 1,
-      fromAddress: "seller@example.com",
-      fromName: "Seller",
+      fromAddress: from.address,
+      fromName: from.name,
       subject,
       textBody: body,
       receivedAt: new Date(),
@@ -56,6 +64,7 @@ async function seedUser(email: string, subject: string, body: string) {
 describe("search_vector against Postgres", () => {
   let userA: { user: { id: string }; message: { id: string } };
   let userB: { user: { id: string }; message: { id: string } };
+  let userC: { user: { id: string }; message: { id: string } };
 
   beforeAll(async () => {
     userA = await seedUser(
@@ -68,12 +77,59 @@ describe("search_vector against Postgres", () => {
       `Zebra invoice ${token}`,
       "other body",
     );
+    // A Swedish mail whose sender name is only in the address.
+    userC = await seedUser(
+      `fts-c-${stamp}@example.com`,
+      `Fakturan för kulturföreningen ${token}`,
+      "Hej, här kommer underlaget.",
+      { address: `monika${stamp}@kulturforeningen.se`, name: null },
+    );
   });
 
   afterAll(async () => {
     await db.user.deleteMany({
-      where: { id: { in: [userA.user.id, userB.user.id] } },
+      where: { id: { in: [userA.user.id, userB.user.id, userC.user.id] } },
     });
+  });
+
+  it("finds the message by a name that only appears in the address", async () => {
+    const hits = await searchMessages(userC.user.id, "monika", Prisma.empty);
+    expect(hits.map((h) => h.id)).toContain(userC.message.id);
+  });
+
+  it("finds the message by the full address and by the domain", async () => {
+    const byAddress = await searchMessages(
+      userC.user.id,
+      `monika${stamp}@kulturforeningen.se`,
+      Prisma.empty,
+    );
+    expect(byAddress.map((h) => h.id)).toContain(userC.message.id);
+    const byDomain = await searchMessages(
+      userC.user.id,
+      "kulturforeningen",
+      Prisma.empty,
+    );
+    expect(byDomain.map((h) => h.id)).toContain(userC.message.id);
+  });
+
+  it("prefix-matches Swedish words as typed, without English stemming", async () => {
+    const hits = await searchMessages(userC.user.id, "faktura", Prisma.empty);
+    expect(hits.map((h) => h.id)).toContain(userC.message.id);
+    const exact = await searchMessages(userC.user.id, "fakturan", Prisma.empty);
+    expect(exact.map((h) => h.id)).toContain(userC.message.id);
+  });
+
+  it("lists mail for a From chip alone, matched on part of the address", async () => {
+    const hits = await searchMessages(
+      userC.user.id,
+      "",
+      mergeSearchFilters(Prisma.empty, { from: "monika" }),
+      50,
+      { constrained: true },
+    );
+    expect(hits.map((h) => h.id)).toContain(userC.message.id);
+    const none = await searchMessages(userC.user.id, "", Prisma.empty);
+    expect(none).toEqual([]);
   });
 
   it("populates search_vector on insert", async () => {

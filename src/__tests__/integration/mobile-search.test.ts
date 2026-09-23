@@ -60,12 +60,39 @@ describe("GET /api/mobile/search", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 for a missing or blank query", async () => {
+  it("returns 400 for a missing or blank query without a chip filter", async () => {
     await mockAuthed();
     const { GET } = await import("@/app/api/mobile/search/route");
 
     expect((await GET(makeRequest())).status).toBe(400);
     expect((await GET(makeRequest({ q: "   " }))).status).toBe(400);
+    expect((await GET(makeRequest({ category: "feed" }))).status).toBe(400);
+  });
+
+  it("lists the filtered mail when From is set without a query", async () => {
+    await mockAuthed();
+    const { searchMessages, mergeSearchFilters } = await import(
+      "@/lib/mail/search"
+    );
+    const { searchCategoryFilter } = await import("@/lib/mail/list-contract");
+    vi.mocked(searchMessages).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/mobile/search/route");
+
+    const res = await GET(makeRequest({ from: "monika" }));
+    expect(res.status).toBe(200);
+    expect(searchMessages).toHaveBeenCalledWith(
+      "user-1",
+      "",
+      mergeSearchFilters(searchCategoryFilter(null), {
+        from: "monika",
+        domain: null,
+        hasAttachment: false,
+        after: null,
+        before: null,
+      }),
+      50,
+      { constrained: true },
+    );
   });
 
   it("delegates to searchMessages with the user id and clamped limit", async () => {
@@ -83,6 +110,7 @@ describe("GET /api/mobile/search", () => {
       "invoice",
       expect.anything(),
       50,
+      { constrained: false },
     );
   });
 
@@ -215,6 +243,7 @@ describe("GET /api/mobile/search", () => {
       "invoice",
       Prisma.empty,
       50,
+      { constrained: false },
     );
   });
 
@@ -229,6 +258,7 @@ describe("GET /api/mobile/search", () => {
       "invoice",
       Prisma.empty,
       50,
+      { constrained: false },
     );
   });
 
@@ -244,6 +274,7 @@ describe("GET /api/mobile/search", () => {
       "invoice",
       searchCategoryFilter("feed"),
       50,
+      { constrained: false },
     );
   });
 
@@ -281,6 +312,7 @@ describe("GET /api/mobile/search", () => {
         domain: null,
       }),
       50,
+      { constrained: true },
     );
   });
 

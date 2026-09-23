@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Prisma } from "@prisma/client";
 import {
+  hasSearchConstraints,
   mergeSearchFilters,
   searchConstraintFilter,
   searchFilterSql,
@@ -11,10 +12,17 @@ import {
 } from "@/lib/mail/list-contract";
 
 describe("searchConstraintFilter", () => {
-  it("filters From in isolation", () => {
-    const sql = searchConstraintFilter({ from: "  Maya@X.COM " });
-    expect(sql.strings.join("")).toContain('LOWER("fromAddress")');
-    expect(sql.values).toContain("maya@x.com");
+  it("filters From on part of the address or the name", () => {
+    const sql = searchConstraintFilter({ from: "  Monika " });
+    const joined = sql.strings.join("");
+    expect(joined).toContain('LOWER("fromAddress") LIKE');
+    expect(joined).toContain('LOWER(COALESCE("fromName", \'\')) LIKE');
+    expect(sql.values).toEqual(["%monika%", "%monika%"]);
+  });
+
+  it("escapes LIKE wildcards in the From value", () => {
+    const sql = searchConstraintFilter({ from: "50%_off" });
+    expect(sql.values[0]).toBe("%50\\%\\_off%");
   });
 
   it("filters domain in isolation", () => {
@@ -43,7 +51,7 @@ describe("searchConstraintFilter", () => {
     const joined = sql.strings.join("");
     expect(joined).toContain('LOWER("fromAddress")');
     expect(joined).toContain('"hasAttachments" = true');
-    expect(sql.values).toContain("maya@x.com");
+    expect(sql.values).toContain("%maya@x.com%");
   });
 
   it("clears a chip by omitting that constraint", () => {
@@ -52,12 +60,12 @@ describe("searchConstraintFilter", () => {
       domain: "gmail.com",
       hasAttachment: true,
     });
-    expect(filled.values).toContain("maya@x.com");
+    expect(filled.values).toContain("%maya@x.com%");
     const clearedFrom = searchConstraintFilter({
       domain: "gmail.com",
       hasAttachment: true,
     });
-    expect(clearedFrom.values).not.toContain("maya@x.com");
+    expect(clearedFrom.values).not.toContain("%maya@x.com%");
     expect(clearedFrom.values).toContain("gmail.com");
     expect(clearedFrom.strings.join("")).toContain("SPLIT_PART");
     expect(clearedFrom.strings.join("")).toContain("hasAttachments");
@@ -65,6 +73,23 @@ describe("searchConstraintFilter", () => {
 
   it("returns empty SQL when every chip is idle", () => {
     expect(searchConstraintFilter({})).toEqual(Prisma.empty);
+  });
+});
+
+describe("hasSearchConstraints", () => {
+  it("is false for words, scope and list chip alone", () => {
+    expect(hasSearchConstraints({})).toBe(false);
+    expect(hasSearchConstraints({ q: "tax", scope: "list" })).toBe(false);
+    expect(hasSearchConstraints({ list: "feed" })).toBe(false);
+    expect(hasSearchConstraints({ hasAttachment: "false" })).toBe(false);
+    expect(hasSearchConstraints({ after: "nope" })).toBe(false);
+  });
+
+  it("is true once a From, domain, attachment or date chip is set", () => {
+    expect(hasSearchConstraints({ from: "monika" })).toBe(true);
+    expect(hasSearchConstraints({ domain: "x.com" })).toBe(true);
+    expect(hasSearchConstraints({ hasAttachment: "true" })).toBe(true);
+    expect(hasSearchConstraints({ after: "2026-01-01" })).toBe(true);
   });
 });
 

@@ -14,7 +14,10 @@ import {
   type MailSearchQuery,
   isSearchQuery,
 } from "@/lib/mail/list-contract";
-import { searchFilterSql } from "@/lib/mail/search";
+import {
+  hasSearchConstraints,
+  searchFilterSql,
+} from "@/lib/mail/search";
 
 export default async function ImboxPage({
   searchParams,
@@ -28,7 +31,8 @@ export default async function ImboxPage({
   }
 
   const params = await searchParams;
-  const isSearching = isSearchQuery(params.q);
+  const constrained = hasSearchConstraints(params);
+  const isSearching = isSearchQuery(params.q) || constrained;
 
   return (
     <div className="flex h-full flex-col">
@@ -46,7 +50,8 @@ export default async function ImboxPage({
         {isSearching ? (
           <SearchResults
             userId={session.user.id}
-            query={params.q!}
+            query={params.q ?? ""}
+            constrained={constrained}
             categoryFilter={searchFilterSql("imbox", params)}
             basePath="/imbox"
             list="imbox"
