@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.123] - 2026-09-24
+
+### Added
+
+- Send again: a new action next to Forward on each message copies its
+  subject, body and attachments into a brand-new mail, so the same mail can
+  go to someone else as a new message. Pairs with iOS/macOS 2026.119 build
+  116, which also fixes the Mac mouse back button and makes the thread
+  subject selectable.
+
 ## [v2026.122] - 2026-09-24
 
 ### Fixed

@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.123",
+    "date": "2026-09-24",
+    "changes": [
+      "Send again: copy a message's subject, body and attachments into a brand-new mail, next to Forward"
+    ]
+  },
+  {
     "version": "2026.122",
     "date": "2026-09-24",
     "changes": [
