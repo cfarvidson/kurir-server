@@ -34,7 +34,8 @@ interface InfiniteMessageListProps {
     | "archive"
     | "snoozed"
     | "follow-up"
-    | "sent";
+    | "sent"
+    | "pinned";
   basePath: string;
   showSections?: boolean;
   showArchiveAction?: boolean;

@@ -563,7 +563,13 @@ export async function dismissThreadFollowUp(userId: string, messageId: string) {
   });
 }
 
-/** Toggle the Reply Later flag for a whole thread (explicit target state). */
+/**
+ * Toggle the Reply Later flag for a whole thread (explicit target state).
+ *
+ * Reply Later means "in my active pile", so flagging an archived thread
+ * unarchives it first (same placement as Unarchive, plan 056); the Reply
+ * Later list never shows archived mail. Clearing leaves archive state alone.
+ */
 export async function setThreadReplyLater(
   userId: string,
   messageId: string,
@@ -571,10 +577,14 @@ export async function setThreadReplyLater(
 ) {
   const message = await db.message.findFirst({
     where: { id: messageId, userId },
-    select: { id: true, threadId: true },
+    select: { id: true, threadId: true, isArchived: true },
   });
 
   if (!message) throw new Error("Message not found");
+
+  if (isReplyLater && message.isArchived) {
+    await unarchiveThread(userId, messageId);
+  }
 
   const threadMessages = message.threadId
     ? await db.message.findMany({
@@ -587,6 +597,37 @@ export async function setThreadReplyLater(
     where: { id: { in: threadMessages.map((m) => m.id) } },
     data: { isReplyLater },
   });
+}
+
+/**
+ * Pin or unpin a whole thread (plan 056). A pin is the IMAP \Flagged flag
+ * (`isFlagged`), so it is orthogonal to archive, category, snooze and Reply
+ * Later, and a flag set in another mail client shows up as a pin here.
+ *
+ * DB update now, \Flagged pushed to IMAP via after(): the flag is read back
+ * from IMAP on every CONDSTORE catch-up, so a DB-only pin would flip back on
+ * the next reconnect.
+ */
+export async function setThreadPinned(
+  userId: string,
+  messageId: string,
+  isPinned: boolean,
+) {
+  const { threadMessages } = await findThreadMessages(userId, messageId);
+
+  await db.message.updateMany({
+    where: { id: { in: threadMessages.map((m) => m.id) } },
+    data: { isFlagged: isPinned },
+  });
+
+  after(() =>
+    pushFlagsToImap(
+      userId,
+      threadMessages.map((m) => ({ uid: m.uid, folderId: m.folderId })),
+      "\\Flagged",
+      isPinned ? "add" : "remove",
+    ).catch((err) => console.error("IMAP \\Flagged push failed:", err)),
+  );
 }
 
 /** Approve a sender into a category and move their non-archived messages. */

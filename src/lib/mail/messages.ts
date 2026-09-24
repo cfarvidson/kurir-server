@@ -25,6 +25,8 @@ const CATEGORY_FILTERS = {
   snoozed: { isSnoozed: true, isDeleted: false },
   "follow-up": { isFollowUp: true, isArchived: false, isDeleted: false },
   "reply-later": { isReplyLater: true, isArchived: false, isDeleted: false },
+  // Pin = IMAP \Flagged (plan 056): orthogonal to archive and category.
+  pinned: { isFlagged: true, isDeleted: false },
 } as const;
 
 export type Category = keyof typeof CATEGORY_FILTERS | "sent";

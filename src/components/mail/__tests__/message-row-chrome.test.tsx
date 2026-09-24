@@ -33,6 +33,7 @@ vi.mock("@/actions/snooze", () => ({
   unsnoozeConversation: vi.fn(),
 }));
 vi.mock("@/actions/follow-up", () => ({ setFollowUp: vi.fn() }));
+vi.mock("@/actions/pin", () => ({ setPinned: vi.fn() }));
 vi.mock("@/actions/read-status", () => ({ toggleReadStatus: vi.fn() }));
 vi.mock("@/actions/content-rules", () => ({
   addContentRuleSender: vi.fn(),
@@ -87,6 +88,36 @@ describe("MessageRow chrome", () => {
     expect(
       screen.getByText(formatSnoozeUntil(followUpAt)),
     ).toBeDefined();
+  });
+
+  it("shows a pin on a pinned row and offers Unpin (plan 056)", () => {
+    render(
+      <MessageRow
+        message={{ ...base, isFlagged: true }}
+        basePath="/imbox"
+        showArchiveAction={false}
+      />,
+    );
+    expect(screen.getByLabelText("Pinned")).toBeDefined();
+    expect(screen.getByTitle("Unpin")).toBeDefined();
+  });
+
+  it("offers Pin on an unpinned row but not in Reply Later", () => {
+    const { unmount } = render(
+      <MessageRow message={base} basePath="/imbox" showArchiveAction={false} />,
+    );
+    expect(screen.getByTitle("Pin")).toBeDefined();
+    expect(screen.queryByLabelText("Pinned")).toBeNull();
+    unmount();
+    render(
+      <MessageRow
+        message={base}
+        basePath="/reply-later"
+        list="reply-later"
+        showArchiveAction={false}
+      />,
+    );
+    expect(screen.queryByTitle("Pin")).toBeNull();
   });
 
   it("shows a list label on mixed search hits", () => {

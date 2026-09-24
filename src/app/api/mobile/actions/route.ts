@@ -11,6 +11,7 @@ import {
   setThreadFollowUp,
   dismissThreadFollowUp,
   setThreadReplyLater,
+  setThreadPinned,
   approveSenderForUser,
   rejectSenderForUser,
   skipSenderForUser,
@@ -86,6 +87,12 @@ const actionSchema = z.discriminatedUnion("type", [
     id: z.string().min(1),
     type: z.literal("clearReplyLater"),
     messageId: z.string().min(1),
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setPinned"),
+    messageId: z.string().min(1),
+    isPinned: z.boolean(),
   }),
   z.object({
     id: z.string().min(1),
@@ -232,6 +239,9 @@ export async function POST(req: NextRequest) {
           break;
         case "clearReplyLater":
           await setThreadReplyLater(userId, action.messageId, false);
+          break;
+        case "setPinned":
+          await setThreadPinned(userId, action.messageId, action.isPinned);
           break;
         case "approveSender":
           await approveSenderForUser(userId, action.senderId, action.category);

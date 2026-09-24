@@ -1,4 +1,6 @@
 import { ThreadDetailView } from "@/components/mail/thread-detail-view";
+import { PinButton } from "@/components/mail/pin-button";
+import { ReplyLaterButton } from "@/components/mail/reply-later-button";
 import { UnsnoozeButton } from "@/components/mail/unsnooze-button";
 
 export default async function SnoozedDetailPage({
@@ -22,8 +24,12 @@ export default async function SnoozedDetailPage({
         showSnooze: false,
         showFollowUp: false,
       }}
-      actions={({ messageId, returnPath }) => (
-        <UnsnoozeButton messageId={messageId} returnPath={returnPath} />
+      actions={({ messageId, returnPath, isReplyLater, isPinned }) => (
+        <>
+          <PinButton messageId={messageId} isPinned={isPinned} />
+          <ReplyLaterButton messageId={messageId} isReplyLater={isReplyLater} />
+          <UnsnoozeButton messageId={messageId} returnPath={returnPath} />
+        </>
       )}
     />
   );

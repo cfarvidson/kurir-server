@@ -16,11 +16,14 @@ import {
   Loader2,
   Mail,
   Paperclip,
+  Pin,
+  PinOff,
   Sparkles,
 } from "lucide-react";
 import { archiveConversation, unarchiveConversation } from "@/actions/archive";
 import { snoozeConversation } from "@/actions/snooze";
 import { setFollowUp } from "@/actions/follow-up";
+import { setPinned as setPinnedAction } from "@/actions/pin";
 import { toggleReadStatus } from "@/actions/read-status";
 import { showUndoToast } from "@/components/mail/undo-toast";
 import { SnoozePicker } from "@/components/mail/snooze-picker";
@@ -51,6 +54,8 @@ export interface MessageItem {
   ccAddresses?: string[];
   receivedAt: Date;
   isRead: boolean;
+  /** Pinned (IMAP \Flagged, plan 056). */
+  isFlagged?: boolean;
   hasAttachments: boolean;
   threadId?: string | null;
   threadCount?: number;
@@ -261,6 +266,42 @@ export function MessageRow({
     return () => window.removeEventListener("keyboard-follow-up", handler);
   }, [message.id]);
 
+  // Pin (plan 056): optimistic flip, server confirms on refresh. Every list
+  // but Reply Later offers it; on /pinned, unpinning removes the row.
+  const showPinAction = list !== "reply-later";
+  const serverPinned = message.isFlagged ?? false;
+  const [pinOverride, setPinOverride] = useState<boolean | null>(null);
+  const [seenServerPinned, setSeenServerPinned] = useState(serverPinned);
+  if (serverPinned !== seenServerPinned) {
+    // Server caught up (or another client changed it): drop the override.
+    setSeenServerPinned(serverPinned);
+    setPinOverride(null);
+  }
+  const isPinned = pinOverride ?? serverPinned;
+  const doTogglePin = useCallback(() => {
+    const next = !isPinned;
+    setPinOverride(next);
+    if (!next && basePath === "/pinned") onArchived?.(message.id);
+    toast.success(next ? "Pinned" : "Unpinned");
+    setPinnedAction(message.id, next).then(() => router.refresh());
+  }, [isPinned, basePath, onArchived, message.id, router]);
+
+  useEffect(() => {
+    if (!showPinAction) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.messageId === message.id) doTogglePin();
+    };
+    window.addEventListener("keyboard-pin", handler);
+    return () => window.removeEventListener("keyboard-pin", handler);
+  }, [message.id, showPinAction, doTogglePin]);
+
+  const handlePin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    doTogglePin();
+  };
+
   const doArchive = () => {
     onArchived?.(message.id);
     setActionPending(true);
@@ -430,6 +471,12 @@ export function MessageRow({
           {message.hasAttachments && (
             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
+          {isPinned && (
+            <Pin
+              className="h-3.5 w-3.5 shrink-0 text-primary"
+              aria-label="Pinned"
+            />
+          )}
           {message.aiVerdict && <AIVerdictBadge verdict={message.aiVerdict} />}
           <span
             className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
@@ -480,6 +527,7 @@ export function MessageRow({
         showUnarchiveAction ||
         showSnoozeAction ||
         showFollowUpAction ||
+        showPinAction ||
         showAIRuleAction) &&
         !isSelectionMode && (
           <div
@@ -490,6 +538,21 @@ export function MessageRow({
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >
+            {showPinAction && (
+              <button
+                onClick={handlePin}
+                className={rowActionBtnClass}
+                title={isPinned ? "Unpin" : "Pin"}
+              >
+                {isPinned ? (
+                  <PinOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Pin className="h-3.5 w-3.5" />
+                )}
+                {isPinned ? "Unpin" : "Pin"}
+                <RowActionKbd>P</RowActionKbd>
+              </button>
+            )}
             {showFollowUpAction && (
               <FollowUpPicker
                 onFollowUp={handleFollowUp}

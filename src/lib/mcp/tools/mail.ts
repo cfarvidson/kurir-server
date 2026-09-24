@@ -27,6 +27,7 @@ import {
   setThreadFollowUp,
   setThreadReadState,
   setThreadReplyLater,
+  setThreadPinned,
   snoozeThread,
   unarchiveThread,
   unsnoozeThread,
@@ -80,6 +81,7 @@ const CATEGORY_VIEWS = {
   paper_trail: "paper-trail",
   follow_up: "follow-up",
   reply_later: "reply-later",
+  pinned: "pinned",
 } as const;
 
 const SPECIAL_VIEWS = [
@@ -125,6 +127,8 @@ const THREAD_ACTIONS = [
   "dismiss_follow_up",
   "reply_later",
   "clear_reply_later",
+  "pin",
+  "unpin",
 ] as const;
 
 const updateThreadSchema = z.object({
@@ -170,7 +174,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "list_mail",
     description:
-      "List mail in a Kurir view (imbox, feed, paper_trail, screener, archive, sent, snoozed, follow_up, reply_later, drafts, scheduled, files). Returns compact rows, never HTML bodies.",
+      "List mail in a Kurir view (imbox, feed, paper_trail, screener, archive, sent, snoozed, follow_up, reply_later, pinned, drafts, scheduled, files). Returns compact rows, never HTML bodies.",
     inputSchema: {
       type: "object",
       properties: {
@@ -243,7 +247,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "update_thread",
     description:
-      "Archive, unarchive, mark read/unread, snooze, follow up, or reply-later a thread. until is required for snooze and follow_up.",
+      "Archive, unarchive, mark read/unread, snooze, follow up, reply-later, pin, or unpin a thread. until is required for snooze and follow_up.",
     inputSchema: {
       type: "object",
       properties: {
@@ -873,6 +877,12 @@ async function updateThread(
     case "clear_reply_later":
       await setThreadReplyLater(ctx.userId, messageId, false);
       break;
+    case "pin":
+      await setThreadPinned(ctx.userId, messageId, true);
+      break;
+    case "unpin":
+      await setThreadPinned(ctx.userId, messageId, false);
+      break;
   }
 
   bumpSidebarCounts();
@@ -1169,4 +1179,5 @@ const compactSelect = {
   snoozedUntil: true,
   followUpAt: true,
   isReplyLater: true,
+  isFlagged: true,
 } as const;

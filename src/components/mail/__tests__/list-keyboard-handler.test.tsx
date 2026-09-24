@@ -71,3 +71,26 @@ describe("ListKeyboardHandler archive key", () => {
     expect(onArchived).toHaveBeenCalledWith("m1");
   });
 });
+
+describe("ListKeyboardHandler pin key (plan 056)", () => {
+  beforeEach(() => {
+    useKeyboardNavigationStore.setState({ focusedIndex: 0 });
+  });
+
+  it("dispatches keyboard-pin for the focused row on p", () => {
+    const seen: string[] = [];
+    const listener = (e: Event) =>
+      seen.push((e as CustomEvent).detail.messageId);
+    window.addEventListener("keyboard-pin", listener);
+    render(
+      <ListKeyboardHandler
+        threads={[thread]}
+        basePath="/imbox"
+        showArchiveAction={false}
+      />,
+    );
+    fireEvent.keyDown(window, { key: "p" });
+    window.removeEventListener("keyboard-pin", listener);
+    expect(seen).toEqual(["m1"]);
+  });
+});

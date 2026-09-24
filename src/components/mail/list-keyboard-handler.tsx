@@ -147,6 +147,18 @@ export function ListKeyboardHandler({
           break;
         }
 
+        case "p": {
+          // Pin toggle (plan 056); the row decides whether it offers it.
+          if (!msg) break;
+          e.preventDefault();
+          window.dispatchEvent(
+            new CustomEvent("keyboard-pin", {
+              detail: { messageId: msg.id },
+            }),
+          );
+          break;
+        }
+
         case "x": {
           if (!msg) break;
           e.preventDefault();

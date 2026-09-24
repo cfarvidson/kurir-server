@@ -83,12 +83,15 @@ interface ThreadDetailViewProps {
     followUpAt: Date | null;
     isFollowUp: boolean;
     isReplyLater: boolean;
+    isPinned: boolean;
+    isArchived: boolean;
   }) => React.ReactNode;
   isSentView?: boolean;
   mobileActions?: {
     showArchive?: boolean;
     showSnooze?: boolean;
     showFollowUp?: boolean;
+    showPin?: boolean;
   };
   hideHeaderActionsOnMobile?: boolean;
 }
@@ -320,6 +323,8 @@ export async function ThreadDetailView({
             followUpAt: targetMessage.followUpAt,
             isFollowUp: targetMessage.isFollowUp,
             isReplyLater: targetMessage.isReplyLater,
+            isPinned: targetMessage.isFlagged,
+            isArchived: targetMessage.isArchived,
           })}
         </div>
       </div>
@@ -400,6 +405,8 @@ export async function ThreadDetailView({
           showArchive={mobileActions.showArchive}
           showSnooze={mobileActions.showSnooze}
           showFollowUp={mobileActions.showFollowUp}
+          showPin={mobileActions.showPin}
+          isPinned={targetMessage.isFlagged}
         />
       )}
     </div>

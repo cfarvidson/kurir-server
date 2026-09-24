@@ -17,6 +17,7 @@ export const SEARCH_SELECT_COLUMNS = [
   "ccAddresses",
   "receivedAt",
   "isRead",
+  "isFlagged",
   "hasAttachments",
   "snoozedUntil",
   "followUpAt",
@@ -38,6 +39,7 @@ export interface MessageSearchResult {
   ccAddresses: string[];
   receivedAt: Date;
   isRead: boolean;
+  isFlagged: boolean;
   hasAttachments: boolean;
   snoozedUntil: Date | null;
   followUpAt: Date | null;

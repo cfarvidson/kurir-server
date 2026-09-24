@@ -8,7 +8,8 @@ export type MailListId =
   | "snoozed"
   | "follow-up"
   | "sent"
-  | "reply-later";
+  | "reply-later"
+  | "pinned";
 
 export type SearchCategory = Exclude<MailListId, "reply-later">;
 
@@ -64,6 +65,10 @@ const EMPTY_COPY: Record<MailListId, EmptyCopy> = {
   "reply-later": {
     title: "All caught up",
     description: "Nothing left to reply to. Nice work.",
+  },
+  pinned: {
+    title: "Nothing pinned",
+    description: "Pin a conversation to keep it at hand while you work on it.",
   },
 };
 
@@ -135,6 +140,15 @@ export function listActionSet(list: MailListId): ListActionSet {
         archive: false,
         unarchive: false,
       };
+    case "pinned":
+      // Mixes archived and live threads, so no list-wide archive/unarchive;
+      // the row's own Pin toggle is the action here.
+      return {
+        followUp: true,
+        snooze: false,
+        archive: false,
+        unarchive: false,
+      };
   }
 }
 
@@ -153,6 +167,9 @@ export function swipeActions(list: MailListId): {
   trailing: "archive" | "unarchive" | null;
 } {
   if (list === "reply-later") return { leading: null, trailing: null };
+  // Pinned mixes archived and live threads; a trailing swipe would be
+  // wrong for half of them.
+  if (list === "pinned") return { leading: "read", trailing: null };
   const set = listActionSet(list);
   return {
     leading: "read",
@@ -180,6 +197,7 @@ export const SEARCHABLE_LIST_LABELS: Record<SearchCategory, string> = {
   snoozed: "Snoozed",
   "follow-up": "Follow-up",
   sent: "Sent",
+  pinned: "Pinned",
 };
 
 export function isSearchCategory(value: string): value is SearchCategory {
@@ -285,6 +303,8 @@ export function searchCategoryFilter(
       return Prisma.sql`AND "isSnoozed" = true`;
     case "follow-up":
       return Prisma.sql`AND "isFollowUp" = true AND "isArchived" = false`;
+    case "pinned":
+      return Prisma.sql`AND "isFlagged" = true`;
     case "sent":
       return Prisma.sql`AND EXISTS (
   SELECT 1 FROM "Folder" f
