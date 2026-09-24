@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.119] - 2026-09-24
+
+### Added
+
+- Pin a thread to keep it at hand. A pin is the IMAP flag, so it is
+  independent of archive and category, shows as a pin in the thread's row
+  in every list, and collects in a Pinned list under Later. Pin from the
+  thread header, the row's hover actions or the `p` key. The server pushes
+  the flag to IMAP, so a flag set in another mail client shows up as a pin
+  and the other way round. The MCP tools get the `pinned` view and the
+  `pin` / `unpin` thread actions.
+
+### Fixed
+
+- Reply Later works from the archive. Setting it on an archived thread
+  brings the thread back to its category (and into Reply Later), and the
+  Reply Later button is on every thread page, not only the Imbox.
+- iOS and macOS 2026.119 carry the same pin and Reply Later changes.
+
 ## [v2026.118] - 2026-09-23
 
 ### Fixed

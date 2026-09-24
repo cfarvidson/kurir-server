@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.118",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.118",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.118",
-    "changelog": "Writing to someone screens them in; threads open on the linked mail with sender discs",
+    "version": "2026.119",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.119",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.119",
+    "changelog": "Pin threads (IMAP flag) with a Pinned list, and Reply Later works from the archive",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-23T13:24:51Z"
+    "releasedAt": "2026-09-24T00:49:45Z"
   }
 }
