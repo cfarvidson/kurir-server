@@ -1,5 +1,5 @@
 import { withImapConnection, findArchiveMailbox } from "@/lib/mail/imap-client";
-import { suppressEcho } from "@/lib/mail/flag-push";
+import { pushFlagsToImap, suppressEcho } from "@/lib/mail/flag-push";
 import { db } from "@/lib/db";
 
 // Internal IMAP move helpers. These live in a plain lib module — NOT a
@@ -137,14 +137,32 @@ export async function moveToArchiveViaImap(
     where: { id: { in: persisted.messageIds }, isArchived: false },
     select: { uid: true },
   });
-  if (undoneMidMove.length === 0) return;
+  if (undoneMidMove.length > 0) {
+    await moveToInboxViaImap(
+      userId,
+      connectionId,
+      persisted.folderId,
+      undoneMidMove.map((m) => m.uid),
+    );
+  }
 
-  await moveToInboxViaImap(
-    userId,
-    connectionId,
-    persisted.folderId,
-    undoneMidMove.map((m) => m.uid),
-  );
+  // Read state survives the move: a thread read and archived within seconds
+  // pushes \Seen at the INBOX UID, which may run after the move has already
+  // taken the message away, leaving the archive copy unseen on IMAP. Re-assert
+  // \Seen on the archive copies of the rows the DB has as read. Runs after
+  // the repoint, so a later read pushes to the archive location itself.
+  const readInArchive = await db.message.findMany({
+    where: { id: { in: persisted.messageIds }, isArchived: true, isRead: true },
+    select: { uid: true },
+  });
+  if (readInArchive.length > 0) {
+    await pushFlagsToImap(
+      userId,
+      readInArchive.map((m) => ({ uid: m.uid, folderId: persisted.folderId })),
+      "\\Seen",
+      "add",
+    );
+  }
 }
 
 /**

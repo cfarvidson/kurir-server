@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { connectionManager } from "./connection-manager";
 import { withImapConnection } from "./imap-client";
 
 // Inline echo suppression — plain Set + setTimeout
@@ -23,7 +22,10 @@ export function isEcho(userId: string, folderId: string, uid: number): boolean {
 /**
  * Push flag changes to IMAP server.
  * Resolves the emailConnectionId from the message's folder.
- * Prefers the persistent ConnectionManager client; falls back to ephemeral.
+ * Always opens a short-lived connection: the persistent IDLE client holds its
+ * INBOX mailbox lock for the connection's lifetime and ImapFlow grants one lock
+ * at a time, so a lock requested on that client queues forever and the flag
+ * never reaches IMAP.
  */
 export async function pushFlagsToImap(
   userId: string,
@@ -46,16 +48,9 @@ export async function pushFlagsToImap(
   });
   if (!folder?.emailConnectionId) return;
 
-  const connectionId = folder.emailConnectionId;
-  const persistentClient = connectionManager.getClient(connectionId);
-
-  if (persistentClient) {
-    await pushWithClient(persistentClient, imapMessages, flag, action);
-  } else {
-    await withImapConnection(connectionId, async (client) => {
-      await pushWithClient(client, imapMessages, flag, action);
-    });
-  }
+  await withImapConnection(folder.emailConnectionId, async (client) => {
+    await pushWithClient(client, imapMessages, flag, action);
+  });
 }
 
 async function pushWithClient(
