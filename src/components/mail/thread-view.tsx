@@ -12,6 +12,7 @@ import {
   Printer,
   Reply,
   ReplyAll,
+  RotateCw,
   Send,
   Sparkles,
   Split,
@@ -560,6 +561,20 @@ function MessageBubble({
                 >
                   <Forward className="h-3.5 w-3.5" />
                   Forward
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(
+                      `/compose?sendAgain=${message.id}&from=${encodeURIComponent(pathname)}`,
+                    );
+                  }}
+                  className={actionClass}
+                  title="Send this email again as a new message"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Send again
                 </button>
               </div>
             </div>
