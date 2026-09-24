@@ -89,6 +89,11 @@ describe("ThreadView per-card reply (plan 055)", () => {
 
     fireEvent.click(screen.getByText("Forward", { selector: "button" }));
     expect(push).toHaveBeenCalledWith("/compose?forward=b1&from=%2Fimbox%2Fa1");
+
+    fireEvent.click(screen.getByText("Send again", { selector: "button" }));
+    expect(push).toHaveBeenCalledWith(
+      "/compose?sendAgain=b1&from=%2Fimbox%2Fa1",
+    );
   });
 
   it("offers Reply on the user's own card too, and hides Reply all without extra recipients", () => {

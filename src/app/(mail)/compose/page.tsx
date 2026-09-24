@@ -9,9 +9,14 @@ import {
 import { listGroups } from "@/actions/contact-groups";
 import { formatDate } from "@/lib/date";
 import { decrypt } from "@/lib/crypto";
+import { plainTextFromBodies } from "@/lib/mcp/serialize";
 
 interface ComposePageProps {
-  searchParams: Promise<{ forward?: string; editScheduled?: string }>;
+  searchParams: Promise<{
+    forward?: string;
+    sendAgain?: string;
+    editScheduled?: string;
+  }>;
 }
 
 export default async function ComposePage({ searchParams }: ComposePageProps) {
@@ -39,17 +44,21 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
     isDefault: c.isDefault,
   }));
 
-  // Handle forward pre-population
+  // Handle forward / send-again pre-population. Send again is a brand-new
+  // mail (NEW draft, no threading) that starts with the original subject,
+  // body and attachments as they are.
   let forwardData: ForwardData | undefined;
-  if (params.forward) {
+  const sourceId = params.forward ?? params.sendAgain;
+  if (sourceId) {
     const message = await db.message.findFirst({
-      where: { id: params.forward, userId: session.user.id },
+      where: { id: sourceId, userId: session.user.id },
       select: {
         subject: true,
         fromAddress: true,
         fromName: true,
         sentAt: true,
         textBody: true,
+        htmlBody: true,
         attachments: {
           select: {
             id: true,
@@ -61,7 +70,22 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
       },
     });
 
-    if (message) {
+    const attachments = (message?.attachments ?? []).map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      contentType: a.contentType,
+      size: a.size,
+      url: `/api/attachments/${a.id}`,
+      status: "done" as const,
+    }));
+
+    if (message && !params.forward) {
+      forwardData = {
+        subject: message.subject ?? "",
+        body: plainTextFromBodies(message),
+        attachments,
+      };
+    } else if (message) {
       const dateStr = message.sentAt
         ? formatDate(message.sentAt)
         : "Unknown date";
@@ -84,14 +108,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
           ? message.subject
           : `Fwd: ${message.subject || ""}`,
         body: forwardHeader,
-        attachments: message.attachments.map((a) => ({
-          id: a.id,
-          filename: a.filename,
-          contentType: a.contentType,
-          size: a.size,
-          url: `/api/attachments/${a.id}`,
-          status: "done" as const,
-        })),
+        attachments,
       };
     }
   }
