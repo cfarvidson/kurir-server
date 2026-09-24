@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.121",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.121",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.121",
-    "changelog": "Threads: the sender disc sits in the header row, so messages use the full width",
+    "version": "2026.122",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.122",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.122",
+    "changelog": "Mail you read stays read in the Archive; read state and pins now reach the mail server",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-24T06:36:44Z"
+    "releasedAt": "2026-09-24T07:48:51Z"
   }
 }

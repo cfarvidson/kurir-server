@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.122] - 2026-09-24
+
+### Fixed
+
+- Mail you read stays read after it is archived. Marking mail read, marking
+  it unread and pinning never reached the mail server while Kurir held its
+  live INBOX connection, so an archived copy could arrive unread and later
+  syncs turned it unread again. Flags now go over their own connection, and
+  archiving re-applies read state to the archived copy. No app update is
+  needed; iOS, macOS and the web all benefit.
+
 ## [v2026.121] - 2026-09-24
 
 ### Changed

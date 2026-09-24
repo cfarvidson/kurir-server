@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.122",
+    "date": "2026-09-24",
+    "changes": [
+      "Mail you read stays read after it is archived, instead of showing up unread in the Archive",
+      "Read, unread and pin now reach the mail server, so other mail apps see the same state"
+    ]
+  },
+  {
     "version": "2026.121",
     "date": "2026-09-24",
     "changes": [
