@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.120] - 2026-09-24
+
+### Changed
+
+- Pinned sits with the mailboxes in the sidebar, right after Paper Trail,
+  instead of down under Later. The mobile More sheet follows. iOS 2026.119
+  build 114 puts Pinned in the Mail tab switcher as a pin pill, and the Mac
+  sidebar gets the same order (⌘4).
+
 ## [v2026.119] - 2026-09-24
 
 ### Added

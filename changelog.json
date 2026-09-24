@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.120",
+    "date": "2026-09-24",
+    "changes": [
+      "Pinned sits with the mailboxes in the sidebar, right after Paper Trail, instead of under Later; the mobile More sheet follows",
+      "iOS 2026.119 build 114 puts Pinned in the Mail tab switcher as a pin pill; the Mac sidebar gets the same order"
+    ]
+  },
+  {
     "version": "2026.119",
     "date": "2026-09-24",
     "changes": [

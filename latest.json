@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.119",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.119",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.119",
-    "changelog": "Pin threads (IMAP flag) with a Pinned list, and Reply Later works from the archive",
+    "version": "2026.120",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.120",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.120",
+    "changelog": "Pinned sits with the mailboxes in the sidebar, right after Paper Trail",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-24T00:49:45Z"
+    "releasedAt": "2026-09-24T05:33:28Z"
   }
 }
