@@ -417,10 +417,6 @@ class ConnectionManager {
     console.log("[idle] All connections stopped");
   }
 
-  getClient(connectionId: string): ImapFlow | null {
-    return this.connections.get(connectionId)?.client ?? null;
-  }
-
   getConnection(connectionId: string): EmailConnectionConn | undefined {
     return this.connections.get(connectionId);
   }

@@ -22,7 +22,10 @@ vi.mock("@/lib/mail/imap-client", () => ({
   withImapConnection: vi.fn(),
   findArchiveMailbox: vi.fn(),
 }));
-vi.mock("@/lib/mail/flag-push", () => ({ suppressEcho: vi.fn() }));
+vi.mock("@/lib/mail/flag-push", () => ({
+  suppressEcho: vi.fn(),
+  pushFlagsToImap: vi.fn(),
+}));
 
 describe("archiveConversation", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -343,6 +346,56 @@ describe("moveToArchiveViaImap", () => {
 
     expect(client.messageMove).toHaveBeenCalledTimes(1);
     expect(db.message.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("read rows get \\Seen on their archive copies after the repoint", async () => {
+    // Read-then-archive race: the \Seen push aimed at the INBOX UID can land
+    // after the move took the message away. The move re-asserts \Seen at the
+    // archive location for the rows the DB has as read.
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.message.findMany).mockImplementation((async (args: {
+      where: { isArchived?: boolean; isRead?: boolean };
+    }) => {
+      if (args.where.isRead === true) return [{ uid: 100 }];
+      if (args.where.isArchived === true)
+        return [
+          { id: "m1", uid: 10 },
+          { id: "m2", uid: 11 },
+        ];
+      return [];
+    }) as never);
+    vi.mocked(db.folder.findFirst).mockResolvedValue({
+      id: "archive-folder",
+    } as never);
+    vi.mocked(db.message.update).mockResolvedValue({} as never);
+
+    await wireImap({
+      archiveBox: { path: "Archive" },
+      moveResults: [
+        {
+          uidMap: new Map([
+            [10, 100],
+            [11, 101],
+          ]),
+        },
+      ],
+    });
+
+    const { pushFlagsToImap } = await import("@/lib/mail/flag-push");
+    const { moveToArchiveViaImap } = await import("@/lib/mail/archive-imap");
+    await moveToArchiveViaImap("user-1", "c1", "inbox-folder", [10, 11]);
+
+    expect(db.message.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["m1", "m2"] }, isArchived: true, isRead: true },
+      select: { uid: true },
+    });
+    expect(pushFlagsToImap).toHaveBeenCalledTimes(1);
+    expect(pushFlagsToImap).toHaveBeenCalledWith(
+      "user-1",
+      [{ uid: 100, folderId: "archive-folder" }],
+      "\\Seen",
+      "add",
+    );
   });
 
   it("no uidMap returned: rows untouched, warning logged, no crash", async () => {
