@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.121",
+    "date": "2026-09-24",
+    "changes": [
+      "Threads: the sender disc sits in the header row in front of the name instead of in its own column, so an open message uses the full width",
+      "iOS 2026.119 build 115 and the Mac app get the same layout"
+    ]
+  },
+  {
     "version": "2026.120",
     "date": "2026-09-24",
     "changes": [

@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.121] - 2026-09-24
+
+### Changed
+
+- Threads: the sender disc sits in the header row, in front of the name,
+  instead of in its own column beside the message. The empty strip down the
+  left of an open message is gone and the card uses the full width. iOS
+  2026.119 build 115 and the Mac app get the same layout.
+
 ## [v2026.120] - 2026-09-24
 
 ### Changed
