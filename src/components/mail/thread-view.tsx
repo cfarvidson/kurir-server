@@ -300,31 +300,31 @@ function MessageBubble({
       {/* Mobile divider between messages */}
       {!isFirst && <div className="mb-2 border-t border-border/30 md:hidden" />}
 
-      <div className="flex gap-3 pl-2">
-        {/* Sender disc: initial for received mail, paperplane for own. */}
-        <div
-          className={cn(
-            "mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-            isFromCurrentUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground",
-          )}
-          aria-label={isFromCurrentUser ? "Sent by you" : "Received"}
-          role="img"
+      {/* Content */}
+      <div className="min-w-0 flex-1 pb-4 md:pb-8">
+        {/* Header — always visible */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50"
         >
-          {isFromCurrentUser ? (
-            <Send className="h-3 w-3" />
-          ) : (
-            senderInitial(message.fromAddress, message.fromName)
-          )}
-        </div>
-        {/* Content */}
-        <div className="min-w-0 flex-1 pb-4 md:pb-8">
-          {/* Header — always visible */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50"
-          >
+          <div className="flex min-w-0 items-start gap-2.5">
+            {/* Sender disc: initial for received mail, paperplane for own. */}
+            <div
+              className={cn(
+                "-mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                isFromCurrentUser
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground",
+              )}
+              aria-label={isFromCurrentUser ? "Sent by you" : "Received"}
+              role="img"
+            >
+              {isFromCurrentUser ? (
+                <Send className="h-2.5 w-2.5" />
+              ) : (
+                senderInitial(message.fromAddress, message.fromName)
+              )}
+            </div>
             <div className="min-w-0">
               <span className="text-sm font-semibold leading-none tracking-tight">
                 {label}
@@ -366,207 +366,207 @@ function MessageBubble({
                 </p>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <time
-                className="text-[11px] tabular-nums text-muted-foreground/70"
-                suppressHydrationWarning
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <time
+              className="text-[11px] tabular-nums text-muted-foreground/70"
+              suppressHydrationWarning
+            >
+              {formatDate(new Date(message.sentAt || message.receivedAt))}
+            </time>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+                !collapsed && "rotate-180",
+              )}
+            />
+          </div>
+        </button>
+
+        {message.contentRuleLogs && message.contentRuleLogs.length > 0 && (
+          <ul className="mt-0.5 space-y-1 px-3">
+            {message.contentRuleLogs.map((log, i) => (
+              <li
+                key={`${log.text}-${i}`}
+                data-content-rule-log
+                className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground"
               >
-                {formatDate(new Date(message.sentAt || message.receivedAt))}
-              </time>
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-                  !collapsed && "rotate-180",
-                )}
-              />
-            </div>
-          </button>
+                <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+                <span>{log.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
-          {message.contentRuleLogs && message.contentRuleLogs.length > 0 && (
-            <ul className="mt-0.5 space-y-1 px-3">
-              {message.contentRuleLogs.map((log, i) => (
-                <li
-                  key={`${log.text}-${i}`}
-                  data-content-rule-log
-                  className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground"
-                >
-                  <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
-                  <span>{log.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Expanded content */}
-          {!collapsed && (
-            <div style={{ overflowAnchor: "none" }}>
-              <div
-                className={cn(
-                  "mt-1 rounded-lg border border-border/60 bg-card px-3 py-3 md:px-4 md:py-4",
-                  // The linked card lifts off its wash with a shadow instead
-                  // of the hairline.
-                  isFocused && "border-transparent shadow-md",
-                )}
-              >
-                {/* Recipients + actions */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">
-                    <RecipientList
-                      label="to"
-                      addresses={message.toAddresses}
-                      nameMap={recipientNames}
-                    />
-                    {message.ccAddresses.length > 0 && (
-                      <>
-                        ,{" "}
-                        <RecipientList
-                          label="cc:"
-                          addresses={message.ccAddresses}
-                          nameMap={recipientNames}
-                        />
-                      </>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        printEmail(message, sanitizeFlags);
-                      }}
-                      className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                      title="Print this email"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Attachments */}
-                {message.attachments.length > 0 && (
-                  <AttachmentList attachments={message.attachments} />
-                )}
-
-                {message.meeting && (
-                  <MeetingCard
-                    messageId={message.id}
-                    meeting={message.meeting}
-                    hasWritableCalendar={hasWritableCalendar}
-                    timezone={timezone}
+        {/* Expanded content */}
+        {!collapsed && (
+          <div style={{ overflowAnchor: "none" }}>
+            <div
+              className={cn(
+                "mt-1 rounded-lg border border-border/60 bg-card px-3 py-3 md:px-4 md:py-4",
+                // The linked card lifts off its wash with a shadow instead
+                // of the hairline.
+                isFocused && "border-transparent shadow-md",
+              )}
+            >
+              {/* Recipients + actions */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-xs text-muted-foreground">
+                  <RecipientList
+                    label="to"
+                    addresses={message.toAddresses}
+                    nameMap={recipientNames}
                   />
-                )}
-
-                {/* Body */}
-                <div className="mt-4">
-                  {message.htmlBody ? (
+                  {message.ccAddresses.length > 0 && (
                     <>
-                      {shouldBlockImages && blockedCount > 0 && (
-                        <BlockedImagesBanner
-                          count={blockedCount}
-                          senderId={message.sender?.id}
-                          senderLabel={
-                            message.sender?.displayName || message.sender?.email
-                          }
-                          onLoadImages={() => setImagesRevealed(true)}
-                        />
-                      )}
-                      {sanitizeFlags.blockTrackers && blockedTrackers > 0 && (
-                        <BlockedTrackersIndicator count={blockedTrackers} />
-                      )}
-                      <EmailBodyFrame
-                        html={message.htmlBody}
-                        collapseQuotes={quotesCollapsed}
-                        onQuoteCollapsible={setHtmlTailCollapsible}
-                        attachments={message.attachments}
-                        blockRemoteImages={sanitizeFlags.blockRemoteImages}
-                        blockTrackers={sanitizeFlags.blockTrackers}
-                        onBlockedCount={setBlockedCount}
-                        onTrackerCount={setBlockedTrackers}
+                      ,{" "}
+                      <RecipientList
+                        label="cc:"
+                        addresses={message.ccAddresses}
+                        nameMap={recipientNames}
                       />
                     </>
-                  ) : (
-                    <div>
-                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                        {plainBody || "No content"}
-                      </pre>
-                      {plainQuoted && !quotesCollapsed && (
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
-                          {plainQuoted}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-                  {hasCollapsibleTail && (
-                    <button
-                      data-quote-toggle
-                      onClick={() => setQuotesCollapsed(!quotesCollapsed)}
-                      aria-label={
-                        quotesCollapsed ? "Show full message" : "Hide"
-                      }
-                      aria-expanded={!quotesCollapsed}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <MoreHorizontal className="h-3 w-3" />
-                      {quotesCollapsed ? "Show full message" : "Hide"}
-                    </button>
                   )}
                 </div>
-
-                {/* Card actions: reply to exactly this message (plan 055) */}
-                <div
-                  data-card-actions
-                  className="mt-4 flex flex-wrap items-center gap-1 border-t border-border/40 pt-3"
-                >
+                <div className="flex shrink-0 items-center gap-0.5">
                   <button
-                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onReply?.(message.id, "reply");
+                      printEmail(message, sanitizeFlags);
                     }}
-                    aria-pressed={isReplyTarget}
-                    className={cn(
-                      actionClass,
-                      isReplyTarget && "bg-primary/10 text-foreground",
-                    )}
-                    title={`Reply to ${label}`}
+                    className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                    title="Print this email"
                   >
-                    <Reply className="h-3.5 w-3.5" />
-                    Reply
-                  </button>
-                  {canReplyAll && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReply?.(message.id, "replyAll");
-                      }}
-                      className={actionClass}
-                      title="Reply all"
-                    >
-                      <ReplyAll className="h-3.5 w-3.5" />
-                      Reply all
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(
-                        `/compose?forward=${message.id}&from=${encodeURIComponent(pathname)}`,
-                      );
-                    }}
-                    className={actionClass}
-                    title="Forward this email"
-                  >
-                    <Forward className="h-3.5 w-3.5" />
-                    Forward
+                    <Printer className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
-            </div>
-          )}
 
-          {branches.length > 0 && <BranchList branches={branches} />}
-        </div>
+              {/* Attachments */}
+              {message.attachments.length > 0 && (
+                <AttachmentList attachments={message.attachments} />
+              )}
+
+              {message.meeting && (
+                <MeetingCard
+                  messageId={message.id}
+                  meeting={message.meeting}
+                  hasWritableCalendar={hasWritableCalendar}
+                  timezone={timezone}
+                />
+              )}
+
+              {/* Body */}
+              <div className="mt-4">
+                {message.htmlBody ? (
+                  <>
+                    {shouldBlockImages && blockedCount > 0 && (
+                      <BlockedImagesBanner
+                        count={blockedCount}
+                        senderId={message.sender?.id}
+                        senderLabel={
+                          message.sender?.displayName || message.sender?.email
+                        }
+                        onLoadImages={() => setImagesRevealed(true)}
+                      />
+                    )}
+                    {sanitizeFlags.blockTrackers && blockedTrackers > 0 && (
+                      <BlockedTrackersIndicator count={blockedTrackers} />
+                    )}
+                    <EmailBodyFrame
+                      html={message.htmlBody}
+                      collapseQuotes={quotesCollapsed}
+                      onQuoteCollapsible={setHtmlTailCollapsible}
+                      attachments={message.attachments}
+                      blockRemoteImages={sanitizeFlags.blockRemoteImages}
+                      blockTrackers={sanitizeFlags.blockTrackers}
+                      onBlockedCount={setBlockedCount}
+                      onTrackerCount={setBlockedTrackers}
+                    />
+                  </>
+                ) : (
+                  <div>
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                      {plainBody || "No content"}
+                    </pre>
+                    {plainQuoted && !quotesCollapsed && (
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
+                        {plainQuoted}
+                      </pre>
+                    )}
+                  </div>
+                )}
+                {hasCollapsibleTail && (
+                  <button
+                    data-quote-toggle
+                    onClick={() => setQuotesCollapsed(!quotesCollapsed)}
+                    aria-label={
+                      quotesCollapsed ? "Show full message" : "Hide"
+                    }
+                    aria-expanded={!quotesCollapsed}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                    {quotesCollapsed ? "Show full message" : "Hide"}
+                  </button>
+                )}
+              </div>
+
+              {/* Card actions: reply to exactly this message (plan 055) */}
+              <div
+                data-card-actions
+                className="mt-4 flex flex-wrap items-center gap-1 border-t border-border/40 pt-3"
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReply?.(message.id, "reply");
+                  }}
+                  aria-pressed={isReplyTarget}
+                  className={cn(
+                    actionClass,
+                    isReplyTarget && "bg-primary/10 text-foreground",
+                  )}
+                  title={`Reply to ${label}`}
+                >
+                  <Reply className="h-3.5 w-3.5" />
+                  Reply
+                </button>
+                {canReplyAll && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReply?.(message.id, "replyAll");
+                    }}
+                    className={actionClass}
+                    title="Reply all"
+                  >
+                    <ReplyAll className="h-3.5 w-3.5" />
+                    Reply all
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(
+                      `/compose?forward=${message.id}&from=${encodeURIComponent(pathname)}`,
+                    );
+                  }}
+                  className={actionClass}
+                  title="Forward this email"
+                >
+                  <Forward className="h-3.5 w-3.5" />
+                  Forward
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {branches.length > 0 && <BranchList branches={branches} />}
       </div>
     </motion.div>
   );
