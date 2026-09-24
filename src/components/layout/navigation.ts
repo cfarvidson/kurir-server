@@ -84,6 +84,9 @@ export const navigationGroups: NavGroup[] = [
         icon: Receipt,
         badgeKey: "paperTrail",
       },
+      // Pinned sits with the mailboxes so it is one click away; it is not
+      // a category and carries no badge.
+      { name: "Pinned", href: "/pinned", icon: Pin },
     ],
   },
   {
@@ -106,7 +109,6 @@ export const navigationGroups: NavGroup[] = [
         badgeKey: "replyLater",
       },
       { name: "Follow Up", href: "/follow-up", icon: Bell, badgeKey: "followUp" },
-      { name: "Pinned", href: "/pinned", icon: Pin },
     ],
   },
   {
