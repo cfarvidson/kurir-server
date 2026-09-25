@@ -25,13 +25,19 @@ export function RecipientList({ label, addresses, nameMap }: RecipientListProps)
 
   if (addresses.length === 0) return null;
 
-  const names = addresses.map((a) => resolveRecipientName(a, nameMap));
-  const overflow = names.length - TRUNCATE_AT;
-  const visible = expanded ? names : names.slice(0, TRUNCATE_AT);
+  const overflow = addresses.length - TRUNCATE_AT;
+  const visible = expanded ? addresses : addresses.slice(0, TRUNCATE_AT);
 
   return (
     <span>
-      {label} {visible.join(", ")}
+      {label}{" "}
+      {visible.map((address, i) => (
+        <span key={`${address}-${i}`}>
+          {i > 0 && ", "}
+          {/* Hover shows the address behind the name. */}
+          <span title={address}>{resolveRecipientName(address, nameMap)}</span>
+        </span>
+      ))}
       {overflow > 0 && (
         <>
           {!expanded && " "}

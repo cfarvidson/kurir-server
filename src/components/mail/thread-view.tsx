@@ -25,6 +25,7 @@ import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
 import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { RecipientList } from "@/components/mail/recipient-list";
+import { CopyableAddress } from "@/components/mail/copyable-address";
 import {
   resolveRecipientName,
   type RecipientNameMap,
@@ -412,7 +413,13 @@ function MessageBubble({
             >
               {/* Recipients + actions */}
               <div className="flex items-start justify-between gap-2">
-                <div className="text-xs text-muted-foreground">
+                <div className="min-w-0 text-xs text-muted-foreground">
+                  {/* The header shows a name; the sender's address lives
+                      here, selectable and one click to copy. */}
+                  <div className="flex min-w-0 items-center gap-1">
+                    from
+                    <CopyableAddress address={message.fromAddress} />
+                  </div>
                   <RecipientList
                     label="to"
                     addresses={message.toAddresses}

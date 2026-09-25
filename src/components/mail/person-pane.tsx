@@ -36,6 +36,7 @@ import {
 } from "@/lib/mail/content-rules";
 import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { CategoryPicker } from "@/components/mail/category-picker";
+import { CopyableAddress } from "@/components/mail/copyable-address";
 import {
   PaneDisclosure,
   usePaneSectionOpen,
@@ -597,7 +598,10 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{name}</p>
-                <p className="truncate text-xs text-muted-foreground">{email}</p>
+                <CopyableAddress
+                  address={email}
+                  className="flex text-xs text-muted-foreground"
+                />
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
                 <Link
