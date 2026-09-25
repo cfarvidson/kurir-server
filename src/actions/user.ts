@@ -3,6 +3,7 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isValidTimeZone } from "@/lib/timezone";
+import { availabilitySchema } from "@/lib/calendar/availability";
 import { revalidatePath } from "next/cache";
 
 const VALID_THEMES = ["light", "dark", "system"] as const;
@@ -33,6 +34,24 @@ export async function updateTimezone(timezone: string) {
   });
 
   // The calendar, snooze and scheduled-send all read the zone server-side.
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Replaces the calendar's available hours. The calendar reads them
+ * server-side, and the apps get them on their next calendar sync.
+ */
+export async function updateCalendarAvailability(value: unknown) {
+  const session = await requireAuth();
+
+  const parsed = availabilitySchema.safeParse(value);
+  if (!parsed.success) throw new Error("Invalid availability");
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { calendarAvailability: parsed.data },
+  });
+
   revalidatePath("/", "layout");
 }
 
