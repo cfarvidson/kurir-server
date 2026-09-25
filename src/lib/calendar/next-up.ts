@@ -26,18 +26,28 @@ export type TodayRow = {
 };
 
 /**
- * The event the sidebar's Next up card shows: the first timed event that
- * has not ended. All-day events are never "up next". Mirrors
+ * The event every Next up card shows (the sidebar's and the calendar
+ * header's): the first timed event that has not ended, so an ongoing
+ * meeting counts. All-day events are never "up next". Mirrors
  * `SidebarToday.nextUp` in kurir-ios.
  */
+export function nextUpEvent(
+  instances: CalendarInstanceDTO[],
+  now: Date,
+): CalendarInstanceDTO | null {
+  return (
+    instances
+      .filter((i) => !i.isAllDay && new Date(i.endAt) > now)
+      .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0] ?? null
+  );
+}
+
 export function pickNextUp(
   instances: CalendarInstanceDTO[],
   now: Date,
   timeZone: string,
 ): NextUp | null {
-  const next = instances
-    .filter((i) => !i.isAllDay && new Date(i.endAt) > now)
-    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0];
+  const next = nextUpEvent(instances, now);
   if (!next) return null;
   const start = new Date(next.startAt);
   const wall = zonedParts(start, timeZone);

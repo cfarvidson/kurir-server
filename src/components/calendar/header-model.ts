@@ -8,8 +8,8 @@ import type {
   CalendarViewMode,
 } from "@/components/calendar/types";
 import type { CalendarAvailability } from "@/lib/calendar/availability";
+import { nextUpEvent, nextUpWhen } from "@/lib/calendar/next-up";
 import {
-  civilFromZoned,
   formatDurationLabel,
   formatTimeLabel,
   formatWeekdayLong,
@@ -120,45 +120,32 @@ export function joinUrl(instance: CalendarInstanceDTO): string | null {
   return null;
 }
 
-export type UpNext = {
+export type HeaderNextUp = {
   instance: CalendarInstanceDTO;
-  /** Whole minutes until it starts, at least 1. */
-  minutesUntil: number;
+  /** "Now", "in 9 min", or null when it is an hour or more away. */
+  when: string | null;
   /** "14:00–14:30". */
   range: string;
   joinUrl: string | null;
 };
 
 /**
- * The next timed event that starts later today. Null when nothing else
- * starts today - the card hides rather than reaching into tomorrow.
+ * The calendar header's Next up card: the same event as the sidebar's card
+ * (`nextUpEvent`), with the time range and a join link. `instances` are
+ * today's, so the card hides once no timed event remains today.
  */
-export function upNext(
+export function headerNextUp(
   instances: CalendarInstanceDTO[],
   timezone: string,
   now: Date,
-): UpNext | null {
-  const today = civilFromZoned(now, timezone);
-  const next = instances
-    .filter((row) => {
-      if (row.isAllDay) return false;
-      const start = new Date(row.startAt);
-      return start > now && sameCivil(civilFromZoned(start, timezone), today);
-    })
-    .sort(
-      (a, b) =>
-        new Date(a.startAt).getTime() - new Date(b.startAt).getTime() ||
-        a.title.localeCompare(b.title),
-    )[0];
+): HeaderNextUp | null {
+  const next = nextUpEvent(instances, now);
   if (!next) return null;
   const start = zonedParts(new Date(next.startAt), timezone);
   const end = zonedParts(new Date(next.endAt), timezone);
   return {
     instance: next,
-    minutesUntil: Math.max(
-      1,
-      Math.ceil((new Date(next.startAt).getTime() - now.getTime()) / 60_000),
-    ),
+    when: nextUpWhen(new Date(next.startAt), now),
     range: `${formatTimeLabel(start.hour, start.minute)}–${formatTimeLabel(end.hour, end.minute)}`,
     joinUrl: joinUrl(next),
   };

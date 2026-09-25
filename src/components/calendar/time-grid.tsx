@@ -516,7 +516,7 @@ export function TimeGrid({
             {HOURS.map((hour) => {
               const nearNow =
                 nowMinToday != null &&
-                Math.abs(pxFromMinutes(hour * 60 - nowMinToday)) < 12;
+                Math.abs(pxFromMinutes(hour * 60 - nowMinToday)) < 16;
               return (
                 <div
                   key={hour}
@@ -696,7 +696,19 @@ export function TimeGrid({
                             </span>
                           )
                         ) : (
-                          <span className="block px-1.5 py-0.5 text-[10.5px] font-semibold leading-tight">
+                          <span
+                            className="px-1.5 py-0.5 text-[10.5px] font-semibold leading-tight"
+                            style={{
+                              // As many whole lines as the block holds, then an ellipsis.
+                              display: "-webkit-box",
+                              WebkitBoxOrient: "vertical",
+                              WebkitLineClamp: Math.max(
+                                1,
+                                Math.floor((height - 4) / 13),
+                              ),
+                              overflow: "hidden",
+                            }}
+                          >
                             {row.title}
                           </span>
                         )}

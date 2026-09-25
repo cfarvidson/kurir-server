@@ -16,7 +16,7 @@ import {
   nowMinutesOnDay,
   placeTimedEvents,
 } from "@/components/calendar/grid-model";
-import { joinUrl, upNext } from "@/components/calendar/header-model";
+import { headerNextUp, joinUrl } from "@/components/calendar/header-model";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -87,7 +87,7 @@ export function DayView({
     () => agendaRows(instances, anchor, timezone, nowMin, availability),
     [instances, anchor, timezone, nowMin, availability],
   );
-  const next = nowMin == null ? null : upNext(instances, timezone, now);
+  const next = nowMin == null ? null : headerNextUp(instances, timezone, now);
 
   const date = formatDateParam(anchor);
   const select = canCreate
@@ -315,12 +315,15 @@ function Ribbon({
   const events = placeTimedEvents(instances, anchor, timezone).filter(
     (row) => row.endMin > hours.startMin && row.startMin < hours.endMin,
   );
-  const labelRows = staggerRows(
-    events.map((row) => ({
-      x: x(row.startMin),
-      width: Math.min(180, 44 + row.title.length * 6.6),
-    })),
-  );
+  // Labels start under their event but never run past the ribbon's end.
+  const labels = events.map((row) => {
+    const labelWidth = Math.min(180, 44 + row.title.length * 6.6);
+    return {
+      x: Math.max(0, Math.min(x(row.startMin) + 1, width - labelWidth)),
+      width: labelWidth,
+    };
+  });
+  const labelRows = staggerRows(labels);
   const rowCount = events.length ? Math.max(...labelRows) + 1 : 0;
 
   const hourPx = (60 / length) * width;
@@ -450,7 +453,11 @@ function Ribbon({
                   type="button"
                   onClick={() => onEventClick(row)}
                   className="absolute max-w-[180px] truncate text-left text-xs text-foreground/85 hover:text-foreground"
-                  style={{ left: left + 1, top: labelTop }}
+                  style={{
+                    left: labels[i].x,
+                    top: labelTop,
+                    maxWidth: Math.min(180, width - labels[i].x),
+                  }}
                 >
                   <span className="mr-1.5 tabular-nums text-muted-foreground">
                     {clock(row.startMin)}
@@ -507,7 +514,7 @@ function Scheduled({
 }: {
   rows: AgendaRow[];
   nowMin: number | null;
-  next: ReturnType<typeof upNext>;
+  next: ReturnType<typeof headerNextUp>;
   onEventClick: (event: CalendarInstanceDTO) => void;
 }) {
   const events = rows.flatMap((row) => (row.kind === "event" ? [row] : []));
@@ -570,10 +577,7 @@ function Scheduled({
           next != null &&
           next.instance.eventId === row.instance.eventId &&
           next.instance.startAt === row.instance.startAt;
-        const detail = [
-          row.instance.location,
-          isNext ? `in ${formatDurationLabel(next.minutesUntil)}` : null,
-        ]
+        const detail = [row.instance.location, isNext ? next.when : null]
           .filter(Boolean)
           .join(" · ");
         return (

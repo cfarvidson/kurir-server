@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { UpNext } from "@/components/calendar/header-model";
+import type { HeaderNextUp } from "@/components/calendar/header-model";
 import type {
   CalendarInstanceDTO,
   CalendarViewMode,
 } from "@/components/calendar/types";
-import { formatDurationLabel } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
 
 const MODES: { mode: CalendarViewMode; label: string }[] = [
@@ -25,7 +24,7 @@ const UNIT: Record<CalendarViewMode, string> = {
 /**
  * The calendar's masthead: eyebrow, serif title and the open-time meta
  * line on the left; view switch, paging, Calendars and New event on the
- * right, with the Up next card under them.
+ * right, with the Next up card under them.
  */
 export function CalendarHeader({
   mode,
@@ -34,7 +33,7 @@ export function CalendarHeader({
   calendarCount,
   openMeta,
   freeUntilLabel,
-  upNext,
+  nextUp,
   canCreate,
   hrefFor,
   onPrev,
@@ -51,7 +50,7 @@ export function CalendarHeader({
   calendarCount: number | null;
   openMeta: string;
   freeUntilLabel: string | null;
-  upNext: UpNext | null;
+  nextUp: HeaderNextUp | null;
   canCreate: boolean;
   hrefFor: (mode: CalendarViewMode) => string;
   onPrev: () => void;
@@ -79,7 +78,7 @@ export function CalendarHeader({
         )}
       </div>
 
-      <div className="flex w-full flex-col gap-3 md:w-auto md:items-end">
+      <div className="flex w-full flex-col gap-3 md:ml-auto md:w-auto md:items-end">
         <div className="flex flex-wrap items-center gap-2.5 text-[13px]">
           <nav
             aria-label="View"
@@ -143,17 +142,17 @@ export function CalendarHeader({
           </button>
         </div>
 
-        {upNext && <UpNextCard next={upNext} onOpen={onOpenEvent} />}
+        {nextUp && <NextUpCard next={nextUp} onOpen={onOpenEvent} />}
       </div>
     </header>
   );
 }
 
-function UpNextCard({
+function NextUpCard({
   next,
   onOpen,
 }: {
-  next: UpNext;
+  next: HeaderNextUp;
   onOpen: (event: CalendarInstanceDTO) => void;
 }) {
   const place = next.instance.location;
@@ -165,7 +164,7 @@ function UpNextCard({
         className="min-w-0 flex-1 text-left focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span className="block text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
-          Up next · in {formatDurationLabel(next.minutesUntil)}
+          Next up{next.when && ` · ${next.when}`}
         </span>
         <span className="mt-0.5 block truncate text-sm font-semibold">
           {next.instance.title}

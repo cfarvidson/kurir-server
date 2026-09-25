@@ -21,7 +21,7 @@ import {
   freeUntil,
   headerEyebrow,
   openTimeMeta,
-  upNext,
+  headerNextUp,
 } from "@/components/calendar/header-model";
 import { nowMinutesOnDay } from "@/components/calendar/grid-model";
 import { MonthView } from "@/components/calendar/month-view";
@@ -141,7 +141,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     civilFromZoned(new Date(), payload.timezone),
   );
 
-  // Up next and "free until" count minutes from now. They appear after
+  // Next up and "free until" count minutes from now. They appear after
   // mount so the server render and hydration never disagree on the clock.
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -173,7 +173,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     [payload, today],
   );
   const next = now
-    ? upNext(payload.todayInstances, payload.timezone, now)
+    ? headerNextUp(payload.todayInstances, payload.timezone, now)
     : null;
   const nowMinToday = now
     ? nowMinutesOnDay(today, payload.timezone, now)
@@ -359,7 +359,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
             ? null
             : `free until ${formatTimeLabel(Math.floor(freeUntilMin / 60), freeUntilMin % 60)}`
         }
-        upNext={empty ? null : next}
+        nextUp={empty ? null : next}
         canCreate={writable}
         hrefFor={(mode) => viewHref(mode, date)}
         onPrev={goPrev}

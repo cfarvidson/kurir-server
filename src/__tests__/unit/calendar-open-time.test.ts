@@ -5,7 +5,7 @@ import {
   openMinutesOnDay,
   weekColumnWidths,
 } from "@/components/calendar/grid-model";
-import { freeUntil, upNext } from "@/components/calendar/header-model";
+import { freeUntil, headerNextUp } from "@/components/calendar/header-model";
 import { loadBar, openLabel } from "@/components/calendar/month-model";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import {
@@ -125,49 +125,48 @@ describe("loadBar", () => {
   });
 });
 
-describe("upNext", () => {
-  it("picks the next timed event that starts later today, with its join link", () => {
-    const now = at(13, 51);
-    const tomorrow = { ...DAY, day: 26 };
-    const instances = [
-      event("ongoing", [13, 30], [14, 30]),
-      event("ended", [9, 0], [9, 30]),
-      event("later", [16, 0], [16, 30]),
-      event("next", [14, 0], [14, 30], {
-        location: "Teams",
-        description:
-          "Join: https://teams.example.com/l/meetup-join/abc?x=1 now",
-      }),
-      {
-        ...event("allday", [0, 0], [0, 0]),
-        isAllDay: true,
-        startAt: "2026-09-25T00:00:00.000Z",
-        endAt: "2026-09-26T00:00:00.000Z",
-      },
-      {
-        ...event("tomorrow", [9, 0], [10, 0]),
-        startAt: at(9, 0, tomorrow).toISOString(),
-        endAt: at(10, 0, tomorrow).toISOString(),
-      },
-    ];
-    const next = upNext(instances, TZ, now);
-    expect(next?.instance.eventId).toBe("next");
-    expect(next?.minutesUntil).toBe(9);
-    expect(next?.range).toBe("14:00–14:30");
-    expect(next?.joinUrl).toBe(
+describe("headerNextUp", () => {
+  const next = event("next", [14, 0], [14, 30], {
+    location: "Teams",
+    description: "Join: https://teams.example.com/l/meetup-join/abc?x=1 now",
+  });
+  const instances = [
+    event("ended", [9, 0], [9, 30]),
+    event("later", [16, 0], [16, 30]),
+    next,
+    {
+      ...event("allday", [0, 0], [0, 0]),
+      isAllDay: true,
+      startAt: "2026-09-25T00:00:00.000Z",
+      endAt: "2026-09-26T00:00:00.000Z",
+    },
+  ];
+
+  it("picks the sidebar's event - the first timed one not yet ended - with its join link", () => {
+    const card = headerNextUp(instances, TZ, at(13, 51));
+    expect(card?.instance.eventId).toBe("next");
+    expect(card?.when).toBe("in 9 min");
+    expect(card?.range).toBe("14:00–14:30");
+    expect(card?.joinUrl).toBe(
       "https://teams.example.com/l/meetup-join/abc?x=1",
     );
-    // Nothing else starts today once the last one has begun.
-    expect(upNext(instances, TZ, at(16, 5))).toBeNull();
+  });
+
+  it("keeps an ongoing meeting as Now, drops the minutes an hour out, and hides once today is over", () => {
+    expect(headerNextUp(instances, TZ, at(14, 10))?.when).toBe("Now");
+    const early = headerNextUp(instances, TZ, at(12, 0));
+    expect(early?.instance.eventId).toBe("next");
+    expect(early?.when).toBeNull();
+    expect(headerNextUp(instances, TZ, at(16, 31))).toBeNull();
   });
 
   it("offers Join only when the event carries an http(s) link", () => {
-    const next = upNext(
+    const card = headerNextUp(
       [event("room", [14, 0], [14, 30], { location: "Room 209" })],
       TZ,
       at(13, 0),
     );
-    expect(next?.joinUrl).toBeNull();
+    expect(card?.joinUrl).toBeNull();
   });
 });
 
