@@ -25,6 +25,7 @@ import { EmailBodyFrame } from "@/components/mail/email-body-frame";
 import { AttachmentList } from "@/components/mail/attachment-list";
 import { BlockedImagesBanner } from "@/components/mail/blocked-images-banner";
 import { RecipientList } from "@/components/mail/recipient-list";
+import { PersonCardPopover } from "@/components/mail/person-card-popover";
 import {
   resolveRecipientName,
   type RecipientNameMap,
@@ -211,6 +212,7 @@ function MessageBubble({
   message,
   isFromCurrentUser,
   label,
+  person = null,
   isCollapsed: initialCollapsed,
   isFirst,
   isFocused = false,
@@ -228,6 +230,8 @@ function MessageBubble({
   message: ThreadMessage;
   isFromCurrentUser: boolean;
   label: string;
+  /** Who the header name is (the person card); null for a bcc-only "You". */
+  person?: { name: string | null; address: string } | null;
   isCollapsed: boolean;
   isFirst: boolean;
   /** Linked to directly: expanded, marked, scrolled into view. */
@@ -303,10 +307,12 @@ function MessageBubble({
 
       {/* Content */}
       <div className="min-w-0 flex-1 pb-4 md:pb-8">
-        {/* Header — always visible */}
-        <button
+        {/* Header — always visible. A div, not a button: the name inside
+            opens the person card. The chevron is the keyboard toggle. */}
+        <div
+          data-card-header
           onClick={() => setCollapsed(!collapsed)}
-          className="flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50"
+          className="flex w-full cursor-pointer items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50"
         >
           <div className="flex min-w-0 items-start gap-2.5">
             {/* Sender disc: initial for received mail, paperplane for own. */}
@@ -327,9 +333,19 @@ function MessageBubble({
               )}
             </div>
             <div className="min-w-0">
-              <span className="text-sm font-semibold leading-none tracking-tight">
-                {label}
-              </span>
+              {person ? (
+                <PersonCardPopover
+                  name={person.name}
+                  address={person.address}
+                  className="text-left text-sm font-semibold leading-none tracking-tight"
+                >
+                  {label}
+                </PersonCardPopover>
+              ) : (
+                <span className="text-sm font-semibold leading-none tracking-tight">
+                  {label}
+                </span>
+              )}
               {isFocused && (
                 <span
                   data-card-badge="linked"
@@ -375,14 +391,25 @@ function MessageBubble({
             >
               {formatDate(new Date(message.sentAt || message.receivedAt))}
             </time>
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-                !collapsed && "rotate-180",
-              )}
-            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsed(!collapsed);
+              }}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? "Show message" : "Hide message"}
+              className="rounded p-0.5"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+                  !collapsed && "rotate-180",
+                )}
+              />
+            </button>
           </div>
-        </button>
+        </div>
 
         {message.contentRuleLogs && message.contentRuleLogs.length > 0 && (
           <ul className="mt-0.5 space-y-1 px-3">
@@ -610,6 +637,28 @@ export function branchesByCard(
   return byCard;
 }
 
+/**
+ * Who a card's header name is: the sender, or on an own card the first
+ * recipient that is not the user. Null for a bcc-only "You".
+ */
+export function cardPerson(
+  message: ThreadMessage,
+  isOwn: (address: string) => boolean,
+  recipientNames: RecipientNameMap,
+): { name: string | null; address: string } | null {
+  if (!isOwn(message.fromAddress)) {
+    return {
+      name: message.sender?.displayName || message.fromName,
+      address: message.fromAddress,
+    };
+  }
+  const address = [...message.toAddresses, ...message.ccAddresses]
+    .map((a) => a.trim())
+    .find((a) => a && !isOwn(a));
+  if (!address) return null;
+  return { name: recipientNames[address.toLowerCase()] ?? null, address };
+}
+
 export function ThreadView({
   messages,
   currentUserEmail,
@@ -639,6 +688,7 @@ export function ThreadView({
           message={message}
           isFromCurrentUser={isOwn(message.fromAddress)}
           label={cardLabel(message, isOwn, nameFor)}
+          person={cardPerson(message, isOwn, recipientNames)}
           isCollapsed={
             i < messages.length - 1 && message.id !== focusedMessageId
           }
