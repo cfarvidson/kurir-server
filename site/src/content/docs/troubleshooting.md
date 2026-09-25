@@ -114,7 +114,7 @@ docker compose logs app --tail 50
 
 ### Common startup errors
 
-**"NEXTAUTH_SECRET is not set"** -- Your `.env` file is missing required variables. See [Configuration](configuration).
+**"NEXTAUTH_SECRET is not set"** -- Your `.env` file is missing required variables. See [Configuration](/docs/configuration).
 
 **"Connection refused" to PostgreSQL** -- The database container may not be ready yet. The app container has a health check dependency on PostgreSQL, but if you see this in logs, wait a moment and check again.
 

@@ -71,7 +71,7 @@ Edit `.env` and set at minimum:
 - `ENCRYPTION_KEY` -- Generate with `openssl rand -base64 32`
 - `UPDATER_TOKEN` -- Generate with `openssl rand -hex 32`
 
-See the full [Configuration](configuration) reference for all options.
+See the full [Configuration](/docs/configuration) reference for all options.
 
 ### 3. Start services
 

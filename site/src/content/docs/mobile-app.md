@@ -26,11 +26,11 @@ Sign-in always runs through your own server's login page, so it works with any s
 
 ### Push notifications
 
-The native apps get pushes through Kurir's push relay (`kurir-notify.arvidson.io`), which forwards notifications to Apple. The server talks to the relay by default; see `PUSH_RELAY_URL` in [Configuration](configuration). Allow notifications when the app asks, and you get a push when new mail arrives in your Imbox.
+The native apps get pushes through Kurir's push relay (`kurir-notify.arvidson.io`), which forwards notifications to Apple. The server talks to the relay by default; see `PUSH_RELAY_URL` in [Configuration](/docs/configuration). Allow notifications when the app asks, and you get a push when new mail arrives in your Imbox.
 
 ### Updates
 
-The native apps update through the App Store. Some app features need a newer server; when that happens the app says so and asks you to [update the server](updating).
+The native apps update through the App Store. Some app features need a newer server; when that happens the app says so and asks you to [update the server](/docs/updating).
 
 ## Progressive Web App
 
@@ -40,7 +40,7 @@ When installed, the PWA runs full-screen without browser chrome, supports push n
 
 - Your Kurir server must be reachable over **HTTPS** with a real (browser-trusted) certificate. The one-command installer handles this automatically with Let's Encrypt. If you self-signed, the install won't work.
 - **iOS 16.4 or later** for push notifications. Earlier versions can install the PWA but won't deliver pushes.
-- **Web Push enabled** on the server. The installer generates VAPID keys automatically; if you skipped that step, see the [Configuration](configuration) docs to add them.
+- **Web Push enabled** on the server. The installer generates VAPID keys automatically; if you skipped that step, see the [Configuration](/docs/configuration) docs to add them.
 
 ### Install on iPhone or iPad
 

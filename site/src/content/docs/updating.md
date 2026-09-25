@@ -20,7 +20,7 @@ Turning the switch off does not move you back by itself. If the instance is alre
 
 ## Before updating
 
-It is a good idea to [create a backup](backup-restore) before updating, especially for major versions:
+It is a good idea to [create a backup](/docs/backup-restore) before updating, especially for major versions:
 
 ```bash
 docker compose -f docker-compose.production.yml exec app sh scripts/kurir-backup.sh
@@ -88,4 +88,4 @@ docker image ls ghcr.io/cfarvidson/kurir-server
 docker compose up -d
 ```
 
-Alternatively, restore from a backup taken before the update (see [Backup & Restore](backup-restore)).
+Alternatively, restore from a backup taken before the update (see [Backup & Restore](/docs/backup-restore)).

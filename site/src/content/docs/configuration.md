@@ -96,7 +96,7 @@ OAuth enables "Sign in with Google" and "Sign in with Microsoft" buttons for con
 | `MICROSOFT_CLIENT_ID`     | No       | Application (client) ID from your Azure App Registration. |
 | `MICROSOFT_CLIENT_SECRET` | No       | Client secret value from Certificates & secrets.          |
 
-See [Email Accounts](email-accounts) for the full Azure setup walkthrough.
+See [Email Accounts](/docs/email-accounts) for the full Azure setup walkthrough.
 
 ### Google
 
@@ -105,7 +105,7 @@ See [Email Accounts](email-accounts) for the full Azure setup walkthrough.
 | `GOOGLE_CLIENT_ID`     | No       | OAuth 2.0 Client ID from Google Cloud Console. |
 | `GOOGLE_CLIENT_SECRET` | No       | OAuth 2.0 Client Secret.                       |
 
-See [Email Accounts](email-accounts) for the full Google OAuth setup walkthrough.
+See [Email Accounts](/docs/email-accounts) for the full Google OAuth setup walkthrough.
 
 ## Example configuration
 

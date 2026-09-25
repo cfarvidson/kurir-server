@@ -68,7 +68,7 @@ The compose assistant needs server **v2026.45 or later**. Against an older serve
 
 ## How the credential is stored
 
-The token is encrypted at rest with your server's `ENCRYPTION_KEY` (AES-256-GCM), the same scheme Kurir uses for IMAP passwords. It never leaves the server, is never shown again after saving, and is excluded from [settings backups](backup-restore).
+The token is encrypted at rest with your server's `ENCRYPTION_KEY` (AES-256-GCM), the same scheme Kurir uses for IMAP passwords. It never leaves the server, is never shown again after saving, and is excluded from [settings backups](/docs/backup-restore).
 
 ## Troubleshooting
 

@@ -10,7 +10,7 @@ Screening decides where a sender's mail goes. An AI rule goes one step further a
 
 ## Requirements
 
-AI rules run on the same credential as [Draft Generation](draft-generation): a Claude Pro/Max token from Claude Code, or a SuperGrok session from Grok Build, connected in **Settings → Draft generation**. You can write rules without one, but the AI Rules page then shows **No model connected** and nothing is checked until you connect a token.
+AI rules run on the same credential as [Draft Generation](/docs/draft-generation): a Claude Pro/Max token from Claude Code, or a SuperGrok session from Grok Build, connected in **Settings → Draft generation**. You can write rules without one, but the AI Rules page then shows **No model connected** and nothing is checked until you connect a token.
 
 > **Privacy note:** each mail a rule checks (sender, subject, date and up to 16,000 characters of the text) is sent to Anthropic or xAI to get the verdict. Only mail from the senders a rule covers is sent.
 
