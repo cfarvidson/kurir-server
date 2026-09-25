@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Inbox,
   Filter,
+  Mail,
   Send,
   Newspaper,
   Receipt,
@@ -141,3 +142,100 @@ export const navigationGroups: NavGroup[] = [
 export const navigation: NavItem[] = navigationGroups.flatMap(
   (group) => group.items,
 );
+
+function navItem(href: string): NavItem {
+  const item = navigation.find((candidate) => candidate.href === href);
+  if (!item) throw new Error(`No navigation item for ${href}`);
+  return item;
+}
+
+function groupById(id: string): NavGroup {
+  const group = navigationGroups.find((candidate) => candidate.id === id);
+  if (!group) throw new Error(`No navigation group ${id}`);
+  return group;
+}
+
+export type RailId = "mail" | "screener" | "calendar" | "contacts" | "files";
+
+/**
+ * One icon in the desktop sidebar's rail. Clicking it goes to `href`; the
+ * panel beside the rail then lists `groups`. Every navigation item sits in
+ * exactly one section. Mirrors `RailSection` in kurir-ios.
+ */
+export interface RailSection {
+  id: RailId;
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badgeKey?: BadgeKey;
+  groups: NavGroup[];
+}
+
+export const railSections: RailSection[] = [
+  {
+    id: "mail",
+    name: "Mail",
+    href: "/imbox",
+    icon: Mail,
+    badgeKey: "imbox",
+    groups: [
+      groupById("mail"),
+      groupById("later"),
+      groupById("outbound"),
+      { id: "archive", label: null, items: [navItem("/archive")] },
+    ],
+  },
+  {
+    id: "screener",
+    name: "Screener",
+    href: "/screener",
+    icon: Filter,
+    badgeKey: "screener",
+    groups: [
+      {
+        id: "screener",
+        label: null,
+        items: [navItem("/screener"), navItem("/filters")],
+      },
+    ],
+  },
+  {
+    id: "calendar",
+    name: "Calendar",
+    href: "/calendar",
+    icon: Calendar,
+    groups: [{ id: "calendar", label: null, items: [navItem("/calendar")] }],
+  },
+  {
+    id: "contacts",
+    name: "Contacts",
+    href: "/contacts",
+    icon: BookUser,
+    groups: [{ id: "contacts", label: null, items: [navItem("/contacts")] }],
+  },
+  {
+    id: "files",
+    name: "Files",
+    href: "/files",
+    icon: Paperclip,
+    groups: [{ id: "files", label: null, items: [navItem("/files")] }],
+  },
+];
+
+/**
+ * The rail section a page belongs to. Sub-pages count too (/calendar/day,
+ * /contacts/groups, /imbox/<thread>). Pages outside every section
+ * (settings, compose, search) show the Mail panel.
+ */
+export function railSectionFor(pathname: string): RailSection {
+  return (
+    railSections.find((section) =>
+      section.groups.some((group) =>
+        group.items.some(
+          (item) =>
+            pathname === item.href || pathname.startsWith(`${item.href}/`),
+        ),
+      ),
+    ) ?? railSections[0]
+  );
+}

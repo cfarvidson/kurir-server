@@ -11,6 +11,7 @@ import {
   Keyboard,
   Command,
   Shield,
+  ChevronRight,
 } from "lucide-react";
 import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
@@ -19,13 +20,19 @@ import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
 import { useSync } from "@/hooks/useSync";
 import { requestMailCheck } from "@/lib/mail/check-trigger";
 import { useBadgeCounts } from "@/hooks/use-badge-counts";
+import { useTodayEvents } from "@/hooks/use-today-events";
+import type { CalendarInstanceDTO } from "@/components/calendar/types";
+import { normalizeEventHex } from "@/lib/calendar/color";
+import { pickNextUp, todayRows } from "@/lib/calendar/next-up";
 import {
   type BadgeKey,
   type BadgePreferences,
   type NavItem,
+  type RailSection,
   badgeKeyToPref,
   defaultBadgePreferences,
-  navigationGroups,
+  railSectionFor,
+  railSections,
 } from "./navigation";
 
 interface SidebarProps {
@@ -38,6 +45,8 @@ interface SidebarProps {
   paperTrailUnreadCount?: number;
   badgePreferences?: BadgePreferences;
   isAdmin?: boolean;
+  /** The user's IANA timezone; null falls back to the browser's. */
+  timezone?: string | null;
 }
 
 /**
@@ -146,9 +155,13 @@ export function Sidebar({
   paperTrailUnreadCount = 0,
   badgePreferences = defaultBadgePreferences,
   isAdmin = false,
+  timezone = null,
 }: SidebarProps) {
   const pathname = usePathname();
   const syncState = useSync();
+  const timeZone =
+    timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const today = useTodayEvents(timeZone);
 
   const badgeCounts = useBadgeCounts({
     screenerCount,
@@ -160,145 +173,320 @@ export function Sidebar({
     replyLaterCount,
   });
 
+  const activeSection = railSectionFor(pathname);
+
   return (
-    <div className="hidden h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
-      {/* Logo. shrink-0 on the fixed rows: in a short window the flex
-          column would otherwise compress them (mashed header, oversized
-          logo) instead of letting the nav scroll. */}
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-6">
-        <KurirLogo className="h-8 w-8" />
-        <span className="font-serif text-2xl font-semibold tracking-tight">
-          Kurir
-        </span>
-        <div className="ml-auto">
+    <div className="hidden h-full shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+      {/* Rail: one icon per part of Kurir. The panel beside it lists the
+          active part's pages. shrink-0 on the fixed rows: in a short window
+          the flex column would otherwise compress them. */}
+      <nav
+        aria-label="Apps"
+        className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-muted/40 py-3"
+      >
+        <Link href="/imbox" aria-label="Kurir" className="mb-3 shrink-0">
+          <KurirLogo className="h-9 w-9" />
+        </Link>
+        {railSections.map((section) => (
+          <RailLink
+            key={section.id}
+            section={section}
+            active={section.id === activeSection.id}
+            badgeCounts={badgeCounts}
+            badgePreferences={badgePreferences}
+          />
+        ))}
+        <div className="flex-1" />
+        <RailButton label="Commands" kbd="⌘K" onClick={openCommandPalette}>
+          <Command className="h-5 w-5" />
+        </RailButton>
+        <RailButton label="Shortcuts" kbd="?" onClick={showShortcuts}>
+          <Keyboard className="h-5 w-5" />
+        </RailButton>
+        <RailButton
+          label="Settings"
+          href="/settings"
+          active={pathname === "/settings"}
+        >
+          <Settings className="h-5 w-5" />
+        </RailButton>
+        {isAdmin && (
+          <RailButton
+            label="Admin"
+            href="/admin"
+            active={pathname.startsWith("/admin")}
+          >
+            <Shield className="h-5 w-5" />
+          </RailButton>
+        )}
+        <RailButton
+          label="Sign out"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
+          <LogOut className="h-5 w-5" />
+        </RailButton>
+      </nav>
+
+      {/* Panel */}
+      <div className="flex w-60 min-w-0 flex-col">
+        <div className="flex h-16 shrink-0 items-center gap-2 px-5">
+          <h2 className="font-serif text-2xl font-semibold tracking-tight">
+            {activeSection.name}
+          </h2>
           <SyncStatusIndicator
             status={syncState.status}
             lastSyncTime={syncState.lastSyncTime}
             errorMessage={syncState.errorMessage}
             onClick={requestMailCheck}
           />
-        </div>
-      </div>
-
-      {/* Compose button */}
-      <div className="shrink-0 p-4">
-        <Button asChild className="group w-full">
-          <Link href={`/compose?from=${encodeURIComponent(pathname)}`}>
-            <PenSquare className="h-4 w-4" />
-            <span className="flex-1 text-left">Compose</span>
-            <span className="font-mono text-xs text-primary-foreground/0 transition-opacity duration-200 group-hover:text-primary-foreground/40">
-              c
-            </span>
-          </Link>
-        </Button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        {navigationGroups.map((group, index) => {
-          const items = group.items.filter(
-            (item) =>
-              !(item.badgeKey === "scheduled" && badgeCounts.scheduled === 0),
-          );
-          if (items.length === 0) return null;
-
-          const headingId = group.label
-            ? `sidebar-nav-${group.id}`
-            : undefined;
-
-          return (
-            <div
-              key={group.id}
-              className={cn(
-                index > 0 && "mt-3",
-                group.id === "library" && "border-t border-sidebar-border pt-3",
-              )}
-              role={group.label ? "group" : undefined}
-              aria-labelledby={headingId}
+          <Button
+            asChild
+            size="icon"
+            className="group ml-auto h-9 w-9"
+            title="Compose (c)"
+          >
+            <Link
+              href={`/compose?from=${encodeURIComponent(pathname)}`}
+              aria-label="Compose"
             >
-              {group.label && (
-                <p
-                  id={headingId}
-                  className="eyebrow px-4 pb-0.5 text-muted-foreground"
-                >
-                  {group.label}
-                </p>
-              )}
-              {items.map((item) => (
-                <SidebarNavLink
-                  key={item.href}
-                  item={item}
-                  pathname={pathname}
-                  badgeCounts={badgeCounts}
-                  badgePreferences={badgePreferences}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </nav>
+              <PenSquare className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
 
-      {/* Footer */}
-      <div className="shrink-0 border-t border-sidebar-border p-3">
-        <Link
-          href="/settings"
-          className={cn(
-            "relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
-            pathname === "/settings"
-              ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-          )}
+        <nav
+          aria-label={activeSection.name}
+          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3"
         >
-          <Settings className="h-5 w-5" />
-          Settings
-        </Link>
-        {isAdmin && (
+          {activeSection.id === "mail" && (
+            <NextUpCard
+              instances={today.instances}
+              now={today.now}
+              timeZone={timeZone}
+            />
+          )}
+          {activeSection.groups.map((group, index) => {
+            const items = group.items.filter(
+              (item) =>
+                !(item.badgeKey === "scheduled" && badgeCounts.scheduled === 0),
+            );
+            if (items.length === 0) return null;
+
+            const headingId = group.label
+              ? `sidebar-nav-${group.id}`
+              : undefined;
+
+            return (
+              <div
+                key={group.id}
+                className={cn(
+                  index > 0 && "mt-3",
+                  group.id === "archive" && "border-t border-sidebar-border pt-3",
+                )}
+                role={group.label ? "group" : undefined}
+                aria-labelledby={headingId}
+              >
+                {group.label && (
+                  <p
+                    id={headingId}
+                    className="eyebrow px-4 pb-0.5 text-muted-foreground"
+                  >
+                    {group.label}
+                  </p>
+                )}
+                {items.map((item) => (
+                  <SidebarNavLink
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    badgeCounts={badgeCounts}
+                    badgePreferences={badgePreferences}
+                  />
+                ))}
+              </div>
+            );
+          })}
+          {activeSection.id === "calendar" && (
+            <TodayList
+              instances={today.instances}
+              now={today.now}
+              timeZone={timeZone}
+            />
+          )}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function RailLink({
+  section,
+  active,
+  badgeCounts,
+  badgePreferences,
+}: {
+  section: RailSection;
+  active: boolean;
+  badgeCounts: Record<BadgeKey, number>;
+  badgePreferences: BadgePreferences;
+}) {
+  const count = section.badgeKey ? badgeCounts[section.badgeKey] : 0;
+  const showBadge =
+    section.badgeKey !== undefined &&
+    count > 0 &&
+    badgePreferences[badgeKeyToPref[section.badgeKey]] !== false;
+  const shortcutKey = NAV_SHORTCUTS[section.href];
+
+  return (
+    <Link
+      href={section.href}
+      aria-current={active ? "page" : undefined}
+      title={shortcutKey ? `${section.name} (G then ${shortcutKey})` : section.name}
+      className={cn(
+        "relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg border py-2 text-[10.5px] font-medium transition-colors",
+        active
+          ? "border-sidebar-border bg-background text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <section.icon className={cn("h-5 w-5", active && "text-primary")} />
+      <span>{section.name}</span>
+      {showBadge && (
+        <span className="absolute right-1 top-0.5 text-[10px] font-semibold tabular-nums text-primary">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function RailButton({
+  label,
+  kbd,
+  href,
+  active = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  kbd?: string;
+  href?: string;
+  active?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const className = cn(
+    "flex h-9 w-10 shrink-0 items-center justify-center rounded-md transition-colors",
+    active
+      ? "bg-background text-primary"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+  );
+  const title = kbd ? `${label} (${kbd})` : label;
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
+        title={title}
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={title}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NextUpCard({
+  instances,
+  now,
+  timeZone,
+}: {
+  instances: CalendarInstanceDTO[];
+  now: Date;
+  timeZone: string;
+}) {
+  const next = pickNextUp(instances, now, timeZone);
+  if (!next) return null;
+  return (
+    <Link
+      href="/calendar"
+      className="mb-3 flex items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50"
+    >
+      <span
+        aria-hidden
+        className="h-8 w-1 shrink-0 rounded-xs"
+        style={{ backgroundColor: normalizeEventHex(next.color) }}
+      />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="eyebrow text-muted-foreground">
+          Next up{next.when ? ` · ${next.when}` : ""}
+        </span>
+        <span className="truncate text-sm font-medium">
+          <span className="tabular-nums">{next.time}</span> {next.title}
+        </span>
+      </span>
+      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+    </Link>
+  );
+}
+
+function TodayList({
+  instances,
+  now,
+  timeZone,
+}: {
+  instances: CalendarInstanceDTO[];
+  now: Date;
+  timeZone: string;
+}) {
+  const rows = todayRows(instances, now, timeZone);
+  return (
+    <div
+      className="mt-3 border-t border-sidebar-border pt-3"
+      role="group"
+      aria-labelledby="sidebar-nav-today"
+    >
+      <p id="sidebar-nav-today" className="eyebrow px-4 pb-1 text-muted-foreground">
+        Today
+      </p>
+      {rows.length === 0 ? (
+        <p className="px-4 py-1.5 text-sm text-muted-foreground">
+          Nothing today
+        </p>
+      ) : (
+        rows.map((row) => (
           <Link
-            href="/admin"
+            key={row.key}
+            href="/calendar"
             className={cn(
-              "relative flex items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal transition-colors",
-              pathname.startsWith("/admin")
-                ? "font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary before:content-['']"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              "flex items-center gap-2.5 rounded-md py-1.5 pl-4 pr-3 text-sm transition-colors hover:bg-muted/50",
+              row.isPast ? "text-muted-foreground" : "text-foreground",
             )}
           >
-            <Shield className="h-5 w-5" />
-            Admin
+            <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">
+              {row.time}
+            </span>
+            <span
+              aria-hidden
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: normalizeEventHex(row.color) }}
+            />
+            <span className="truncate">{row.title}</span>
           </Link>
-        )}
-        <button
-          onClick={openCommandPalette}
-          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-        >
-          <Command className="h-5 w-5" />
-          <span className="flex-1 text-left">Commands</span>
-          <span className="inline-flex items-center gap-0.5">
-            <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-              ⌘
-            </kbd>
-            <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-              K
-            </kbd>
-          </span>
-        </button>
-        <button
-          onClick={showShortcuts}
-          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-        >
-          <Keyboard className="h-5 w-5" />
-          <span className="flex-1 text-left">Shortcuts</span>
-          <kbd className="rounded border border-input bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-            ?
-          </kbd>
-        </button>
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-md py-2 pl-4 pr-3 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-        >
-          <LogOut className="h-5 w-5" />
-          Sign out
-        </button>
-      </div>
+        ))
+      )}
     </div>
   );
 }
