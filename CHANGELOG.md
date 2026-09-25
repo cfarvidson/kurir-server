@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.125] - 2026-09-25
+
+### Changed
+
+- The person card on a thread card's name keeps Copy address and Email.
+  The Person button is gone: it pointed the pane at the person it already
+  showed. Pairs with iOS/macOS 2026.124 build 118, where Email, Forward
+  and Send again from a thread now open in the regular Compose view.
+
 ## [v2026.124] - 2026-09-25
 
 ### Added
