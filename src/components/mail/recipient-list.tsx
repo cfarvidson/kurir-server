@@ -5,6 +5,7 @@ import {
   resolveRecipientName,
   type RecipientNameMap,
 } from "@/lib/mail/recipient-names";
+import { PersonCardPopover } from "@/components/mail/person-card-popover";
 
 const TRUNCATE_AT = 3;
 
@@ -34,8 +35,12 @@ export function RecipientList({ label, addresses, nameMap }: RecipientListProps)
       {visible.map((address, i) => (
         <span key={`${address}-${i}`}>
           {i > 0 && ", "}
-          {/* Hover shows the address behind the name. */}
-          <span title={address}>{resolveRecipientName(address, nameMap)}</span>
+          <PersonCardPopover
+            name={nameMap[address.trim().toLowerCase()] ?? null}
+            address={address}
+          >
+            {resolveRecipientName(address, nameMap)}
+          </PersonCardPopover>
         </span>
       ))}
       {overflow > 0 && (

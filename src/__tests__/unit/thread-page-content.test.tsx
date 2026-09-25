@@ -113,8 +113,9 @@ describe("ThreadPageContent reply target", () => {
     expect(screen.getByTestId("composer").textContent).toContain("b1 → Bo");
     const mountsBefore = composerMounts;
 
-    // Expand Anna's (collapsed) card, then reply-all from it.
-    fireEvent.click(screen.getByText("Anna"));
+    // Expand Anna's (collapsed) card from its header (the name itself
+    // opens the person card), then reply-all from it.
+    fireEvent.click(screen.getByText("Anna").closest("[data-card-header]")!);
     const actions = container.querySelector("[data-card-actions]") as HTMLElement;
     fireEvent.click(
       Array.from(actions.querySelectorAll("button")).find(

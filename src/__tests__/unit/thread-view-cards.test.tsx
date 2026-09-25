@@ -96,6 +96,31 @@ describe("ThreadView per-card reply (plan 055)", () => {
     );
   });
 
+  it("opens a person card from the sender name with the address and Copy address", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(
+      <ThreadView
+        messages={[
+          message({
+            id: "b1",
+            fromAddress: "bo@corp-b.example",
+            fromName: "Bo",
+            toAddresses: [ME],
+          }),
+        ]}
+        currentUserEmail={ME}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Bo" }));
+    expect(await screen.findByText("bo@corp-b.example")).toBeTruthy();
+    fireEvent.click(screen.getByText("Copy address"));
+    expect(writeText).toHaveBeenCalledWith("bo@corp-b.example");
+    // The card stays expanded: the name click did not toggle it.
+    expect(screen.getByText("Send again", { selector: "button" })).toBeTruthy();
+  });
+
   it("offers Reply on the user's own card too, and hides Reply all without extra recipients", () => {
     const onReply = vi.fn();
     render(
