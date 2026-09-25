@@ -71,6 +71,7 @@ export default async function MailLayout({
           paperTrailUnreadCount={paperTrailUnreadCount}
           badgePreferences={badgePreferences}
           isAdmin={session.user.role === "ADMIN"}
+          timezone={userPrefs?.timezone ?? null}
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <SyncErrorBanner />
