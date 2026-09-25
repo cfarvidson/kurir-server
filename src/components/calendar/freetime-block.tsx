@@ -1,53 +1,67 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { formatFreetimeLabel } from "@/lib/calendar/view-time";
+import type { OpenSpan } from "@/components/calendar/agenda-model";
+import { formatDurationLabel } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
 
+/** "Longest stretch today", "Passed", "9 min left", or nothing. */
+export function openSpanNote(span: OpenSpan): string {
+  if (span.isLongest) return "Longest stretch today";
+  if (span.state === "passed") return "Passed";
+  if (span.state === "now")
+    return `${formatDurationLabel(span.remaining)} left`;
+  return "";
+}
+
 /**
- * A bounded freetime span. The wash + hairlines are visual only and let
- * pointer events through (week-grid drag-create must keep working across
- * a gap); the label is the click target that claims the whole span.
+ * A counted open span in today's column: a dashed accent box. The box
+ * lets pointer events through (drag-create must keep working across it);
+ * the label is the click target that claims the span.
  */
 export function FreetimeBlock({
-  minutes,
+  span,
   onSelect,
   className,
   style,
 }: {
-  minutes: number;
+  span: OpenSpan;
   onSelect?: () => void;
   className?: string;
   style?: CSSProperties;
 }) {
+  const label = `+ ${formatDurationLabel(span.minutes)} open`;
+  const note = openSpanNote(span);
   return (
     <div
       className={cn(
-        "pointer-events-none border-y border-border/70",
+        "pointer-events-none flex items-start justify-between gap-2 rounded-lg border border-dashed border-primary/35 px-2.5 py-1.5",
+        span.isLongest ? "bg-primary/7" : "bg-primary/3",
+        span.state === "passed" && "opacity-45",
         className,
       )}
-      style={{
-        background: "color-mix(in srgb, var(--primary) 6%, transparent)",
-        ...style,
-      }}
+      style={style}
     >
       {onSelect ? (
         <button
           type="button"
-          aria-label={`New event, ${formatFreetimeLabel(minutes)}`}
-          className="pointer-events-auto m-1 self-start rounded-xs px-0.5 text-left text-[11px] tabular-nums text-muted-foreground/70 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={`New event, ${formatDurationLabel(span.minutes)} open`}
+          className="pointer-events-auto rounded-xs text-[12.5px] font-semibold tabular-nums text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             onSelect();
           }}
         >
-          {formatFreetimeLabel(minutes)}
+          {label}
         </button>
       ) : (
-        <span className="m-1 inline-block px-0.5 text-[11px] tabular-nums text-muted-foreground/70">
-          {formatFreetimeLabel(minutes)}
+        <span className="text-[12.5px] font-semibold tabular-nums text-primary">
+          {label}
         </span>
+      )}
+      {note && (
+        <span className="truncate text-[11.5px] text-primary">{note}</span>
       )}
     </div>
   );

@@ -42,4 +42,6 @@ export type SlotSelection = {
   startMin: number;
   endMin: number;
   allDay: boolean;
+  /** Prefilled title, e.g. "Focus time". Empty when omitted. */
+  title?: string;
 };

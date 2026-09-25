@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
+import {
+  resolveAvailability,
+  type CalendarAvailability,
+} from "@/lib/calendar/availability";
 import { listVisibleInstancesForUser } from "@/lib/calendar/query";
 import {
+  civilFromZoned,
   dayRangeUtc,
   monthRangeUtc,
   parseDateParam,
@@ -21,7 +26,10 @@ export type CalendarPagePayload = {
   openNew: boolean;
   accounts: CalendarAccountDTO[];
   instances: CalendarInstanceDTO[];
+  /** Today's instances, for the header's open time and Up next in any view. */
+  todayInstances: CalendarInstanceDTO[];
   anchor: CivilDate;
+  availability: CalendarAvailability;
 };
 
 export function serializeInstance(row: VisibleInstance): CalendarInstanceDTO {
@@ -51,7 +59,7 @@ export async function loadCalendarPage(
   const [user, accounts] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
-      select: { timezone: true },
+      select: { timezone: true, calendarAvailability: true },
     }),
     db.calendarAccount.findMany({
       where: { userId },
@@ -95,6 +103,29 @@ export async function loadCalendarPage(
           serializeInstance,
         );
 
+  // The view's range usually covers today; only a view elsewhere pays for
+  // a second, one-day query.
+  const now = new Date();
+  const todayRange = dayRangeUtc(civilFromZoned(now, timezone), timezone);
+  const coversToday =
+    range.from <= todayRange.from && todayRange.to <= range.to;
+  const todayInstances =
+    accounts.length === 0
+      ? []
+      : coversToday
+        ? instances.filter(
+            (row) =>
+              new Date(row.startAt) < todayRange.to &&
+              todayRange.from < new Date(row.endAt),
+          )
+        : (
+            await listVisibleInstancesForUser(
+              userId,
+              todayRange.from,
+              todayRange.to,
+            )
+          ).map(serializeInstance);
+
   return {
     mode,
     timezone,
@@ -102,6 +133,8 @@ export async function loadCalendarPage(
     openNew: search.new === "1",
     accounts,
     instances,
+    todayInstances,
     anchor,
+    availability: resolveAvailability(user?.calendarAvailability),
   };
 }

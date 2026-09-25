@@ -5,6 +5,10 @@ import {
 } from "@/components/calendar/grid-model";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import {
+  DEFAULT_AVAILABILITY,
+  type CalendarAvailability,
+} from "@/lib/calendar/availability";
+import {
   BOOKABLE_GAP_MIN_MINUTES,
   FREETIME_MIN_MINUTES,
   formatDurationLabel,
@@ -74,13 +78,40 @@ function clipToNow(hole: Hole, nowMin: number | null): Hole {
   if (nowMin == null || nowMin <= hole.startMin || nowMin >= hole.endMin) {
     return hole;
   }
-  return { startMin: nowMin, endMin: hole.endMin, minutes: hole.endMin - nowMin };
+  return {
+    startMin: nowMin,
+    endMin: hole.endMin,
+    minutes: hole.endMin - nowMin,
+  };
 }
 
 /** Minutes of the hole not yet behind now. Off-day, all of them. */
 function remainingMinutes(hole: Hole, nowMin: number | null): number {
   if (nowMin == null) return hole.minutes;
   return Math.max(Math.min(hole.endMin - nowMin, hole.minutes), 0);
+}
+
+/**
+ * Ties keep the first span, so exactly one is ever flagged. On today the
+ * contest is over remaining minutes - a span mostly behind now cannot
+ * claim to be the longest stretch, and when nothing remains no span is
+ * flagged at all.
+ */
+function longestRemaining<T extends Hole>(
+  spans: T[],
+  nowMin: number | null,
+): T | null {
+  let longest: T | null = null;
+  for (const span of spans) {
+    if (remainingMinutes(span, nowMin) <= 0) continue;
+    if (
+      !longest ||
+      remainingMinutes(span, nowMin) > remainingMinutes(longest, nowMin)
+    ) {
+      longest = span;
+    }
+  }
+  return longest;
 }
 
 /**
@@ -95,6 +126,7 @@ export function agendaRows(
   day: CivilDate,
   timeZone: string,
   nowMin: number | null = null,
+  availability: CalendarAvailability = DEFAULT_AVAILABILITY,
 ): AgendaRow[] {
   // All-day rows in title order. They are not re-sorted afterwards - a
   // final sort on id would silently throw that order away.
@@ -149,6 +181,7 @@ export function agendaRows(
     instances,
     day,
     timeZone,
+    availability,
     BOOKABLE_GAP_MIN_MINUTES,
   ).map((hole) => ({ ...hole, minutes: hole.endMin - hole.startMin }));
   const spans = holes.filter((hole) => hole.minutes >= FREETIME_MIN_MINUTES);
@@ -165,20 +198,7 @@ export function agendaRows(
       durationLabel: formatDurationLabel(gap.minutes),
     });
   }
-  // Ties keep the first span, so exactly one row is ever flagged. On
-  // today the contest is over remaining minutes - a span mostly behind
-  // now cannot claim to be the longest stretch, and when nothing remains
-  // no span is flagged at all.
-  let longest: (typeof spans)[number] | null = null;
-  for (const span of spans) {
-    if (remainingMinutes(span, nowMin) <= 0) continue;
-    if (
-      !longest ||
-      remainingMinutes(span, nowMin) > remainingMinutes(longest, nowMin)
-    ) {
-      longest = span;
-    }
-  }
+  const longest = longestRemaining(spans, nowMin);
   for (const span of spans) {
     const free = clipToNow(span, nowMin);
     timeline.push({
@@ -199,6 +219,53 @@ export function agendaRows(
       : a.id.localeCompare(b.id),
   );
   return [...allDayRows, ...timeline];
+}
+
+/**
+ * One counted open span (>= FREETIME_MIN_MINUTES) as the week's today
+ * column and the day view's Open time cards show it: its full extent,
+ * where now stands relative to it, and whether it is the day's longest
+ * remaining stretch (the same contest as the agenda's `isLongest`).
+ */
+export type OpenSpan = {
+  startMin: number;
+  endMin: number;
+  minutes: number;
+  /** "passed" and "now" only occur on today. */
+  state: "passed" | "now" | "upcoming";
+  /** Minutes still ahead: all of them off today, 0 once passed. */
+  remaining: number;
+  isLongest: boolean;
+};
+
+export function openSpans(
+  instances: CalendarInstanceDTO[],
+  day: CivilDate,
+  timeZone: string,
+  availability: CalendarAvailability,
+  nowMin: number | null = null,
+): OpenSpan[] {
+  const spans: Hole[] = freetimeMinutes(
+    instances,
+    day,
+    timeZone,
+    availability,
+  ).map((span) => ({ ...span, minutes: span.endMin - span.startMin }));
+  const longest = longestRemaining(spans, nowMin);
+  return spans.map((span) => {
+    const remaining = remainingMinutes(span, nowMin);
+    return {
+      ...span,
+      state:
+        nowMin == null || nowMin < span.startMin
+          ? "upcoming"
+          : nowMin >= span.endMin
+            ? "passed"
+            : "now",
+      remaining,
+      isLongest: span === longest,
+    };
+  });
 }
 
 /**

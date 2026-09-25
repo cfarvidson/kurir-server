@@ -4,15 +4,21 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { EventBlock } from "@/components/calendar/event-block";
 import { FreetimeBlock } from "@/components/calendar/freetime-block";
+import { openSpans } from "@/components/calendar/agenda-model";
 import {
-  allDayEventsOnDay,
-  freetimeMinutes,
+  compareCivil,
+  dayWindow,
+  eventInclusiveRange,
   minutesFromPx,
   nowMinutesOnDay,
+  openMinutesOnDay,
+  packLanes,
   placeTimedEvents,
   pxFromMinutes,
   snapMinutes,
+  timedEventsOnDay,
   wallFromMinutes,
+  weekColumnWidths,
 } from "@/components/calendar/grid-model";
 import {
   pointerPastThreshold,
@@ -22,16 +28,18 @@ import type {
   CalendarInstanceDTO,
   SlotSelection,
 } from "@/components/calendar/types";
+import type { CalendarAvailability } from "@/lib/calendar/availability";
 import {
   DAY_MINUTES,
   HOUR_HEIGHT_PX,
   VISIBLE_HOUR_START,
   civilFromZoned,
   formatDateParam,
+  formatDurationLabel,
   formatHourLabel,
   formatTimeLabel,
+  formatWeekdayLong,
   formatWeekdayShort,
-  isWeekend,
   sameCivil,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -74,6 +82,7 @@ export function TimeGrid({
   days,
   instances,
   timezone,
+  availability,
   showDayHeader,
   canCreate,
   onSelectSlot,
@@ -83,6 +92,7 @@ export function TimeGrid({
   days: CivilDate[];
   instances: CalendarInstanceDTO[];
   timezone: string;
+  availability: CalendarAvailability;
   showDayHeader: boolean;
   canCreate: boolean;
   onSelectSlot: (slot: SlotSelection) => void;
@@ -101,7 +111,8 @@ export function TimeGrid({
 
   useLayoutEffect(() => {
     const node = scrollRef.current;
-    if (node) node.scrollTop = VISIBLE_HOUR_START * HOUR_HEIGHT_PX;
+    // A little above 07:00 so its hour label is not clipped.
+    if (node) node.scrollTop = VISIBLE_HOUR_START * HOUR_HEIGHT_PX - 12;
   }, []);
 
   useEffect(() => {
@@ -344,245 +355,464 @@ export function TimeGrid({
     );
   }
 
+  const widths = weekColumnWidths(days, today);
+  const todayIndex = days.findIndex((day) => sameCivil(day, today));
+  const nowMinToday =
+    todayIndex === -1 ? null : nowMinutesOnDay(today, timezone, now);
+  const offsets = widths.map((_, i) =>
+    widths.slice(0, i).reduce((sum, w) => sum + w, 0),
+  );
+  const allDayBars = weekAllDayBars(instances, days, timezone);
+  const allDayLanes = allDayBars.reduce(
+    (max, bar) => Math.max(max, bar.lane + 1),
+    0,
+  );
+  const draggingId = drag && drag.type !== "create" ? drag.event.eventId : null;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {showDayHeader && (
-        <div className="flex shrink-0 border-b border-border">
-          <div className="w-14 shrink-0" />
-          {days.map((day) => (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* Today's raised surface, behind all three bands. Its own box with
+          the same scrollbar gutter as the grid keeps it on the column. */}
+      {todayIndex !== -1 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex overflow-hidden [scrollbar-gutter:stable]"
+        >
+          <div className="w-12 shrink-0" />
+          <div className="relative min-w-0 flex-1">
             <div
-              key={formatDateParam(day)}
-              className={cn(
-                "min-w-0 flex-1 py-2 text-center",
-                isWeekend(day) && "bg-muted/40",
-                sameCivil(day, today) && "bg-primary/5",
-              )}
-            >
-              <div
-                className={cn(
-                  "text-[11px] uppercase tracking-wide text-muted-foreground",
-                  sameCivil(day, today) && "font-medium text-primary",
-                )}
-              >
-                {formatWeekdayShort(day)}
-              </div>
-              <div
-                className={cn(
-                  "font-serif text-2xl font-semibold leading-tight tabular-nums",
-                  sameCivil(day, today) && "text-primary",
-                )}
-              >
-                {sameCivil(day, today) ? (
-                  <span className="inline-flex size-8 items-center justify-center rounded-full bg-primary text-lg text-primary-foreground">
-                    {day.day}
-                  </span>
-                ) : (
-                  day.day
-                )}
-              </div>
-            </div>
-          ))}
+              className="cal-raised absolute inset-y-0 rounded-[14px]"
+              style={{
+                left: `${offsets[todayIndex]}%`,
+                width: `${widths[todayIndex]}%`,
+              }}
+            />
+          </div>
         </div>
       )}
 
-      <div className="flex max-h-28 shrink-0 overflow-y-auto border-b border-border">
-        <div className="w-14 shrink-0" />
-        {days.map((day) => {
-          const allDay = allDayEventsOnDay(instances, day, timezone);
-          return (
-            <div
-              key={formatDateParam(day)}
-              className={cn(
-                "min-w-0 flex-1 space-y-0.5 p-0.5",
-                isWeekend(day) && "bg-muted/40",
-                sameCivil(day, today) && "bg-primary/5",
-              )}
-              onClick={() => {
-                if (!canCreate) return;
-                onSelectSlot({
-                  date: formatDateParam(day),
-                  startMin: 0,
-                  endMin: 24 * 60,
-                  allDay: true,
-                });
-              }}
-            >
-              {allDay.map((row) => (
-                <EventBlock
-                  key={`${row.eventId}:${row.startAt}`}
-                  title={row.title}
-                  color={row.color}
-                  muted={row.transparency === "free"}
-                  className="relative h-5"
-                  onClick={() => onEventClick(row)}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-        <div className="flex" style={{ height: GRID_HEIGHT }}>
-          <div className="relative w-14 shrink-0">
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="absolute right-2 text-[11px] tabular-nums text-muted-foreground"
-                style={{ top: hour * HOUR_HEIGHT_PX - 7 }}
-              >
-                {formatHourLabel(hour)}
-              </div>
-            ))}
-          </div>
-          {days.map((day) => {
-            const placed = placeTimedEvents(instances, day, timezone);
-            const gaps = freetimeMinutes(instances, day, timezone);
-            const nowMin = nowMinutesOnDay(day, timezone, now);
-            const draggingId =
-              drag && drag.type !== "create" ? drag.event.eventId : null;
-            return (
-              <div
-                key={formatDateParam(day)}
-                data-cal-day={formatDateParam(day)}
-                className={cn(
-                  "relative min-w-0 flex-1 border-l border-border",
-                  isWeekend(day) && "bg-muted/40",
-                  sameCivil(day, today) && "bg-primary/5",
-                )}
-                onPointerDown={(event) => onColumnPointerDown(event, day)}
-              >
-                {HOURS.map((hour) => (
+      {showDayHeader && (
+        <div className="relative flex shrink-0 overflow-hidden border-b border-border [scrollbar-gutter:stable]">
+          <div className="w-12 shrink-0" />
+          <div className="flex min-w-0 flex-1">
+            {days.map((day, i) => {
+              const isToday = i === todayIndex;
+              const isPast = compareCivil(day, today) < 0;
+              const hours = dayWindow(availability, day);
+              const open = openMinutesOnDay(
+                instances,
+                day,
+                timezone,
+                availability,
+              );
+              const openText = hours
+                ? `${open === 0 ? "0 h" : formatDurationLabel(open)} open`
+                : "Not available";
+              if (isToday) {
+                const count = timedEventsOnDay(instances, day, timezone).length;
+                return (
                   <div
-                    key={hour}
-                    className="pointer-events-none absolute inset-x-0 border-t border-border"
-                    style={{ top: hour * HOUR_HEIGHT_PX }}
-                  />
-                ))}
-                {gaps.map((gap) => (
-                  <FreetimeBlock
-                    key={`${gap.startMin}-${gap.endMin}`}
-                    minutes={gap.endMin - gap.startMin}
-                    className="absolute inset-x-0"
-                    style={{
-                      top: pxFromMinutes(gap.startMin),
-                      height: pxFromMinutes(gap.endMin - gap.startMin),
-                    }}
-                    onSelect={
-                      canCreate
-                        ? () =>
-                            onSelectSlot({
-                              date: formatDateParam(day),
-                              startMin: gap.startMin,
-                              endMin: gap.endMin,
-                              allDay: false,
-                            })
-                        : undefined
-                    }
-                  />
-                ))}
-                {placed.map((row) => {
-                  if (draggingId === row.eventId) return null;
-                  return (
-                    <EventBlock
-                      key={`${row.eventId}:${row.startMin}`}
-                      title={row.title}
-                      color={row.color}
-                      timeLabel={
-                        row.endMin - row.startMin >= 45
-                          ? formatTimeLabel(Math.floor(row.startMin / 60), row.startMin % 60)
-                          : undefined
-                      }
-                      muted={row.transparency === "free"}
-                      className="absolute z-10"
-                      style={{
-                        top: pxFromMinutes(row.startMin),
-                        height: Math.max(pxFromMinutes(row.endMin - row.startMin), 16),
-                        left: `calc(${(row.col / row.cols) * 100}% + 1px)`,
-                        width: `calc(${(1 / row.cols) * 100}% - 2px)`,
-                      }}
-                      onClick={() => {
-                        if (suppressClick.current) return;
-                        onEventClick(row);
-                      }}
-                      onPointerDown={(event) =>
-                        onEventPointerDown(
-                          event,
-                          row,
-                          day,
-                          row.startMin,
-                          row.endMin,
-                        )
-                      }
-                      onResizePointerDown={
-                        row.isReadOnly
-                          ? undefined
-                          : (event) =>
-                              onResizePointerDown(
-                                event,
-                                row,
-                                day,
-                                row.startMin,
-                                row.endMin,
-                              )
-                      }
-                    />
-                  );
-                })}
-                {drag &&
-                  formatDateParam(drag.day) === formatDateParam(day) &&
-                  drag.type !== "create" && (
-                    <EventBlock
-                      title={drag.event.title}
-                      color={drag.event.color}
-                      className="pointer-events-none absolute z-30 opacity-80"
-                      style={{
-                        top: pxFromMinutes(drag.startMin),
-                        height: Math.max(
-                          pxFromMinutes(drag.endMin - drag.startMin),
-                          16,
-                        ),
-                        left: "1px",
-                        width: "calc(100% - 2px)",
-                      }}
-                    />
-                  )}
-                {drag &&
-                  drag.type === "create" &&
-                  formatDateParam(drag.day) === formatDateParam(day) && (
-                    <div
-                      className="pointer-events-none absolute inset-x-1 z-20 rounded-xs bg-primary/10"
-                      style={{
-                        top: pxFromMinutes(Math.min(drag.startMin, drag.endMin)),
-                        height: pxFromMinutes(
-                          Math.max(30, Math.abs(drag.endMin - drag.startMin)),
-                        ),
-                      }}
-                    />
-                  )}
-                {nowMin != null && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 z-20 h-px bg-primary"
-                    style={{ top: pxFromMinutes(nowMin) }}
+                    key={formatDateParam(day)}
+                    className="flex min-w-0 items-baseline justify-between gap-2 px-4 pt-1.5 pb-3"
+                    style={{ width: `${widths[i]}%` }}
                   >
-                    <span
-                      aria-hidden
-                      className="absolute -left-0.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-primary"
-                    />
-                    <span className="absolute -top-2 left-1 text-[10px] tabular-nums text-primary">
-                      {formatTimeLabel(
-                        Math.floor(nowMin / 60),
-                        Math.floor(nowMin % 60),
-                      )}
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="truncate font-serif text-[26px] font-semibold leading-tight text-primary">
+                        {formatWeekdayLong(day)} {day.day}
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+                        Today
+                      </span>
+                    </div>
+                    <span className="shrink-0 truncate text-xs tabular-nums text-muted-foreground">
+                      {openText} · {count} {count === 1 ? "event" : "events"}
                     </span>
                   </div>
+                );
+              }
+              return (
+                <div
+                  key={formatDateParam(day)}
+                  className={cn(
+                    "min-w-0 px-2 pt-1.5 pb-3",
+                    isPast && "opacity-45",
+                  )}
+                  style={{ width: `${widths[i]}%` }}
+                >
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      {formatWeekdayShort(day)}
+                    </span>
+                    <span className="text-[19px] font-bold tabular-nums leading-tight">
+                      {day.day}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 truncate text-[10.5px] tabular-nums text-muted-foreground">
+                    {openText}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="relative flex max-h-28 shrink-0 overflow-y-auto border-b border-border [scrollbar-gutter:stable]">
+        <div className="w-12 shrink-0" />
+        <div
+          className="relative min-w-0 flex-1"
+          style={{ height: Math.max(allDayLanes, 1) * 21 + 8 }}
+        >
+          <div className="absolute inset-0 flex">
+            {days.map((day, i) => (
+              <div
+                key={formatDateParam(day)}
+                className="h-full"
+                style={{ width: `${widths[i]}%` }}
+                onClick={() => {
+                  if (!canCreate) return;
+                  onSelectSlot({
+                    date: formatDateParam(day),
+                    startMin: 0,
+                    endMin: 24 * 60,
+                    allDay: true,
+                  });
+                }}
+              />
+            ))}
+          </div>
+          {allDayBars.map((bar) => {
+            const left = offsets[bar.startCol];
+            const width =
+              offsets[bar.endCol] + widths[bar.endCol] - offsets[bar.startCol];
+            return (
+              <EventBlock
+                key={`${bar.event.eventId}:${bar.event.startAt}`}
+                title={bar.label}
+                color={bar.event.color}
+                muted={bar.event.transparency === "free"}
+                className={cn(
+                  "absolute h-[18px] rounded-[4px] text-[11px]",
+                  compareCivil(days[bar.endCol], today) < 0 && "opacity-45",
                 )}
-              </div>
+                style={{
+                  top: 4 + bar.lane * 21,
+                  left: `calc(${left}% + 4px)`,
+                  width: `calc(${width}% - 8px)`,
+                }}
+                onClick={() => onEventClick(bar.event)}
+              />
             );
           })}
         </div>
       </div>
+
+      <div
+        ref={scrollRef}
+        className="relative min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]"
+      >
+        <div className="flex" style={{ height: GRID_HEIGHT }}>
+          <div className="relative w-12 shrink-0">
+            {HOURS.map((hour) => {
+              const nearNow =
+                nowMinToday != null &&
+                Math.abs(pxFromMinutes(hour * 60 - nowMinToday)) < 12;
+              return (
+                <div
+                  key={hour}
+                  className={cn(
+                    "absolute right-2 text-[10.5px] tabular-nums text-muted-foreground",
+                    nearNow && "invisible",
+                  )}
+                  style={{ top: hour * HOUR_HEIGHT_PX - 7 }}
+                >
+                  {formatHourLabel(hour)}
+                </div>
+              );
+            })}
+            {nowMinToday != null && (
+              <div
+                aria-hidden
+                className="absolute left-0 z-20 rounded-[5px] bg-primary px-[5px] py-px text-[10.5px] font-bold tabular-nums text-primary-foreground"
+                style={{ top: pxFromMinutes(nowMinToday) - 8 }}
+              >
+                {formatTimeLabel(
+                  Math.floor(nowMinToday / 60),
+                  Math.floor(nowMinToday % 60),
+                )}
+              </div>
+            )}
+          </div>
+          <div className="relative flex min-w-0 flex-1">
+            {HOURS.map((hour) => (
+              <div
+                key={hour}
+                className="pointer-events-none absolute inset-x-0 border-t border-border"
+                style={{ top: hour * HOUR_HEIGHT_PX }}
+              />
+            ))}
+            {days.map((day, i) => {
+              const isToday = i === todayIndex;
+              const isPast = compareCivil(day, today) < 0;
+              const placed = placeTimedEvents(instances, day, timezone);
+              const hours = dayWindow(availability, day);
+              const nowMin = isToday ? nowMinToday : null;
+              const spans = isToday
+                ? openSpans(instances, day, timezone, availability, nowMin)
+                : [];
+              const inset = isToday ? 8 : 4;
+              return (
+                <div
+                  key={formatDateParam(day)}
+                  data-cal-day={formatDateParam(day)}
+                  className="relative h-full min-w-0"
+                  style={{ width: `${widths[i]}%` }}
+                  onPointerDown={(event) => onColumnPointerDown(event, day)}
+                >
+                  {(hours
+                    ? [
+                        { from: 0, to: hours.startMin },
+                        { from: hours.endMin, to: DAY_MINUTES },
+                      ]
+                    : [{ from: 0, to: DAY_MINUTES }]
+                  )
+                    .filter((band) => band.to > band.from)
+                    .map((band) => (
+                      <div
+                        key={band.from}
+                        aria-hidden
+                        className="cal-hatch pointer-events-none absolute inset-x-0"
+                        style={{
+                          top: pxFromMinutes(band.from),
+                          height: pxFromMinutes(band.to - band.from),
+                        }}
+                      />
+                    ))}
+                  {spans.map((span) => (
+                    <FreetimeBlock
+                      key={`${span.startMin}-${span.endMin}`}
+                      span={span}
+                      className="absolute"
+                      style={{
+                        top: pxFromMinutes(span.startMin) + 3,
+                        height: pxFromMinutes(span.endMin - span.startMin) - 6,
+                        left: inset,
+                        right: inset,
+                      }}
+                      onSelect={
+                        canCreate && span.state !== "passed"
+                          ? () =>
+                              onSelectSlot({
+                                date: formatDateParam(day),
+                                startMin:
+                                  span.state === "now" && nowMin != null
+                                    ? nowMin
+                                    : span.startMin,
+                                endMin: span.endMin,
+                                allDay: false,
+                              })
+                          : undefined
+                      }
+                    />
+                  ))}
+                  {placed.map((row) => {
+                    if (draggingId === row.eventId) return null;
+                    const height = Math.max(
+                      pxFromMinutes(row.endMin - row.startMin) - 2,
+                      17,
+                    );
+                    const ended = nowMin != null && row.endMin <= nowMin;
+                    const range = `${minuteLabel(row.startMin)}–${minuteLabel(row.endMin)}`;
+                    return (
+                      <EventBlock
+                        key={`${row.eventId}:${row.startMin}`}
+                        title={row.title}
+                        color={row.color}
+                        tinted
+                        muted={row.transparency === "free"}
+                        className={cn(
+                          "absolute z-10",
+                          isToday && "rounded-[7px]",
+                          (isPast || ended) &&
+                            (isPast ? "opacity-45" : "opacity-50"),
+                        )}
+                        style={{
+                          top: pxFromMinutes(row.startMin) + 1,
+                          height,
+                          left: `calc(${(row.col / row.cols) * 100}% + ${row.col === 0 ? inset : 1}px)`,
+                          width: `calc(${(1 / row.cols) * 100}% - ${(row.col === 0 ? inset : 1) + (row.col === row.cols - 1 ? inset : 1)}px)`,
+                        }}
+                        onClick={() => {
+                          if (suppressClick.current) return;
+                          onEventClick(row);
+                        }}
+                        onPointerDown={(event) =>
+                          onEventPointerDown(
+                            event,
+                            row,
+                            day,
+                            row.startMin,
+                            row.endMin,
+                          )
+                        }
+                        onResizePointerDown={
+                          row.isReadOnly
+                            ? undefined
+                            : (event) =>
+                                onResizePointerDown(
+                                  event,
+                                  row,
+                                  day,
+                                  row.startMin,
+                                  row.endMin,
+                                )
+                        }
+                      >
+                        {isToday ? (
+                          height >= 30 ? (
+                            <span className="block px-2.5 py-1">
+                              <span className="block truncate text-[13px] font-semibold leading-tight">
+                                {row.title}
+                              </span>
+                              <span className="mt-px block truncate text-[11px] tabular-nums opacity-75">
+                                {row.location
+                                  ? `${range} · ${row.location}`
+                                  : range}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="flex items-baseline gap-2 whitespace-nowrap px-2.5 py-px text-xs leading-tight">
+                              <span className="tabular-nums opacity-75">
+                                {minuteLabel(row.startMin)}
+                              </span>
+                              <span className="truncate font-semibold">
+                                {row.title}
+                              </span>
+                              {row.location && (
+                                <span className="truncate opacity-75">
+                                  {row.location}
+                                </span>
+                              )}
+                            </span>
+                          )
+                        ) : (
+                          <span className="block px-1.5 py-0.5 text-[10.5px] font-semibold leading-tight">
+                            {row.title}
+                          </span>
+                        )}
+                      </EventBlock>
+                    );
+                  })}
+                  {drag &&
+                    formatDateParam(drag.day) === formatDateParam(day) &&
+                    drag.type !== "create" && (
+                      <EventBlock
+                        title={drag.event.title}
+                        color={drag.event.color}
+                        tinted
+                        className="pointer-events-none absolute z-30 opacity-80"
+                        style={{
+                          top: pxFromMinutes(drag.startMin),
+                          height: Math.max(
+                            pxFromMinutes(drag.endMin - drag.startMin),
+                            16,
+                          ),
+                          left: inset,
+                          right: inset,
+                        }}
+                      />
+                    )}
+                  {drag &&
+                    drag.type === "create" &&
+                    formatDateParam(drag.day) === formatDateParam(day) && (
+                      <div
+                        className="pointer-events-none absolute inset-x-1 z-20 rounded-[5px] bg-primary/10"
+                        style={{
+                          top: pxFromMinutes(
+                            Math.min(drag.startMin, drag.endMin),
+                          ),
+                          height: pxFromMinutes(
+                            Math.max(30, Math.abs(drag.endMin - drag.startMin)),
+                          ),
+                        }}
+                      />
+                    )}
+                  {nowMin != null && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-primary"
+                      style={{ top: pxFromMinutes(nowMin) - 1 }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+function minuteLabel(min: number): string {
+  const clamped = Math.min(min, DAY_MINUTES - 1);
+  return min >= DAY_MINUTES
+    ? "24:00"
+    : formatTimeLabel(Math.floor(clamped / 60), clamped % 60);
+}
+
+type AllDayBar = {
+  event: CalendarInstanceDTO;
+  label: string;
+  startCol: number;
+  endCol: number;
+  lane: number;
+};
+
+/**
+ * All-day events as bars across the week's columns, multi-day ones as one
+ * bar with their weekday range ("Thu–Sun") in the label.
+ */
+function weekAllDayBars(
+  instances: CalendarInstanceDTO[],
+  days: CivilDate[],
+  timezone: string,
+): AllDayBar[] {
+  const first = days[0];
+  const last = days[days.length - 1];
+  const items = instances
+    .filter((row) => row.isAllDay)
+    .map((event) => ({ event, range: eventInclusiveRange(event, timezone) }))
+    .filter(
+      ({ range }) =>
+        compareCivil(range.end, first) >= 0 &&
+        compareCivil(range.start, last) <= 0,
+    )
+    .map(({ event, range }) => {
+      const startCol = Math.max(
+        0,
+        days.findIndex((day) => compareCivil(day, range.start) >= 0),
+      );
+      const lastIndex = days.findIndex(
+        (day) => compareCivil(day, range.end) >= 0,
+      );
+      const endCol = lastIndex === -1 ? days.length - 1 : lastIndex;
+      const multi = compareCivil(range.start, range.end) < 0;
+      return {
+        event,
+        startCol,
+        endCol,
+        label: multi
+          ? `${event.title} · ${formatWeekdayShort(range.start)}–${formatWeekdayShort(range.end)}`
+          : event.title,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.startCol - b.startCol ||
+        b.endCol - b.startCol - (a.endCol - a.startCol) ||
+        a.event.title.localeCompare(b.event.title),
+    );
+  const lanes = packLanes(items, Number.POSITIVE_INFINITY);
+  return items.map((item, i) => ({ ...item, lane: lanes[i] ?? 0 }));
 }

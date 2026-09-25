@@ -35,7 +35,10 @@ import {
   zonedParts,
   zonedWallToUtc,
 } from "@/lib/calendar/view-time";
-import type { EventInput, RecurrenceEdit } from "@/lib/calendar/providers/types";
+import type {
+  EventInput,
+  RecurrenceEdit,
+} from "@/lib/calendar/providers/types";
 import { cn } from "@/lib/utils";
 
 type Draft = {
@@ -86,7 +89,7 @@ function draftFromSlot(
   accounts: CalendarAccountDTO[],
 ): Draft {
   return {
-    title: "",
+    title: slot.title ?? "",
     calendarId: defaultCalendarId(accounts),
     startDate: slot.date,
     endDate: slot.date,
@@ -100,10 +103,7 @@ function draftFromSlot(
   };
 }
 
-function draftFromEvent(
-  event: CalendarInstanceDTO,
-  timezone: string,
-): Draft {
+function draftFromEvent(event: CalendarInstanceDTO, timezone: string): Draft {
   let startDate: string;
   let endDate: string;
   let startTime = "09:00";
@@ -221,7 +221,11 @@ export function RecurrenceRangeDialog({
           <DialogDescription>Choose which events to change.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          <Button type="button" variant="outline" onClick={() => onPick("this")}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onPick("this")}
+          >
             This event
           </Button>
           <Button
@@ -259,7 +263,7 @@ export function EventDialog({
   const identity = event
     ? `e:${event.eventId}:${event.startAt}`
     : slot
-      ? `s:${slot.date}:${slot.startMin}:${slot.endMin}:${slot.allDay}`
+      ? `s:${slot.date}:${slot.startMin}:${slot.endMin}:${slot.allDay}:${slot.title ?? ""}`
       : "none";
   const [seen, setSeen] = useState(identity);
   const [draft, setDraft] = useState<Draft | null>(() =>
@@ -339,7 +343,9 @@ export function EventDialog({
       onOpenChange(false);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not delete event");
+      toast.error(
+        err instanceof Error ? err.message : "Could not delete event",
+      );
     } finally {
       setSaving(false);
       setPending(null);
@@ -388,7 +394,9 @@ export function EventDialog({
           <>
             <DialogHeader>
               <DialogTitle>{rangeTitle}</DialogTitle>
-              <DialogDescription>Choose which events to change.</DialogDescription>
+              <DialogDescription>
+                Choose which events to change.
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2">
               <Button
@@ -396,7 +404,9 @@ export function EventDialog({
                 variant="outline"
                 disabled={saving}
                 onClick={() =>
-                  pending === "delete" ? void runDelete("this") : void runSave("this")
+                  pending === "delete"
+                    ? void runDelete("this")
+                    : void runSave("this")
                 }
               >
                 This event
@@ -418,7 +428,9 @@ export function EventDialog({
                 variant="outline"
                 disabled={saving}
                 onClick={() =>
-                  pending === "delete" ? void runDelete("all") : void runSave("all")
+                  pending === "delete"
+                    ? void runDelete("all")
+                    : void runSave("all")
                 }
               >
                 All events
@@ -427,145 +439,147 @@ export function EventDialog({
           </>
         ) : (
           <>
-          <DialogHeader>
-            <DialogTitle>{event ? "Event" : "New event"}</DialogTitle>
-            <DialogDescription>
-              {readOnly ? "Subscribe" : "Title, time, and calendar for this event."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="cal-title">Title</Label>
-              <Input
-                id="cal-title"
-                value={draft.title}
-                onChange={(e) => update("title", e.target.value)}
-                disabled={readOnly}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cal-calendar">Calendar</Label>
-              <select
-                id="cal-calendar"
-                className={fieldClass()}
-                value={draft.calendarId}
-                onChange={(e) => update("calendarId", e.target.value)}
-                disabled={readOnly}
-              >
-                {calendars.map((calendar) => (
-                  <option key={calendar.id} value={calendar.id}>
-                    {calendar.accountName} - {calendar.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-3.5 accent-primary"
-                checked={draft.allDay}
-                disabled={readOnly}
-                onChange={(e) => update("allDay", e.target.checked)}
-              />
-              All-day
-            </label>
-            <div className="grid grid-cols-2 gap-2">
+            <DialogHeader>
+              <DialogTitle>{event ? "Event" : "New event"}</DialogTitle>
+              <DialogDescription>
+                {readOnly
+                  ? "Subscribe"
+                  : "Title, time, and calendar for this event."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="cal-start-date">Start</Label>
+                <Label htmlFor="cal-title">Title</Label>
                 <Input
-                  id="cal-start-date"
-                  type="date"
-                  value={draft.startDate}
+                  id="cal-title"
+                  value={draft.title}
+                  onChange={(e) => update("title", e.target.value)}
                   disabled={readOnly}
-                  onChange={(e) => update("startDate", e.target.value)}
+                  autoFocus
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cal-end-date">End</Label>
-                <Input
-                  id="cal-end-date"
-                  type="date"
-                  value={draft.endDate}
+                <Label htmlFor="cal-calendar">Calendar</Label>
+                <select
+                  id="cal-calendar"
+                  className={fieldClass()}
+                  value={draft.calendarId}
+                  onChange={(e) => update("calendarId", e.target.value)}
                   disabled={readOnly}
-                  onChange={(e) => update("endDate", e.target.value)}
-                />
+                >
+                  {calendars.map((calendar) => (
+                    <option key={calendar.id} value={calendar.id}>
+                      {calendar.accountName} - {calendar.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              {!draft.allDay && (
-                <>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-3.5 accent-primary"
+                  checked={draft.allDay}
+                  disabled={readOnly}
+                  onChange={(e) => update("allDay", e.target.checked)}
+                />
+                All-day
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cal-start-date">Start</Label>
                   <Input
-                    type="time"
-                    value={draft.startTime}
+                    id="cal-start-date"
+                    type="date"
+                    value={draft.startDate}
                     disabled={readOnly}
-                    onChange={(e) => update("startTime", e.target.value)}
+                    onChange={(e) => update("startDate", e.target.value)}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cal-end-date">End</Label>
                   <Input
-                    type="time"
-                    value={draft.endTime}
+                    id="cal-end-date"
+                    type="date"
+                    value={draft.endDate}
                     disabled={readOnly}
-                    onChange={(e) => update("endTime", e.target.value)}
+                    onChange={(e) => update("endDate", e.target.value)}
                   />
-                </>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cal-location">Location</Label>
-              <Input
-                id="cal-location"
-                value={draft.location}
-                disabled={readOnly}
-                onChange={(e) => update("location", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cal-notes">Notes</Label>
-              <textarea
-                id="cal-notes"
-                value={draft.notes}
-                disabled={readOnly}
-                onChange={(e) => update("notes", e.target.value)}
-                className={fieldClass("h-20 py-2")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cal-repeat">Repeat</Label>
-              <select
-                id="cal-repeat"
-                className={fieldClass()}
-                value={draft.repeat === "custom" ? "custom" : draft.repeat}
-                disabled={readOnly}
-                onChange={(e) => update("repeat", e.target.value)}
-              >
-                {REPEAT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-                {draft.repeat === "custom" && (
-                  <option value="custom">Custom</option>
+                </div>
+                {!draft.allDay && (
+                  <>
+                    <Input
+                      type="time"
+                      value={draft.startTime}
+                      disabled={readOnly}
+                      onChange={(e) => update("startTime", e.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      value={draft.endTime}
+                      disabled={readOnly}
+                      onChange={(e) => update("endTime", e.target.value)}
+                    />
+                  </>
                 )}
-              </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cal-location">Location</Label>
+                <Input
+                  id="cal-location"
+                  value={draft.location}
+                  disabled={readOnly}
+                  onChange={(e) => update("location", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cal-notes">Notes</Label>
+                <textarea
+                  id="cal-notes"
+                  value={draft.notes}
+                  disabled={readOnly}
+                  onChange={(e) => update("notes", e.target.value)}
+                  className={fieldClass("h-20 py-2")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cal-repeat">Repeat</Label>
+                <select
+                  id="cal-repeat"
+                  className={fieldClass()}
+                  value={draft.repeat === "custom" ? "custom" : draft.repeat}
+                  disabled={readOnly}
+                  onChange={(e) => update("repeat", e.target.value)}
+                >
+                  {REPEAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                  {draft.repeat === "custom" && (
+                    <option value="custom">Custom</option>
+                  )}
+                </select>
+              </div>
             </div>
-          </div>
-          <DialogFooter className="gap-2 sm:justify-between">
-            {event && !readOnly ? (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={saving}
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
-            ) : (
-              <span />
-            )}
-            {!readOnly && (
-              <Button type="button" disabled={saving} onClick={handleSave}>
-                {saving ? "Saving..." : "Save"}
-              </Button>
-            )}
-          </DialogFooter>
+            <DialogFooter className="gap-2 sm:justify-between">
+              {event && !readOnly ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={saving}
+                  onClick={handleDelete}
+                >
+                  Delete
+                </Button>
+              ) : (
+                <span />
+              )}
+              {!readOnly && (
+                <Button type="button" disabled={saving} onClick={handleSave}>
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              )}
+            </DialogFooter>
           </>
         )}
       </DialogContent>

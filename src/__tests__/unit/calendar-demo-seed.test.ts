@@ -15,10 +15,10 @@ import {
 describe("demoCalendarSeed", () => {
   const now = new Date("2026-08-20T12:00:00.000Z"); // Thursday afternoon Stockholm
 
-  it("seeds one CALDAV account and two calendars", () => {
+  it("seeds one CALDAV account and four calendars", () => {
     const seed = demoCalendarSeed(now);
     expect(seed.account.provider).toBe("CALDAV");
-    expect(seed.calendars).toHaveLength(2);
+    expect(seed.calendars).toHaveLength(4);
 
     const personal = seed.calendars.find((c) => c.name === "Personal");
     const holidays = seed.calendars.find((c) => c.name === "Holidays");
@@ -131,7 +131,9 @@ describe("wipeMailData calendar privacy", () => {
       updateTag: vi.fn(),
     }));
     vi.doMock("@/lib/mail/connection-manager", () => ({
-      connectionManager: { stopAllForUser: vi.fn().mockResolvedValue(undefined) },
+      connectionManager: {
+        stopAllForUser: vi.fn().mockResolvedValue(undefined),
+      },
     }));
 
     const { wipeMailData } = await import("@/actions/wipe");
@@ -145,8 +147,6 @@ describe("wipeMailData calendar privacy", () => {
     );
     expect(wipeSrc).toMatch(/CalendarAccount|calendar account/i);
     // Call site only - the doc comment may mention the forbidden API by name.
-    expect(wipeSrc).not.toMatch(
-      /\bdb\.calendarAccount\.deleteMany\s*\(/,
-    );
+    expect(wipeSrc).not.toMatch(/\bdb\.calendarAccount\.deleteMany\s*\(/);
   });
 });
