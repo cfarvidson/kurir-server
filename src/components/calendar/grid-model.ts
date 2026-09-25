@@ -1,3 +1,8 @@
+import {
+  availabilityForDay,
+  DEFAULT_AVAILABILITY,
+  type CalendarAvailability,
+} from "@/lib/calendar/availability";
 import { freetimeSpans } from "@/lib/calendar/range";
 import {
   addDays,
@@ -9,8 +14,6 @@ import {
   minutesFromDayStart,
   packTimedEvents,
   sameCivil,
-  VISIBLE_HOUR_END,
-  VISIBLE_HOUR_START,
   zonedWallToUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -37,10 +40,7 @@ export function compareCivil(a: CivilDate, b: CivilDate): number {
   return civilKey(a).localeCompare(civilKey(b));
 }
 
-function dayBounds(
-  day: CivilDate,
-  timeZone: string,
-): { from: Date; to: Date } {
+function dayBounds(day: CivilDate, timeZone: string): { from: Date; to: Date } {
   return {
     from: zonedWallToUtc(timeZone, { ...day, hour: 0, minute: 0 }),
     to: zonedWallToUtc(timeZone, { ...addDays(day, 1), hour: 0, minute: 0 }),
@@ -94,6 +94,18 @@ export function timedEventsOnDay(
   );
 }
 
+/** A timed event's start and end in minutes from the day's local midnight, clamped to the day. */
+export function minutesOnDay(
+  instance: CalendarInstanceDTO,
+  day: CivilDate,
+  timeZone: string,
+): { startMin: number; endMin: number } {
+  return {
+    startMin: minutesFromDayStart(new Date(instance.startAt), day, timeZone),
+    endMin: minutesFromDayStart(new Date(instance.endAt), day, timeZone),
+  };
+}
+
 export type PlacedTimed = CalendarInstanceDTO & {
   startMin: number;
   endMin: number;
@@ -107,11 +119,7 @@ export function placeTimedEvents(
   timeZone: string,
 ): PlacedTimed[] {
   const timed = timedEventsOnDay(instances, day, timeZone).map((inst) => {
-    const startMin = minutesFromDayStart(
-      new Date(inst.startAt),
-      day,
-      timeZone,
-    );
+    const startMin = minutesFromDayStart(new Date(inst.startAt), day, timeZone);
     const endMin = minutesFromDayStart(new Date(inst.endAt), day, timeZone);
     return { inst, startMin, endMin: Math.max(endMin, startMin + 15) };
   });
@@ -132,27 +140,35 @@ export function placeTimedEvents(
 }
 
 /**
- * `minMinutes` defaults to the free-time threshold, which is what every
- * "claim this" surface wants. The agenda asks for a lower one to find the
- * short gaps between events - too small to recommend, still big enough to
- * put a meeting in.
+ * The day's available window in minutes from local midnight, or null when
+ * the day is set as not available. Open time is only counted inside it.
+ */
+export function dayWindow(
+  availability: CalendarAvailability,
+  day: CivilDate,
+): { startMin: number; endMin: number } | null {
+  const hours = availabilityForDay(availability, day);
+  return hours.on ? { startMin: hours.start, endMin: hours.end } : null;
+}
+
+/**
+ * Holes between busy events inside the day's available window; a day that
+ * is off has none. `minMinutes` defaults to the free-time threshold, which
+ * is what every "claim this" surface wants. The agenda asks for a lower one
+ * to find the short gaps between events - too small to recommend, still
+ * big enough to put a meeting in.
  */
 export function freetimeMinutes(
   instances: CalendarInstanceDTO[],
   day: CivilDate,
   timeZone: string,
+  availability: CalendarAvailability = DEFAULT_AVAILABILITY,
   minMinutes: number = FREETIME_MIN_MINUTES,
 ): { startMin: number; endMin: number }[] {
-  const dayStart = zonedWallToUtc(timeZone, {
-    ...day,
-    hour: VISIBLE_HOUR_START,
-    minute: 0,
-  });
-  const dayEnd = zonedWallToUtc(timeZone, {
-    ...day,
-    hour: VISIBLE_HOUR_END,
-    minute: 0,
-  });
+  const hours = dayWindow(availability, day);
+  if (!hours) return [];
+  const dayStart = wallFromMinutes(day, hours.startMin, timeZone);
+  const dayEnd = wallFromMinutes(day, hours.endMin, timeZone);
   const spans = freetimeSpans(
     instances
       .filter((row) => instanceOverlapsDay(row, day, timeZone))
@@ -171,6 +187,19 @@ export function freetimeMinutes(
     startMin: minutesFromDayStart(span.startAt, day, timeZone),
     endMin: minutesFromDayStart(span.endAt, day, timeZone),
   }));
+}
+
+/** Total open time on a day: the sum of its counted spans. */
+export function openMinutesOnDay(
+  instances: CalendarInstanceDTO[],
+  day: CivilDate,
+  timeZone: string,
+  availability: CalendarAvailability,
+): number {
+  return freetimeMinutes(instances, day, timeZone, availability).reduce(
+    (sum, span) => sum + span.endMin - span.startMin,
+    0,
+  );
 }
 
 export function nowMinutesOnDay(
@@ -213,7 +242,10 @@ export function eventInclusiveRange(
   }
   const start = civilFromZoned(new Date(instance.startAt), timeZone);
   const endMs = new Date(instance.endAt).getTime() - 1;
-  const end = civilFromZoned(new Date(Math.max(endMs, new Date(instance.startAt).getTime())), timeZone);
+  const end = civilFromZoned(
+    new Date(Math.max(endMs, new Date(instance.startAt).getTime())),
+    timeZone,
+  );
   return { start, end };
 }
 
@@ -223,4 +255,46 @@ export function isMultiDayEvent(
 ): boolean {
   const range = eventInclusiveRange(instance, timeZone);
   return compareCivil(range.start, range.end) < 0;
+}
+
+/**
+ * Column widths in percent of the day area. A week that contains today
+ * gives today a wide column (40%) and splits the rest evenly; any other
+ * week is seven equal columns.
+ */
+export function weekColumnWidths(
+  days: CivilDate[],
+  today: CivilDate,
+): number[] {
+  const todayIndex = days.findIndex((day) => sameCivil(day, today));
+  if (todayIndex === -1) return days.map(() => 100 / days.length);
+  const narrow = 60 / (days.length - 1);
+  return days.map((_, i) => (i === todayIndex ? 40 : narrow));
+}
+
+/**
+ * First-fit lanes for bars that cover whole columns (multi-day events in
+ * the week's all-day row and the month grid). Items are placed in the
+ * order given; one that fits in no lane below `maxLanes` gets null and is
+ * counted as more by the caller.
+ */
+export function packLanes(
+  items: { startCol: number; endCol: number }[],
+  maxLanes: number,
+): (number | null)[] {
+  const lanes: { startCol: number; endCol: number }[][] = [];
+  return items.map((item) => {
+    let lane = lanes.findIndex((taken) =>
+      taken.every(
+        (other) => item.endCol < other.startCol || item.startCol > other.endCol,
+      ),
+    );
+    if (lane === -1) {
+      if (lanes.length >= maxLanes) return null;
+      lane = lanes.length;
+      lanes.push([]);
+    }
+    lanes[lane].push(item);
+    return lane;
+  });
 }

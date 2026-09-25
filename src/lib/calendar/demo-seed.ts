@@ -2,6 +2,8 @@ import {
   addDays,
   allDayRangeUtc,
   civilFromZoned,
+  sameCivil,
+  startOfWeekMonday,
   zonedWallToUtc,
   type CivilDate,
 } from "@/lib/calendar/view-time";
@@ -17,6 +19,7 @@ export type DemoSeedEvent = {
   endAt: Date;
   isAllDay: boolean;
   timezone: string | null;
+  location?: string | null;
 };
 
 export type DemoSeedCalendar = {
@@ -77,6 +80,7 @@ type DemoSeedDb = {
         endAt: Date;
         isAllDay: boolean;
         timezone: string | null;
+        location: string | null;
         status: string;
         transparency: string;
       };
@@ -114,16 +118,153 @@ function timed(
   return { startAt, endAt };
 }
 
+type DemoCalendarKey = "work" | "family" | "personal" | "holidays";
+
 /**
- * Pure demo calendar plan for screenshots.
- * Personal: writable terracotta; Holidays: read-only.
- * Timed 09:00-10:00 + 13:00-14:00 leave a local 10:00-13:00 freetime gap.
+ * Pure demo calendar plan for screenshots, relative to `now`'s week so a
+ * week, month and day screenshot always look lived in.
+ * Work, Family and Personal are writable; Holidays is read-only.
+ * Today: 09:00-10:00 + 13:00-14:00 leave a local 10:00-13:00 freetime gap,
+ * then a late-afternoon call with a meeting link and a family evening.
  */
 export function demoCalendarSeed(now: Date): DemoCalendarSeed {
-  const day = civilFromZoned(now, DEMO_CALENDAR_TIMEZONE);
-  const morning = timed(day, 9, 0, 60);
-  const afternoon = timed(day, 13, 0, 60);
-  const allDay = allDayRangeUtc(day, addDays(day, 1));
+  const today = civilFromZoned(now, DEMO_CALENDAR_TIMEZONE);
+  const monday = startOfWeekMonday(today);
+  const events: Record<DemoCalendarKey, DemoSeedEvent[]> = {
+    work: [],
+    family: [],
+    personal: [],
+    holidays: [],
+  };
+
+  function add(
+    key: DemoCalendarKey,
+    id: string,
+    title: string,
+    day: CivilDate,
+    at: [hour: number, minute: number, minutes: number] | "all-day",
+    options: { days?: number; location?: string } = {},
+  ) {
+    const range =
+      at === "all-day"
+        ? (() => {
+            const r = allDayRangeUtc(day, addDays(day, options.days ?? 1));
+            return { startAt: r.startAt, endAt: r.endAt };
+          })()
+        : timed(day, at[0], at[1], at[2]);
+    events[key].push({
+      providerEventId: `demo-${id}`,
+      icalUid: `demo-${id}@kurir.example`,
+      title,
+      startAt: range.startAt,
+      endAt: range.endAt,
+      isAllDay: at === "all-day",
+      timezone: at === "all-day" ? null : DEMO_CALENDAR_TIMEZONE,
+      location: options.location ?? null,
+    });
+  }
+
+  // Today.
+  add("personal", "standup", "Standup", today, [9, 0, 60]);
+  add("personal", "deep-work", "Deep work", today, [13, 0, 60]);
+  add("work", "design-review", "Design review", today, [17, 0, 30], {
+    location: "https://meet.example.com/kurir-design",
+  });
+  add("family", "dinner", "Dinner with the Lindqvists", today, [18, 30, 90]);
+  add("family", "school-closed", "School closed", today, "all-day");
+
+  // The rest of this week, around today.
+  const week: Array<
+    [
+      offset: number,
+      key: DemoCalendarKey,
+      title: string,
+      at: [number, number, number] | "all-day",
+      location?: string,
+    ]
+  > = [
+    [0, "work", "Team standup", [9, 0, 30], "Room 2"],
+    [0, "work", "Roadmap planning", [13, 0, 60]],
+    [1, "work", "Team standup", [9, 0, 30], "Room 2"],
+    [1, "work", "Sprint demo", [11, 30, 30]],
+    [1, "work", "Sprint planning", [14, 0, 60]],
+    [1, "work", "Project weekly", [15, 0, 30]],
+    [1, "family", "Choir rehearsal", [18, 30, 90]],
+    [2, "work", "Team standup", [9, 0, 30], "Room 2"],
+    [2, "family", "Yoga", [18, 30, 75]],
+    [2, "family", "Cleaning day", "all-day"],
+    [3, "work", "Team standup", [9, 0, 30], "Room 2"],
+    [3, "work", "Vendor sync", [11, 0, 30]],
+    [3, "work", "Product review", [13, 0, 60]],
+    [3, "family", "Swimming lesson", [16, 20, 40]],
+    [3, "work", "Team dinner", [16, 30, 210]],
+    [4, "work", "Team standup", [9, 0, 30], "Room 2"],
+    [4, "work", "Architecture review", [10, 0, 60]],
+    [5, "family", "Farmers market", [10, 0, 90]],
+    [6, "family", "Gymnastics", [9, 0, 60]],
+    [6, "family", "Lunch with grandma", [12, 30, 90]],
+  ];
+  week.forEach(([offset, key, title, at, location], i) => {
+    const day = addDays(monday, offset);
+    if (sameCivil(day, today)) return;
+    add(key, `week-${i}`, title, day, at, { location });
+  });
+  add(
+    "family",
+    "grandparents",
+    "Grandparents visiting",
+    addDays(monday, 3),
+    "all-day",
+    {
+      days: 4,
+    },
+  );
+
+  // The surrounding weeks, so the month grid reads like real use.
+  for (let w = -4; w <= 5; w++) {
+    if (w === 0) continue;
+    const start = addDays(monday, w * 7);
+    for (let d = 0; d < 5; d++) {
+      add(
+        "work",
+        `standup-${w}-${d}`,
+        "Team standup",
+        addDays(start, d),
+        [9, 0, 30],
+      );
+    }
+    add(
+      "work",
+      `planning-${w}`,
+      "Sprint planning",
+      addDays(start, 1),
+      [14, 0, 60],
+    );
+    add(
+      "work",
+      `review-${w}`,
+      "Product review",
+      addDays(start, 3),
+      [13, 0, 60],
+    );
+    add("family", `yoga-${w}`, "Yoga", addDays(start, 2), [18, 30, 75]);
+    add("family", `gym-${w}`, "Gymnastics", addDays(start, 6), [9, 0, 60]);
+    if (w % 2 === 0) {
+      add(
+        "family",
+        `cleaning-${w}`,
+        "Cleaning day",
+        addDays(start, 5),
+        "all-day",
+      );
+    }
+  }
+  add("work", "offsite", "Team offsite", addDays(monday, -12), "all-day", {
+    days: 3,
+  });
+  add("personal", "dentist", "Dentist", addDays(monday, -5), [8, 0, 45]);
+  add("family", "birthday", "Maja's birthday", addDays(monday, 9), "all-day");
+  add("holidays", "holiday", "Public holiday", addDays(monday, 14), "all-day");
 
   return {
     account: {
@@ -133,31 +274,28 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
     },
     calendars: [
       {
+        providerCalendarId: "demo-work",
+        name: "Work",
+        color: "#5a6474",
+        isPrimary: false,
+        isReadOnly: false,
+        events: events.work,
+      },
+      {
+        providerCalendarId: "demo-family",
+        name: "Family",
+        color: "#8a3fa6",
+        isPrimary: false,
+        isReadOnly: false,
+        events: events.family,
+      },
+      {
         providerCalendarId: "demo-personal",
         name: "Personal",
         color: "#b45309",
         isPrimary: true,
         isReadOnly: false,
-        events: [
-          {
-            providerEventId: "demo-standup",
-            icalUid: "demo-standup@kurir.example",
-            title: "Standup",
-            startAt: morning.startAt,
-            endAt: morning.endAt,
-            isAllDay: false,
-            timezone: DEMO_CALENDAR_TIMEZONE,
-          },
-          {
-            providerEventId: "demo-deep-work",
-            icalUid: "demo-deep-work@kurir.example",
-            title: "Deep work",
-            startAt: afternoon.startAt,
-            endAt: afternoon.endAt,
-            isAllDay: false,
-            timezone: DEMO_CALENDAR_TIMEZONE,
-          },
-        ],
+        events: events.personal,
       },
       {
         providerCalendarId: "demo-holidays",
@@ -165,17 +303,7 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
         color: "#78716c",
         isPrimary: false,
         isReadOnly: true,
-        events: [
-          {
-            providerEventId: "demo-holiday",
-            icalUid: "demo-holiday@kurir.example",
-            title: "Public holiday",
-            startAt: allDay.startAt,
-            endAt: allDay.endAt,
-            isAllDay: true,
-            timezone: null,
-          },
-        ],
+        events: events.holidays,
       },
     ],
   };
@@ -227,6 +355,7 @@ export async function insertDemoCalendarSeed(
           endAt: event.endAt,
           isAllDay: event.isAllDay,
           timezone: event.timezone,
+          location: event.location ?? null,
           status: "confirmed",
           transparency: "busy",
         },

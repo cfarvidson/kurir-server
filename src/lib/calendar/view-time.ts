@@ -34,7 +34,15 @@ const WEEKDAYS_LONG = [
   "Saturday",
 ] as const;
 
-const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const WEEKDAYS_SHORT = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
 
 export const VISIBLE_HOUR_START = 7;
 export const VISIBLE_HOUR_END = 21;
@@ -75,6 +83,19 @@ export function addDays(date: CivilDate, days: number): CivilDate {
     month: utc.getUTCMonth() + 1,
     day: utc.getUTCDate(),
   };
+}
+
+/** ISO 8601 week number: weeks start on Monday, week 1 holds the first Thursday. */
+export function isoWeekNumber(date: CivilDate): number {
+  const utc = new Date(Date.UTC(date.year, date.month - 1, date.day));
+  const dow = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - dow);
+  const yearStart = Date.UTC(utc.getUTCFullYear(), 0, 1);
+  return Math.ceil(((utc.getTime() - yearStart) / 86_400_000 + 1) / 7);
+}
+
+export function formatWeekdayLong(date: CivilDate): string {
+  return WEEKDAYS_LONG[weekdayIndex(date)];
 }
 
 export function startOfWeekMonday(date: CivilDate): CivilDate {
@@ -321,7 +342,8 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
       index: i,
     }))
     .sort(
-      (a, b) => a.startMin - b.startMin || a.endMin - b.endMin || a.index - b.index,
+      (a, b) =>
+        a.startMin - b.startMin || a.endMin - b.endMin || a.index - b.index,
     );
 
   type Laid = (typeof items)[number] & { col: number; cols: number };

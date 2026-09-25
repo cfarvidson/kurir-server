@@ -27,6 +27,8 @@ import type { PasskeyInfo } from "@/components/settings/passkey-card";
 import { WipeButton, WipeMailButton } from "@/components/settings/wipe-button";
 import { DisplayNameField } from "@/components/settings/display-name-field";
 import { TimezoneField } from "@/components/settings/timezone-field";
+import { AvailableTime } from "@/components/settings/available-time";
+import { resolveAvailability } from "@/lib/calendar/availability";
 import { ScreenRecentButton } from "@/components/settings/screen-recent-button";
 import { NotificationSettings } from "@/components/settings/notification-settings";
 import { BadgePreferencesSettings } from "@/components/settings/badge-preferences";
@@ -145,6 +147,7 @@ export default async function SettingsPage() {
       select: {
         displayName: true,
         timezone: true,
+        calendarAvailability: true,
         role: true,
         createdAt: true,
         blockRemoteImages: true,
@@ -493,6 +496,19 @@ export default async function SettingsPage() {
         />
         <div className="mt-4">
           <CalendarAccounts accounts={calendarAccounts} />
+        </div>
+      </section>
+
+      <section id="available-time" className="scroll-mt-6">
+        <SectionHeading
+          eyebrow="Calendar"
+          title="Available time"
+          description="Open time is only counted inside these hours. Hours outside them are shaded in Week and Day."
+        />
+        <div className="mt-4">
+          <AvailableTime
+            initial={resolveAvailability(user?.calendarAvailability)}
+          />
         </div>
       </section>
     </div>

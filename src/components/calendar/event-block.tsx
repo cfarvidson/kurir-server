@@ -1,14 +1,22 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent, PointerEvent } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  PointerEvent,
+  ReactNode,
+} from "react";
 import { normalizeEventHex, readableTextTone } from "@/lib/calendar/color";
 import { cn } from "@/lib/utils";
 
 /**
- * An event as a solid block of its calendar's color — the same HEY-style
- * chrome as the day strip's slats, so events read identically across
- * views. `muted` (transparency=free) renders as a hatched outline. The
- * fixed text tones are theme-safe because they sit on the fixed hex.
+ * An event block. Solid (the default) is a fill of the calendar colour with
+ * a readable fixed text tone - all-day and multi-day bars. `tinted` is the
+ * timed-event look: the calendar colour washed over the surface with a
+ * darkened/lightened title (see .cal-tint). `muted` (transparency=free)
+ * renders as a hatched outline either way. `children` replaces the default
+ * one-line label when a view needs more (today's column: title, time,
+ * place).
  */
 export function EventBlock({
   title,
@@ -17,6 +25,8 @@ export function EventBlock({
   className,
   style,
   muted,
+  tinted,
+  children,
   onClick,
   onPointerDown,
   onResizePointerDown,
@@ -27,6 +37,8 @@ export function EventBlock({
   className?: string;
   style?: CSSProperties;
   muted?: boolean;
+  tinted?: boolean;
+  children?: ReactNode;
   onClick?: () => void;
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   onResizePointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
@@ -46,6 +58,7 @@ export function EventBlock({
     <div
       role="button"
       tabIndex={0}
+      aria-label={children ? title : undefined}
       onClick={(event) => {
         event.stopPropagation();
         onClick?.();
@@ -53,48 +66,60 @@ export function EventBlock({
       onKeyDown={handleKey}
       onPointerDown={onPointerDown}
       className={cn(
-        "relative overflow-hidden rounded-xs text-left font-sans leading-tight",
+        "relative overflow-hidden text-left font-sans leading-tight",
         "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
         muted
           ? "text-foreground"
-          : tone === "light"
-            ? "text-white"
-            : "text-zinc-950",
+          : tinted
+            ? "cal-tint"
+            : tone === "light"
+              ? "text-white"
+              : "text-zinc-950",
+        tinted ? "rounded-[5px]" : "rounded-xs",
         className,
       )}
       style={
         {
+          ...({ "--ev": fill } as CSSProperties),
           ...(muted
             ? {
                 backgroundImage: `repeating-linear-gradient(135deg, ${fill}33 0 5px, transparent 5px 10px)`,
                 boxShadow: `inset 0 0 0 1px ${fill}66`,
               }
-            : { backgroundColor: fill }),
+            : tinted
+              ? {}
+              : { backgroundColor: fill }),
           ...style,
         } as CSSProperties
       }
     >
-      <span className="block truncate px-1.5 py-0.5 text-xs font-semibold">
-        {timeLabel ? (
-          <>
-            <span
-              className={cn(
-                "font-normal tabular-nums",
-                muted
-                  ? "text-muted-foreground"
-                  : tone === "light"
-                    ? "text-white/75"
-                    : "text-zinc-950/70",
-              )}
-            >
-              {timeLabel}
-            </span>{" "}
-            {title}
-          </>
-        ) : (
-          title
-        )}
-      </span>
+      {children ?? (
+        <span
+          className={cn(
+            "block truncate px-1.5 py-0.5 text-[11px] font-semibold",
+          )}
+        >
+          {timeLabel ? (
+            <>
+              <span
+                className={cn(
+                  "font-normal tabular-nums",
+                  muted || tinted
+                    ? "opacity-70"
+                    : tone === "light"
+                      ? "text-white/75"
+                      : "text-zinc-950/70",
+                )}
+              >
+                {timeLabel}
+              </span>{" "}
+              {title}
+            </>
+          ) : (
+            title
+          )}
+        </span>
+      )}
       {onResizePointerDown && (
         <div
           aria-hidden

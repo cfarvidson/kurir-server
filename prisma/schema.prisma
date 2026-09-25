@@ -27,6 +27,9 @@ model User {
   // The old schema defaulted to "UTC" with no UI to change it, which drew
   // every calendar two hours off in Stockholm (issue #37).
   timezone    String?
+  // Available hours per weekday for the calendar's open-time count.
+  // Null = never set (07-21 every day). Shape: src/lib/calendar/availability.ts.
+  calendarAvailability Json?
   role        Role    @default(USER)
   theme       String  @default("system") // "light", "dark", or "system"
 

@@ -9,6 +9,7 @@ import {
   serializeCalendarAccount,
   serializeSyncEvent,
 } from "@/lib/calendar/mobile";
+import { resolveAvailability } from "@/lib/calendar/availability";
 
 /**
  * GET /api/mobile/calendar/sync?cursor=<updatedAtISO>_<id>&limit=500
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   const [user, accounts, events, tombstones] = await Promise.all([
     db.user.findUnique({
       where: { id: auth.userId },
-      select: { timezone: true },
+      select: { timezone: true, calendarAvailability: true },
     }),
     listCalendarAccountsForUser(auth.userId),
     db.calendarEvent.findMany({
@@ -105,6 +106,9 @@ export async function GET(req: NextRequest) {
     // Same `|| "UTC"` the web uses, so the two clients cannot disagree
     // about what "no timezone set" means.
     timezone: user?.timezone || "UTC",
+    // Always resolved, so the apps never have to know the default: a
+    // missing or malformed row arrives as 07-21 every day.
+    availability: resolveAvailability(user?.calendarAvailability),
     accounts: accounts.map(serializeCalendarAccount),
     events: page.map(serializeSyncEvent),
     tombstones,

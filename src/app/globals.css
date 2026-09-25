@@ -318,6 +318,47 @@
   text-transform: uppercase;
 }
 
+/*
+ * Calendar surfaces. The page sits on the muted paper so today's column,
+ * the Up next card and the Scheduled card can rise off it; dark mode keeps
+ * the page dark and lets a hairline carry the lift. Timed events are a
+ * tint of their calendar colour (--ev) with a darkened (light) or lightened
+ * (dark) title; all-day bars stay solid.
+ */
+@layer utilities {
+  .cal-page {
+    background-color: hsl(var(--muted));
+  }
+  .dark .cal-page {
+    background-color: hsl(var(--background));
+  }
+  .cal-raised {
+    background-color: hsl(var(--card));
+    box-shadow:
+      0 1px 2px hsl(25 35% 6% / 0.05),
+      0 8px 24px hsl(25 35% 6% / 0.06);
+  }
+  .dark .cal-raised {
+    background-color: hsl(var(--secondary) / 0.55);
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  .cal-hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      hsl(var(--foreground) / 0.06) 0 1px,
+      transparent 1px 7px
+    );
+  }
+  .cal-tint {
+    background-color: color-mix(in srgb, var(--ev) 16%, hsl(var(--card)));
+    color: color-mix(in srgb, var(--ev) 58%, black);
+  }
+  .dark .cal-tint {
+    background-color: color-mix(in srgb, var(--ev) 28%, hsl(var(--card)));
+    color: color-mix(in srgb, var(--ev) 45%, white);
+  }
+}
+
 @layer utilities {
   .ptr-spinning {
     animation: ptr-spin 0.75s linear infinite;

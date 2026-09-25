@@ -1,14 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarEmpty } from "@/components/calendar/calendar-empty";
+import { CalendarHeader } from "@/components/calendar/calendar-header";
 import { CalendarList } from "@/components/calendar/calendar-list";
 import { DayView } from "@/components/calendar/day-view";
-import { EventDialog, RecurrenceRangeDialog } from "@/components/calendar/event-dialog";
+import {
+  EventDialog,
+  RecurrenceRangeDialog,
+} from "@/components/calendar/event-dialog";
+import {
+  freeUntil,
+  headerEyebrow,
+  openTimeMeta,
+  headerNextUp,
+} from "@/components/calendar/header-model";
+import { nowMinutesOnDay } from "@/components/calendar/grid-model";
 import { MonthView } from "@/components/calendar/month-view";
 import { WeekView } from "@/components/calendar/week-view";
 import type {
@@ -16,8 +31,6 @@ import type {
   CalendarViewMode,
   SlotSelection,
 } from "@/components/calendar/types";
-import { PageMasthead } from "@/components/layout/page-masthead";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -36,12 +49,12 @@ import {
   formatDateParam,
   formatDayTitle,
   formatMonthTitle,
+  formatTimeLabel,
   formatWeekTitle,
   weekDays,
   zonedParts,
   type CivilDate,
 } from "@/lib/calendar/view-time";
-import { cn } from "@/lib/utils";
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -127,6 +140,56 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   const todayDate = formatDateParam(
     civilFromZoned(new Date(), payload.timezone),
   );
+
+  // Next up and "free until" count minutes from now. They appear after
+  // mount so the server render and hydration never disagree on the clock.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const first = window.setTimeout(tick, 0);
+    const id = window.setInterval(tick, 30_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const today = useMemo(
+    () => civilFromZoned(now ?? new Date(), payload.timezone),
+    [now, payload.timezone],
+  );
+  const eyebrow = headerEyebrow(payload.mode, payload.anchor, today);
+  const openMeta = useMemo(
+    () =>
+      openTimeMeta({
+        mode: payload.mode,
+        anchor: payload.anchor,
+        today,
+        instances: payload.instances,
+        todayInstances: payload.todayInstances,
+        timezone: payload.timezone,
+        availability: payload.availability,
+      }),
+    [payload, today],
+  );
+  const next = now
+    ? headerNextUp(payload.todayInstances, payload.timezone, now)
+    : null;
+  const nowMinToday = now
+    ? nowMinutesOnDay(today, payload.timezone, now)
+    : null;
+  const freeUntilMin =
+    payload.mode === "day" &&
+    nowMinToday != null &&
+    formatDateParam(payload.anchor) === formatDateParam(today)
+      ? freeUntil(
+          payload.instances,
+          today,
+          payload.timezone,
+          payload.availability,
+          nowMinToday,
+        )
+      : null;
 
   useLayoutEffect(() => {
     if (payload.mode !== "week") return;
@@ -276,6 +339,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     anchor: payload.anchor,
     instances: payload.instances,
     timezone: payload.timezone,
+    availability: payload.availability,
     canCreate: writable,
     onSelectSlot: openCreate,
     onEventClick: openEvent,
@@ -283,79 +347,28 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <PageMasthead
-        eyebrow="Calendar"
+    <div className="cal-page flex h-full min-h-0 flex-col overflow-hidden">
+      <CalendarHeader
+        mode={payload.mode}
+        eyebrow={eyebrow}
         title={title}
-        meta={
-          empty
-            ? undefined
-            : `${calendarCount} ${calendarCount === 1 ? "calendar" : "calendars"}`
+        calendarCount={empty ? null : calendarCount}
+        openMeta={openMeta}
+        freeUntilLabel={
+          freeUntilMin == null
+            ? null
+            : `free until ${formatTimeLabel(Math.floor(freeUntilMin / 60), freeUntilMin % 60)}`
         }
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setCalendarsOpen(true)}
-            >
-              Calendars
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={!writable}
-              onClick={() => openCreate(defaultSlot(date, payload.timezone))}
-            >
-              New event
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-wrap items-center gap-3 px-4 pb-3 md:px-6">
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Previous"
-              onClick={goPrev}
-            >
-              <ChevronLeft />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={goToday}>
-              Today
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Next"
-              onClick={goNext}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-          <div className="flex items-center gap-3">
-            {(["week", "day", "month"] as const).map((mode) => (
-              <Link
-                key={mode}
-                href={viewHref(mode, date)}
-                aria-current={payload.mode === mode ? "page" : undefined}
-                className={cn(
-                  "border-b-2 pb-1 text-xs font-medium capitalize transition-colors",
-                  payload.mode === mode
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {mode}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </PageMasthead>
+        nextUp={empty ? null : next}
+        canCreate={writable}
+        hrefFor={(mode) => viewHref(mode, date)}
+        onPrev={goPrev}
+        onToday={goToday}
+        onNext={goNext}
+        onCalendars={() => setCalendarsOpen(true)}
+        onNewEvent={() => openCreate(defaultSlot(date, payload.timezone))}
+        onOpenEvent={openEvent}
+      />
 
       {errors.map((account) => (
         <div
@@ -376,6 +389,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               anchor={payload.anchor}
               instances={payload.instances}
               timezone={payload.timezone}
+              availability={payload.availability}
               onEventClick={openEvent}
             />
           ) : payload.mode === "day" ? (
@@ -383,6 +397,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
               anchor={payload.anchor}
               instances={payload.instances}
               timezone={payload.timezone}
+              availability={payload.availability}
               canCreate={writable}
               onSelectSlot={openCreate}
               onEventClick={openEvent}
@@ -397,7 +412,9 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Calendars</DialogTitle>
-            <DialogDescription>Show or hide calendars in this view.</DialogDescription>
+            <DialogDescription>
+              Show or hide calendars in this view.
+            </DialogDescription>
           </DialogHeader>
           <CalendarList accounts={payload.accounts} />
         </DialogContent>
