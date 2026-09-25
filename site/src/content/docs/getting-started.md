@@ -65,14 +65,14 @@ bin/deploy setup    # First deploy
 bin/deploy          # Subsequent deploys
 ```
 
-Each option is covered in detail in the [Installation guide](installation).
+Each option is covered in detail in the [Installation guide](/docs/installation).
 
 ## What's next
 
-- [Installation](installation) -- Detailed walkthrough of each deployment option
-- [Configuration](configuration) -- All environment variables explained
-- [Email Accounts](email-accounts) -- Connect Gmail, Outlook, iCloud, or any IMAP provider
-- [Mobile & Mac Apps](mobile-app) -- The native iPhone and Mac apps, and the free PWA
-- [Using Kurir](using-kurir) -- The sidebar, the Later lists, pins, search and shortcuts
-- [Calendar](calendar) -- Connect your calendars and answer invitations from mail
-- [AI Rules](ai-rules) -- File mail by what it says, with a plain-language rule
+- [Installation](/docs/installation) -- Detailed walkthrough of each deployment option
+- [Configuration](/docs/configuration) -- All environment variables explained
+- [Email Accounts](/docs/email-accounts) -- Connect Gmail, Outlook, iCloud, or any IMAP provider
+- [Mobile & Mac Apps](/docs/mobile-app) -- The native iPhone and Mac apps, and the free PWA
+- [Using Kurir](/docs/using-kurir) -- The sidebar, the Later lists, pins, search and shortcuts
+- [Calendar](/docs/calendar) -- Connect your calendars and answer invitations from mail
+- [AI Rules](/docs/ai-rules) -- File mail by what it says, with a plain-language rule

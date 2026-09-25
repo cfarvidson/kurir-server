@@ -13,8 +13,8 @@ This page covers the everyday parts of Kurir in the web app. The iPhone and Mac 
 On a wide screen the sidebar is an icon rail with a panel beside it. The rail has five sections:
 
 - **Mail** - the panel lists **Imbox**, **The Feed**, **Paper Trail** and **Pinned**, then **Later** (Snoozed, Reply Later, Follow Up), then **Outbound** (Drafts, Scheduled, Sent), then **Archive**.
-- **Screener** - the Screener and [AI Rules](ai-rules).
-- **Calendar** - see [Calendar](calendar).
+- **Screener** - the Screener and [AI Rules](/docs/ai-rules).
+- **Calendar** - see [Calendar](/docs/calendar).
 - **Contacts**
 - **Files** - every attachment you have received, searchable by file name and sender.
 
@@ -59,7 +59,7 @@ Filter chips narrow the result: **From** (a name or address), **Domain**, **Date
 - Mail is written in Markdown, and drafts save automatically.
 - **Send again** on a message you sent opens a new mail with the same subject, text and attachments and empty recipients.
 - Click a person's name in a thread to see their card, where you can select or copy their email address.
-- [Draft Generation](draft-generation) can write drafts for you.
+- [Draft Generation](/docs/draft-generation) can write drafts for you.
 
 ### Attachments
 

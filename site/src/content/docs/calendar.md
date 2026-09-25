@@ -12,7 +12,7 @@ Kurir has a calendar next to your mail. It shows the calendars you already have 
 
 Open **Settings → Calendar accounts** and pick one:
 
-- **Add Google** - signs in with Google. Needs `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the server, the same values used for Gmail sign-in (see [Email Accounts](email-accounts)).
+- **Add Google** - signs in with Google. Needs `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the server, the same values used for Gmail sign-in (see [Email Accounts](/docs/email-accounts)).
 - **Add Outlook** - signs in with Microsoft. Needs `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`, the same values used for Outlook sign-in.
 - **Add CalDAV** - enter the server **URL**, **Username** and **Password**. Use this for iCloud, Fastmail, Nextcloud or any other CalDAV server. iCloud and Fastmail need an app-specific password, like for mail.
 - **Add calendar URL** - subscribe to a public calendar feed (`https://`, `webcal://` or `webcals://`). These calendars are read-only.
@@ -51,4 +51,4 @@ The Mail panel in the sidebar shows a **Next up** card with your next timed even
 
 ## Claude and other agents
 
-The [MCP server](mcp) lets Claude read your calendar, book events and answer invitations. Anything that changes the calendar asks you to confirm first.
+The [MCP server](/docs/mcp) lets Claude read your calendar, book events and answer invitations. Anything that changes the calendar asks you to confirm first.

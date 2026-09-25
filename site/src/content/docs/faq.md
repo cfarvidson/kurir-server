@@ -12,7 +12,7 @@ Yes. Kurir is open source and released under the [O'Saasy license](https://githu
 
 ## Which email providers are supported?
 
-Any provider that supports IMAP and SMTP. This includes Gmail, Outlook / Microsoft 365, iCloud, Yahoo, Fastmail, Proton Mail (with the Bridge app), and any custom mail server. See [Email Accounts](email-accounts) for the full list with connection details.
+Any provider that supports IMAP and SMTP. This includes Gmail, Outlook / Microsoft 365, iCloud, Yahoo, Fastmail, Proton Mail (with the Bridge app), and any custom mail server. See [Email Accounts](/docs/email-accounts) for the full list with connection details.
 
 ## Can multiple people use one installation?
 
@@ -39,11 +39,11 @@ Kurir does write a few things back over IMAP, so your other mail apps see the sa
 - **Sending** goes out over SMTP, and a copy is saved in your provider's Sent folder.
 - **Read state and flags** (read/unread, flagged) are pushed to the provider.
 - **Archiving** moves the message to your provider's Archive folder, and unarchiving moves it back to the inbox.
-- **Settings backups**, if you turn them on, are saved as mails in your Sent folder. Kurir keeps the newest four and removes older ones (see [Backup & Restore](backup-restore)).
+- **Settings backups**, if you turn them on, are saved as mails in your Sent folder. Kurir keeps the newest four and removes older ones (see [Backup & Restore](/docs/backup-restore)).
 
 ## Can I use Kurir on my phone?
 
-Yes. Kurir is a web application that works in any modern browser on any device. You can install it as a Progressive Web App (PWA) on iOS and Android for free, with push notifications. There are also native iPhone and Mac apps, paid, on the App Store. See [Mobile & Mac Apps](mobile-app) for both.
+Yes. Kurir is a web application that works in any modern browser on any device. You can install it as a Progressive Web App (PWA) on iOS and Android for free, with push notifications. There are also native iPhone and Mac apps, paid, on the App Store. See [Mobile & Mac Apps](/docs/mobile-app) for both.
 
 ## How is Kurir different from other email clients?
 
