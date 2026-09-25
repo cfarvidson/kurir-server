@@ -6,12 +6,11 @@ import { usePathname } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { senderInitial } from "@/lib/mail/thread-card";
-import { usePersonPaneStore } from "@/stores/person-pane-store";
 import { cn } from "@/lib/utils";
 
 /**
  * A name in a thread card that opens a small person card: who it is, the
- * address (selectable), and Copy address / Email / Person.
+ * address (selectable), and Copy address / Email.
  */
 export function PersonCardPopover({
   name,
@@ -25,8 +24,6 @@ export function PersonCardPopover({
   className?: string;
 }) {
   const pathname = usePathname();
-  const setPaneEmail = usePersonPaneStore((s) => s.setEmail);
-  const setPaneCollapsed = usePersonPaneStore((s) => s.setCollapsed);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -97,17 +94,6 @@ export function PersonCardPopover({
           >
             Email
           </Link>
-          <button
-            type="button"
-            className={secondary}
-            onClick={() => {
-              setPaneEmail(address);
-              setPaneCollapsed(false);
-              setOpen(false);
-            }}
-          >
-            Person
-          </button>
         </div>
       </PopoverContent>
     </Popover>
