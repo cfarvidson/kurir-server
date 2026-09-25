@@ -4,6 +4,27 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.127] - 2026-09-25
+
+### Changed
+
+- The calendar's week, month and day views are redesigned. The week puts
+  today in a wide column and fades past days; the month is a grid with
+  week numbers and a small load bar per day showing how booked it is; the
+  day view leads with a timeline ribbon, cards for the open stretches
+  (Block focus time, New event here) and a Scheduled list. The header
+  shows open hours and a Next up card, with Join when the event has a
+  link, using the same rule as the sidebar's Next up. Pairs with
+  iOS/macOS 2026.124 build 120.
+
+### Added
+
+- Settings -> Calendar -> Available time: the hours that count as
+  available on each weekday. Open time is counted only inside them and
+  the hours outside are shaded in Week and Day. Not set means 07:00-21:00
+  every day, as before. The apps get the setting through the calendar
+  sync and can change it (migration 0033).
+
 ## [v2026.126] - 2026-09-25
 
 ### Changed

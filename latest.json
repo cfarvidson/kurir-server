@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.126",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.126",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.126",
-    "changelog": "Sidebar as an icon rail and a panel, with a Next up card for today's next event",
+    "version": "2026.127",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.127",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.127",
+    "changelog": "Calendar redesign (week, month, day) and available hours per weekday",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-25T14:17:18Z"
+    "releasedAt": "2026-09-25T15:09:30Z"
   }
 }

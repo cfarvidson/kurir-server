@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.127",
+    "date": "2026-09-25",
+    "changes": [
+      "Calendar week, month and day redesigned: wide today column, month load bars with week numbers, day timeline with open-time cards",
+      "Available time per weekday in Settings; open time is counted inside those hours and the rest is shaded",
+      "Calendar header shows open hours and a Next up card with Join for linked meetings"
+    ]
+  },
+  {
     "version": "2026.126",
     "date": "2026-09-25",
     "changes": [
