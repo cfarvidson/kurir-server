@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.124] - 2026-09-25
+
+### Added
+
+- Person card: clicking a name in a thread card (the sender, or a to/cc
+  recipient) opens a small card with the email address, Copy address,
+  Email and Person. The person pane shows the address with a copy button.
+  Pairs with iOS/macOS 2026.124, which has the same card and also lets you
+  select the address in the person pane.
+
 ## [v2026.123] - 2026-09-24
 
 ### Added

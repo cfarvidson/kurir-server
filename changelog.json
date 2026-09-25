@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.124",
+    "date": "2026-09-25",
+    "changes": [
+      "Click a name in a thread card to see the email address, copy it, email them or open them in the person pane",
+      "The person pane shows the address with a copy button"
+    ]
+  },
+  {
     "version": "2026.123",
     "date": "2026-09-24",
     "changes": [

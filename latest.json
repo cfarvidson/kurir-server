@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.123",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.123",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.123",
-    "changelog": "Send again: copy a message into a brand-new mail",
+    "version": "2026.124",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.124",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.124",
+    "changelog": "Click a name in a thread card to see and copy the email address",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-24T18:19:20Z"
+    "releasedAt": "2026-09-25T06:30:11Z"
   }
 }
