@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.126",
+    "date": "2026-09-25",
+    "changes": [
+      "The desktop sidebar is an icon rail (Mail, Screener, Calendar, Contacts, Files) plus a panel with the active part's pages",
+      "Next up card in the Mail panel shows today's next calendar event; the Calendar panel lists today's events"
+    ]
+  },
+  {
     "version": "2026.125",
     "date": "2026-09-25",
     "changes": [

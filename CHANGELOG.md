@@ -4,6 +4,22 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.126] - 2026-09-25
+
+### Changed
+
+- The desktop sidebar is an icon rail plus a panel. The rail holds Mail,
+  Screener, Calendar, Contacts and Files (Commands, Shortcuts, Settings
+  and Sign out below); the panel lists only the active part's pages.
+  Screener and AI Rules get their own panel, and Mail and Screener show
+  their counts on the rail. Pairs with iOS/macOS 2026.124 build 119.
+
+### Added
+
+- A Next up card at the top of the Mail panel shows today's next calendar
+  event ("Now" or "in N min" within the hour) and opens Calendar. The
+  Calendar panel lists today's events.
+
 ## [v2026.125] - 2026-09-25
 
 ### Changed
