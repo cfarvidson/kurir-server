@@ -1,24 +1,48 @@
 ---
-title: Mobile App
-description: Install Kurir as a Progressive Web App on iOS and Android for an app-like experience with push notifications.
+title: Mobile & Mac Apps
+description: Use Kurir on your phone and your Mac - the native iPhone and Mac apps from the App Store, or the free PWA on iOS and Android.
 order: 5
 ---
 
-# Mobile App
+# Mobile & Mac Apps
 
-Kurir is a Progressive Web App (PWA), which means you can install it on your phone's home screen and use it like a native app — no App Store, no TestFlight, no extra account. It works on iOS 16.4+ and any modern Android device.
+There are two ways to use Kurir outside the browser:
 
-> **Prefer a smoother native app?** The PWA has every Kurir feature. The native iPhone app is the same product in Swift - offline-first and faster - and it's on the [App Store](https://apps.apple.com/se/app/kurir-email/id6795541775?l=en-GB) as a paid app. A Mac app is coming. You never have to buy them. The PWA is free, like everything else you run on your own server.
+- **The native iPhone and Mac apps.** Written in Swift, offline-first and faster than the web app. They are paid apps on the [App Store](https://apps.apple.com/se/app/kurir-email/id6795541775?l=en-GB) and the [Mac App Store](https://apps.apple.com/se/app/kurir-email/id6795541775?l=en-GB&mt=12), and they are what funds the rest of the project.
+- **The Progressive Web App (PWA).** Install the web app on your phone's home screen - no App Store, no extra account. It has every Kurir feature, works on iOS 16.4+ and any modern Android device, and is free like everything else you run on your own server.
 
-When installed, Kurir runs full-screen without browser chrome, supports push notifications, and survives reboots like a native app would.
+You never have to buy the native apps. They talk to the same server as the web app, so your mail, screening decisions and settings are the same everywhere.
 
-## Requirements
+## Native iPhone and Mac apps
+
+### Sign in
+
+1. Install Kurir from the App Store (iPhone) or the Mac App Store (Mac).
+2. Open the app and type your server's address in **Server** (for example `mail.example.com`). The server must be reachable over HTTPS.
+3. Tap **Sign in**. The app opens your Kurir server's own sign-in page, where you sign in with your passkey as you do in the browser.
+4. When the sign-in page hands back to the app, your mail starts syncing.
+
+Sign-in always runs through your own server's login page, so it works with any self-hosted domain and the app never sees your passkey.
+
+### Push notifications
+
+The native apps get pushes through Kurir's push relay (`kurir-notify.arvidson.io`), which forwards notifications to Apple. The server talks to the relay by default; see `PUSH_RELAY_URL` in [Configuration](configuration). Allow notifications when the app asks, and you get a push when new mail arrives in your Imbox.
+
+### Updates
+
+The native apps update through the App Store. Some app features need a newer server; when that happens the app says so and asks you to [update the server](updating).
+
+## Progressive Web App
+
+When installed, the PWA runs full-screen without browser chrome, supports push notifications, and survives reboots like a native app would.
+
+### Requirements
 
 - Your Kurir server must be reachable over **HTTPS** with a real (browser-trusted) certificate. The one-command installer handles this automatically with Let's Encrypt. If you self-signed, the install won't work.
 - **iOS 16.4 or later** for push notifications. Earlier versions can install the PWA but won't deliver pushes.
 - **Web Push enabled** on the server. The installer generates VAPID keys automatically; if you skipped that step, see the [Configuration](configuration) docs to add them.
 
-## Install on iPhone or iPad
+### Install on iPhone or iPad
 
 1. Open **Safari** on your phone (it must be Safari — Chrome and Firefox on iOS use WebKit but can't install PWAs).
 2. Go to your Kurir URL (e.g. `https://mail.example.com`).
@@ -28,7 +52,7 @@ When installed, Kurir runs full-screen without browser chrome, supports push not
 6. You'll see a preview with the Kurir icon and name. Tap **Add** in the top right.
 7. The Kurir icon now appears on your home screen. Tap it to launch — it opens full-screen, no browser bar.
 
-### Enable push notifications (iOS 16.4+)
+#### Enable push notifications (iOS 16.4+)
 
 After installing to the home screen, open Kurir from the home screen icon (not Safari). Then:
 
@@ -41,7 +65,7 @@ You'll now get a push when new mail arrives in your Imbox.
 
 > **Note:** iOS only allows PWAs to request push permission when launched from the home screen. If you try from inside Safari, the option won't appear.
 
-## Install on Android
+### Install on Android
 
 1. Open **Chrome** (or any Chromium-based browser) on your Android device.
 2. Go to your Kurir URL.
@@ -52,7 +76,7 @@ You'll now get a push when new mail arrives in your Imbox.
 5. Confirm by tapping **Install**.
 6. Kurir is now in your app drawer and on your home screen.
 
-### Enable push notifications (Android)
+#### Enable push notifications (Android)
 
 Push works out of the box on Android. After installing:
 
@@ -61,7 +85,7 @@ Push works out of the box on Android. After installing:
 3. Tap **Enable push notifications**
 4. Allow when prompted
 
-## Updating the installed app
+### Updating the installed app
 
 Kurir auto-updates when the server is updated — there's nothing to install on your phone. The PWA fetches the latest assets from your server on each launch (or in the background via the service worker).
 
@@ -70,7 +94,7 @@ If you're seeing stale UI after a server update, force a refresh:
 - **iOS:** Close the Kurir tab in the App Switcher, then reopen it from the home screen
 - **Android:** Long-press the Kurir icon, tap **App info → Storage → Clear cache**, then relaunch
 
-## Uninstall
+### Uninstall
 
 - **iOS:** Long-press the Kurir icon → **Remove App** → **Delete from Home Screen**
 - **Android:** Long-press the Kurir icon → **Uninstall**

@@ -1,12 +1,15 @@
 ---
 title: Backup & Restore
 description: How to back up and restore your Kurir instance, including scheduled automatic backups.
-order: 7
+order: 11
 ---
 
 # Backup & Restore
 
-Kurir includes built-in scripts for backing up and restoring your entire instance data.
+Kurir has two kinds of backup:
+
+- **Instance backups** - built-in scripts that back up and restore everything on the server: the database, Redis and the configuration. Most of this page covers them.
+- **Settings backups** - a copy of one user's contacts, screening and preferences, saved as a mail in that user's own Sent folder. See [Settings backups](#settings-backups) below.
 
 ## What's included in a backup
 
@@ -115,6 +118,20 @@ crontab -e
 ```
 
 The `-T` flag disables TTY allocation, which is required for cron.
+
+## Settings backups
+
+A settings backup is a snapshot of your contacts and contact groups, your screening decisions (senders, domain rules and subject rules) and your preferences (theme, time zone, image blocking, badges). It is saved as a mail in your own Sent folder, so it lives with your email provider and survives a lost or reinstalled server. Email messages are not included.
+
+Open **Settings → Settings backup**:
+
+- **Schedule** - **Off**, **Daily** (03:00 local time) or **Weekly** (same weekday, 03:00).
+- **Backup now** saves a copy right away.
+- **Saved copies** lists the backups found in Sent, with **Restore** on each. Kurir keeps the newest four and removes older ones.
+
+When you set up Kurir again with the same mailbox, the setup wizard looks for backups in Sent after the first sync and asks **Restore your settings?**. Pick one, or skip and start clean. Settings for email accounts that are not connected are skipped, and Kurir tells you which.
+
+A settings backup does not contain passwords, tokens or AI rules.
 
 ## Security considerations
 

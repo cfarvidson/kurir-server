@@ -1,7 +1,7 @@
 ---
 title: Updating
 description: How to update Kurir to the latest version for each deployment method.
-order: 8
+order: 12
 ---
 
 # Updating

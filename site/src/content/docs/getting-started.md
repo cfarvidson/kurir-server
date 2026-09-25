@@ -72,3 +72,7 @@ Each option is covered in detail in the [Installation guide](installation).
 - [Installation](installation) -- Detailed walkthrough of each deployment option
 - [Configuration](configuration) -- All environment variables explained
 - [Email Accounts](email-accounts) -- Connect Gmail, Outlook, iCloud, or any IMAP provider
+- [Mobile & Mac Apps](mobile-app) -- The native iPhone and Mac apps, and the free PWA
+- [Using Kurir](using-kurir) -- The sidebar, the Later lists, pins, search and shortcuts
+- [Calendar](calendar) -- Connect your calendars and answer invitations from mail
+- [AI Rules](ai-rules) -- File mail by what it says, with a plain-language rule

@@ -1,7 +1,7 @@
 ---
 title: FAQ
 description: Frequently asked questions about Kurir, including licensing, privacy, provider support, and more.
-order: 10
+order: 14
 ---
 
 # Frequently Asked Questions
@@ -32,13 +32,18 @@ All email data is stored in your PostgreSQL database on your server. Kurir does 
 
 ## Does Kurir delete emails from my provider?
 
-No. Kurir is read-only when it comes to your email provider. It syncs emails via IMAP but does not delete, move, or modify messages on the server. Your emails remain safely with your provider regardless of what you do in Kurir.
+No. Kurir never deletes your mail. Your emails stay with your provider regardless of what you do in Kurir.
 
-The only write operations are sending emails (via SMTP) and IMAP flag changes (marking messages as read).
+Kurir does write a few things back over IMAP, so your other mail apps see the same state:
+
+- **Sending** goes out over SMTP, and a copy is saved in your provider's Sent folder.
+- **Read state and flags** (read/unread, flagged) are pushed to the provider.
+- **Archiving** moves the message to your provider's Archive folder, and unarchiving moves it back to the inbox.
+- **Settings backups**, if you turn them on, are saved as mails in your Sent folder. Kurir keeps the newest four and removes older ones (see [Backup & Restore](backup-restore)).
 
 ## Can I use Kurir on my phone?
 
-Yes. Kurir is a web application that works in any modern browser on any device. It supports Progressive Web App (PWA) installation, so you can add it to your home screen for an app-like experience with push notifications. See the [Mobile App](mobile-app) docs for step-by-step install instructions for iOS and Android.
+Yes. Kurir is a web application that works in any modern browser on any device. You can install it as a Progressive Web App (PWA) on iOS and Android for free, with push notifications. There are also native iPhone and Mac apps, paid, on the App Store. See [Mobile & Mac Apps](mobile-app) for both.
 
 ## How is Kurir different from other email clients?
 
@@ -58,13 +63,14 @@ Your Kurir-specific data (Screener decisions, categories, read state) lives in y
 
 ## What tech stack does Kurir use?
 
-- **Framework**: Next.js 15 with App Router and TypeScript
-- **Database**: PostgreSQL 16 with Prisma ORM
-- **Auth**: NextAuth.js v5 (supports credentials + passkeys + OAuth)
+- **Framework**: Next.js 16 with App Router and TypeScript
+- **Database**: PostgreSQL 16 with Prisma 7
+- **Auth**: NextAuth.js v5 (passkeys via WebAuthn, OAuth for Gmail/Outlook)
 - **Email**: ImapFlow (IMAP), Nodemailer (SMTP), MailParser
 - **UI**: Tailwind CSS, shadcn/ui components, Framer Motion
 - **State**: TanStack Query, Zustand
 - **Deployment**: Docker, Caddy (reverse proxy), Redis (queues/cache)
+- **Native apps**: Swift (iPhone and Mac)
 
 ## What are the server requirements?
 

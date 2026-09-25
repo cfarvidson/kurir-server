@@ -69,6 +69,7 @@ Edit `.env` and set at minimum:
 - `REDIS_PASSWORD` -- Generate with `openssl rand -base64 32`
 - `NEXTAUTH_SECRET` -- Generate with `openssl rand -base64 32`
 - `ENCRYPTION_KEY` -- Generate with `openssl rand -base64 32`
+- `UPDATER_TOKEN` -- Generate with `openssl rand -hex 32`
 
 See the full [Configuration](configuration) reference for all options.
 

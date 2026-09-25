@@ -49,6 +49,7 @@ Redis is configured with a 256 MB memory limit and `allkeys-lru` eviction policy
 | ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXTAUTH_SECRET` | Yes      | Secret key for signing NextAuth.js session tokens. Generate with `openssl rand -base64 32`.                                                                                |
 | `ENCRYPTION_KEY`  | Yes      | AES-256-GCM key for encrypting stored email passwords. Generate with `openssl rand -base64 32`. Without this key, encrypted passwords in the database cannot be decrypted. |
+| `UPDATER_TOKEN`   | Yes      | Shared secret between the app and the updater container that runs **Admin → Updates**. `docker-compose.production.yml` refuses to start without it. The installer generates it; for a manual setup, generate it with `openssl rand -hex 32`. |
 
 ## WebAuthn (optional)
 
@@ -74,7 +75,15 @@ To generate VAPID keys manually:
 npx web-push generate-vapid-keys
 ```
 
-If these variables are omitted, push notification features are disabled.
+If these variables are omitted, web push notifications are disabled.
+
+### iPhone and Mac app push
+
+| Variable         | Required | Default                           | Description                                                                                                                              |
+| ---------------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUSH_RELAY_URL` | No       | `https://kurir-notify.arvidson.io` | Push relay for the native iPhone and Mac apps. A self-hosted server cannot sign Apple push notifications itself, so it sends them through the relay, which forwards them to Apple. Set it to another relay deployment, or set it to an empty value to turn off native app push. |
+
+The default comes from `docker-compose.production.yml`, so you only need this variable to change or disable the relay.
 
 ## OAuth Providers (optional)
 
@@ -110,6 +119,7 @@ REDIS_PASSWORD=<generated>
 
 NEXTAUTH_SECRET=<generated>
 ENCRYPTION_KEY=<generated>
+UPDATER_TOKEN=<generated>
 ```
 
 And a more complete one with all optional features enabled:
@@ -123,6 +133,7 @@ REDIS_PASSWORD=<generated>
 
 NEXTAUTH_SECRET=<generated>
 ENCRYPTION_KEY=<generated>
+UPDATER_TOKEN=<generated>
 
 WEBAUTHN_RP_NAME=Kurir
 

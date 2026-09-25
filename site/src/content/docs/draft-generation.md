@@ -1,7 +1,7 @@
 ---
 title: Draft Generation
 description: Let Kurir write drafts (replies and new mail) with your existing Claude Pro/Max or SuperGrok subscription - no API key, no per-token billing.
-order: 6
+order: 9
 ---
 
 # Draft Generation

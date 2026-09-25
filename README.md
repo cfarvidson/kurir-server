@@ -12,21 +12,27 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 - **Paper Trail** — Receipts and notifications, kept separate.
 - **Full-text search** — PostgreSQL-powered search across every email.
 - **Snooze & follow-ups** — Snooze messages until later. Set follow-up reminders.
+- **Reply Later & Pinned** - Mark threads you owe an answer, and pin threads to keep them at hand, also from the archive.
+- **Private thread notes** - Notes on a thread that only you see, never sent with replies.
+- **AI Rules** - File a sender's mail by what it says, with a plain-language criterion checked by your Claude or Grok subscription.
+- **Draft generation** - A compose assistant that writes replies and new mail from an instruction and a tone, using your Claude Pro/Max or SuperGrok subscription (no API key).
+- **Calendar** - Google, Outlook, CalDAV and calendar URLs in Week, Day and Month views, invitations answered from the mail, and available hours per weekday.
 - **Scheduled send** — Write now, send later. Full To/Cc/Bcc support.
 - **Threaded conversations** — Messages grouped by thread, reply inline.
 - **Compose in Markdown** — Rich email authoring with auto-save drafts.
 - **Keyboard-first** — Full shortcuts, command palette, vim-style navigation.
+- **Native iPhone and Mac apps** - Swift apps on the App Store, offline-first, with push notifications through the kurir-notify relay.
 - **Mobile PWA** — Install on iOS and Android with push notifications.
 - **Dark mode** — Light, dark, or match your system.
 - **Multi-account** — Connect multiple email accounts, send from any.
 - **Archive** — Archive with undo, swipe gestures on mobile.
 - **Contacts** — Create, edit and group contacts, linked to your senders.
-- **Mobile API** — Bearer-token API with delta sync, offline-queued actions, drafts, scheduled send, contacts and files — powers a native iOS companion app. Device sign-in runs through your server's own login page (PKCE-bound), so it works against any self-hosted domain.
-- **MCP** - Connect Claude to your instance at `/mcp`.
+- **Mobile API** — Bearer-token API with delta sync, offline-queued actions, drafts, scheduled send, contacts and files — powers the native iPhone and Mac apps. Device sign-in runs through your server's own login page (PKCE-bound), so it works against any self-hosted domain.
+- **MCP** - Connect Claude to your instance at `/mcp` to work with mail, contacts and the calendar.
 - **Admin dashboard** — System health, sync status, user management.
 - **One-command install** — Single `curl` command provisions a fresh server.
 - **Auto-updates** — Checks for new versions, one-click update from admin.
-- **Backup & restore** — Full database + config backup and restore.
+- **Backup & restore** — Full database + config backup and restore, plus per-user settings backups saved to your own Sent folder.
 
 ## Claude / MCP
 
@@ -36,7 +42,7 @@ mail, triage, screen senders, list calendars and read calendar events, and chang
 your own settings. Sending, creating or deleting events, replying to
 invitations and other destructive actions ask for a confirmation in Claude
 first. Revoke
-access under Settings → Connected apps.
+access under Settings → Connected apps. See the [MCP docs](https://kurir.io/docs/mcp) for the full tool list.
 
 Clients identify themselves with a Client ID Metadata Document (Claude does
 this on its own). For a host that cannot publish one, an admin registers it
@@ -147,6 +153,7 @@ pnpm db:push      # Push Prisma schema to DB
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:studio    # Prisma Studio GUI
 pnpm add-user     # CLI: add user with IMAP/SMTP config
+pnpm list-users   # CLI: list users
 pnpm sync-user    # CLI: trigger sync for user(s)
 pnpm backup       # Create backup archive (pg + redis + env)
 pnpm restore      # Restore from backup archive
