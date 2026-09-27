@@ -1,5 +1,14 @@
 [
   {
+    "version": "2026.128",
+    "date": "2026-09-27",
+    "changes": [
+      "Clicking a calendar event shows a popover with its time, place and notes; Open event shows the whole event with larger notes",
+      "Links in event notes are clickable",
+      "Deleting an event from the new view asks once: which occurrences, or a confirmation"
+    ]
+  },
+  {
     "version": "2026.127",
     "date": "2026-09-25",
     "changes": [

@@ -4,6 +4,20 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.128] - 2026-09-27
+
+### Changed
+
+- Clicking an event in the calendar shows it before it opens the edit
+  form. In week, day and month a popover opens beside the event with the
+  title, time, place, repeat rule and the first lines of the notes. Open
+  event shows the whole event: start and end in large serif beside When
+  and Where, and the notes as the main text in a larger size, with web
+  and email addresses as links. Edit opens the editor as before, and
+  Delete asks which occurrences for a repeating event and asks for
+  confirmation for a single one. The Next up card and clicks at phone
+  width open the event directly. Pairs with iOS/macOS 2026.124 build 122.
+
 ## [v2026.127] - 2026-09-25
 
 ### Changed
