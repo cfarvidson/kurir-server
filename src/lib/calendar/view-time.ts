@@ -98,6 +98,11 @@ export function formatWeekdayLong(date: CivilDate): string {
   return WEEKDAYS_LONG[weekdayIndex(date)];
 }
 
+/** "Thursday 1 October" - the event view's date line, as in the apps. */
+export function formatLongDate(date: CivilDate): string {
+  return `${WEEKDAYS_LONG[weekdayIndex(date)]} ${date.day} ${MONTHS[date.month - 1]}`;
+}
+
 export function startOfWeekMonday(date: CivilDate): CivilDate {
   const dow = weekdayIndex(date);
   const offset = dow === 0 ? -6 : 1 - dow;

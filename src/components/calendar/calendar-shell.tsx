@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +18,11 @@ import {
   EventDialog,
   RecurrenceRangeDialog,
 } from "@/components/calendar/event-dialog";
+import {
+  DeleteEventDialog,
+  EventPopover,
+  EventViewDialog,
+} from "@/components/calendar/event-view";
 import {
   freeUntil,
   headerEyebrow,
@@ -38,7 +44,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { updateEventAction } from "@/actions/calendar";
+import { deleteEventAction, updateEventAction } from "@/actions/calendar";
 import type { CalendarPagePayload } from "@/lib/calendar/page-data";
 import { keyboardState } from "@/lib/keyboard-state";
 import type { RecurrenceEdit } from "@/lib/calendar/providers/types";
@@ -93,6 +99,19 @@ function defaultSlot(date: string, timezone: string): SlotSelection {
   return { date, startMin: 9 * 60, endMin: 10 * 60, allDay: false };
 }
 
+/**
+ * The element a click or key press on an event came from, so the popover
+ * can open beside it. Captured at the document rather than threaded through
+ * every view's click handler.
+ */
+function eventAnchor(
+  last: { target: EventTarget | null; byKey: boolean },
+): HTMLElement | null {
+  const from = last.byKey ? document.activeElement : last.target;
+  if (!(from instanceof Element)) return null;
+  return from.closest<HTMLElement>('button, [role="button"]');
+}
+
 function hasWritable(payload: CalendarPagePayload): boolean {
   return payload.accounts.some((account) =>
     account.calendars.some((calendar) => !calendar.isReadOnly),
@@ -113,6 +132,19 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
       ? defaultSlot(date, payload.timezone)
       : null,
   );
+  // Reading an event: the popover beside it, the whole event in a dialog,
+  // and the delete question either of them can ask.
+  const [peek, setPeek] = useState<CalendarInstanceDTO | null>(null);
+  const [viewing, setViewing] = useState<CalendarInstanceDTO | null>(null);
+  const [deleting, setDeleting] = useState<CalendarInstanceDTO | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const peekAnchor = useRef<{ getBoundingClientRect(): DOMRect } | null>(
+    null,
+  );
+  const lastInput = useRef<{ target: EventTarget | null; byKey: boolean }>({
+    target: null,
+    byKey: false,
+  });
   const [pendingMove, setPendingMove] = useState<{
     event: CalendarInstanceDTO;
     startAt: Date;
@@ -220,11 +252,77 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
     [writable],
   );
 
-  const openEvent = useCallback((event: CalendarInstanceDTO) => {
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      lastInput.current = { target: event.target, byKey: false };
+    };
+    const onKey = () => {
+      lastInput.current = { target: null, byKey: true };
+    };
+    document.addEventListener("pointerdown", onPointer, true);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, []);
+
+  /** The whole event, read. Next up and the popover's "Open event". */
+  const openEventView = useCallback((event: CalendarInstanceDTO) => {
+    setPeek(null);
+    setViewing(event);
+  }, []);
+
+  /**
+   * A click on an event in a view: the popover beside it. A phone-width
+   * window has no room beside anything, so it opens the event directly.
+   */
+  const openEvent = useCallback(
+    (event: CalendarInstanceDTO) => {
+      const el = eventAnchor(lastInput.current);
+      if (!el || !window.matchMedia("(min-width: 768px)").matches) {
+        openEventView(event);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      peekAnchor.current = {
+        getBoundingClientRect: () =>
+          el.isConnected ? el.getBoundingClientRect() : rect,
+      };
+      setPeek(event);
+    },
+    [openEventView],
+  );
+
+  const editEvent = useCallback((event: CalendarInstanceDTO) => {
+    setPeek(null);
+    setViewing(null);
     setSlot(null);
     setEditing(event);
     setDialogOpen(true);
   }, []);
+
+  const requestDelete = useCallback((event: CalendarInstanceDTO) => {
+    setPeek(null);
+    setDeleting(event);
+  }, []);
+
+  async function runDelete(range: RecurrenceEdit) {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await deleteEventAction(deleting.eventId, range);
+      setDeleting(null);
+      setViewing(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not delete event",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   const goToKey = useCallback(
     (key: string) => {
@@ -367,7 +465,7 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
         onNext={goNext}
         onCalendars={() => setCalendarsOpen(true)}
         onNewEvent={() => openCreate(defaultSlot(date, payload.timezone))}
-        onOpenEvent={openEvent}
+        onOpenEvent={openEventView}
       />
 
       {errors.map((account) => (
@@ -419,6 +517,35 @@ export function CalendarShell({ payload }: { payload: CalendarPagePayload }) {
           <CalendarList accounts={payload.accounts} />
         </DialogContent>
       </Dialog>
+
+      <EventPopover
+        event={peek}
+        anchor={peekAnchor}
+        timezone={payload.timezone}
+        onClose={() => setPeek(null)}
+        onOpen={openEventView}
+        onEdit={editEvent}
+        onDelete={requestDelete}
+      />
+
+      <EventViewDialog
+        event={viewing}
+        timezone={payload.timezone}
+        onOpenChange={(open) => {
+          if (!open) setViewing(null);
+        }}
+        onEdit={editEvent}
+        onDelete={requestDelete}
+      />
+
+      <DeleteEventDialog
+        event={deleting}
+        busy={deleteBusy}
+        onOpenChange={(open) => {
+          if (!open && !deleteBusy) setDeleting(null);
+        }}
+        onPick={(range) => void runDelete(range)}
+      />
 
       <EventDialog
         open={dialogOpen}
