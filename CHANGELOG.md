@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.129] - 2026-09-28
+
+### Fixed
+
+- Opening a draft and closing it without changing anything no longer
+  moves it to the top of Drafts. A save with the same content leaves the
+  stored draft and its date as they were, so the web composer's save on
+  open changes nothing. Pairs with iOS/macOS 2026.124 build 123, where a
+  reply or forward draft whose original message is missing is also left
+  alone when closed untouched.
+
 ## [v2026.128] - 2026-09-27
 
 ### Changed

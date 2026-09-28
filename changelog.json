@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.129",
+    "date": "2026-09-28",
+    "changes": [
+      "Opening a draft and closing it without changes no longer moves it to the top of Drafts"
+    ]
+  },
+  {
     "version": "2026.128",
     "date": "2026-09-27",
     "changes": [
