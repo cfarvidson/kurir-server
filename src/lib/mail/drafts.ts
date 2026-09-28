@@ -79,10 +79,35 @@ function bumpDraftsPage() {
   revalidatePath("/drafts");
 }
 
+type DraftContent = {
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  body: string;
+  emailConnectionId: string | null;
+  attachmentIds: string[];
+};
+
+function sameDraftContent(a: DraftContent, b: DraftContent) {
+  return (
+    a.to === b.to &&
+    a.cc === b.cc &&
+    a.bcc === b.bcc &&
+    a.subject === b.subject &&
+    a.body === b.body &&
+    a.emailConnectionId === b.emailConnectionId &&
+    a.attachmentIds.length === b.attachmentIds.length &&
+    a.attachmentIds.every((id, i) => id === b.attachmentIds[i])
+  );
+}
+
 /**
  * Upsert a draft for `userId`. Validates that any referenced attachments belong
  * to the user, then last-write-wins on the `(userId, type, contextMessageId)`
- * unique key — the same contract the web composer autosave relies on.
+ * unique key — the same contract the web composer autosave relies on. A save
+ * whose content matches the stored row is a no-op, so `updatedAt` only moves
+ * on a real edit.
  */
 export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
   // Validate attachmentIds belong to this user (uploads or IMAP-synced).
@@ -98,34 +123,36 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
     }
   }
 
+  const where = {
+    userId_type_contextMessageId: {
+      userId,
+      type: input.type,
+      contextMessageId: input.contextMessageId,
+    },
+  };
+  const content = {
+    to: input.to ?? "",
+    cc: input.cc ?? "",
+    bcc: input.bcc ?? "",
+    subject: input.subject ?? "",
+    body: input.body ?? "",
+    emailConnectionId: input.emailConnectionId ?? null,
+    attachmentIds: input.attachmentIds ?? [],
+  };
+
+  // A save with unchanged content (a draft opened and closed without edits)
+  // must not bump updatedAt, or the drafts list re-sorts on every open.
+  const existing = await db.draft.findUnique({ where });
+  if (existing && sameDraftContent(existing, content)) return existing;
+
   const draft = await db.draft.upsert({
-    where: {
-      userId_type_contextMessageId: {
-        userId,
-        type: input.type,
-        contextMessageId: input.contextMessageId,
-      },
-    },
-    update: {
-      to: input.to ?? "",
-      cc: input.cc ?? "",
-      bcc: input.bcc ?? "",
-      subject: input.subject ?? "",
-      body: input.body ?? "",
-      emailConnectionId: input.emailConnectionId ?? null,
-      attachmentIds: input.attachmentIds ?? [],
-    },
+    where,
+    update: content,
     create: {
       userId,
       type: input.type,
       contextMessageId: input.contextMessageId,
-      to: input.to ?? "",
-      cc: input.cc ?? "",
-      bcc: input.bcc ?? "",
-      subject: input.subject ?? "",
-      body: input.body ?? "",
-      emailConnectionId: input.emailConnectionId ?? null,
-      attachmentIds: input.attachmentIds ?? [],
+      ...content,
     },
   });
   bumpDraftsPage();

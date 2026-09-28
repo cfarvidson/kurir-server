@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({
   db: {
     draft: {
+      findUnique: vi.fn(),
       upsert: vi.fn(),
       findMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -113,6 +114,37 @@ describe("/api/mobile/drafts", () => {
     expect(vi.mocked(db.draft.upsert).mock.calls[1][0].update.body).toBe(
       "second",
     );
+  });
+
+  it("(h) PUT with unchanged content returns the stored draft without writing", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    const stored = {
+      id: "d1",
+      to: "a@x.com",
+      cc: "",
+      bcc: "",
+      subject: "Hi",
+      body: "same",
+      emailConnectionId: null,
+      attachmentIds: [],
+    };
+    vi.mocked(db.draft.findUnique).mockResolvedValueOnce(stored as never);
+
+    const { PUT } = await import("@/app/api/mobile/drafts/route");
+    const res = await PUT(
+      makeRequest({
+        type: "NEW",
+        contextMessageId: "c1",
+        to: "a@x.com",
+        subject: "Hi",
+        body: "same",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).draft.id).toBe("d1");
+    expect(db.draft.upsert).not.toHaveBeenCalled();
   });
 
   it("(c) GET lists the authed user's drafts (scoped by userId), newest first", async () => {
