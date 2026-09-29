@@ -147,7 +147,7 @@ describe("/api/mobile/drafts", () => {
     expect(db.draft.upsert).not.toHaveBeenCalled();
   });
 
-  it("(c) GET lists the authed user's drafts (scoped by userId), newest first", async () => {
+  it("(c) GET lists the authed user's drafts (scoped by userId), newest first, ties by key", async () => {
     await mockAuthed("user-1");
     const { db } = await import("@/lib/db");
     vi.mocked(db.draft.findMany).mockResolvedValue([
@@ -172,7 +172,12 @@ describe("/api/mobile/drafts", () => {
     // Scoped to the authed user only — other users' drafts never queried.
     expect(db.draft.findMany).toHaveBeenCalledWith({
       where: { userId: "user-1" },
-      orderBy: { updatedAt: "desc" },
+      // Ties fall back to the draft key so the list never reshuffles.
+      orderBy: [
+        { updatedAt: "desc" },
+        { type: "asc" },
+        { contextMessageId: "asc" },
+      ],
     });
     const body = await res.json();
     expect(body.drafts).toHaveLength(1);

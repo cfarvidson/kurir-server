@@ -184,10 +184,17 @@ export async function deleteDraftForUser(
   bumpDraftsPage();
 }
 
-/** All of the user's drafts, newest first. */
+/**
+ * All of the user's drafts, newest first. Equal timestamps fall back to the
+ * draft key, so a reload never swaps them (same order as the apps).
+ */
 export async function listDraftsForUser(userId: string) {
   return db.draft.findMany({
     where: { userId },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [
+      { updatedAt: "desc" },
+      { type: "asc" },
+      { contextMessageId: "asc" },
+    ],
   });
 }
