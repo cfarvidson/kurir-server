@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.130] - 2026-09-29
+
+### Fixed
+
+- Drafts saved at the same moment no longer swap places each time Drafts
+  reloads, for example after opening and closing one of them. Drafts with
+  the same date are now ordered by their key, the same order as the apps.
+  Pairs with iOS/macOS 2026.124 build 125.
+
 ## [v2026.129] - 2026-09-28
 
 ### Fixed

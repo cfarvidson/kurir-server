@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.130",
+    "date": "2026-09-29",
+    "changes": [
+      "Drafts saved at the same moment no longer swap places when Drafts reloads"
+    ]
+  },
+  {
     "version": "2026.129",
     "date": "2026-09-28",
     "changes": [
