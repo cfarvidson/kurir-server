@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { createIcsAccount } from "@/lib/calendar/ics-account";
 import { enqueueCalendarSyncJob } from "@/lib/jobs/calendar-sync-worker";
 import { withImapConnection } from "@/lib/mail/imap-client";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
@@ -25,6 +26,7 @@ import {
   serializeSettingsBackup,
   settingsBackupFilename,
   settingsBackupSubject,
+  type SettingsBackupCalendarAccount,
   type SettingsBackupPayload,
   type SettingsBackupSource,
 } from "@/lib/mail/settings-backup-payload";
@@ -66,82 +68,83 @@ export async function snapshotSettingsForUser(
     calendarAccounts,
     flaggedMessages,
   ] = await Promise.all([
-      db.user.findUnique({
-        where: { id: userId },
-        select: {
-          theme: true,
-          timezone: true,
-          blockRemoteImages: true,
-          blockTrackers: true,
-          showImboxBadge: true,
-          showScreenerBadge: true,
-          showFeedBadge: true,
-          showPaperTrailBadge: true,
-          showFollowUpBadge: true,
-          showReplyLaterBadge: true,
-          showScheduledBadge: true,
-          calendarAvailability: true,
-        },
-      }),
-      db.emailConnection.findMany({
-        where: { userId },
-        select: { id: true, email: true },
-      }),
-      db.contact.findMany({
-        where: { userId },
-        include: { emails: true },
-      }),
-      db.contactGroup.findMany({
-        where: { userId },
-        include: {
-          members: { include: { contactEmail: { select: { email: true } } } },
-        },
-      }),
-      db.sender.findMany({
-        where: { userId, status: { in: ["APPROVED", "REJECTED"] } },
-      }),
-      db.domainRule.findMany({ where: { userId } }),
-      db.subjectRule.findMany({ where: { userId } }),
-      db.contentRule.findMany({
-        where: { userId },
-        select: {
-          criterion: true,
-          onMatch: true,
-          onNoMatch: true,
-          emailConnectionId: true,
-          senders: { select: { scope: true, scopeValue: true, since: true } },
-        },
-      }),
-      db.calendarAccount.findMany({
-        where: { userId, provider: "CALDAV" },
-        select: {
-          displayName: true,
-          caldavUrl: true,
-          caldavUsername: true,
-          encryptedPassword: true,
-        },
-      }),
-      // Per-message state travels by Message-ID so another client (Kurir
-      // 2.0 reading the same mailbox) can find the mail again.
-      db.message.findMany({
-        where: {
-          userId,
-          messageId: { not: null },
-          OR: [
-            { isSnoozed: true },
-            { isReplyLater: true },
-            { followUpAt: { not: null } },
-          ],
-        },
-        select: {
-          messageId: true,
-          isSnoozed: true,
-          snoozedUntil: true,
-          isReplyLater: true,
-          followUpAt: true,
-        },
-      }),
-    ]);
+    db.user.findUnique({
+      where: { id: userId },
+      select: {
+        theme: true,
+        timezone: true,
+        blockRemoteImages: true,
+        blockTrackers: true,
+        showImboxBadge: true,
+        showScreenerBadge: true,
+        showFeedBadge: true,
+        showPaperTrailBadge: true,
+        showFollowUpBadge: true,
+        showReplyLaterBadge: true,
+        showScheduledBadge: true,
+        calendarAvailability: true,
+      },
+    }),
+    db.emailConnection.findMany({
+      where: { userId },
+      select: { id: true, email: true },
+    }),
+    db.contact.findMany({
+      where: { userId },
+      include: { emails: true },
+    }),
+    db.contactGroup.findMany({
+      where: { userId },
+      include: {
+        members: { include: { contactEmail: { select: { email: true } } } },
+      },
+    }),
+    db.sender.findMany({
+      where: { userId, status: { in: ["APPROVED", "REJECTED"] } },
+    }),
+    db.domainRule.findMany({ where: { userId } }),
+    db.subjectRule.findMany({ where: { userId } }),
+    db.contentRule.findMany({
+      where: { userId },
+      select: {
+        criterion: true,
+        onMatch: true,
+        onNoMatch: true,
+        emailConnectionId: true,
+        senders: { select: { scope: true, scopeValue: true, since: true } },
+      },
+    }),
+    db.calendarAccount.findMany({
+      where: { userId, provider: { in: ["CALDAV", "ICS"] } },
+      select: {
+        provider: true,
+        displayName: true,
+        caldavUrl: true,
+        caldavUsername: true,
+        encryptedPassword: true,
+      },
+    }),
+    // Per-message state travels by Message-ID so another client (Kurir
+    // 2.0 reading the same mailbox) can find the mail again.
+    db.message.findMany({
+      where: {
+        userId,
+        messageId: { not: null },
+        OR: [
+          { isSnoozed: true },
+          { isReplyLater: true },
+          { followUpAt: { not: null } },
+        ],
+      },
+      select: {
+        messageId: true,
+        isSnoozed: true,
+        snoozedUntil: true,
+        isReplyLater: true,
+        followUpAt: true,
+      },
+    }),
+  ]);
 
   if (!user) {
     throw new Error("User not found");
@@ -188,9 +191,7 @@ export async function snapshotSettingsForUser(
     })),
     senders: senders
       .filter(
-        (
-          s,
-        ): s is typeof s & { status: "APPROVED" | "REJECTED" } =>
+        (s): s is typeof s & { status: "APPROVED" | "REJECTED" } =>
           s.status === "APPROVED" || s.status === "REJECTED",
       )
       .map((s) => ({
@@ -237,18 +238,30 @@ export async function snapshotSettingsForUser(
         })),
       }))
       .filter((r) => r.connectionEmail !== ""),
-    calendarAccounts: calendarAccounts.flatMap((a) => {
-      if (!a.caldavUrl || !a.caldavUsername || !a.encryptedPassword) return [];
-      return [
-        {
-          provider: "CALDAV" as const,
-          displayName: a.displayName,
-          url: a.caldavUrl,
-          username: a.caldavUsername,
-          password: decrypt(a.encryptedPassword),
-        },
-      ];
-    }),
+    calendarAccounts: calendarAccounts.flatMap(
+      (a): SettingsBackupCalendarAccount[] => {
+        if (!a.caldavUrl) return [];
+        if (a.provider === "ICS") {
+          return [
+            {
+              provider: "ICS" as const,
+              displayName: a.displayName,
+              url: a.caldavUrl,
+            },
+          ];
+        }
+        if (!a.caldavUsername || !a.encryptedPassword) return [];
+        return [
+          {
+            provider: "CALDAV" as const,
+            displayName: a.displayName,
+            url: a.caldavUrl,
+            username: a.caldavUsername,
+            password: decrypt(a.encryptedPassword),
+          },
+        ];
+      },
+    ),
     snoozes: flaggedMessages
       .filter((m) => m.isSnoozed)
       .map((m) => ({
@@ -473,12 +486,11 @@ export async function applySettingsBackupForUser(
     where: { userId },
     select: { id: true, email: true },
   });
-  const byEmail = new Map(
-    connections.map((c) => [normalizeEmail(c.email), c]),
-  );
+  const byEmail = new Map(connections.map((c) => [normalizeEmail(c.email), c]));
 
   const mentioned = new Set<string>();
-  for (const s of payload.senders) mentioned.add(normalizeEmail(s.connectionEmail));
+  for (const s of payload.senders)
+    mentioned.add(normalizeEmail(s.connectionEmail));
   for (const r of payload.domainRules) {
     mentioned.add(normalizeEmail(r.connectionEmail));
   }
@@ -813,6 +825,15 @@ export async function applySettingsBackupForUser(
   // account was first added, so no discovery round trip here; the sync
   // job reports a bad password through lastError like any other account.
   for (const account of payload.calendarAccounts) {
+    if (account.provider === "ICS") {
+      // Re-subscribes: fetches the feed once and keeps the row read-only.
+      try {
+        await createIcsAccount({ userId, url: account.url });
+      } catch (err) {
+        console.error("[settings-backup] ICS restore failed:", err);
+      }
+      continue;
+    }
     const existing = await db.calendarAccount.findFirst({
       where: {
         userId,
@@ -868,9 +889,8 @@ export async function restoreSettingsBackupFromMessageForUser(
     ? Buffer.from(file.content).toString("utf8")
     : null;
   if (!raw) {
-    const { loadAttachmentsForSend } = await import(
-      "@/lib/mail/attachment-helpers"
-    );
+    const { loadAttachmentsForSend } =
+      await import("@/lib/mail/attachment-helpers");
     const loaded = await loadAttachmentsForSend([file.id], userId);
     raw = loaded.sentAttachments[0]?.content.toString("utf8") ?? null;
   }

@@ -86,15 +86,22 @@ export type SettingsBackupContentRule = {
   senders: SettingsBackupContentRuleSender[];
 };
 
-// Only CalDAV travels: OAuth tokens are bound to this server's client id.
-// The password is in the clear, like the mail account that holds the backup.
-export type SettingsBackupCalendarAccount = {
-  provider: "CALDAV";
-  displayName: string;
-  url: string;
-  username: string;
-  password: string;
-};
+// CalDAV and .ics feeds travel; OAuth tokens are bound to this server's
+// client id. The CalDAV password is in the clear, like the mail account
+// that holds the backup. A feed has only its URL.
+export type SettingsBackupCalendarAccount =
+  | {
+      provider: "CALDAV";
+      displayName: string;
+      url: string;
+      username: string;
+      password: string;
+    }
+  | {
+      provider: "ICS";
+      displayName: string;
+      url: string;
+    };
 
 export type SettingsBackupSnooze = { messageId: string; until: string | null };
 export type SettingsBackupFollowUp = { messageId: string; at: string };
@@ -247,13 +254,20 @@ const payloadSchema = z.object({
     .default([]),
   calendarAccounts: z
     .array(
-      z.object({
-        provider: z.literal("CALDAV"),
-        displayName: z.string(),
-        url: z.string().min(1),
-        username: z.string().min(1),
-        password: z.string().min(1),
-      }),
+      z.discriminatedUnion("provider", [
+        z.object({
+          provider: z.literal("CALDAV"),
+          displayName: z.string(),
+          url: z.string().min(1),
+          username: z.string().min(1),
+          password: z.string().min(1),
+        }),
+        z.object({
+          provider: z.literal("ICS"),
+          displayName: z.string(),
+          url: z.string().min(1),
+        }),
+      ]),
     )
     .default([]),
   snoozes: z
