@@ -68,6 +68,16 @@ curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/instal
 
 The installer handles Docker, PostgreSQL, Redis, TLS, and all secrets. Once running, open the URL to complete the setup wizard. Run with `--help` to see all options.
 
+### Kurir Watch (Kurir 2.0)
+
+Kurir 2.0 runs without this server: the apps talk to your mailbox directly and keep Kurir's state in it. The one thing that still needs a box that is always on is **Kurir Watch**, which holds the IMAP connection open, judges AI rules, delivers scheduled sends and pushes your phones. Same kind of install, no database:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cfarvidson/kurir-server/main/install-watch.sh | sudo bash
+```
+
+It asks for your mail account (iCloud: an app-specific password), writes `/opt/kurir-watch/` (`config.toml`, secrets in `.env` with mode 0600, `docker-compose.yml` running `ghcr.io/cfarvidson/kurir-watch` read-only with all capabilities dropped), verifies the login, starts the container and installs a daily update timer. Re-run with `--reconfigure` to change the account. Every prompt can be preset with a `KURIR_WATCH_*` environment variable; see the script header.
+
 ### Setup Wizard
 
 On first visit, Kurir walks you through:
