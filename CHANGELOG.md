@@ -4,6 +4,16 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.132] - 2026-10-01
+
+### Added
+
+- The nightly settings backup in Sent now also carries AI rules with their
+  senders, CalDAV calendar accounts, snoozes, reply later, follow-ups and the
+  calendar availability. Older backups still restore as before, and the web
+  restore applies the new sections too. Kurir 2.0 (the standalone apps on
+  kurir-core) restores from this backup at first login.
+
 ## [v2026.130] - 2026-09-29
 
 ### Fixed

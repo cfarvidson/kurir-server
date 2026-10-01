@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.130",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.130",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.130",
-    "changelog": "Drafts saved at the same moment no longer swap places when Drafts reloads",
+    "version": "2026.132",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.132",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.132",
+    "changelog": "The nightly settings backup now also carries AI rules, CalDAV calendars, snoozes, reply later and follow-ups, and the web restore applies them; Kurir 2.0 restores from it at first login",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-09-29T07:44:27Z"
+    "releasedAt": "2026-10-01T13:07:02Z"
   }
 }

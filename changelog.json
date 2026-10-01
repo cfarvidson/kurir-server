@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.132",
+    "date": "2026-10-01",
+    "changes": [
+      "Settings backup carries AI rules, CalDAV calendars, snoozes, reply later and follow-ups; the web restore applies them",
+      "Kurir 2.0 restores from the nightly backup at first login"
+    ]
+  },
+  {
     "version": "2026.130",
     "date": "2026-09-29",
     "changes": [
