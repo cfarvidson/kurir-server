@@ -1,4 +1,7 @@
+import type { Prisma } from "@prisma/client";
+import { encrypt, decrypt } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { enqueueCalendarSyncJob } from "@/lib/jobs/calendar-sync-worker";
 import { withImapConnection } from "@/lib/mail/imap-client";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
 import {
@@ -27,7 +30,7 @@ import {
 } from "@/lib/mail/settings-backup-payload";
 
 const BACKUP_BODY =
-  "This is a Kurir settings snapshot (contacts, screening, and preferences). It is not a letter and contains no email messages.";
+  "This is a Kurir settings snapshot (contacts, screening, AI rules, calendars, snoozes and preferences). It is not a letter and contains no email messages.";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -51,8 +54,18 @@ export async function snapshotSettingsForUser(
   userId: string,
   source: SettingsBackupSource,
 ): Promise<SettingsBackupPayload> {
-  const [user, connections, contacts, groups, senders, rules, subjectRuleRows] =
-    await Promise.all([
+  const [
+    user,
+    connections,
+    contacts,
+    groups,
+    senders,
+    rules,
+    subjectRuleRows,
+    contentRules,
+    calendarAccounts,
+    flaggedMessages,
+  ] = await Promise.all([
       db.user.findUnique({
         where: { id: userId },
         select: {
@@ -67,6 +80,7 @@ export async function snapshotSettingsForUser(
           showFollowUpBadge: true,
           showReplyLaterBadge: true,
           showScheduledBadge: true,
+          calendarAvailability: true,
         },
       }),
       db.emailConnection.findMany({
@@ -88,6 +102,45 @@ export async function snapshotSettingsForUser(
       }),
       db.domainRule.findMany({ where: { userId } }),
       db.subjectRule.findMany({ where: { userId } }),
+      db.contentRule.findMany({
+        where: { userId },
+        select: {
+          criterion: true,
+          onMatch: true,
+          onNoMatch: true,
+          emailConnectionId: true,
+          senders: { select: { scope: true, scopeValue: true, since: true } },
+        },
+      }),
+      db.calendarAccount.findMany({
+        where: { userId, provider: "CALDAV" },
+        select: {
+          displayName: true,
+          caldavUrl: true,
+          caldavUsername: true,
+          encryptedPassword: true,
+        },
+      }),
+      // Per-message state travels by Message-ID so another client (Kurir
+      // 2.0 reading the same mailbox) can find the mail again.
+      db.message.findMany({
+        where: {
+          userId,
+          messageId: { not: null },
+          OR: [
+            { isSnoozed: true },
+            { isReplyLater: true },
+            { followUpAt: { not: null } },
+          ],
+        },
+        select: {
+          messageId: true,
+          isSnoozed: true,
+          snoozedUntil: true,
+          isReplyLater: true,
+          followUpAt: true,
+        },
+      }),
     ]);
 
   if (!user) {
@@ -117,6 +170,7 @@ export async function snapshotSettingsForUser(
       showFollowUpBadge: user.showFollowUpBadge,
       showReplyLaterBadge: user.showReplyLaterBadge,
       showScheduledBadge: user.showScheduledBadge,
+      calendarAvailability: user.calendarAvailability ?? undefined,
     },
     contacts: contacts.map((c) => ({
       name: c.name,
@@ -168,6 +222,48 @@ export async function snapshotSettingsForUser(
         category: r.category,
       }))
       .filter((r) => r.connectionEmail !== ""),
+    contentRules: contentRules
+      .map((r) => ({
+        connectionEmail: r.emailConnectionId
+          ? (connectionEmail.get(r.emailConnectionId) ?? "")
+          : null,
+        criterion: r.criterion,
+        onMatch: r.onMatch,
+        onNoMatch: r.onNoMatch,
+        senders: r.senders.map((s) => ({
+          scope: s.scope,
+          scopeValue: s.scopeValue,
+          since: s.since.toISOString(),
+        })),
+      }))
+      .filter((r) => r.connectionEmail !== ""),
+    calendarAccounts: calendarAccounts.flatMap((a) => {
+      if (!a.caldavUrl || !a.caldavUsername || !a.encryptedPassword) return [];
+      return [
+        {
+          provider: "CALDAV" as const,
+          displayName: a.displayName,
+          url: a.caldavUrl,
+          username: a.caldavUsername,
+          password: decrypt(a.encryptedPassword),
+        },
+      ];
+    }),
+    snoozes: flaggedMessages
+      .filter((m) => m.isSnoozed)
+      .map((m) => ({
+        messageId: m.messageId as string,
+        until: m.snoozedUntil?.toISOString() ?? null,
+      })),
+    replyLater: flaggedMessages
+      .filter((m) => m.isReplyLater)
+      .map((m) => m.messageId as string),
+    followUps: flaggedMessages
+      .filter((m) => m.followUpAt)
+      .map((m) => ({
+        messageId: m.messageId as string,
+        at: (m.followUpAt as Date).toISOString(),
+      })),
   };
 }
 
@@ -419,6 +515,12 @@ export async function applySettingsBackupForUser(
         showFollowUpBadge: payload.preferences.showFollowUpBadge,
         showReplyLaterBadge: payload.preferences.showReplyLaterBadge,
         showScheduledBadge: payload.preferences.showScheduledBadge,
+        ...(payload.preferences.calendarAvailability !== undefined
+          ? {
+              calendarAvailability: payload.preferences
+                .calendarAvailability as Prisma.InputJsonValue,
+            }
+          : {}),
       },
     });
 
@@ -564,6 +666,79 @@ export async function applySettingsBackupForUser(
       });
     }
 
+    // AI rules: one row per criterion and inbox; a rule already there keeps
+    // its id (and verdicts) and gets the backup's actions and senders.
+    for (const rule of payload.contentRules) {
+      let emailConnectionId: string | null = null;
+      if (rule.connectionEmail) {
+        const connection = byEmail.get(normalizeEmail(rule.connectionEmail));
+        if (!connection) continue;
+        emailConnectionId = connection.id;
+      }
+      const existing = await tx.contentRule.findFirst({
+        where: { userId, criterion: rule.criterion, emailConnectionId },
+        select: { id: true },
+      });
+      const row = existing
+        ? await tx.contentRule.update({
+            where: { id: existing.id },
+            data: { onMatch: rule.onMatch, onNoMatch: rule.onNoMatch },
+            select: { id: true },
+          })
+        : await tx.contentRule.create({
+            data: {
+              userId,
+              emailConnectionId,
+              criterion: rule.criterion,
+              onMatch: rule.onMatch,
+              onNoMatch: rule.onNoMatch,
+            },
+            select: { id: true },
+          });
+      for (const sender of rule.senders) {
+        const scopeValue = sender.scopeValue.trim().toLowerCase();
+        await tx.contentRuleSender.upsert({
+          where: {
+            ruleId_scope_scopeValue: {
+              ruleId: row.id,
+              scope: sender.scope,
+              scopeValue,
+            },
+          },
+          update: {},
+          create: {
+            ruleId: row.id,
+            scope: sender.scope,
+            scopeValue,
+            since: new Date(sender.since),
+          },
+        });
+      }
+    }
+
+    // Per-message state, by Message-ID; mail not synced yet is skipped.
+    for (const snooze of payload.snoozes) {
+      await tx.message.updateMany({
+        where: { userId, messageId: snooze.messageId },
+        data: {
+          isSnoozed: true,
+          snoozedUntil: snooze.until ? new Date(snooze.until) : null,
+        },
+      });
+    }
+    if (payload.replyLater.length > 0) {
+      await tx.message.updateMany({
+        where: { userId, messageId: { in: payload.replyLater } },
+        data: { isReplyLater: true },
+      });
+    }
+    for (const followUp of payload.followUps) {
+      await tx.message.updateMany({
+        where: { userId, messageId: followUp.messageId },
+        data: { followUpAt: new Date(followUp.at) },
+      });
+    }
+
     for (const sender of payload.senders) {
       const connection = byEmail.get(normalizeEmail(sender.connectionEmail));
       if (!connection) continue;
@@ -632,6 +807,39 @@ export async function applySettingsBackupForUser(
     } else if (sender.status === "REJECTED") {
       await rejectSenderForUser(userId, sender.id);
     }
+  }
+
+  // CalDAV calendars: the home URL in the backup was discovered when the
+  // account was first added, so no discovery round trip here; the sync
+  // job reports a bad password through lastError like any other account.
+  for (const account of payload.calendarAccounts) {
+    const existing = await db.calendarAccount.findFirst({
+      where: {
+        userId,
+        provider: "CALDAV",
+        caldavUsername: account.username,
+        caldavUrl: account.url,
+      },
+      select: { id: true },
+    });
+    const data = {
+      displayName: account.displayName,
+      caldavUrl: account.url,
+      caldavUsername: account.username,
+      encryptedPassword: encrypt(account.password),
+      lastError: null,
+    };
+    const row = existing
+      ? await db.calendarAccount.update({
+          where: { id: existing.id },
+          data,
+          select: { id: true },
+        })
+      : await db.calendarAccount.create({
+          data: { userId, provider: "CALDAV", ...data },
+          select: { id: true },
+        });
+    await enqueueCalendarSyncJob(row.id, userId, { immediate: true });
   }
 
   return { skippedConnections };

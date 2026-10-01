@@ -466,7 +466,7 @@ export default async function SettingsPage() {
         <SectionHeading
           eyebrow="Mail"
           title="Settings backup"
-          description="A takeout of contacts, screening, and preferences, stored as a dummy Sent email. Email messages are not included."
+          description="A takeout of contacts, screening, AI rules, CalDAV calendars, snoozes and preferences, stored as a dummy Sent email. Kurir 2.0 restores from it at first login. Email messages are not included."
         />
         <div className="mt-4">
           <SettingsBackupPanel initial={settingsBackup} />

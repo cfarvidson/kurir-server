@@ -73,6 +73,33 @@ function validPayload(
         category: "FEED",
       },
     ],
+    contentRules: [
+      {
+        connectionEmail: null,
+        criterion: "an invoice",
+        onMatch: "PAPER_TRAIL",
+        onNoMatch: "KEEP",
+        senders: [
+          {
+            scope: "DOMAIN",
+            scopeValue: "shop.example",
+            since: "2026-08-01T00:00:00.000Z",
+          },
+        ],
+      },
+    ],
+    calendarAccounts: [
+      {
+        provider: "CALDAV",
+        displayName: "iCloud",
+        url: "https://p60-caldav.icloud.com/123/calendars/",
+        username: "you@icloud.com",
+        password: "app-specific",
+      },
+    ],
+    snoozes: [{ messageId: "<m1@example.com>", until: "2026-08-18T08:00:00.000Z" }],
+    replyLater: ["<m2@example.com>"],
+    followUps: [{ messageId: "<m3@example.com>", at: "2026-08-20T08:00:00.000Z" }],
     ...overrides,
   };
 }
@@ -89,6 +116,19 @@ describe("parseSettingsBackup", () => {
     delete legacy.subjectRules;
     const parsed = parseSettingsBackup(legacy);
     expect(parsed.subjectRules).toEqual([]);
+  });
+
+  it("defaults the 2.0 sections to empty for backups written before them", () => {
+    const legacy = { ...validPayload() } as Record<string, unknown>;
+    for (const key of ["contentRules", "calendarAccounts", "snoozes", "replyLater", "followUps"]) {
+      delete legacy[key];
+    }
+    const parsed = parseSettingsBackup(legacy);
+    expect(parsed.contentRules).toEqual([]);
+    expect(parsed.calendarAccounts).toEqual([]);
+    expect(parsed.snoozes).toEqual([]);
+    expect(parsed.replyLater).toEqual([]);
+    expect(parsed.followUps).toEqual([]);
   });
 
   it("rejects unknown version", () => {

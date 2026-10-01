@@ -23,7 +23,10 @@ vi.mock("@/lib/db", () => ({
     sender: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     domainRule: { findMany: vi.fn(), upsert: vi.fn() },
     subjectRule: { findMany: vi.fn(), upsert: vi.fn() },
-    message: { findMany: vi.fn(), findFirst: vi.fn() },
+    message: { findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+    contentRule: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    contentRuleSender: { upsert: vi.fn() },
+    calendarAccount: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     attachment: { create: vi.fn(), findFirst: vi.fn() },
     folder: { findFirst: vi.fn() },
     $transaction: vi.fn(),
@@ -52,6 +55,16 @@ vi.mock("@/lib/mail/tombstones", () => ({
 
 vi.mock("@/lib/mail/domain-rules", () => ({
   patternMatchesDomain: vi.fn(() => false),
+}));
+
+const enqueueCalendarSyncJob = vi.fn();
+vi.mock("@/lib/jobs/calendar-sync-worker", () => ({
+  enqueueCalendarSyncJob: (...args: unknown[]) => enqueueCalendarSyncJob(...args),
+}));
+
+vi.mock("@/lib/crypto", () => ({
+  encrypt: (text: string) => `enc:${text}`,
+  decrypt: (text: string) => text.replace(/^enc:/, ""),
 }));
 
 function payload(
@@ -90,6 +103,11 @@ function payload(
     ],
     domainRules: [],
     subjectRules: [],
+    contentRules: [],
+    calendarAccounts: [],
+    snoozes: [],
+    replyLater: [],
+    followUps: [],
     ...overrides,
   };
 }
@@ -175,6 +193,81 @@ describe("applySettingsBackupForUser", () => {
       "snd-new",
       "FEED",
     );
+  });
+
+  it("restores AI rules with their senders and CalDAV calendars", async () => {
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.emailConnection.findMany).mockResolvedValue([
+      { id: "conn-1", email: "you@gmail.com" },
+    ] as never);
+    vi.mocked(db.user.update).mockResolvedValue({} as never);
+    vi.mocked(db.sender.findMany).mockResolvedValue([]);
+    vi.mocked(db.contentRule.findFirst).mockResolvedValue(null);
+    vi.mocked(db.contentRule.create).mockResolvedValue({ id: "rule-1" } as never);
+    vi.mocked(db.contentRuleSender.upsert).mockResolvedValue({} as never);
+    vi.mocked(db.message.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(db.calendarAccount.findFirst).mockResolvedValue(null);
+    vi.mocked(db.calendarAccount.create).mockResolvedValue({ id: "cal-1" } as never);
+
+    const { applySettingsBackupForUser } = await import(
+      "@/lib/mail/settings-backup"
+    );
+    await applySettingsBackupForUser(
+      "user-1",
+      payload({
+        senders: [],
+        contentRules: [
+          {
+            connectionEmail: "you@gmail.com",
+            criterion: "an invoice",
+            onMatch: "PAPER_TRAIL",
+            onNoMatch: "KEEP",
+            senders: [
+              { scope: "DOMAIN", scopeValue: "Shop.example", since: "2026-08-01T00:00:00.000Z" },
+            ],
+          },
+        ],
+        calendarAccounts: [
+          {
+            provider: "CALDAV",
+            displayName: "iCloud",
+            url: "https://caldav.example/home/",
+            username: "you@icloud.com",
+            password: "app-specific",
+          },
+        ],
+        snoozes: [{ messageId: "<m1@example.com>", until: "2026-08-18T08:00:00.000Z" }],
+        replyLater: ["<m2@example.com>"],
+      }),
+    );
+
+    expect(db.contentRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        emailConnectionId: "conn-1",
+        criterion: "an invoice",
+        onMatch: "PAPER_TRAIL",
+      }),
+      select: { id: true },
+    });
+    expect(db.contentRuleSender.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ ruleId: "rule-1", scopeValue: "shop.example" }),
+      }),
+    );
+    expect(db.message.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", messageId: "<m1@example.com>" },
+      data: { isSnoozed: true, snoozedUntil: new Date("2026-08-18T08:00:00.000Z") },
+    });
+    expect(db.calendarAccount.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        provider: "CALDAV",
+        caldavUsername: "you@icloud.com",
+        encryptedPassword: "enc:app-specific",
+      }),
+      select: { id: true },
+    });
+    expect(enqueueCalendarSyncJob).toHaveBeenCalledWith("cal-1", "user-1", { immediate: true });
   });
 
   it("skips a disconnected mailbox slice and still applies the rest", async () => {
@@ -293,6 +386,8 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.calendarAccount.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
@@ -336,6 +431,8 @@ describe("writeSettingsBackupForUser", () => {
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.calendarAccount.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
@@ -391,6 +488,8 @@ describe("processDueSettingsBackups", () => {
     vi.mocked(db.sender.findMany).mockResolvedValue([]);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([]);
     vi.mocked(db.subjectRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([]);
+    vi.mocked(db.calendarAccount.findMany).mockResolvedValue([]);
     vi.mocked(db.attachment.create).mockResolvedValue({ id: "att-1" } as never);
     vi.mocked(db.message.findMany).mockResolvedValue([]);
     vi.mocked(db.folder.findFirst).mockResolvedValue({
