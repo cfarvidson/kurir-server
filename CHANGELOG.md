@@ -4,6 +4,14 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.133] - 2026-10-01
+
+### Added
+
+- The settings backup now lists subscribed calendar URLs (.ics feeds) next
+  to the CalDAV accounts, and restoring re-subscribes them. Kurir 2.0 reads
+  the same backup, so every calendar comes along at first login.
+
 ## [v2026.132] - 2026-10-01
 
 ### Added

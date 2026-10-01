@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.133",
+    "date": "2026-10-01",
+    "changes": [
+      "Settings backup carries .ics feed subscriptions; restore re-subscribes them"
+    ]
+  },
+  {
     "version": "2026.132",
     "date": "2026-10-01",
     "changes": [
