@@ -62,6 +62,11 @@ vi.mock("@/lib/jobs/calendar-sync-worker", () => ({
   enqueueCalendarSyncJob: (...args: unknown[]) => enqueueCalendarSyncJob(...args),
 }));
 
+const createIcsAccount = vi.fn();
+vi.mock("@/lib/calendar/ics-account", () => ({
+  createIcsAccount: (...args: unknown[]) => createIcsAccount(...args),
+}));
+
 vi.mock("@/lib/crypto", () => ({
   encrypt: (text: string) => `enc:${text}`,
   decrypt: (text: string) => text.replace(/^enc:/, ""),
@@ -235,6 +240,11 @@ describe("applySettingsBackupForUser", () => {
             username: "you@icloud.com",
             password: "app-specific",
           },
+          {
+            provider: "ICS",
+            displayName: "Swedish Hockey League",
+            url: "https://example.com/shl.ics",
+          },
         ],
         snoozes: [{ messageId: "<m1@example.com>", until: "2026-08-18T08:00:00.000Z" }],
         replyLater: ["<m2@example.com>"],
@@ -268,6 +278,10 @@ describe("applySettingsBackupForUser", () => {
       select: { id: true },
     });
     expect(enqueueCalendarSyncJob).toHaveBeenCalledWith("cal-1", "user-1", { immediate: true });
+    expect(createIcsAccount).toHaveBeenCalledWith({
+      userId: "user-1",
+      url: "https://example.com/shl.ics",
+    });
   });
 
   it("skips a disconnected mailbox slice and still applies the rest", async () => {

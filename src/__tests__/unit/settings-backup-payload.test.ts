@@ -96,6 +96,11 @@ function validPayload(
         username: "you@icloud.com",
         password: "app-specific",
       },
+      {
+        provider: "ICS",
+        displayName: "Swedish Hockey League",
+        url: "https://example.com/shl.ics",
+      },
     ],
     snoozes: [{ messageId: "<m1@example.com>", until: "2026-08-18T08:00:00.000Z" }],
     replyLater: ["<m2@example.com>"],
