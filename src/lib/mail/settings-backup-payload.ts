@@ -22,6 +22,8 @@ export type SettingsBackupPreferences = {
   showFollowUpBadge: boolean;
   showReplyLaterBadge: boolean;
   showScheduledBadge: boolean;
+  // Additive: older backups have none.
+  calendarAvailability?: unknown;
 };
 
 export type SettingsBackupContactEmail = {
@@ -69,6 +71,34 @@ export type SettingsBackupSubjectRule = {
   category: "IMBOX" | "FEED" | "PAPER_TRAIL" | null;
 };
 
+export type SettingsBackupContentRuleSender = {
+  scope: "ADDRESS" | "DOMAIN" | "SUBDOMAINS";
+  scopeValue: string;
+  since: string;
+};
+
+export type SettingsBackupContentRule = {
+  // null = every connected inbox.
+  connectionEmail: string | null;
+  criterion: string;
+  onMatch: "KEEP" | "IMBOX" | "FEED" | "PAPER_TRAIL" | "ARCHIVE";
+  onNoMatch: "KEEP" | "IMBOX" | "FEED" | "PAPER_TRAIL" | "ARCHIVE";
+  senders: SettingsBackupContentRuleSender[];
+};
+
+// Only CalDAV travels: OAuth tokens are bound to this server's client id.
+// The password is in the clear, like the mail account that holds the backup.
+export type SettingsBackupCalendarAccount = {
+  provider: "CALDAV";
+  displayName: string;
+  url: string;
+  username: string;
+  password: string;
+};
+
+export type SettingsBackupSnooze = { messageId: string; until: string | null };
+export type SettingsBackupFollowUp = { messageId: string; at: string };
+
 export type SettingsBackupPayload = {
   kind: typeof SETTINGS_BACKUP_KIND;
   version: typeof SETTINGS_BACKUP_VERSION;
@@ -80,6 +110,13 @@ export type SettingsBackupPayload = {
   senders: SettingsBackupSender[];
   domainRules: SettingsBackupDomainRule[];
   subjectRules: SettingsBackupSubjectRule[];
+  // Additive (Kurir 2.0 restores from this backup): AI rules, CalDAV
+  // calendars and per-message state. Older backups have none.
+  contentRules: SettingsBackupContentRule[];
+  calendarAccounts: SettingsBackupCalendarAccount[];
+  snoozes: SettingsBackupSnooze[];
+  replyLater: string[];
+  followUps: SettingsBackupFollowUp[];
 };
 
 export function serializeSettingsBackup(payload: SettingsBackupPayload): string {
@@ -93,6 +130,13 @@ const emailSchema = z
   .transform((value) => value.toLowerCase());
 
 const categorySchema = z.enum(["IMBOX", "FEED", "PAPER_TRAIL"]).nullable();
+const contentActionSchema = z.enum([
+  "KEEP",
+  "IMBOX",
+  "FEED",
+  "PAPER_TRAIL",
+  "ARCHIVE",
+]);
 
 const decidedSchema = z
   .object({
@@ -126,6 +170,7 @@ const payloadSchema = z.object({
     showFollowUpBadge: z.boolean(),
     showReplyLaterBadge: z.boolean(),
     showScheduledBadge: z.boolean(),
+    calendarAvailability: z.unknown().optional(),
   }),
   contacts: z.array(
     z.object({
@@ -182,6 +227,41 @@ const payloadSchema = z.object({
         }),
       ),
     )
+    .default([]),
+  contentRules: z
+    .array(
+      z.object({
+        connectionEmail: emailSchema.nullable(),
+        criterion: z.string().min(1),
+        onMatch: contentActionSchema,
+        onNoMatch: contentActionSchema,
+        senders: z.array(
+          z.object({
+            scope: z.enum(["ADDRESS", "DOMAIN", "SUBDOMAINS"]),
+            scopeValue: z.string().min(1),
+            since: z.string().min(1),
+          }),
+        ),
+      }),
+    )
+    .default([]),
+  calendarAccounts: z
+    .array(
+      z.object({
+        provider: z.literal("CALDAV"),
+        displayName: z.string(),
+        url: z.string().min(1),
+        username: z.string().min(1),
+        password: z.string().min(1),
+      }),
+    )
+    .default([]),
+  snoozes: z
+    .array(z.object({ messageId: z.string().min(1), until: z.string().nullable() }))
+    .default([]),
+  replyLater: z.array(z.string().min(1)).default([]),
+  followUps: z
+    .array(z.object({ messageId: z.string().min(1), at: z.string().min(1) }))
     .default([]),
 });
 

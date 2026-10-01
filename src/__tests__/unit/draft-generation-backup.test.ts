@@ -14,6 +14,9 @@ vi.mock("@/lib/db", () => ({
     sender: { findMany: vi.fn() },
     domainRule: { findMany: vi.fn() },
     subjectRule: { findMany: vi.fn() },
+    contentRule: { findMany: vi.fn() },
+    calendarAccount: { findMany: vi.fn() },
+    message: { findMany: vi.fn() },
     draftGenerationCredential: { findUnique: vi.fn() },
   },
 }));
@@ -67,6 +70,9 @@ describe("settings backup vs draft-generation credential", () => {
     vi.mocked(db.sender.findMany).mockResolvedValue([] as never);
     vi.mocked(db.domainRule.findMany).mockResolvedValue([] as never);
     vi.mocked(db.subjectRule.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.contentRule.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.calendarAccount.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.message.findMany).mockResolvedValue([] as never);
     // A stored credential exists — the snapshot must neither read nor leak it.
     vi.mocked(db.draftGenerationCredential.findUnique).mockResolvedValue({
       provider: "claudeCode",
