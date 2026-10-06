@@ -1314,6 +1314,22 @@ describe("calendar write-through", () => {
       expect(following).toMatchObject({ travelMinutes: 40, travelExtra: [] });
     });
 
+    it("puts the travel time back on the replica when the provider refuses the edit", async () => {
+      store.calendars.push(caldavCalendar());
+      store.events.push(eventRow({ travelMinutes: 25, travelExtra: [HOME] }));
+      adapter.updateEvent.mockRejectedValue(new Error("provider down"));
+
+      const { updateEventForUser } = await import("@/lib/calendar/write");
+      await expect(
+        updateEventForUser("u1", "evt-1", input({ travelMinutes: 45 }), "all"),
+      ).rejects.toThrow("provider down");
+
+      expect(store.events.find((e) => e.id === "evt-1")).toMatchObject({
+        travelMinutes: 25,
+        travelExtra: [HOME],
+      });
+    });
+
     it("updates the provider after a move when only travel time changed", async () => {
       store.calendars.push(
         caldavCalendar(),
