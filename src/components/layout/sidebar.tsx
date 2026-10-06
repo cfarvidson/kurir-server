@@ -8,12 +8,10 @@ import {
   Settings,
   PenSquare,
   LogOut,
-  Keyboard,
   Command,
   Shield,
   ChevronRight,
 } from "lucide-react";
-import { showShortcuts } from "@/components/mail/keyboard-shortcuts";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatus";
@@ -197,11 +195,14 @@ export function Sidebar({
           />
         ))}
         <div className="flex-1" />
-        <RailButton label="Commands" kbd="⌘K" onClick={openCommandPalette}>
+        {/* One button for both: the palette lists each command with its
+            shortcut, and "Keyboard shortcuts" in it opens the full sheet. */}
+        <RailButton
+          label="Commands and shortcuts"
+          kbd="⌘K"
+          onClick={openCommandPalette}
+        >
           <Command className="h-5 w-5" />
-        </RailButton>
-        <RailButton label="Shortcuts" kbd="?" onClick={showShortcuts}>
-          <Keyboard className="h-5 w-5" />
         </RailButton>
         <RailButton
           label="Settings"
