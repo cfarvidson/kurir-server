@@ -31,6 +31,10 @@ export type RemoteEvent = {
   organizerJson: unknown;
   attendeesJson: unknown;
   rawJson: unknown;
+  /** Apple Calendar's travel time, in minutes. Only CalDAV/ICS carry it. */
+  travelMinutes?: number | null;
+  /** The other `X-APPLE-TRAVEL-*` lines, as Apple writes them. */
+  travelExtra?: string[];
 };
 
 export type EventAttendeeInput = {
@@ -57,6 +61,12 @@ export type EventInput = {
   icalUid?: string | null;
   organizer?: EventOrganizerInput | null;
   attendees?: EventAttendeeInput[] | null;
+  /**
+   * Travel time before the event, in minutes. Absent leaves it as it is;
+   * null or 0 removes it. Written as Apple Calendar does on CalDAV; Google
+   * and Microsoft have no such field and ignore it.
+   */
+  travelMinutes?: number | null;
 };
 
 export type PullResult = {

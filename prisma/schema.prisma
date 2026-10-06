@@ -1178,6 +1178,11 @@ model CalendarEvent {
   status       String @default("confirmed") // "confirmed" | "tentative" | "cancelled"
   transparency String @default("busy") // "busy" | "free"
 
+  // Apple Calendar's travel time before the event (X-APPLE-TRAVEL-DURATION), in minutes.
+  travelMinutes Int?
+  // The other X-APPLE-TRAVEL-* content lines (where it starts and the like), as Apple writes them.
+  travelExtra   String[] @default([])
+
   rrule  String?
   rdate  String?
   exdate String?

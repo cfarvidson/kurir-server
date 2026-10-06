@@ -19,6 +19,7 @@ import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
+import { NO_TRAVEL, nextTravel, type Travel } from "@/lib/calendar/travel";
 import {
   CalendarConflictError,
   type CalendarAdapter,
@@ -88,6 +89,8 @@ type EventRow = {
   organizerJson: unknown;
   attendeesJson: unknown;
   rawJson: unknown;
+  travelMinutes: number | null;
+  travelExtra: string[];
   calendarId: string;
   userId: string;
 };
@@ -193,8 +196,17 @@ function assertWritable(calendar: { isReadOnly: boolean }): void {
   }
 }
 
-function inputFields(input: EventInput) {
+function travelOf(event: {
+  travelMinutes: number | null;
+  travelExtra: string[];
+}): Travel {
+  return { travelMinutes: event.travelMinutes, travelExtra: event.travelExtra };
+}
+
+/** The replica's fields from an edit over `current` travel (none for a new event). */
+function inputFields(input: EventInput, current: Travel = NO_TRAVEL) {
   return {
+    ...nextTravel(current, input.travelMinutes, input.isAllDay),
     title: input.title,
     description: input.description,
     location: input.location,
@@ -234,6 +246,8 @@ function replicaFields(
     organizerJson: asJson(event.organizerJson),
     attendeesJson: asJson(event.attendeesJson),
     rawJson: asJson(event.rawJson),
+    travelMinutes: event.travelMinutes ?? null,
+    travelExtra: event.travelExtra ?? [],
     calendarId,
     userId,
   };
@@ -262,6 +276,8 @@ function persistable(event: EventRow) {
     organizerJson: asJson(event.organizerJson),
     attendeesJson: asJson(event.attendeesJson),
     rawJson: asJson(event.rawJson),
+    travelMinutes: event.travelMinutes,
+    travelExtra: event.travelExtra,
     calendarId: event.calendarId,
     userId: event.userId,
   };
@@ -291,6 +307,8 @@ function cloneEvent(event: EventRow): EventRow {
     organizerJson: event.organizerJson,
     attendeesJson: event.attendeesJson,
     rawJson: event.rawJson,
+    travelMinutes: event.travelMinutes,
+    travelExtra: [...event.travelExtra],
     calendarId: event.calendarId,
     userId: event.userId,
   };
@@ -379,7 +397,9 @@ function isPureMove(event: EventRow, input: EventInput): boolean {
     sameInstant(event.endAt, input.endAt) &&
     event.isAllDay === input.isAllDay &&
     event.timezone === input.timezone &&
-    event.rrule === input.rrule
+    event.rrule === input.rrule &&
+    (input.travelMinutes === undefined ||
+      (input.travelMinutes || null) === event.travelMinutes)
   );
 }
 
@@ -797,6 +817,7 @@ async function createReplicaRow(
     masterEventId?: string | null;
     recurrenceId?: Date | null;
     rrule?: string | null;
+    travel?: Travel;
   },
 ): Promise<EventRow> {
   return tx.calendarEvent.create({
@@ -805,7 +826,7 @@ async function createReplicaRow(
       icalUid: input.icalUid ?? null,
       etag: null,
       sequence: 0,
-      ...inputFields(input),
+      ...inputFields(input, extra?.travel),
       ...(extra?.rrule !== undefined ? { rrule: extra.rrule } : {}),
       status: "confirmed",
       transparency: "busy",
@@ -927,7 +948,7 @@ export async function updateEventForUser(
         await tx.calendarEvent.update({
           where: { id: event.id },
           data: {
-            ...inputFields(input),
+            ...inputFields(input, travelOf(event)),
             recurrenceId: splitAt,
             ...(dest.id !== calendar.id ? { calendarId: dest.id } : {}),
           },
@@ -937,6 +958,7 @@ export async function updateEventForUser(
           masterEventId: masterId,
           recurrenceId: splitAt,
           rrule: null,
+          travel: travelOf(event),
         });
         snapshot.createdEventId = row.id;
       }
@@ -955,7 +977,9 @@ export async function updateEventForUser(
           ),
         },
       });
-      const row = await createReplicaRow(tx, userId, dest, input);
+      const row = await createReplicaRow(tx, userId, dest, input, {
+        travel: travelOf(masterForSplit ?? event),
+      });
       snapshot.createdEventId = row.id;
       await rebuildInstances(tx, userId, dest.id, masterId, now);
       await rebuildInstances(tx, userId, dest.id, row.id, now);
@@ -965,7 +989,7 @@ export async function updateEventForUser(
     await tx.calendarEvent.update({
       where: { id: event.id },
       data: {
-        ...inputFields(input),
+        ...inputFields(input, travelOf(event)),
         ...(dest.id !== calendar.id ? { calendarId: dest.id } : {}),
       },
     });

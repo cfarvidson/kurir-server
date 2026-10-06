@@ -65,6 +65,8 @@ type EventRow = {
   organizerJson: unknown;
   attendeesJson: unknown;
   rawJson: unknown;
+  travelMinutes: number | null;
+  travelExtra: string[];
   calendarId: string;
   userId: string;
 };
@@ -236,6 +238,8 @@ function eventRow(partial: Partial<EventRow> = {}): EventRow {
     organizerJson: null,
     attendeesJson: null,
     rawJson: null,
+    travelMinutes: null,
+    travelExtra: [],
     calendarId: "cal-1",
     userId: "u1",
     ...partial,
@@ -1163,6 +1167,42 @@ describe("calendar write-through", () => {
 
     const master = store.events.find((e) => e.id === "evt-1");
     expect(master?.exdate).toBe("20260819T090000Z");
+  });
+
+  it("keeps travel time on the replica: an edit sets it, and one without it leaves it", async () => {
+    store.calendars.push(calendar());
+    store.events.push(
+      eventRow({ travelMinutes: 25, travelExtra: ["X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:"] }),
+    );
+    adapter.updateEvent.mockRejectedValue(new Error("stop after the replica write"));
+
+    const { updateEventForUser } = await import("@/lib/calendar/write");
+    await expect(
+      updateEventForUser("u1", "evt-1", input(), "all"),
+    ).rejects.toThrow();
+    const replicaWrite = vi.mocked(db.calendarEvent.update).mock.calls[0][0].data;
+    expect(replicaWrite).toMatchObject({
+      title: "Lunch",
+      travelMinutes: 25,
+      travelExtra: ["X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:"],
+    });
+
+    adapter.updateEvent.mockReset();
+    adapter.updateEvent.mockResolvedValue(
+      remote({ providerEventId: "g-1", travelMinutes: 30, travelExtra: [] }),
+    );
+    await updateEventForUser("u1", "evt-1", input({ travelMinutes: 30 }), "all");
+
+    expect(adapter.updateEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ travelMinutes: 30 }),
+      "all",
+    );
+    expect(store.events.find((e) => e.id === "evt-1")).toMatchObject({
+      travelMinutes: 30,
+      travelExtra: [],
+    });
   });
 
   it("demo writes stay on the replica and skip the adapter", async () => {

@@ -465,6 +465,39 @@ describe("applyPull", () => {
     }
   });
 
+  it("stores a pulled event's travel time and other travel lines, and none for a provider without them", async () => {
+    const db = await setupMocks([]);
+    const { applyPull } = await import("@/lib/calendar/apply-pull");
+    await applyPull({
+      userId: "u1",
+      accountId: "acc1",
+      calendarId: "cal1",
+      now,
+      pull: pull({
+        upserts: [
+          remote({
+            providerEventId: "apple",
+            travelMinutes: 25,
+            travelExtra: ["X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:"],
+          }),
+          remote({ providerEventId: "google" }),
+        ],
+      }),
+    });
+
+    const [apple, google] = vi
+      .mocked(db.calendarEvent.upsert)
+      .mock.calls.map((call) => call[0]);
+    for (const payload of [apple.create, apple.update]) {
+      expect(payload.travelMinutes).toBe(25);
+      expect(payload.travelExtra).toEqual([
+        "X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:",
+      ]);
+    }
+    expect(google.update.travelMinutes).toBeNull();
+    expect(google.update.travelExtra).toEqual([]);
+  });
+
   it("applies replica writes inside db.$transaction", async () => {
     const db = await setupMocks([
       replicaRow({ id: "e-keep", providerEventId: "keep" }),
