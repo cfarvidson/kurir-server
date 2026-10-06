@@ -83,12 +83,18 @@ export function primaryLine(input: {
   fromName?: string | null;
   fromAddress: string;
   toAddresses?: string[];
-  cc?: string | null;
+  ccAddresses?: string[];
 }): string {
   if (input.list === "sent") {
-    const to = input.toAddresses ?? [];
-    if (to.length > 0) return `To: ${to.join(", ")}`;
-    const cc = input.cc?.trim();
+    // A blank address is no recipient (app: ListContract.sentRecipientLine).
+    const joined = (addresses: string[] = []) =>
+      addresses
+        .map((a) => a.trim())
+        .filter(Boolean)
+        .join(", ");
+    const to = joined(input.toAddresses);
+    if (to) return `To: ${to}`;
+    const cc = joined(input.ccAddresses);
     if (cc) return `Cc: ${cc}`;
     return "Bcc only";
   }
