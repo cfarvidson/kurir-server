@@ -218,11 +218,14 @@ export function nextTravel(
   const travelAfterMinutes =
     after === undefined ? current.travelAfterMinutes : after || null;
   const minutes = input.travelMinutes;
-  if (minutes === undefined || minutes === current.travelMinutes) {
-    return { ...current, travelAfterMinutes };
-  }
+  if (minutes === undefined) return { ...current, travelAfterMinutes };
+  // None before the same-length check: an event with only a start line
+  // (no length) compares equal to null and would keep it.
   if (!minutes || minutes <= 0) {
     return { ...NO_TRAVEL, travelAfterMinutes };
+  }
+  if (minutes === current.travelMinutes) {
+    return { ...current, travelAfterMinutes };
   }
   return {
     travelMinutes: minutes,
@@ -280,6 +283,15 @@ function afterLine(minutes: number): string {
   return `X-KURIR-TRAVEL-AFTER;VALUE=DURATION:${travelDurationValue(minutes)}`;
 }
 
+/** One serialized content line, its folds removed, as ical.js reads it; null when it cannot. */
+function parsedLine(line: string): ICAL.Property | null {
+  try {
+    return ICAL.Property.fromString(line.replace(/\r?\n[ \t]/g, ""));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Serialized ICS with each `X-APPLE-TRAVEL-*` line rewritten in Apple's form,
  * and each `X-KURIR-TRAVEL-AFTER` line rebuilt from its minutes alone (or
@@ -303,25 +315,19 @@ export function appleTravelLines(ics: string): string {
     .flatMap((line) => {
       const lower = line.toLowerCase();
       if (lower.startsWith(`${AFTER}:`) || lower.startsWith(`${AFTER};`)) {
-        let minutes: number | null = null;
-        try {
-          const unfolded = line.replace(/\r?\n[ \t]/g, "");
-          minutes = minutesOf(ICAL.Property.fromString(unfolded));
-        } catch {
-          // Unreadable: left out below.
-        }
+        // Unreadable, or no length: left out.
+        const minutes = minutesOf(parsedLine(line));
         return minutes ? [afterLine(minutes)] : [];
       }
       if (!lower.startsWith(PREFIX)) return [line];
+      const prop = parsedLine(line);
+      if (!prop) return [];
       try {
-        const unfolded = line.replace(/\r?\n[ \t]/g, "");
         return [
-          ICAL.helpers
-            .foldline(contentLine(ICAL.Property.fromString(unfolded)))
-            .replace(/\r?\n/g, eol),
+          ICAL.helpers.foldline(contentLine(prop)).replace(/\r?\n/g, eol),
         ];
       } catch {
-        // A travel line that cannot be written safely is left out.
+        // A name in it is not one iCalendar allows: left out.
         return [];
       }
     })
