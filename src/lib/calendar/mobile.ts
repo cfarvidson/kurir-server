@@ -11,7 +11,7 @@ import {
 import { CalendarWriteError } from "@/lib/calendar/write";
 import type { VisibleInstance } from "@/lib/calendar/query";
 import type { listCalendarAccountsForUser } from "@/lib/calendar/accounts";
-import { travelStart } from "@/lib/calendar/travel";
+import { MAX_TRAVEL_MINUTES, travelStart } from "@/lib/calendar/travel";
 
 export async function requireCalendarMobileAuth(
   req: NextRequest,
@@ -80,7 +80,13 @@ export const eventInputSchema = z.object({
   rrule: nullableString,
   // Travel time before the event, in minutes. Absent (an older app, a
   // drag) leaves it as it is; null or 0 removes it.
-  travelMinutes: z.number().int().min(0).max(24 * 60).nullable().optional(),
+  travelMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_TRAVEL_MINUTES)
+    .nullable()
+    .optional(),
 });
 
 export const createEventBodySchema = eventInputSchema.extend({

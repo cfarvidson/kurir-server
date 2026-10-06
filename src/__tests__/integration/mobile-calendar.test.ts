@@ -326,6 +326,106 @@ describe("/api/mobile/calendar", () => {
     });
   });
 
+  describe("travel time", () => {
+    it("POST and PATCH pass travelMinutes through, and reject what is not whole minutes from 0 to a day", async () => {
+      await mockAuthed();
+      const { createEventForUser, updateEventForUser } =
+        await import("@/lib/calendar/write");
+      vi.mocked(createEventForUser).mockResolvedValue({ id: "evt-1" });
+      vi.mocked(updateEventForUser).mockResolvedValue(undefined);
+      const { POST } = await import("@/app/api/mobile/calendar/events/route");
+      const { PATCH } =
+        await import("@/app/api/mobile/calendar/events/[id]/route");
+
+      expect(
+        (await POST(makeBody({ ...EVENT_BODY, travelMinutes: 30 }))).status,
+      ).toBe(200);
+      expect(createEventForUser).toHaveBeenCalledWith(
+        "user-1",
+        "cal-1",
+        expect.objectContaining({ travelMinutes: 30 }),
+      );
+      const patched = await PATCH(
+        makeBody({ ...EVENT_BODY, range: "all", travelMinutes: null }),
+        params({ id: "evt-1" }),
+      );
+      expect(patched.status).toBe(200);
+      expect(vi.mocked(updateEventForUser).mock.calls[0][2]).toMatchObject({
+        travelMinutes: null,
+      });
+
+      vi.mocked(createEventForUser).mockClear();
+      vi.mocked(updateEventForUser).mockClear();
+      for (const travelMinutes of [-1, 1.5, 1441]) {
+        expect(
+          (await POST(makeBody({ ...EVENT_BODY, travelMinutes }))).status,
+        ).toBe(400);
+        expect(
+          (
+            await PATCH(
+              makeBody({ ...EVENT_BODY, range: "all", travelMinutes }),
+              params({ id: "evt-1" }),
+            )
+          ).status,
+        ).toBe(400);
+      }
+      expect(createEventForUser).not.toHaveBeenCalled();
+      expect(updateEventForUser).not.toHaveBeenCalled();
+    });
+
+    it("GET /sync returns each event's travel time and where it starts", async () => {
+      await mockAuthed();
+      const { db } = await import("@/lib/db");
+      vi.mocked(db.user.findUnique).mockResolvedValue({
+        timezone: "UTC",
+      } as never);
+      vi.mocked(db.calendarAccount.findMany).mockResolvedValue([] as never);
+      vi.mocked(db.calendarTombstone.findMany).mockResolvedValue([] as never);
+      const row = {
+        id: "evt-1",
+        calendarId: "cal-1",
+        title: "Dentist",
+        description: null,
+        location: null,
+        startAt: new Date("2026-08-20T09:00:00.000Z"),
+        endAt: new Date("2026-08-20T10:00:00.000Z"),
+        isAllDay: false,
+        timezone: "UTC",
+        status: "confirmed",
+        transparency: "busy",
+        rrule: null,
+        rdate: null,
+        exdate: null,
+        icalUid: "uid-1",
+        masterEventId: null,
+        recurrenceId: null,
+        updatedAt: new Date("2026-08-19T09:00:00.000Z"),
+        sequence: 0,
+        attendeesJson: null,
+        travelMinutes: 25,
+        travelExtra: [
+          'X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="Storgatan 1\\n111 22 Stockholm";X-TITLE=Home:',
+        ],
+      };
+      vi.mocked(db.calendarEvent.findMany).mockResolvedValue([row] as never);
+
+      const { GET } = await import("@/app/api/mobile/calendar/sync/route");
+      const body = await (await GET(makeGet())).json();
+
+      const select = vi.mocked(db.calendarEvent.findMany).mock.calls[0][0]
+        ?.select as Record<string, boolean>;
+      expect(select.travelMinutes).toBe(true);
+      expect(select.travelExtra).toBe(true);
+      expect(body.events[0]).toMatchObject({
+        travelMinutes: 25,
+        travelStart: {
+          title: "Home",
+          address: "Storgatan 1\n111 22 Stockholm",
+        },
+      });
+    });
+  });
+
   describe("GET /sync serves the account's timezone", () => {
     async function runSync(timezone: string | null) {
       await mockAuthed();
