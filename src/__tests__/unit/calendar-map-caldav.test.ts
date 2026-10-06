@@ -97,3 +97,51 @@ END:VCALENDAR`,
     expect(plain.travelExtra).toEqual([]);
   });
 });
+
+describe("mapCalDavEvent travel time from an untrusted calendar", () => {
+  function withTravel(lines: string[]): string {
+    return [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:hostile",
+      "SUMMARY:Lunch",
+      "DTSTART:20261009T110000Z",
+      "DTEND:20261009T120000Z",
+      ...lines,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+  }
+
+  it("reads a duration no calendar can mean (huge, negative, unreadable) as none, without throwing", () => {
+    for (const value of ["P9999999W", "PT1441M", "-PT30M", "PT0S", "soon"]) {
+      const event = mapCalDavEvent({
+        data: withTravel([`X-APPLE-TRAVEL-DURATION;VALUE=DURATION:${value}`]),
+      });
+      expect(event.travelMinutes, value).toBeNull();
+    }
+    expect(
+      mapCalDavEvent({
+        data: withTravel(["X-APPLE-TRAVEL-DURATION;VALUE=DURATION:P1D"]),
+      }).travelMinutes,
+    ).toBe(1440);
+  });
+
+  it("keeps every travel line on one line: no CR, LF or other control character survives", () => {
+    const event = mapCalDavEvent({
+      data: withTravel([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT30M",
+        "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+        'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home\rATTENDEE:mailto:cr@example.com";X-ADDRESS="Storgatan 1\\n111 22 Stockholm":',
+      ]),
+    });
+
+    for (const line of event.travelExtra ?? []) {
+      expect(line).not.toMatch(/[\x00-\x1f\x7f]/);
+    }
+    expect(event.travelExtra).toContain(
+      "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+    );
+  });
+});

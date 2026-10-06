@@ -659,6 +659,37 @@ END:VCALENDAR`,
       ]);
     });
 
+    it("cannot be used to add properties to the event it writes back", async () => {
+      stubPut(
+        [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "BEGIN:VEVENT",
+          "UID:e1",
+          "SUMMARY:Dentist",
+          "DTSTART:20260820T140000Z",
+          "DTEND:20260820T150000Z",
+          "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+          "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+          'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home\rORGANIZER:mailto:cr@example.com":',
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n"),
+      );
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, title: "Dentist, later" },
+        "all",
+      );
+
+      const lines = putData().replace(/\r\n[ \t]/g, "").split("\r\n");
+      expect(lines.filter((l) => /^(ATTENDEE|ORGANIZER)/i.test(l))).toEqual([]);
+      expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
+      expect(travelLines(putData())).toHaveLength(3);
+    });
+
     it("writes travel time on a new event as Apple reads it", async () => {
       davMocks.createCalendarObject.mockResolvedValue({
         status: 201,

@@ -21,14 +21,49 @@ export type TravelStart = {
 
 export const NO_TRAVEL: Travel = { travelMinutes: null, travelExtra: [] };
 
+/** The longest travel time Kurir reads or writes: a day. Anything longer reads as none. */
+export const MAX_TRAVEL_MINUTES = 24 * 60;
+
 const PREFIX = "x-apple-travel-";
 const DURATION = "x-apple-travel-duration";
 const START = "x-apple-travel-start";
 
-/** Apple quotes addresses and names and writes their line breaks as `\n`; plain words stay bare. */
+/**
+ * A remote value made safe to write inside one content line. A CR, LF or
+ * other control character would end the line, and whatever followed it -
+ * say an ATTENDEE - would become a property of the event Kurir writes back.
+ */
+function oneLine(value: string): string {
+  return value.replace(/\r\n/g, " ").replace(/[\x00-\x1f\x7f]/g, " ");
+}
+
+/**
+ * Apple quotes addresses and names and writes their line breaks as `\n`;
+ * plain words stay bare. Any other control character becomes a space.
+ */
 function paramValue(value: string): string {
   if (/^[A-Za-z0-9\-_./]+$/.test(value)) return value;
-  return `"${value.replace(/"/g, "").replace(/\r?\n/g, "\\n")}"`;
+  const text = value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(oneLine)
+    .join("\\n")
+    .replace(/"/g, "");
+  return `"${text}"`;
+}
+
+/** A property value for the line: TEXT escaped as RFC 5545 has it, anything else kept on one line. */
+function propertyValue(prop: ICAL.Property): string {
+  const value = prop.getFirstValue();
+  if (value == null) return "";
+  if (prop.type !== "text") return oneLine(String(value));
+  return oneLine(
+    String(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r\n|\r|\n/g, "\\n"),
+  );
 }
 
 /**
@@ -50,35 +85,42 @@ function contentLine(prop: ICAL.Property): string {
     const at = params.findIndex((p) => p.startsWith("ROUTING=")) + 1;
     params.splice(at, 0, `VALUE=${prop.type.toUpperCase()}`);
   }
-  const value = prop.getFirstValue();
-  return (
-    [prop.name.toUpperCase(), ...params].join(";") +
-    `:${value == null ? "" : String(value)}`
-  );
+  return `${[prop.name.toUpperCase(), ...params].join(";")}:${propertyValue(prop)}`;
 }
 
-function minutesOf(value: unknown): number | null {
-  if (value == null) return null;
+/**
+ * Whole minutes, or null for a length no calendar means: negative, zero,
+ * over a day, or unreadable. ical.js decodes the value when it is first
+ * read and throws on garbage, so the read happens in here.
+ */
+function minutesOf(prop: ICAL.Property | null): number | null {
+  if (!prop) return null;
   try {
+    const value = prop.getFirstValue();
     const duration =
       value instanceof ICAL.Duration
         ? value
-        : ICAL.Duration.fromString(String(value).trim());
+        : ICAL.Duration.fromString(String(value ?? "").trim());
     if (duration.isNegative) return null;
     const minutes = Math.floor(duration.toSeconds() / 60);
-    return minutes > 0 ? minutes : null;
+    return minutes > 0 && minutes <= MAX_TRAVEL_MINUTES ? minutes : null;
   } catch {
     return null;
   }
 }
 
-/** The travel lines on a VEVENT, whatever kind of event it is. */
+/** The travel lines on a VEVENT, whatever kind of event it is. A line ical.js cannot decode is left out. */
 function travelLinesOf(vevent: ICAL.Component): Travel {
-  const travelMinutes = minutesOf(vevent.getFirstPropertyValue(DURATION));
-  const travelExtra = vevent
-    .getAllProperties()
-    .filter((prop) => prop.name.startsWith(PREFIX) && prop.name !== DURATION)
-    .map(contentLine);
+  const travelMinutes = minutesOf(vevent.getFirstProperty(DURATION));
+  const travelExtra: string[] = [];
+  for (const prop of vevent.getAllProperties()) {
+    if (!prop.name.startsWith(PREFIX) || prop.name === DURATION) continue;
+    try {
+      travelExtra.push(contentLine(prop));
+    } catch {
+      // Unreadable: dropped rather than failing the event.
+    }
+  }
   if (travelMinutes == null && travelExtra.length === 0) return NO_TRAVEL;
   return { travelMinutes, travelExtra };
 }
@@ -203,7 +245,7 @@ export function appleTravelLines(ics: string): string {
           .foldline(contentLine(ICAL.Property.fromString(unfolded)))
           .replace(/\r?\n/g, eol);
       } catch {
-        return line;
+        return oneLine(line);
       }
     })
     .join(eol);
