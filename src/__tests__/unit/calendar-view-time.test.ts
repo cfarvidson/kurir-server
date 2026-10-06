@@ -85,6 +85,21 @@ describe("packTimedEvents with travel time after", () => {
   });
 });
 
+describe("packTimedEvents for short events", () => {
+  it("packs a short event by the 15 minutes it is drawn, with or without travel after", () => {
+    for (const busyEndMin of [undefined, 9 * 60 + 5]) {
+      const packed = packTimedEvents([
+        // Five minutes long, drawn as fifteen: it overlaps b.
+        { id: "a", startMin: 9 * 60, endMin: 9 * 60 + 5, busyEndMin },
+        { id: "b", startMin: 9 * 60 + 10, endMin: 9 * 60 + 30 },
+      ]);
+      const byId = Object.fromEntries(packed.map((p) => [p.id, p]));
+      expect(byId.a.cols, String(busyEndMin)).toBe(2);
+      expect(byId.a.busyEndMin).toBe(9 * 60 + 15);
+    }
+  });
+});
+
 describe("formatDurationLabel", () => {
   it("formats sub-hour durations in minutes", () => {
     expect(formatDurationLabel(45)).toBe("45 min");
