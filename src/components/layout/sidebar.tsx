@@ -21,6 +21,7 @@ import { useBadgeCounts } from "@/hooks/use-badge-counts";
 import { useTodayEvents } from "@/hooks/use-today-events";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { normalizeEventHex } from "@/lib/calendar/color";
+import { JoinLink } from "@/components/calendar/join-link";
 import { pickNextUp, todayRows } from "@/lib/calendar/next-up";
 import {
   type BadgeKey,
@@ -420,26 +421,35 @@ function NextUpCard({
 }) {
   const next = pickNextUp(instances, now, timeZone);
   if (!next) return null;
+  // The calendar link covers the whole card (its ::after); Join sits above
+  // it, in the chevron's place, so a click beside Join still opens the
+  // calendar.
   return (
-    <Link
-      href="/calendar"
-      className="mb-3 flex items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50"
-    >
+    <div className="relative mb-3 flex items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50">
       <span
         aria-hidden
         className="h-8 w-1 shrink-0 rounded-xs"
         style={{ backgroundColor: normalizeEventHex(next.color) }}
       />
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <Link
+        href="/calendar"
+        className="flex min-w-0 flex-col gap-0.5 after:absolute after:inset-0 after:rounded-lg"
+      >
         <span className="eyebrow text-muted-foreground">
           Next up{next.when ? ` · ${next.when}` : ""}
         </span>
         <span className="truncate text-sm font-medium">
           <span className="tabular-nums">{next.time}</span> {next.title}
         </span>
-      </span>
-      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
-    </Link>
+      </Link>
+      {next.joinUrl ? (
+        <span className="relative ml-auto">
+          <JoinLink href={next.joinUrl} />
+        </span>
+      ) : (
+        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+      )}
+    </div>
   );
 }
 

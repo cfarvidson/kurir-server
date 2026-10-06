@@ -8,7 +8,7 @@ import type {
   CalendarViewMode,
 } from "@/components/calendar/types";
 import type { CalendarAvailability } from "@/lib/calendar/availability";
-import { nextUpEvent, nextUpWhen } from "@/lib/calendar/next-up";
+import { joinUrl, nextUpEvent, nextUpWhen } from "@/lib/calendar/next-up";
 import {
   formatDurationLabel,
   formatTimeLabel,
@@ -20,6 +20,8 @@ import {
   zonedParts,
   type CivilDate,
 } from "@/lib/calendar/view-time";
+
+export { joinUrl };
 
 /** "Calendar · week 39", "Calendar · weeks 36–41", "Calendar · today" / "Calendar · Saturday". */
 export function headerEyebrow(
@@ -107,17 +109,6 @@ export function freeUntil(
   );
   if (!span || span.endMin >= hours.endMin) return null;
   return span.endMin;
-}
-
-const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/i;
-
-/** The first http(s) link in the location, else in the description. */
-export function joinUrl(instance: CalendarInstanceDTO): string | null {
-  for (const text of [instance.location, instance.description]) {
-    const match = text?.match(URL_PATTERN);
-    if (match) return match[0];
-  }
-  return null;
 }
 
 export type HeaderNextUp = {

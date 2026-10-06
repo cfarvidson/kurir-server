@@ -14,6 +14,8 @@ export type NextUp = {
   /** "Now", "in 20 min", or null when the start is an hour or more away. */
   when: string | null;
   color: string;
+  /** The meeting link, for Join; null when the event has none. */
+  joinUrl: string | null;
 };
 
 export type TodayRow = {
@@ -56,7 +58,19 @@ export function pickNextUp(
     time: formatTimeLabel(wall.hour, wall.minute),
     when: nextUpWhen(start, now),
     color: next.color,
+    joinUrl: joinUrl(next),
   };
+}
+
+const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/i;
+
+/** The first http(s) link in the location, else in the description. */
+export function joinUrl(instance: CalendarInstanceDTO): string | null {
+  for (const text of [instance.location, instance.description]) {
+    const match = text?.match(URL_PATTERN);
+    if (match) return match[0];
+  }
+  return null;
 }
 
 export function nextUpWhen(start: Date, now: Date): string | null {
