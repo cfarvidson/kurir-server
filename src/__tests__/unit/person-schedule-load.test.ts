@@ -28,4 +28,27 @@ describe("loadScheduleInstances", () => {
     );
     expect(arg.where.endAt.gt.getTime()).toBe(now.getTime() - 1 * 86_400_000);
   });
+
+  it("carries each event's travel time, so time spent getting there is not offered as free", async () => {
+    findMany.mockResolvedValue([
+      {
+        startAt: new Date("2026-09-08T12:00:00.000Z"),
+        endAt: new Date("2026-09-08T13:00:00.000Z"),
+        isAllDay: false,
+        isCancelled: false,
+        event: { transparency: "busy", travelMinutes: 30 },
+      },
+    ]);
+
+    const [instance] = await loadScheduleInstances(
+      "u1",
+      new Date("2026-09-08T10:00:00.000Z"),
+    );
+
+    expect(instance.travelMinutes).toBe(30);
+    const arg = findMany.mock.calls[0][0] as {
+      select: { event: { select: Record<string, boolean> } };
+    };
+    expect(arg.select.event.select.travelMinutes).toBe(true);
+  });
 });
