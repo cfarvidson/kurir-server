@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { HeaderNextUp } from "@/components/calendar/header-model";
+import { JoinLink } from "@/components/calendar/join-link";
 import type {
   CalendarInstanceDTO,
   CalendarViewMode,
@@ -173,16 +174,7 @@ function NextUpCard({
           {place ? `${next.range} · ${place}` : next.range}
         </span>
       </button>
-      {next.joinUrl && (
-        <a
-          href={next.joinUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-lg bg-foreground px-3.5 py-2 text-[12.5px] font-semibold text-background hover:bg-foreground/85"
-        >
-          Join
-        </a>
-      )}
+      {next.joinUrl && <JoinLink href={next.joinUrl} />}
     </div>
   );
 }
