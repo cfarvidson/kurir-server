@@ -47,6 +47,8 @@ const EVENT_SELECT = {
   updatedAt: true,
   sequence: true,
   attendeesJson: true,
+  travelMinutes: true,
+  travelExtra: true,
 } as const;
 
 export async function GET(req: NextRequest) {

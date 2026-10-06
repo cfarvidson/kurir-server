@@ -10,7 +10,10 @@ vi.mock("@/lib/db", () => ({ db: {} }));
 import {
   parseOccurrence,
   serializeCalendarAccount,
+  serializeRangeInstance,
+  updateEventBodySchema,
 } from "@/lib/calendar/mobile";
+import type { VisibleInstance } from "@/lib/calendar/query";
 
 describe("parseOccurrence", () => {
   it("parses a valid ISO string", () => {
@@ -68,5 +71,56 @@ describe("serializeCalendarAccount", () => {
     expect(serialized.calendars[1]?.lastError).toBe(
       "Collection query failed: 404 Not Found",
     );
+  });
+});
+
+describe("travel time over the mobile API", () => {
+  const body = {
+    title: "Dentist",
+    startAt: "2026-10-09T08:00:00.000Z",
+    endAt: "2026-10-09T09:00:00.000Z",
+    isAllDay: false,
+    range: "all",
+  };
+
+  it("accepts travelMinutes on an edit, and leaves it out when an older app does not send it", () => {
+    expect(
+      updateEventBodySchema.parse({ ...body, travelMinutes: 30 }).travelMinutes,
+    ).toBe(30);
+    expect(
+      updateEventBodySchema.parse({ ...body, travelMinutes: null }).travelMinutes,
+    ).toBeNull();
+    expect(updateEventBodySchema.parse(body)).not.toHaveProperty("travelMinutes");
+    expect(
+      updateEventBodySchema.safeParse({ ...body, travelMinutes: -5 }).success,
+    ).toBe(false);
+  });
+
+  it("returns travel time and where it starts on each instance", () => {
+    const row = {
+      eventId: "e1",
+      title: "Dentist",
+      startAt: new Date("2026-10-09T08:00:00.000Z"),
+      endAt: new Date("2026-10-09T09:00:00.000Z"),
+      isAllDay: false,
+      isCancelled: false,
+      isException: false,
+      calendarId: "cal1",
+      color: "#059669",
+      calendarName: "Personal",
+      transparency: "busy",
+      location: null,
+      description: null,
+      rrule: null,
+      isReadOnly: false,
+      attendeesJson: null,
+      travelMinutes: 25,
+      travelStart: { title: "Home", address: null },
+    } as VisibleInstance;
+
+    expect(serializeRangeInstance(row)).toMatchObject({
+      travelMinutes: 25,
+      travelStart: { title: "Home", address: null },
+    });
   });
 });

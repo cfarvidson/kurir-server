@@ -1,4 +1,5 @@
 import ICAL from "ical.js";
+import { readTravel } from "@/lib/calendar/travel";
 import type { RemoteEvent } from "./types";
 
 type CalDavRaw = {
@@ -179,6 +180,7 @@ export function mapCalDavVevent(
     organizerJson: organizerJson(vevent),
     attendeesJson: attendeesJson(vevent),
     rawJson: raw,
+    ...readTravel(vevent),
   };
 }
 

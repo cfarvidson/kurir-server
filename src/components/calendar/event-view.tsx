@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import {
   eventRail,
   eventRepeatLine,
+  eventTravelLine,
   eventWhenDate,
   eventWhenLine,
   noteSegments,
@@ -202,6 +203,7 @@ export function EventViewDialog({
 }) {
   const rail = event ? eventRail(event, timezone) : null;
   const repeats = event ? eventRepeatLine(event, timezone) : null;
+  const travel = event ? eventTravelLine(event) : null;
   return (
     <Dialog open={event != null} onOpenChange={onOpenChange}>
       {event && rail && (
@@ -254,6 +256,11 @@ export function EventViewDialog({
                     <span className="break-words text-[16px]">
                       {event.location}
                     </span>
+                  </Fact>
+                )}
+                {travel && (
+                  <Fact label="Travel">
+                    <span className="break-words text-[16px]">{travel}</span>
                   </Fact>
                 )}
               </div>

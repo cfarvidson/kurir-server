@@ -332,23 +332,34 @@ export type TimedBlock = {
   id: string;
   startMin: number;
   endMin: number;
+  /** Where the block is busy from, when travel time comes before it. */
+  busyStartMin?: number;
 };
 
 export type PackedTimedBlock = TimedBlock & {
+  busyStartMin: number;
   col: number;
   cols: number;
 };
 
+/**
+ * Side-by-side columns for overlapping timed events. Overlap is counted from
+ * each block's busy start (its travel time included); the block keeps its
+ * own start.
+ */
 export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
   const items = blocks
     .map((b, i) => ({
       ...b,
+      busyStartMin: Math.min(b.busyStartMin ?? b.startMin, b.startMin),
       endMin: Math.max(b.endMin, b.startMin + 15),
       index: i,
     }))
     .sort(
       (a, b) =>
-        a.startMin - b.startMin || a.endMin - b.endMin || a.index - b.index,
+        a.busyStartMin - b.busyStartMin ||
+        a.endMin - b.endMin ||
+        a.index - b.index,
     );
 
   type Laid = (typeof items)[number] & { col: number; cols: number };
@@ -367,9 +378,9 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
 
   for (const item of items) {
     for (let i = active.length - 1; i >= 0; i--) {
-      if (active[i].endMin <= item.startMin) active.splice(i, 1);
+      if (active[i].endMin <= item.busyStartMin) active.splice(i, 1);
     }
-    if (group.length > 0 && item.startMin >= groupEnd) {
+    if (group.length > 0 && item.busyStartMin >= groupEnd) {
       closeGroup();
       active.length = 0;
     }
@@ -391,6 +402,7 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
       id: found.id,
       startMin: found.startMin,
       endMin: found.endMin,
+      busyStartMin: found.busyStartMin,
       col: found.col,
       cols: found.cols,
     };

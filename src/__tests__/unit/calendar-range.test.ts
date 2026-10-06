@@ -55,6 +55,31 @@ describe("allDayUtcBounds", () => {
 describe("freetimeSpans", () => {
   const dayStart = new Date("2026-08-20T07:00:00.000Z");
   const dayEnd = new Date("2026-08-20T21:00:00.000Z");
+  it("counts travel time before a timed event as busy", () => {
+    const spans = freetimeSpans(
+      [
+        {
+          startAt: new Date("2026-08-20T12:00:00.000Z"),
+          endAt: new Date("2026-08-20T13:00:00.000Z"),
+          isAllDay: false,
+          isCancelled: false,
+          transparency: "busy",
+          travelMinutes: 30,
+        },
+      ],
+      dayStart,
+      dayEnd,
+      60,
+    );
+    expect(spans).toEqual([
+      {
+        startAt: dayStart,
+        endAt: new Date("2026-08-20T11:30:00.000Z"),
+      },
+      { startAt: new Date("2026-08-20T13:00:00.000Z"), endAt: dayEnd },
+    ]);
+  });
+
   it("labels a 3-hour hole and ignores free/cancelled/all-day", () => {
     const spans = freetimeSpans(
       [

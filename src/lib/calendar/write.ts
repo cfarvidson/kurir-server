@@ -20,6 +20,12 @@ import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
 import {
+  MAX_TRAVEL_MINUTES,
+  NO_TRAVEL,
+  nextTravel,
+  type Travel,
+} from "@/lib/calendar/travel";
+import {
   CalendarConflictError,
   type CalendarAdapter,
   type EventInput,
@@ -88,6 +94,8 @@ type EventRow = {
   organizerJson: unknown;
   attendeesJson: unknown;
   rawJson: unknown;
+  travelMinutes: number | null;
+  travelExtra: string[];
   calendarId: string;
   userId: string;
 };
@@ -193,8 +201,44 @@ function assertWritable(calendar: { isReadOnly: boolean }): void {
   }
 }
 
-function inputFields(input: EventInput) {
+function travelOf(event: {
+  travelMinutes: number | null;
+  travelExtra: string[];
+}): Travel {
+  return { travelMinutes: event.travelMinutes, travelExtra: event.travelExtra };
+}
+
+/**
+ * The input as this calendar can keep it. Travel time must be whole minutes
+ * from 0 to a day, on every path (web, MCP, mobile). Only CalDAV stores it
+ * (Apple's X-APPLE-TRAVEL-* lines); for Google or Outlook it is dropped, or
+ * the replica would show it until the next pull wiped it.
+ */
+function inputFor<T extends EventInput>(
+  input: T,
+  provider: CalendarProvider,
+): T {
+  const minutes = input.travelMinutes;
+  if (
+    minutes != null &&
+    !(
+      Number.isInteger(minutes) &&
+      minutes >= 0 &&
+      minutes <= MAX_TRAVEL_MINUTES
+    )
+  ) {
+    throw new CalendarWriteError("Invalid travel time", 400);
+  }
+  if (minutes === undefined || provider === "CALDAV") return input;
+  const kept = { ...input };
+  delete kept.travelMinutes;
+  return kept;
+}
+
+/** The replica's fields from an edit over `current` travel (none for a new event). */
+function inputFields(input: EventInput, current: Travel = NO_TRAVEL) {
   return {
+    ...nextTravel(current, input.travelMinutes, input.isAllDay),
     title: input.title,
     description: input.description,
     location: input.location,
@@ -234,6 +278,8 @@ function replicaFields(
     organizerJson: asJson(event.organizerJson),
     attendeesJson: asJson(event.attendeesJson),
     rawJson: asJson(event.rawJson),
+    travelMinutes: event.travelMinutes ?? null,
+    travelExtra: event.travelExtra ?? [],
     calendarId,
     userId,
   };
@@ -262,6 +308,8 @@ function persistable(event: EventRow) {
     organizerJson: asJson(event.organizerJson),
     attendeesJson: asJson(event.attendeesJson),
     rawJson: asJson(event.rawJson),
+    travelMinutes: event.travelMinutes,
+    travelExtra: event.travelExtra,
     calendarId: event.calendarId,
     userId: event.userId,
   };
@@ -291,6 +339,8 @@ function cloneEvent(event: EventRow): EventRow {
     organizerJson: event.organizerJson,
     attendeesJson: event.attendeesJson,
     rawJson: event.rawJson,
+    travelMinutes: event.travelMinutes,
+    travelExtra: [...event.travelExtra],
     calendarId: event.calendarId,
     userId: event.userId,
   };
@@ -379,7 +429,9 @@ function isPureMove(event: EventRow, input: EventInput): boolean {
     sameInstant(event.endAt, input.endAt) &&
     event.isAllDay === input.isAllDay &&
     event.timezone === input.timezone &&
-    event.rrule === input.rrule
+    event.rrule === input.rrule &&
+    (input.travelMinutes === undefined ||
+      (input.travelMinutes || null) === event.travelMinutes)
   );
 }
 
@@ -797,6 +849,7 @@ async function createReplicaRow(
     masterEventId?: string | null;
     recurrenceId?: Date | null;
     rrule?: string | null;
+    travel?: Travel;
   },
 ): Promise<EventRow> {
   return tx.calendarEvent.create({
@@ -805,7 +858,7 @@ async function createReplicaRow(
       icalUid: input.icalUid ?? null,
       etag: null,
       sequence: 0,
-      ...inputFields(input),
+      ...inputFields(input, extra?.travel),
       ...(extra?.rrule !== undefined ? { rrule: extra.rrule } : {}),
       status: "confirmed",
       transparency: "busy",
@@ -825,10 +878,11 @@ async function createReplicaRow(
 export async function createEventForUser(
   userId: string,
   calendarId: string,
-  input: EventInput,
+  rawInput: EventInput,
 ): Promise<{ id: string }> {
   const calendar = await loadCalendar(userId, calendarId);
   assertWritable(calendar);
+  const input = inputFor(rawInput, calendar.account.provider);
   const now = new Date();
   const snapshot: Snapshot = {
     calendarId: calendar.id,
@@ -877,13 +931,14 @@ export async function createEventForUser(
 export async function updateEventForUser(
   userId: string,
   eventId: string,
-  input: EventInput & { calendarId?: string },
+  rawInput: EventInput & { calendarId?: string },
   range: RecurrenceEdit,
   occurrence?: Date | null,
 ): Promise<void> {
   const loaded = await loadEvent(userId, eventId);
   const calendar = loaded.calendar as CalendarRow;
   assertWritable(calendar);
+  const input = inputFor(rawInput, calendar.account.provider);
   const event = loaded as unknown as EventRow & {
     instances?: InstanceSnap[];
     exceptions?: EventRow[];
@@ -927,7 +982,7 @@ export async function updateEventForUser(
         await tx.calendarEvent.update({
           where: { id: event.id },
           data: {
-            ...inputFields(input),
+            ...inputFields(input, travelOf(event)),
             recurrenceId: splitAt,
             ...(dest.id !== calendar.id ? { calendarId: dest.id } : {}),
           },
@@ -937,6 +992,7 @@ export async function updateEventForUser(
           masterEventId: masterId,
           recurrenceId: splitAt,
           rrule: null,
+          travel: travelOf(event),
         });
         snapshot.createdEventId = row.id;
       }
@@ -955,7 +1011,10 @@ export async function updateEventForUser(
           ),
         },
       });
-      const row = await createReplicaRow(tx, userId, dest, input);
+      // The new series starts from the travel of the occurrence edited.
+      const row = await createReplicaRow(tx, userId, dest, input, {
+        travel: travelOf(event),
+      });
       snapshot.createdEventId = row.id;
       await rebuildInstances(tx, userId, dest.id, masterId, now);
       await rebuildInstances(tx, userId, dest.id, row.id, now);
@@ -965,7 +1024,7 @@ export async function updateEventForUser(
     await tx.calendarEvent.update({
       where: { id: event.id },
       data: {
-        ...inputFields(input),
+        ...inputFields(input, travelOf(event)),
         ...(dest.id !== calendar.id ? { calendarId: dest.id } : {}),
       },
     });

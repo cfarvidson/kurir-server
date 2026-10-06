@@ -20,6 +20,8 @@ export type DemoSeedEvent = {
   isAllDay: boolean;
   timezone: string | null;
   location?: string | null;
+  travelMinutes?: number | null;
+  travelExtra?: string[];
 };
 
 export type DemoSeedCalendar = {
@@ -81,6 +83,8 @@ type DemoSeedDb = {
         isAllDay: boolean;
         timezone: string | null;
         location: string | null;
+        travelMinutes: number | null;
+        travelExtra: string[];
         status: string;
         transparency: string;
       };
@@ -143,7 +147,11 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
     title: string,
     day: CivilDate,
     at: [hour: number, minute: number, minutes: number] | "all-day",
-    options: { days?: number; location?: string } = {},
+    options: {
+      days?: number;
+      location?: string;
+      travel?: { minutes: number; from: string };
+    } = {},
   ) {
     const range =
       at === "all-day"
@@ -161,6 +169,12 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
       isAllDay: at === "all-day",
       timezone: at === "all-day" ? null : DEMO_CALENDAR_TIMEZONE,
       location: options.location ?? null,
+      travelMinutes: options.travel?.minutes ?? null,
+      travelExtra: options.travel
+        ? [
+            `X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-TITLE=${options.travel.from}:`,
+          ]
+        : [],
     });
   }
 
@@ -170,7 +184,9 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
   add("work", "design-review", "Design review", today, [17, 0, 30], {
     location: "https://meet.example.com/kurir-design",
   });
-  add("family", "dinner", "Dinner with the Lindqvists", today, [18, 30, 90]);
+  add("family", "dinner", "Dinner with the Lindqvists", today, [18, 30, 90], {
+    travel: { minutes: 25, from: "Home" },
+  });
   add("family", "school-closed", "School closed", today, "all-day");
 
   // The rest of this week, around today.
@@ -356,6 +372,8 @@ export async function insertDemoCalendarSeed(
           isAllDay: event.isAllDay,
           timezone: event.timezone,
           location: event.location ?? null,
+          travelMinutes: event.travelMinutes ?? null,
+          travelExtra: event.travelExtra ?? [],
           status: "confirmed",
           transparency: "busy",
         },

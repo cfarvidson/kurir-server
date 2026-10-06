@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   eventRail,
   eventRepeatLine,
+  eventTravelLine,
   eventWhenDate,
   eventWhenLine,
   noteSegments,
@@ -111,6 +112,32 @@ describe("eventRepeatLine", () => {
     expect(
       eventRepeatLine(event({ rrule: "FREQ=WEEKLY;INTERVAL=2" }), TZ),
     ).toBe("Repeats");
+  });
+});
+
+describe("eventTravelLine", () => {
+  it("says how long the travel is and where it starts", () => {
+    expect(eventTravelLine(event({ travelMinutes: 30 }))).toBe("30 min travel");
+    expect(
+      eventTravelLine(
+        event({ travelMinutes: 90, travelStart: { title: "Home", address: null } }),
+      ),
+    ).toBe("1.5 h travel from Home");
+    expect(
+      eventTravelLine(
+        event({
+          travelMinutes: 25,
+          travelStart: { title: null, address: "Storgatan 1\n111 22 Stockholm" },
+        }),
+      ),
+    ).toBe("25 min travel from Storgatan 1");
+  });
+
+  it("is null without travel time, and for an all-day event", () => {
+    expect(eventTravelLine(event({}))).toBeNull();
+    expect(
+      eventTravelLine(event({ isAllDay: true, travelMinutes: 30 })),
+    ).toBeNull();
   });
 });
 

@@ -31,6 +31,8 @@ type FreetimeInstance = {
   isAllDay: boolean;
   isCancelled: boolean;
   transparency: "busy" | "free";
+  /** Time to get there, busy before `startAt`. */
+  travelMinutes?: number | null;
 };
 
 export function freetimeSpans(
@@ -46,7 +48,8 @@ export function freetimeSpans(
   const busy = instances
     .filter((i) => !i.isAllDay && !i.isCancelled && i.transparency === "busy")
     .map((i) => {
-      const start = Math.max(i.startAt.getTime(), dayStartMs);
+      const travelMs = (i.travelMinutes ?? 0) * 60_000;
+      const start = Math.max(i.startAt.getTime() - travelMs, dayStartMs);
       const end = Math.min(i.endAt.getTime(), dayEndMs);
       return { start, end };
     })

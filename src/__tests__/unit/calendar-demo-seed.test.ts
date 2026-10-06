@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, expect, vi } from "vitest";
+import { travelStart } from "@/lib/calendar/travel";
 import {
   DEMO_CALENDAR_TIMEZONE,
   demoCalendarSeed,
@@ -46,6 +47,23 @@ describe("demoCalendarSeed", () => {
       return wall.hour === 9 && wall.minute === 0;
     });
     expect(morning).toBeDefined();
+  });
+
+  it("gives one timed event today 25 min travel from Home", () => {
+    const seed = demoCalendarSeed(now);
+    const withTravel = seed.calendars
+      .flatMap((c) => c.events)
+      .filter((e) => e.travelMinutes);
+    expect(withTravel).toHaveLength(1);
+    expect(withTravel[0]).toMatchObject({
+      title: "Dinner with the Lindqvists",
+      isAllDay: false,
+      travelMinutes: 25,
+    });
+    expect(travelStart(withTravel[0].travelExtra ?? [])).toEqual({
+      title: "Home",
+      address: null,
+    });
   });
 
   it("leaves a 3-hour local gap between 10:00 and 13:00 for freetime", () => {

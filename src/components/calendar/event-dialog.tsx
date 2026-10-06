@@ -8,6 +8,11 @@ import {
   deleteEventAction,
   updateEventAction,
 } from "@/actions/calendar";
+import {
+  calendarHasTravelTime,
+  travelOptions,
+  travelPlace,
+} from "@/components/calendar/travel-model";
 import type {
   CalendarAccountDTO,
   CalendarInstanceDTO,
@@ -53,6 +58,10 @@ type Draft = {
   notes: string;
   repeat: string;
   existingRrule: string | null;
+  travelMinutes: number | null;
+  /** The event's travel time as loaded; its start place only applies to that length. */
+  loadedTravelMinutes: number | null;
+  travelFrom: string | null;
 };
 
 const REPEAT_OPTIONS = [
@@ -100,6 +109,9 @@ function draftFromSlot(
     notes: "",
     repeat: "",
     existingRrule: null,
+    travelMinutes: null,
+    loadedTravelMinutes: null,
+    travelFrom: null,
   };
 }
 
@@ -138,10 +150,21 @@ function draftFromEvent(event: CalendarInstanceDTO, timezone: string): Draft {
     notes: event.description ?? "",
     repeat: preset === "custom" ? "custom" : preset,
     existingRrule: event.rrule,
+    travelMinutes: event.travelMinutes ?? null,
+    loadedTravelMinutes: event.travelMinutes ?? null,
+    travelFrom: travelPlace(event.travelStart),
   };
 }
 
-function toEventInput(draft: Draft, timezone: string): EventInput {
+/**
+ * `withTravel` is false for a calendar that cannot store travel time; the
+ * input then leaves it out, and the event keeps whatever it has.
+ */
+function toEventInput(
+  draft: Draft,
+  timezone: string,
+  withTravel: boolean,
+): EventInput {
   const startDay = parseDateParam(draft.startDate, timezone);
   const endDay = parseDateParam(draft.endDate, timezone);
   if (draft.allDay) {
@@ -159,6 +182,7 @@ function toEventInput(draft: Draft, timezone: string): EventInput {
       isAllDay: true,
       timezone: null,
       rrule: rruleFromDraft(draft),
+      ...(withTravel ? { travelMinutes: null } : {}),
     };
   }
   const [startHour, startMinute] = draft.startTime.split(":").map(Number);
@@ -185,6 +209,7 @@ function toEventInput(draft: Draft, timezone: string): EventInput {
     isAllDay: false,
     timezone,
     rrule: rruleFromDraft(draft),
+    ...(withTravel ? { travelMinutes: draft.travelMinutes } : {}),
   };
 }
 
@@ -315,7 +340,11 @@ export function EventDialog({
     if (!draft) return;
     setSaving(true);
     try {
-      const input = toEventInput(draft, timezone);
+      const input = toEventInput(
+        draft,
+        timezone,
+        calendarHasTravelTime(accounts, draft.calendarId),
+      );
       if (event) {
         await updateEventAction(
           event.eventId,
@@ -531,6 +560,39 @@ export function EventDialog({
                   onChange={(e) => update("location", e.target.value)}
                 />
               </div>
+              {!draft.allDay &&
+                calendarHasTravelTime(accounts, draft.calendarId) && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cal-travel">Travel time</Label>
+                    <select
+                      id="cal-travel"
+                      className={fieldClass()}
+                      value={draft.travelMinutes ?? ""}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        update(
+                          "travelMinutes",
+                          e.target.value ? Number(e.target.value) : null,
+                        )
+                      }
+                    >
+                      {travelOptions(draft.loadedTravelMinutes).map(
+                        (option) => (
+                          <option key={option.label} value={option.value ?? ""}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                    {draft.travelFrom &&
+                      draft.travelMinutes != null &&
+                      draft.travelMinutes === draft.loadedTravelMinutes && (
+                        <p className="text-xs text-muted-foreground">
+                          From {draft.travelFrom}
+                        </p>
+                      )}
+                  </div>
+                )}
               <div className="space-y-1.5">
                 <Label htmlFor="cal-notes">Notes</Label>
                 <textarea

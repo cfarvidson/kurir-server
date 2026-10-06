@@ -357,6 +357,16 @@
     background-color: color-mix(in srgb, var(--ev) 28%, hsl(var(--card)));
     color: color-mix(in srgb, var(--ev) 45%, white);
   }
+  /* Travel time before an event: the tint at half strength, dashed edge. */
+  .cal-travel {
+    background-color: color-mix(in srgb, var(--ev) 8%, hsl(var(--card)));
+    border: 1px dashed color-mix(in srgb, var(--ev) 40%, transparent);
+    color: color-mix(in srgb, var(--ev) 58%, black);
+  }
+  .dark .cal-travel {
+    background-color: color-mix(in srgb, var(--ev) 14%, hsl(var(--card)));
+    color: color-mix(in srgb, var(--ev) 45%, white);
+  }
 }
 
 @layer utilities {

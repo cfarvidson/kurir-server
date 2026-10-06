@@ -109,6 +109,8 @@ export function minutesOnDay(
 export type PlacedTimed = CalendarInstanceDTO & {
   startMin: number;
   endMin: number;
+  /** Where the travel block before the event starts, clipped to the day; `startMin` without travel. */
+  travelStartMin: number;
   col: number;
   cols: number;
 };
@@ -121,22 +123,42 @@ export function placeTimedEvents(
   const timed = timedEventsOnDay(instances, day, timeZone).map((inst) => {
     const startMin = minutesFromDayStart(new Date(inst.startAt), day, timeZone);
     const endMin = minutesFromDayStart(new Date(inst.endAt), day, timeZone);
-    return { inst, startMin, endMin: Math.max(endMin, startMin + 15) };
+    const travelMs = (inst.travelMinutes ?? 0) * 60_000;
+    const travelStartMin = travelMs
+      ? minutesFromDayStart(
+          new Date(new Date(inst.startAt).getTime() - travelMs),
+          day,
+          timeZone,
+        )
+      : startMin;
+    return {
+      inst,
+      startMin,
+      travelStartMin,
+      endMin: Math.max(endMin, startMin + 15),
+    };
   });
-  const packed = packTimedEvents(
-    timed.map((row, i) => ({
-      id: `${row.inst.eventId}:${row.startMin}:${i}`,
-      startMin: row.startMin,
-      endMin: row.endMin,
-    })),
+  const packed = new Map(
+    packTimedEvents(
+      timed.map((row, i) => ({
+        id: String(i),
+        startMin: row.startMin,
+        busyStartMin: row.travelStartMin,
+        endMin: row.endMin,
+      })),
+    ).map((row) => [row.id, row]),
   );
-  return packed.map((row, i) => ({
-    ...timed[i].inst,
-    startMin: row.startMin,
-    endMin: row.endMin,
-    col: row.col,
-    cols: row.cols,
-  }));
+  return timed.map((row, i) => {
+    const laid = packed.get(String(i))!;
+    return {
+      ...row.inst,
+      startMin: laid.startMin,
+      endMin: laid.endMin,
+      travelStartMin: laid.busyStartMin,
+      col: laid.col,
+      cols: laid.cols,
+    };
+  });
 }
 
 /**
@@ -178,6 +200,7 @@ export function freetimeMinutes(
         isAllDay: row.isAllDay,
         isCancelled: false,
         transparency: row.transparency,
+        travelMinutes: row.travelMinutes,
       })),
     dayStart,
     dayEnd,

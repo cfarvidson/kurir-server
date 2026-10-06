@@ -3,6 +3,7 @@ import { openSpans } from "@/components/calendar/agenda-model";
 import {
   freetimeMinutes,
   openMinutesOnDay,
+  placeTimedEvents,
   weekColumnWidths,
 } from "@/components/calendar/grid-model";
 import { freeUntil, headerNextUp } from "@/components/calendar/header-model";
@@ -82,6 +83,39 @@ describe("open time inside the available window", () => {
     const bar = loadBar([], DAY, TZ, availability);
     expect(bar).toEqual({ off: true, openMinutes: 0, open: [], busy: [] });
     expect(openLabel(bar)).toBe("Not available");
+  });
+});
+
+describe("travel time in the day grid", () => {
+  it("is busy in the open time", () => {
+    const availability = withFriday({ on: true, start: 540, end: 1020 });
+    const instances = [
+      event("dentist", [12, 0], [13, 0], { travelMinutes: 45 }),
+    ];
+    expect(freetimeMinutes(instances, DAY, TZ, availability)).toEqual([
+      { startMin: 9 * 60, endMin: 11 * 60 + 15 },
+      { startMin: 13 * 60, endMin: 17 * 60 },
+    ]);
+  });
+
+  it("places the event at its start and says where its travel block starts, clipped to the day", () => {
+    const placed = placeTimedEvents(
+      [
+        event("standup", [9, 0], [10, 0]),
+        event("dentist", [10, 0], [11, 0], { travelMinutes: 30 }),
+        event("early", [0, 15], [1, 0], { travelMinutes: 30 }),
+      ],
+      DAY,
+      TZ,
+    );
+    const byId = Object.fromEntries(placed.map((p) => [p.eventId, p]));
+    expect(byId.dentist).toMatchObject({
+      startMin: 10 * 60,
+      travelStartMin: 9 * 60 + 30,
+      cols: 2,
+    });
+    expect(byId.standup).toMatchObject({ travelStartMin: 9 * 60, cols: 2 });
+    expect(byId.early.travelStartMin).toBe(0);
   });
 });
 

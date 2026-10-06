@@ -1,3 +1,5 @@
+import type { TravelStart } from "@/lib/calendar/travel";
+
 export type CalendarViewMode = "week" | "day" | "month";
 
 export type CalendarInstanceDTO = {
@@ -15,6 +17,10 @@ export type CalendarInstanceDTO = {
   description: string | null;
   rrule: string | null;
   isReadOnly: boolean;
+  /** Time to get there before `startAt`, in minutes; busy like the event. */
+  travelMinutes?: number | null;
+  /** Where that travel starts (Apple Calendar's X-TITLE / X-ADDRESS). */
+  travelStart?: TravelStart | null;
 };
 
 export type CalendarListItem = {

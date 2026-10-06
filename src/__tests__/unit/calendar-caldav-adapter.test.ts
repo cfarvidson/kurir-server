@@ -476,6 +476,320 @@ END:VCALENDAR`,
     expect(created.icalUid).toBe("invite-1@x.y");
   });
 
+  describe("travel time", () => {
+    const START_LINE =
+      'X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="Storgatan 1\\n111 22 Stockholm";X-TITLE=Home:';
+    const ADVISORY_LINE = "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC";
+
+    function appleIcs(extra = ""): string {
+      return [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:e1",
+        "SUMMARY:Dentist",
+        "DTSTART:20260820T140000Z",
+        "DTEND:20260820T150000Z",
+        extra,
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        START_LINE,
+        ADVISORY_LINE,
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ]
+        .filter(Boolean)
+        .join("\r\n");
+    }
+
+    function travelLines(ics: string): string[] {
+      return ics
+        .replace(/\r?\n[ \t]/g, "")
+        .split(/\r?\n/)
+        .filter((line) => /^X-APPLE-TRAVEL-/i.test(line));
+    }
+
+    function stubPut(data: string) {
+      davMocks.fetchCalendarObjects.mockResolvedValue([
+        { url: EVENT_HREF, etag: '"abc"', data },
+      ]);
+      davMocks.updateCalendarObject.mockResolvedValue({
+        status: 204,
+        ok: true,
+        headers: { get: () => '"def"' },
+      });
+      davMocks.createCalendarObject.mockResolvedValue({
+        status: 201,
+        ok: true,
+        headers: { get: () => '"new"' },
+      });
+    }
+
+    function putData(): string {
+      const call = davMocks.updateCalendarObject.mock.calls[0]?.[0] as {
+        calendarObject: { data: string };
+      };
+      return call.calendarObject.data;
+    }
+
+    const ref = { providerEventId: EVENT_HREF, etag: '"abc"', recurrenceId: null };
+
+    it("keeps travel time from Apple Calendar, and where it starts, as Apple wrote it after an edit in Kurir", async () => {
+      stubPut(appleIcs());
+
+      const updated = await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, travelMinutes: 45 },
+        "all",
+      );
+
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        START_LINE,
+        ADVISORY_LINE,
+      ]);
+      expect(updated.travelMinutes).toBe(45);
+    });
+
+    it("leaves the travel lines alone when the input does not carry travel time", async () => {
+      stubPut(appleIcs());
+
+      await adapter().updateEvent({ providerCalendarId: CAL_URL }, ref, eventInput, "all");
+
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        START_LINE,
+        ADVISORY_LINE,
+      ]);
+    });
+
+    it("removes every travel line when travel time is None", async () => {
+      stubPut(appleIcs());
+
+      const updated = await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, travelMinutes: null },
+        "all",
+      );
+
+      expect(travelLines(putData())).toEqual([]);
+      expect(updated.travelMinutes).toBeNull();
+    });
+
+    it("writes a new length in hours and minutes and drops the start it no longer counts from", async () => {
+      stubPut(appleIcs());
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, travelMinutes: 90 },
+        "all",
+      );
+
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT1H30M",
+        ADVISORY_LINE,
+      ]);
+    });
+
+    it("drops travel time when the event becomes all-day", async () => {
+      stubPut(appleIcs());
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        {
+          ...eventInput,
+          isAllDay: true,
+          startAt: new Date("2026-08-20T00:00:00.000Z"),
+          endAt: new Date("2026-08-21T00:00:00.000Z"),
+        },
+        "all",
+      );
+
+      expect(travelLines(putData())).toEqual([]);
+    });
+
+    it("gives a changed occurrence the series' travel time and start", async () => {
+      stubPut(appleIcs("RRULE:FREQ=DAILY;COUNT=5"));
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        { ...ref, recurrenceId: new Date("2026-08-21T14:00:00.000Z") },
+        {
+          ...eventInput,
+          title: "Dentist, moved",
+          startAt: new Date("2026-08-21T15:00:00.000Z"),
+          endAt: new Date("2026-08-21T16:00:00.000Z"),
+          travelMinutes: 45,
+        },
+        "this",
+      );
+
+      const lines = travelLines(putData());
+      // Master and the new exception each carry the full set.
+      expect(lines.filter((l) => l === START_LINE)).toHaveLength(2);
+      expect(lines.filter((l) => l.startsWith("X-APPLE-TRAVEL-DURATION"))).toHaveLength(2);
+    });
+
+    it("carries travel time onto the new series of a this-and-following edit", async () => {
+      stubPut(appleIcs("RRULE:FREQ=DAILY;COUNT=5"));
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        { ...ref, recurrenceId: new Date("2026-08-22T14:00:00.000Z") },
+        {
+          ...eventInput,
+          startAt: new Date("2026-08-22T14:00:00.000Z"),
+          endAt: new Date("2026-08-22T15:00:00.000Z"),
+          rrule: "FREQ=DAILY",
+          travelMinutes: 45,
+        },
+        "thisAndFollowing",
+      );
+
+      const created = davMocks.createCalendarObject.mock.calls[0]?.[0] as {
+        iCalString: string;
+      };
+      expect(travelLines(created.iCalString)).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        START_LINE,
+        ADVISORY_LINE,
+      ]);
+    });
+
+    it("cannot be used to add properties to the event it writes back", async () => {
+      stubPut(
+        [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "BEGIN:VEVENT",
+          "UID:e1",
+          "SUMMARY:Dentist",
+          "DTSTART:20260820T140000Z",
+          "DTEND:20260820T150000Z",
+          "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+          "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+          'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home\rORGANIZER:mailto:cr@example.com":',
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n"),
+      );
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, title: "Dentist, later" },
+        "all",
+      );
+
+      const lines = putData().replace(/\r\n[ \t]/g, "").split("\r\n");
+      expect(lines.filter((l) => /^(ATTENDEE|ORGANIZER)/i.test(l))).toEqual([]);
+      expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+        'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home ORGANIZER:mailto:cr@example.com":',
+      ]);
+    });
+
+    it("drops a travel line whose name, parameter name or VALUE type carries a CR", async () => {
+      stubPut(
+        [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "BEGIN:VEVENT",
+          "UID:e1",
+          "SUMMARY:Dentist",
+          "DTSTART:20260820T140000Z",
+          "DTEND:20260820T150000Z",
+          "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+          "X-APPLE-TRAVEL-X\rATTENDEE:mailto:name@example.com",
+          "X-APPLE-TRAVEL-A;X-K\rATTENDEE=1:v",
+          'X-APPLE-TRAVEL-B;VALUE="TEXT\rATTENDEE:mailto:type@example.com":v',
+          "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n"),
+      );
+
+      // A drag: the input does not touch travel time at all.
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, title: "Dentist, later" },
+        "all",
+      );
+
+      expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
+      expect(putData()).not.toMatch(/ATTENDEE/i);
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+      ]);
+    });
+
+    it("starts this-and-following from the edited occurrence's own travel time", async () => {
+      stubPut(
+        appleIcs("RRULE:FREQ=DAILY;COUNT=5").replace(
+          "END:VCALENDAR",
+          [
+            "BEGIN:VEVENT",
+            "UID:e1",
+            "RECURRENCE-ID:20260822T140000Z",
+            "SUMMARY:Dentist, from work",
+            "DTSTART:20260822T140000Z",
+            "DTEND:20260822T150000Z",
+            "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT20M",
+            "END:VEVENT",
+            "END:VCALENDAR",
+          ].join("\r\n"),
+        ),
+      );
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        { ...ref, recurrenceId: new Date("2026-08-22T14:00:00.000Z") },
+        {
+          ...eventInput,
+          startAt: new Date("2026-08-22T14:00:00.000Z"),
+          endAt: new Date("2026-08-22T15:00:00.000Z"),
+          rrule: "FREQ=DAILY",
+        },
+        "thisAndFollowing",
+      );
+
+      const created = davMocks.createCalendarObject.mock.calls[0]?.[0] as {
+        iCalString: string;
+      };
+      expect(travelLines(created.iCalString)).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT20M",
+      ]);
+    });
+
+    it("writes travel time on a new event as Apple reads it", async () => {
+      davMocks.createCalendarObject.mockResolvedValue({
+        status: 201,
+        ok: true,
+        headers: { get: () => '"etag1"' },
+      });
+
+      const created = await adapter().createEvent(
+        { providerCalendarId: CAL_URL },
+        { ...eventInput, travelMinutes: 60 },
+      );
+
+      const put = davMocks.createCalendarObject.mock.calls[0]?.[0] as {
+        iCalString: string;
+      };
+      expect(travelLines(put.iCalString)).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT1H",
+      ]);
+      expect(created.travelMinutes).toBe(60);
+    });
+  });
+
   it("throws a generic error on HTTP 403 writes, not CalendarConflictError", async () => {
     davMocks.fetchCalendarObjects.mockResolvedValue([
       { url: EVENT_HREF, etag: '"abc"', data: timedIcs },

@@ -91,6 +91,8 @@ function replicaFields(
     organizerJson: asJson(event.organizerJson),
     attendeesJson: asJson(event.attendeesJson),
     rawJson: asJson(event.rawJson),
+    travelMinutes: event.travelMinutes ?? null,
+    travelExtra: event.travelExtra ?? [],
     calendarId,
     userId,
   };

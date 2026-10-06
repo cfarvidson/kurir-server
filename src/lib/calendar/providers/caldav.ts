@@ -3,6 +3,14 @@ import ICAL from "ical.js";
 import { createDAVClient } from "tsdav";
 import type { DAVCalendar, DAVResponse } from "tsdav";
 import { instanceWindow } from "@/lib/calendar/expand";
+import {
+  appleTravelLines,
+  NO_TRAVEL,
+  nextTravel,
+  readTravel,
+  writeTravel,
+  type Travel,
+} from "@/lib/calendar/travel";
 import { mapCalDavEvent } from "./map-caldav";
 import {
   CalendarConflictError,
@@ -390,6 +398,10 @@ function applyInput(vevent: ICAL.Component, input: EventInput, includeRrule: boo
   } else if (!includeRrule) {
     vevent.removeAllProperties("rrule");
   }
+  writeTravel(
+    vevent,
+    nextTravel(readTravel(vevent), input.travelMinutes, input.isAllDay),
+  );
 }
 
 function bumpSequence(vevent: ICAL.Component): void {
@@ -433,7 +445,7 @@ function applyInvitees(vevent: ICAL.Component, input: EventInput): void {
 function toIcs(
   input: EventInput,
   uid: string,
-  extra?: { recurrenceId?: Date | null },
+  extra?: { recurrenceId?: Date | null; travel?: Travel },
 ): string {
   const vcalendar = newCalendar();
   const vevent = new ICAL.Component("vevent");
@@ -441,6 +453,8 @@ function toIcs(
   vevent.updatePropertyWithValue("sequence", 0);
   vevent.updatePropertyWithValue("status", "CONFIRMED");
   vevent.updatePropertyWithValue("transp", "OPAQUE");
+  // A series split off another starts from that series' travel lines.
+  writeTravel(vevent, extra?.travel ?? NO_TRAVEL);
   applyInput(vevent, input, !extra?.recurrenceId);
   applyInvitees(vevent, input);
   if (extra?.recurrenceId) {
@@ -450,7 +464,7 @@ function toIcs(
     );
   }
   vcalendar.addSubcomponent(vevent);
-  return vcalendar.toString();
+  return appleTravelLines(vcalendar.toString());
 }
 
 function untilBefore(splitAt: Date, isAllDay: boolean): Date {
@@ -496,6 +510,8 @@ function applySeriesUpdate(
         "recurrence-id",
         icalDate(recurrenceId, input.isAllDay),
       );
+      // The occurrence had the series' travel time until now.
+      writeTravel(exception, readTravel(masterVevent(vcalendar)));
       vcalendar.addSubcomponent(exception);
     }
     applyInput(exception, input, false);
@@ -575,19 +591,20 @@ async function putObject(
   client: CalDavClient,
   object: { url: string; etag: string | null; data: string },
 ): Promise<{ etag: string | null; data: string; url: string }> {
+  const data = appleTravelLines(object.data);
   const res = await writeResponse(() =>
     client.updateCalendarObject({
       calendarObject: {
         url: object.url,
         etag: object.etag ?? undefined,
-        data: object.data,
+        data,
       },
     }),
   );
   assertWriteOk(res);
   return {
     url: object.url,
-    data: object.data,
+    data,
     etag: headerEtag(res) ?? object.etag,
   };
 }
@@ -645,11 +662,12 @@ async function createOnCalendar(
   client: CalDavClient,
   calendarUrl: string,
   eventInput: EventInput,
+  travel: Travel = NO_TRAVEL,
 ): Promise<RemoteEvent> {
   const uid = eventInput.icalUid?.trim() || randomUUID();
   const filename = `${uid}.ics`;
   const href = new URL(filename, collectionUrl(calendarUrl)).href;
-  const ics = toIcs(eventInput, uid);
+  const ics = toIcs(eventInput, uid, { travel });
   const res = await writeResponse(() =>
     client.createCalendarObject({
       calendar: { url: collectionUrl(calendarUrl) },
@@ -863,7 +881,18 @@ export function createCalDavAdapter(input: {
           etag,
           data: truncateIcs(existing.data, splitAt),
         });
-        return createOnCalendar(client, calendarUrl, eventInput);
+        // The new series starts from the travel of the occurrence edited.
+        const vcalendar = parseCalendar(existing.data);
+        const edited =
+          (event.recurrenceId &&
+            exceptionVevent(vcalendar, event.recurrenceId)) ||
+          masterVevent(vcalendar);
+        return createOnCalendar(
+          client,
+          calendarUrl,
+          eventInput,
+          readTravel(edited),
+        );
       }
       const ics = applySeriesUpdate(
         existing.data,
