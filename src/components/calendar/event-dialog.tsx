@@ -62,6 +62,8 @@ type Draft = {
   /** The event's travel time as loaded; its start place only applies to that length. */
   loadedTravelMinutes: number | null;
   travelFrom: string | null;
+  travelAfterMinutes: number | null;
+  loadedTravelAfterMinutes: number | null;
 };
 
 const REPEAT_OPTIONS = [
@@ -112,6 +114,8 @@ function draftFromSlot(
     travelMinutes: null,
     loadedTravelMinutes: null,
     travelFrom: null,
+    travelAfterMinutes: null,
+    loadedTravelAfterMinutes: null,
   };
 }
 
@@ -153,6 +157,8 @@ function draftFromEvent(event: CalendarInstanceDTO, timezone: string): Draft {
     travelMinutes: event.travelMinutes ?? null,
     loadedTravelMinutes: event.travelMinutes ?? null,
     travelFrom: travelPlace(event.travelStart),
+    travelAfterMinutes: event.travelAfterMinutes ?? null,
+    loadedTravelAfterMinutes: event.travelAfterMinutes ?? null,
   };
 }
 
@@ -182,7 +188,7 @@ function toEventInput(
       isAllDay: true,
       timezone: null,
       rrule: rruleFromDraft(draft),
-      ...(withTravel ? { travelMinutes: null } : {}),
+      ...(withTravel ? { travelMinutes: null, travelAfterMinutes: null } : {}),
     };
   }
   const [startHour, startMinute] = draft.startTime.split(":").map(Number);
@@ -209,7 +215,12 @@ function toEventInput(
     isAllDay: false,
     timezone,
     rrule: rruleFromDraft(draft),
-    ...(withTravel ? { travelMinutes: draft.travelMinutes } : {}),
+    ...(withTravel
+      ? {
+          travelMinutes: draft.travelMinutes,
+          travelAfterMinutes: draft.travelAfterMinutes,
+        }
+      : {}),
   };
 }
 
@@ -591,6 +602,32 @@ export function EventDialog({
                           From {draft.travelFrom}
                         </p>
                       )}
+                  </div>
+                )}
+              {!draft.allDay &&
+                calendarHasTravelTime(accounts, draft.calendarId) && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cal-travel-after">Travel after</Label>
+                    <select
+                      id="cal-travel-after"
+                      className={fieldClass()}
+                      value={draft.travelAfterMinutes ?? ""}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        update(
+                          "travelAfterMinutes",
+                          e.target.value ? Number(e.target.value) : null,
+                        )
+                      }
+                    >
+                      {travelOptions(draft.loadedTravelAfterMinutes).map(
+                        (option) => (
+                          <option key={option.label} value={option.value ?? ""}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </div>
                 )}
               <div className="space-y-1.5">

@@ -2,8 +2,8 @@ import type { CalendarAccountDTO } from "@/components/calendar/types";
 import type { TravelStart } from "@/lib/calendar/travel";
 import { formatDurationLabel } from "@/lib/calendar/view-time";
 
-/** The editor's Travel time steps, as in the apps. */
-const TRAVEL_STEPS = [5, 15, 30, 60, 90, 120];
+/** The editor's Travel time and Travel after steps, as in the apps. */
+const TRAVEL_STEPS = [5, 15, 30, 45, 60, 90, 120];
 
 export type TravelOption = { value: number | null; label: string };
 

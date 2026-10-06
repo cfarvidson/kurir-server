@@ -108,12 +108,22 @@ export function eventRepeatLine(
   }
 }
 
-/** The Travel fact: "30 min travel", "1.5 h travel from Home". Null without travel time. */
-export function eventTravelLine(event: CalendarInstanceDTO): string | null {
-  if (event.isAllDay || !event.travelMinutes) return null;
-  const line = `${formatDurationLabel(event.travelMinutes)} travel`;
-  const place = travelPlace(event.travelStart);
-  return place ? `${line} from ${place}` : line;
+/**
+ * The Travel fact, one line per side: "25 min travel from Home", then
+ * "30 min travel after". Empty without travel time, and for all-day events.
+ */
+export function eventTravelLines(event: CalendarInstanceDTO): string[] {
+  if (event.isAllDay) return [];
+  const lines: string[] = [];
+  if (event.travelMinutes) {
+    const line = `${formatDurationLabel(event.travelMinutes)} travel`;
+    const place = travelPlace(event.travelStart);
+    lines.push(place ? `${line} from ${place}` : line);
+  }
+  if (event.travelAfterMinutes) {
+    lines.push(`${formatDurationLabel(event.travelAfterMinutes)} travel after`);
+  }
+  return lines;
 }
 
 export type NoteSegment = { text: string; href?: string };

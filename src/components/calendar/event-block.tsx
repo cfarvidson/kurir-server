@@ -12,7 +12,8 @@ import { formatDurationLabel } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
 
 /**
- * The travel time before a timed event, in the event's own column: the
+ * The travel time before (or, with `after`, after) a timed event, in the
+ * event's own column: the
  * calendar colour washed at half the event's tint with a dashed edge, and a
  * car with the length when there is room (see .cal-travel).
  */
@@ -20,16 +21,18 @@ export function TravelBlock({
   color,
   minutes,
   showLabel,
+  after,
   className,
   style,
 }: {
   color: string;
   minutes: number;
   showLabel: boolean;
+  after?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
-  const label = `${formatDurationLabel(minutes)} travel`;
+  const label = `${formatDurationLabel(minutes)} travel${after ? " after" : ""}`;
   return (
     <div
       title={label}

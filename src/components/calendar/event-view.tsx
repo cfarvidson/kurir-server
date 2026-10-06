@@ -5,7 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import {
   eventRail,
   eventRepeatLine,
-  eventTravelLine,
+  eventTravelLines,
   eventWhenDate,
   eventWhenLine,
   noteSegments,
@@ -203,7 +203,7 @@ export function EventViewDialog({
 }) {
   const rail = event ? eventRail(event, timezone) : null;
   const repeats = event ? eventRepeatLine(event, timezone) : null;
-  const travel = event ? eventTravelLine(event) : null;
+  const travel = event ? eventTravelLines(event) : [];
   return (
     <Dialog open={event != null} onOpenChange={onOpenChange}>
       {event && rail && (
@@ -258,9 +258,13 @@ export function EventViewDialog({
                     </span>
                   </Fact>
                 )}
-                {travel && (
+                {travel.length > 0 && (
                   <Fact label="Travel">
-                    <span className="break-words text-[16px]">{travel}</span>
+                    {travel.map((line) => (
+                      <span key={line} className="break-words text-[16px]">
+                        {line}
+                      </span>
+                    ))}
                   </Fact>
                 )}
               </div>

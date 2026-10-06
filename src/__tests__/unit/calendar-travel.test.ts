@@ -22,13 +22,14 @@ describe("travelStart", () => {
   });
 });
 
-describe("the editor's Travel time select", () => {
-  it("offers None and the steps with the app's duration labels", () => {
+describe("the editor's Travel time and Travel after selects", () => {
+  it("offer None and the steps, 45 min among them, with the app's duration labels", () => {
     expect(travelOptions(null)).toEqual([
       { value: null, label: "None" },
       { value: 5, label: "5 min" },
       { value: 15, label: "15 min" },
       { value: 30, label: "30 min" },
+      { value: 45, label: "45 min" },
       { value: 60, label: "1 h" },
       { value: 90, label: "1.5 h" },
       { value: 120, label: "2 h" },
@@ -42,6 +43,7 @@ describe("the editor's Travel time select", () => {
       "15 min",
       "25 min",
       "30 min",
+      "45 min",
       "1 h",
       "1.5 h",
       "2 h",

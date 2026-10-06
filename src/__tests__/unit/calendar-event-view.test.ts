@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   eventRail,
   eventRepeatLine,
-  eventTravelLine,
+  eventTravelLines,
   eventWhenDate,
   eventWhenLine,
   noteSegments,
@@ -115,29 +115,48 @@ describe("eventRepeatLine", () => {
   });
 });
 
-describe("eventTravelLine", () => {
+describe("eventTravelLines", () => {
   it("says how long the travel is and where it starts", () => {
-    expect(eventTravelLine(event({ travelMinutes: 30 }))).toBe("30 min travel");
+    expect(eventTravelLines(event({ travelMinutes: 30 }))).toEqual([
+      "30 min travel",
+    ]);
     expect(
-      eventTravelLine(
+      eventTravelLines(
         event({ travelMinutes: 90, travelStart: { title: "Home", address: null } }),
       ),
-    ).toBe("1.5 h travel from Home");
+    ).toEqual(["1.5 h travel from Home"]);
     expect(
-      eventTravelLine(
+      eventTravelLines(
         event({
           travelMinutes: 25,
           travelStart: { title: null, address: "Storgatan 1\n111 22 Stockholm" },
         }),
       ),
-    ).toBe("25 min travel from Storgatan 1");
+    ).toEqual(["25 min travel from Storgatan 1"]);
   });
 
-  it("is null without travel time, and for an all-day event", () => {
-    expect(eventTravelLine(event({}))).toBeNull();
+  it("puts travel after on its own line, alone when there is no travel before", () => {
     expect(
-      eventTravelLine(event({ isAllDay: true, travelMinutes: 30 })),
-    ).toBeNull();
+      eventTravelLines(
+        event({
+          travelMinutes: 25,
+          travelStart: { title: "Home", address: null },
+          travelAfterMinutes: 30,
+        }),
+      ),
+    ).toEqual(["25 min travel from Home", "30 min travel after"]);
+    expect(eventTravelLines(event({ travelAfterMinutes: 45 }))).toEqual([
+      "45 min travel after",
+    ]);
+  });
+
+  it("is empty without travel time, and for an all-day event", () => {
+    expect(eventTravelLines(event({}))).toEqual([]);
+    expect(
+      eventTravelLines(
+        event({ isAllDay: true, travelMinutes: 30, travelAfterMinutes: 30 }),
+      ),
+    ).toEqual([]);
   });
 });
 
