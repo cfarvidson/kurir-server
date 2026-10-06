@@ -59,7 +59,11 @@ describe("loadScheduleInstances", () => {
         endAt: new Date("2026-09-09T13:00:00.000Z"),
         isAllDay: false,
         isCancelled: false,
-        event: { transparency: "busy", travelMinutes: 45 },
+        event: {
+          transparency: "busy",
+          travelMinutes: 45,
+          travelAfterMinutes: 30,
+        },
       },
     ]);
     const now = new Date("2026-09-08T10:00:00.000Z");
@@ -69,9 +73,10 @@ describe("loadScheduleInstances", () => {
       line.startsWith("Wed 9 Sep"),
     );
 
+    expect(instances[0].travelAfterMinutes).toBe(30);
     expect(wednesday).toEqual([
       "Wed 9 Sep, 07:00-11:15",
-      "Wed 9 Sep, 13:00-21:00",
+      "Wed 9 Sep, 13:30-21:00",
     ]);
   });
 });

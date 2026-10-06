@@ -334,18 +334,21 @@ export type TimedBlock = {
   endMin: number;
   /** Where the block is busy from, when travel time comes before it. */
   busyStartMin?: number;
+  /** Where the block is busy until, when travel time comes after it. */
+  busyEndMin?: number;
 };
 
 export type PackedTimedBlock = TimedBlock & {
   busyStartMin: number;
+  busyEndMin: number;
   col: number;
   cols: number;
 };
 
 /**
  * Side-by-side columns for overlapping timed events. Overlap is counted from
- * each block's busy start (its travel time included); the block keeps its
- * own start.
+ * each block's busy start to its busy end (travel time before and after
+ * included); the block keeps its own start and end.
  */
 export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
   const items = blocks
@@ -353,6 +356,7 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
       ...b,
       busyStartMin: Math.min(b.busyStartMin ?? b.startMin, b.startMin),
       endMin: Math.max(b.endMin, b.startMin + 15),
+      busyEndMin: Math.max(b.busyEndMin ?? b.endMin, b.endMin, b.startMin + 15),
       index: i,
     }))
     .sort(
@@ -378,7 +382,7 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
 
   for (const item of items) {
     for (let i = active.length - 1; i >= 0; i--) {
-      if (active[i].endMin <= item.busyStartMin) active.splice(i, 1);
+      if (active[i].busyEndMin <= item.busyStartMin) active.splice(i, 1);
     }
     if (group.length > 0 && item.busyStartMin >= groupEnd) {
       closeGroup();
@@ -391,7 +395,7 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
     laid.push(next);
     active.push(next);
     group.push(next);
-    groupEnd = Math.max(groupEnd, item.endMin);
+    groupEnd = Math.max(groupEnd, item.busyEndMin);
   }
   closeGroup();
 
@@ -403,6 +407,7 @@ export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
       startMin: found.startMin,
       endMin: found.endMin,
       busyStartMin: found.busyStartMin,
+      busyEndMin: found.busyEndMin,
       col: found.col,
       cols: found.cols,
     };
