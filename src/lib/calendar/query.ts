@@ -9,6 +9,7 @@ import {
   type Transparency,
 } from "@/lib/calendar/expand";
 import { needsOnTheFlyExpand, overlaps } from "@/lib/calendar/range";
+import { travelStart, type TravelStart } from "@/lib/calendar/travel";
 
 const FALLBACK_COLOR = "#737373";
 
@@ -22,6 +23,10 @@ export type VisibleInstance = EventInstance & {
   rrule: string | null;
   isReadOnly: boolean;
   attendeesJson: unknown;
+  /** Time to get there before `startAt`, in minutes. It counts as busy. */
+  travelMinutes: number | null;
+  /** Where that travel starts, when Apple Calendar counted it from a place. */
+  travelStart: TravelStart | null;
 };
 
 type CalendarMeta = {
@@ -38,6 +43,8 @@ type EventExtras = {
   description: string | null;
   rrule: string | null;
   attendeesJson: unknown;
+  travelMinutes: number | null;
+  travelExtra: string[];
 };
 
 type MasterRow = {
@@ -55,6 +62,8 @@ type MasterRow = {
   location: string | null;
   description: string | null;
   attendeesJson: unknown;
+  travelMinutes?: number | null;
+  travelExtra?: string[];
   calendarId: string;
   calendar: CalendarMeta;
   exceptions: Array<{
@@ -66,6 +75,8 @@ type MasterRow = {
     title: string;
     location?: string | null;
     description?: string | null;
+    travelMinutes?: number | null;
+    travelExtra?: string[];
   }>;
 };
 
@@ -127,13 +138,20 @@ function toExceptions(masterId: string, rows: MasterRow["exceptions"]): EventExc
 
 function extrasFrom(
   extra: Partial<EventExtras> | null | undefined,
-): Omit<EventExtras, "transparency"> & { transparency: Transparency } {
+  isAllDay: boolean,
+): Omit<EventExtras, "transparency" | "travelExtra"> & {
+  transparency: Transparency;
+  travelStart: TravelStart | null;
+} {
+  const travelMinutes = isAllDay ? null : (extra?.travelMinutes ?? null);
   return {
     transparency: extra?.transparency === "free" ? "free" : "busy",
     location: extra?.location ?? null,
     description: extra?.description ?? null,
     rrule: extra?.rrule ?? null,
     attendeesJson: extra?.attendeesJson ?? null,
+    travelMinutes,
+    travelStart: travelMinutes ? travelStart(extra?.travelExtra ?? []) : null,
   };
 }
 
@@ -153,17 +171,23 @@ function matchingException(
   );
 }
 
-function extrasForOccurrence(
-  row: EventInstance,
-  master: MasterRow,
-): EventExtras {
-  const base: EventExtras = {
+function masterExtras(master: MasterRow): EventExtras {
+  return {
     transparency: master.transparency,
     location: master.location,
     description: master.description,
     rrule: master.rrule,
     attendeesJson: master.attendeesJson,
+    travelMinutes: master.travelMinutes ?? null,
+    travelExtra: master.travelExtra ?? [],
   };
+}
+
+function extrasForOccurrence(
+  row: EventInstance,
+  master: MasterRow,
+): EventExtras {
+  const base = masterExtras(master);
   const ex = matchingException(master, row);
   if (!ex) return base;
   return {
@@ -172,6 +196,9 @@ function extrasForOccurrence(
     description: ex.description ?? master.description,
     rrule: master.rrule,
     attendeesJson: master.attendeesJson,
+    // An exception is a whole VEVENT of its own, travel lines included.
+    travelMinutes: ex.travelMinutes ?? null,
+    travelExtra: ex.travelExtra ?? [],
   };
 }
 
@@ -190,7 +217,7 @@ function decorate(
     color: calendarColor(calendar.color),
     calendarName: calendar.name,
     isReadOnly: calendar.isReadOnly === true,
-    ...extrasFrom(extra),
+    ...extrasFrom(extra, row.isAllDay),
   };
 }
 
@@ -222,6 +249,8 @@ async function loadFromInstanceTable(
           rrule: true,
           transparency: true,
           attendeesJson: true,
+          travelMinutes: true,
+          travelExtra: true,
         },
       },
       calendar: {
@@ -295,13 +324,7 @@ async function expandVisibleMasters(
       from,
       to,
     );
-    const extra: EventExtras = {
-      transparency: master.transparency,
-      location: master.location,
-      description: master.description,
-      rrule: master.rrule,
-      attendeesJson: master.attendeesJson,
-    };
+    const extra = masterExtras(master);
     for (const row of expanded) {
       const mapped = decorate(
         row,

@@ -48,6 +48,8 @@ export function serializeInstance(row: VisibleInstance): CalendarInstanceDTO {
     description: row.description,
     rrule: row.rrule,
     isReadOnly: row.isReadOnly,
+    travelMinutes: row.travelMinutes,
+    travelStart: row.travelStart,
   };
 }
 

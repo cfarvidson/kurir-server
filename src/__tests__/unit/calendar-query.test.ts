@@ -38,7 +38,7 @@ type InstanceRow = {
   isException: boolean;
   userId: string;
   calendarId: string;
-  event: { title: string };
+  event: { title: string; travelMinutes?: number | null; travelExtra?: string[] };
   calendar: CalendarMeta;
 };
 
@@ -185,6 +185,34 @@ describe("listVisibleInstancesForUser", () => {
       calendarName: "Personal",
       isCancelled: false,
     });
+  });
+
+  it("carries travel time and where it starts on each instance", async () => {
+    store.instances = [
+      instance({
+        eventId: "evt-travel",
+        event: {
+          title: "Dentist",
+          travelMinutes: 25,
+          travelExtra: [
+            'X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="Storgatan 1\\n111 22 Stockholm";X-TITLE=Home:',
+          ],
+        },
+      }),
+      instance({
+        eventId: "evt-plain",
+        startAt: new Date("2026-08-20T12:00:00.000Z"),
+        endAt: new Date("2026-08-20T13:00:00.000Z"),
+      }),
+    ];
+
+    const rows = await listVisibleInstancesForUser("u1", WEEK_FROM, WEEK_TO, NOW);
+
+    expect(rows[0]).toMatchObject({
+      travelMinutes: 25,
+      travelStart: { title: "Home", address: "Storgatan 1\n111 22 Stockholm" },
+    });
+    expect(rows[1]).toMatchObject({ travelMinutes: null, travelStart: null });
   });
 
   it("expands masters outside the instance window instead of the instance table", async () => {

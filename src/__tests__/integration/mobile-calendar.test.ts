@@ -183,6 +183,8 @@ describe("/api/mobile/calendar", () => {
         rrule: null,
         isReadOnly: false,
         attendeesJson: null,
+        travelMinutes: null,
+        travelStart: null,
       },
     ]);
 

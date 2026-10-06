@@ -11,6 +11,7 @@ import {
 import { CalendarWriteError } from "@/lib/calendar/write";
 import type { VisibleInstance } from "@/lib/calendar/query";
 import type { listCalendarAccountsForUser } from "@/lib/calendar/accounts";
+import { travelStart } from "@/lib/calendar/travel";
 
 export async function requireCalendarMobileAuth(
   req: NextRequest,
@@ -77,6 +78,9 @@ export const eventInputSchema = z.object({
   isAllDay: z.boolean(),
   timezone: nullableString,
   rrule: nullableString,
+  // Travel time before the event, in minutes. Absent (an older app, a
+  // drag) leaves it as it is; null or 0 removes it.
+  travelMinutes: z.number().int().min(0).max(24 * 60).nullable().optional(),
 });
 
 export const createEventBodySchema = eventInputSchema.extend({
@@ -197,6 +201,8 @@ export function serializeRangeInstance(row: VisibleInstance) {
     rrule: row.rrule,
     isReadOnly: row.isReadOnly,
     attendees: normalizeAttendees(row.attendeesJson),
+    travelMinutes: row.travelMinutes,
+    travelStart: row.travelStart,
   };
 }
 
@@ -221,6 +227,8 @@ export function serializeSyncEvent(row: {
   updatedAt: Date;
   sequence: number;
   attendeesJson: unknown;
+  travelMinutes: number | null;
+  travelExtra: string[];
 }) {
   return {
     id: row.id,
@@ -243,6 +251,9 @@ export function serializeSyncEvent(row: {
     updatedAt: row.updatedAt.toISOString(),
     sequence: row.sequence,
     attendees: normalizeAttendees(row.attendeesJson),
+    travelMinutes: row.isAllDay ? null : row.travelMinutes,
+    travelStart:
+      !row.isAllDay && row.travelMinutes ? travelStart(row.travelExtra) : null,
   };
 }
 
