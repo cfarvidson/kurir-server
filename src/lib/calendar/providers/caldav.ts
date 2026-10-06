@@ -400,7 +400,7 @@ function applyInput(vevent: ICAL.Component, input: EventInput, includeRrule: boo
   }
   writeTravel(
     vevent,
-    nextTravel(readTravel(vevent), input.travelMinutes, input.isAllDay),
+    nextTravel(readTravel(vevent), input),
   );
 }
 

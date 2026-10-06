@@ -146,3 +146,46 @@ describe("mapCalDavEvent travel time from an untrusted calendar", () => {
     );
   });
 });
+
+describe("mapCalDavEvent travel time after", () => {
+  function withAfter(line: string, start = "DTSTART:20261009T110000Z\nDTEND:20261009T120000Z"): string {
+    return `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:after
+SUMMARY:Dinner
+${start}
+${line}
+END:VEVENT
+END:VCALENDAR`;
+  }
+
+  it("reads Kurir's X-KURIR-TRAVEL-AFTER into whole minutes", () => {
+    expect(
+      mapCalDavEvent({ data: withAfter("X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT1H30M") })
+        .travelAfterMinutes,
+    ).toBe(90);
+    expect(
+      mapCalDavEvent({ data: withAfter("X-KURIR-TRAVEL-AFTER:PT15M") }).travelAfterMinutes,
+    ).toBe(15);
+  });
+
+  it("reads none for a length no calendar means, for an all-day event, and without the line", () => {
+    for (const value of ["P9999999W", "PT1441M", "-PT30M", "PT0S", "soon"]) {
+      expect(
+        mapCalDavEvent({ data: withAfter(`X-KURIR-TRAVEL-AFTER;VALUE=DURATION:${value}`) })
+          .travelAfterMinutes,
+        value,
+      ).toBeNull();
+    }
+    expect(
+      mapCalDavEvent({
+        data: withAfter(
+          "X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT30M",
+          "DTSTART;VALUE=DATE:20261009\nDTEND;VALUE=DATE:20261010",
+        ),
+      }).travelAfterMinutes,
+    ).toBeNull();
+    expect(mapCalDavEvent({ data: withAfter("X-OTHER:1") }).travelAfterMinutes).toBeNull();
+  });
+});

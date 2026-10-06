@@ -7,10 +7,14 @@ import ICAL from "ical.js";
  * (`X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="...";X-TITLE=Home:`)
  * and the like. Kurir reads the length into minutes and keeps the other
  * lines as content lines, written back the way Apple writes them.
+ *
+ * Travel after the event has no Apple field; it is Kurir's own
+ * `X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT30M`, the name the apps use too.
  */
 export type Travel = {
   travelMinutes: number | null;
   travelExtra: string[];
+  travelAfterMinutes: number | null;
 };
 
 /** Where the travel starts: a place's name and its address, one line per address line. */
@@ -19,7 +23,11 @@ export type TravelStart = {
   address: string | null;
 };
 
-export const NO_TRAVEL: Travel = { travelMinutes: null, travelExtra: [] };
+export const NO_TRAVEL: Travel = {
+  travelMinutes: null,
+  travelExtra: [],
+  travelAfterMinutes: null,
+};
 
 /** The longest travel time Kurir reads or writes: a day. Anything longer reads as none. */
 export const MAX_TRAVEL_MINUTES = 24 * 60;
@@ -27,6 +35,7 @@ export const MAX_TRAVEL_MINUTES = 24 * 60;
 const PREFIX = "x-apple-travel-";
 const DURATION = "x-apple-travel-duration";
 const START = "x-apple-travel-start";
+const AFTER = "x-kurir-travel-after";
 
 /**
  * Characters some parser could take as the end of a line: the C0 controls
@@ -135,6 +144,7 @@ function minutesOf(prop: ICAL.Property | null): number | null {
 /** The travel lines on a VEVENT, whatever kind of event it is. A line ical.js cannot decode is left out. */
 function travelLinesOf(vevent: ICAL.Component): Travel {
   const travelMinutes = minutesOf(vevent.getFirstProperty(DURATION));
+  const travelAfterMinutes = minutesOf(vevent.getFirstProperty(AFTER));
   const travelExtra: string[] = [];
   for (const prop of vevent.getAllProperties()) {
     if (!prop.name.startsWith(PREFIX) || prop.name === DURATION) continue;
@@ -144,8 +154,14 @@ function travelLinesOf(vevent: ICAL.Component): Travel {
       // Unreadable: dropped rather than failing the event.
     }
   }
-  if (travelMinutes == null && travelExtra.length === 0) return NO_TRAVEL;
-  return { travelMinutes, travelExtra };
+  if (
+    travelMinutes == null &&
+    travelExtra.length === 0 &&
+    travelAfterMinutes == null
+  ) {
+    return NO_TRAVEL;
+  }
+  return { travelMinutes, travelExtra, travelAfterMinutes };
 }
 
 /** The travel time on a VEVENT. An all-day event has none. */
@@ -183,23 +199,35 @@ export function travelStart(lines: string[]): TravelStart | null {
 }
 
 /**
- * The travel an event gets from an edit. `undefined` minutes leaves it as it
- * was (a drag, or a client that does not know travel time); null or 0 is
- * None and removes every line. The same length keeps everything. A new
- * length drops the start line, which no longer applies, and keeps the rest.
+ * The travel an event gets from an edit. For each side, `undefined` leaves
+ * it as it was (a drag, or a client that does not know travel time) and
+ * null or 0 is None. Before: None removes every Apple line, the same length
+ * keeps everything, and a new length drops the start line, which no longer
+ * applies, and keeps the rest. An all-day event has neither.
  */
 export function nextTravel(
   current: Travel,
-  minutes: number | null | undefined,
-  isAllDay: boolean,
+  input: {
+    travelMinutes?: number | null;
+    travelAfterMinutes?: number | null;
+    isAllDay: boolean;
+  },
 ): Travel {
-  if (isAllDay) return NO_TRAVEL;
-  if (minutes === undefined) return current;
-  if (!minutes || minutes <= 0) return NO_TRAVEL;
-  if (minutes === current.travelMinutes) return current;
+  if (input.isAllDay) return NO_TRAVEL;
+  const after = input.travelAfterMinutes;
+  const travelAfterMinutes =
+    after === undefined ? current.travelAfterMinutes : after || null;
+  const minutes = input.travelMinutes;
+  if (minutes === undefined || minutes === current.travelMinutes) {
+    return { ...current, travelAfterMinutes };
+  }
+  if (!minutes || minutes <= 0) {
+    return { ...NO_TRAVEL, travelAfterMinutes };
+  }
   return {
     travelMinutes: minutes,
     travelExtra: current.travelExtra.filter((line) => !isStartLine(line)),
+    travelAfterMinutes,
   };
 }
 
@@ -215,6 +243,7 @@ export function travelDurationValue(minutes: number): string {
 function sameTravel(a: Travel, b: Travel): boolean {
   return (
     a.travelMinutes === b.travelMinutes &&
+    a.travelAfterMinutes === b.travelAfterMinutes &&
     a.travelExtra.length === b.travelExtra.length &&
     a.travelExtra.every((line, i) => line === b.travelExtra[i])
   );
@@ -224,7 +253,9 @@ function sameTravel(a: Travel, b: Travel): boolean {
 export function writeTravel(vevent: ICAL.Component, travel: Travel): void {
   if (sameTravel(travelLinesOf(vevent), travel)) return;
   for (const prop of [...vevent.getAllProperties()]) {
-    if (prop.name.startsWith(PREFIX)) vevent.removeProperty(prop);
+    if (prop.name.startsWith(PREFIX) || prop.name === AFTER) {
+      vevent.removeProperty(prop);
+    }
   }
   if (travel.travelMinutes) {
     vevent.addProperty(
@@ -240,15 +271,24 @@ export function writeTravel(vevent: ICAL.Component, travel: Travel): void {
       // A line ical.js cannot read back is dropped, not fatal to the write.
     }
   }
+  if (travel.travelAfterMinutes) {
+    vevent.addProperty(ICAL.Property.fromString(afterLine(travel.travelAfterMinutes)));
+  }
+}
+
+function afterLine(minutes: number): string {
+  return `X-KURIR-TRAVEL-AFTER;VALUE=DURATION:${travelDurationValue(minutes)}`;
 }
 
 /**
- * Serialized ICS with each `X-APPLE-TRAVEL-*` line rewritten in Apple's form.
+ * Serialized ICS with each `X-APPLE-TRAVEL-*` line rewritten in Apple's form,
+ * and each `X-KURIR-TRAVEL-AFTER` line rebuilt from its minutes alone (or
+ * left out when it has none), so no remote text on it reaches the write.
  * Every CalDAV write goes through ical.js, which re-encodes parameters.
  * Other lines, folded or not, stay exactly as they were.
  */
 export function appleTravelLines(ics: string): string {
-  if (!/X-APPLE-TRAVEL-/i.test(ics)) return ics;
+  if (!/X-APPLE-TRAVEL-|X-KURIR-TRAVEL-AFTER/i.test(ics)) return ics;
   const eol = ics.includes("\r\n") ? "\r\n" : "\n";
   // Each content line with its folded continuations.
   const lines: string[] = [];
@@ -261,7 +301,18 @@ export function appleTravelLines(ics: string): string {
   }
   return lines
     .flatMap((line) => {
-      if (!line.toLowerCase().startsWith(PREFIX)) return [line];
+      const lower = line.toLowerCase();
+      if (lower.startsWith(`${AFTER}:`) || lower.startsWith(`${AFTER};`)) {
+        let minutes: number | null = null;
+        try {
+          const unfolded = line.replace(/\r?\n[ \t]/g, "");
+          minutes = minutesOf(ICAL.Property.fromString(unfolded));
+        } catch {
+          // Unreadable: left out below.
+        }
+        return minutes ? [afterLine(minutes)] : [];
+      }
+      if (!lower.startsWith(PREFIX)) return [line];
       try {
         const unfolded = line.replace(/\r?\n[ \t]/g, "");
         return [
