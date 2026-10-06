@@ -52,14 +52,40 @@ describe("primaryLine", () => {
         list: "sent",
         fromAddress: "me@x.y",
         toAddresses: [],
-        cc: "cc@x.y",
+        ccAddresses: ["cc@x.y", "dd@x.y"],
+      }),
+    ).toBe("Cc: cc@x.y, dd@x.y");
+    expect(
+      primaryLine({
+        list: "sent",
+        fromAddress: "me@x.y",
+        toAddresses: [],
+      }),
+    ).toBe("Bcc only");
+  });
+
+  it("skips blank addresses on Sent, like the app's sentRecipientLine", () => {
+    expect(
+      primaryLine({
+        list: "sent",
+        fromAddress: "me@x.y",
+        toAddresses: ["", "ada@x.y", " "],
+      }),
+    ).toBe("To: ada@x.y");
+    expect(
+      primaryLine({
+        list: "sent",
+        fromAddress: "me@x.y",
+        toAddresses: [" "],
+        ccAddresses: ["", " cc@x.y "],
       }),
     ).toBe("Cc: cc@x.y");
     expect(
       primaryLine({
         list: "sent",
         fromAddress: "me@x.y",
-        toAddresses: [],
+        toAddresses: [""],
+        ccAddresses: [" "],
       }),
     ).toBe("Bcc only");
   });

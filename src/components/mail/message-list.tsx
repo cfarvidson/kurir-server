@@ -460,7 +460,7 @@ export function MessageRow({
               fromName: message.fromName,
               fromAddress: message.fromAddress,
               toAddresses: message.toAddresses,
-              cc: message.ccAddresses?.join(", ") || null,
+              ccAddresses: message.ccAddresses,
             })}
           </span>
           {countLabel && (
