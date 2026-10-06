@@ -435,7 +435,14 @@ function NextUpCard({
         href="/calendar"
         className="flex min-w-0 flex-col gap-0.5 after:absolute after:inset-0 after:rounded-lg"
       >
-        <span className="eyebrow text-muted-foreground">
+        <span
+          className={cn(
+            "eyebrow text-muted-foreground",
+            // Beside Join the sidebar has no room for "in 11 min" at full
+            // size; smaller on one line rather than wrapped.
+            next.joinUrl && "truncate text-[11px] tracking-normal",
+          )}
+        >
           Next up{next.when ? ` · ${next.when}` : ""}
         </span>
         <span className="truncate text-sm font-medium">
