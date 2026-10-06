@@ -7,7 +7,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { loadScheduleInstances } from "@/lib/mail/person-schedule";
+import { loadScheduleInstances, slotLines } from "@/lib/mail/person-schedule";
 
 describe("loadScheduleInstances", () => {
   beforeEach(() => {
@@ -50,5 +50,28 @@ describe("loadScheduleInstances", () => {
       select: { event: { select: Record<string, boolean> } };
     };
     expect(arg.select.event.select.travelMinutes).toBe(true);
+  });
+
+  it("offers a contact no time that is spent getting to an event", async () => {
+    findMany.mockResolvedValue([
+      {
+        startAt: new Date("2026-09-09T12:00:00.000Z"),
+        endAt: new Date("2026-09-09T13:00:00.000Z"),
+        isAllDay: false,
+        isCancelled: false,
+        event: { transparency: "busy", travelMinutes: 45 },
+      },
+    ]);
+    const now = new Date("2026-09-08T10:00:00.000Z");
+
+    const instances = await loadScheduleInstances("u1", now);
+    const wednesday = slotLines(instances, now, "UTC").filter((line) =>
+      line.startsWith("Wed 9 Sep"),
+    );
+
+    expect(wednesday).toEqual([
+      "Wed 9 Sep, 07:00-11:15",
+      "Wed 9 Sep, 13:00-21:00",
+    ]);
   });
 });

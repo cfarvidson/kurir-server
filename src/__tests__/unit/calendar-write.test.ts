@@ -1258,6 +1258,41 @@ describe("calendar write-through", () => {
       expect(store.events.find((e) => e.id === id)?.travelMinutes).toBeNull();
     });
 
+    it("rejects a bad travel time on an edit too, before writing anything", async () => {
+      store.calendars.push(caldavCalendar());
+      store.events.push(eventRow({ travelMinutes: 25, travelExtra: [HOME] }));
+      const { updateEventForUser } = await import("@/lib/calendar/write");
+
+      for (const travelMinutes of [-1, 1.5, 1441]) {
+        await expect(
+          updateEventForUser("u1", "evt-1", input({ travelMinutes }), "all"),
+        ).rejects.toMatchObject({ status: 400 });
+      }
+      expect(db.calendarEvent.update).not.toHaveBeenCalled();
+      expect(adapter.updateEvent).not.toHaveBeenCalled();
+    });
+
+    it("neither stores nor sends travel time on an edit of a calendar that cannot keep it", async () => {
+      store.calendars.push(calendar());
+      store.events.push(eventRow());
+      adapter.updateEvent.mockResolvedValue(remote({ providerEventId: "g-1" }));
+
+      const { updateEventForUser } = await import("@/lib/calendar/write");
+      await updateEventForUser(
+        "u1",
+        "evt-1",
+        input({ travelMinutes: 30 }),
+        "all",
+      );
+
+      expect(adapter.updateEvent.mock.calls[0][2]).not.toHaveProperty(
+        "travelMinutes",
+      );
+      const replicaWrite = vi.mocked(db.calendarEvent.update).mock.calls[0][0]
+        .data;
+      expect(replicaWrite.travelMinutes).toBeNull();
+    });
+
     it("gives a changed occurrence the series' travel time on the replica", async () => {
       vi.mocked(isDemoInstance).mockReturnValue(true);
       store.calendars.push(caldavCalendar());
@@ -1324,6 +1359,13 @@ describe("calendar write-through", () => {
         updateEventForUser("u1", "evt-1", input({ travelMinutes: 45 }), "all"),
       ).rejects.toThrow("provider down");
 
+      // The edit reached the replica and the provider before the rollback.
+      expect(
+        vi.mocked(db.calendarEvent.update).mock.calls[0][0].data,
+      ).toMatchObject({ travelMinutes: 45 });
+      expect(adapter.updateEvent.mock.calls[0][2]).toMatchObject({
+        travelMinutes: 45,
+      });
       expect(store.events.find((e) => e.id === "evt-1")).toMatchObject({
         travelMinutes: 25,
         travelExtra: [HOME],
