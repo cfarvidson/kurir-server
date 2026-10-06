@@ -43,7 +43,19 @@ describe("pickNextUp", () => {
       time: "09:30",
       when: "in 20 min",
       color: "#2f6fb5",
+      joinUrl: null,
     });
+  });
+
+  it("carries the meeting link for Join", () => {
+    const call = {
+      ...standup,
+      description: "Join: https://meet.example.com/standup",
+    };
+    expect(pickNextUp([call], NOW, TZ)?.joinUrl).toBe(
+      "https://meet.example.com/standup",
+    );
+    expect(pickNextUp([standup], NOW, TZ)?.joinUrl).toBeNull();
   });
 
   it("says Now for an event in progress and nothing an hour or more out", () => {
