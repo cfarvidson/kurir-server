@@ -17,6 +17,7 @@ import {
   placeTimedEvents,
 } from "@/components/calendar/grid-model";
 import { headerNextUp, joinUrl } from "@/components/calendar/header-model";
+import { JoinLink } from "@/components/calendar/join-link";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -605,15 +606,7 @@ function Scheduled({
               )}
             </div>
             {url && (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold hover:bg-accent"
-              >
-                Join
-              </a>
+              <JoinLink href={url} onClick={(e) => e.stopPropagation()} />
             )}
           </div>
         );
