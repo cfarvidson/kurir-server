@@ -27,6 +27,8 @@ export type VisibleInstance = EventInstance & {
   travelMinutes: number | null;
   /** Where that travel starts, when Apple Calendar counted it from a place. */
   travelStart: TravelStart | null;
+  /** Time to get away after `endAt`, in minutes. It counts as busy too. */
+  travelAfterMinutes: number | null;
 };
 
 type CalendarMeta = {
@@ -45,6 +47,7 @@ type EventExtras = {
   attendeesJson: unknown;
   travelMinutes: number | null;
   travelExtra: string[];
+  travelAfterMinutes: number | null;
 };
 
 type MasterRow = {
@@ -64,6 +67,7 @@ type MasterRow = {
   attendeesJson: unknown;
   travelMinutes?: number | null;
   travelExtra?: string[];
+  travelAfterMinutes?: number | null;
   calendarId: string;
   calendar: CalendarMeta;
   exceptions: Array<{
@@ -77,6 +81,7 @@ type MasterRow = {
     description?: string | null;
     travelMinutes?: number | null;
     travelExtra?: string[];
+    travelAfterMinutes?: number | null;
   }>;
 };
 
@@ -152,6 +157,7 @@ function extrasFrom(
     attendeesJson: extra?.attendeesJson ?? null,
     travelMinutes,
     travelStart: travelMinutes ? travelStart(extra?.travelExtra ?? []) : null,
+    travelAfterMinutes: isAllDay ? null : (extra?.travelAfterMinutes ?? null),
   };
 }
 
@@ -180,6 +186,7 @@ function masterExtras(master: MasterRow): EventExtras {
     attendeesJson: master.attendeesJson,
     travelMinutes: master.travelMinutes ?? null,
     travelExtra: master.travelExtra ?? [],
+    travelAfterMinutes: master.travelAfterMinutes ?? null,
   };
 }
 
@@ -199,6 +206,7 @@ function extrasForOccurrence(
     // An exception is a whole VEVENT of its own, travel lines included.
     travelMinutes: ex.travelMinutes ?? null,
     travelExtra: ex.travelExtra ?? [],
+    travelAfterMinutes: ex.travelAfterMinutes ?? null,
   };
 }
 
@@ -251,6 +259,7 @@ async function loadFromInstanceTable(
           attendeesJson: true,
           travelMinutes: true,
           travelExtra: true,
+          travelAfterMinutes: true,
         },
       },
       calendar: {

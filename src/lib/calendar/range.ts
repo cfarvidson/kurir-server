@@ -33,6 +33,8 @@ type FreetimeInstance = {
   transparency: "busy" | "free";
   /** Time to get there, busy before `startAt`. */
   travelMinutes?: number | null;
+  /** Time to get away, busy after `endAt`. */
+  travelAfterMinutes?: number | null;
 };
 
 export function freetimeSpans(
@@ -50,7 +52,8 @@ export function freetimeSpans(
     .map((i) => {
       const travelMs = (i.travelMinutes ?? 0) * 60_000;
       const start = Math.max(i.startAt.getTime() - travelMs, dayStartMs);
-      const end = Math.min(i.endAt.getTime(), dayEndMs);
+      const afterMs = (i.travelAfterMinutes ?? 0) * 60_000;
+      const end = Math.min(i.endAt.getTime() + afterMs, dayEndMs);
       return { start, end };
     })
     .filter((i) => i.start < i.end)

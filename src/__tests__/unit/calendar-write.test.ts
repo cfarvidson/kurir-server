@@ -67,6 +67,7 @@ type EventRow = {
   rawJson: unknown;
   travelMinutes: number | null;
   travelExtra: string[];
+  travelAfterMinutes: number | null;
   calendarId: string;
   userId: string;
 };
@@ -243,6 +244,7 @@ function eventRow(partial: Partial<EventRow> = {}): EventRow {
     rawJson: null,
     travelMinutes: null,
     travelExtra: [],
+    travelAfterMinutes: null,
     calendarId: "cal-1",
     userId: "u1",
     ...partial,
@@ -1291,6 +1293,54 @@ describe("calendar write-through", () => {
       const replicaWrite = vi.mocked(db.calendarEvent.update).mock.calls[0][0]
         .data;
       expect(replicaWrite.travelMinutes).toBeNull();
+    });
+
+    it("checks travel after like travel before, and keeps it only for CalDAV", async () => {
+      store.calendars.push(caldavCalendar(), calendar({ id: "cal-g" }));
+      const { createEventForUser } = await import("@/lib/calendar/write");
+
+      for (const travelAfterMinutes of [-1, 1.5, 1441]) {
+        await expect(
+          createEventForUser("u1", "cal-1", input({ travelAfterMinutes })),
+        ).rejects.toMatchObject({ status: 400 });
+      }
+      expect(store.events).toHaveLength(0);
+
+      adapter.createEvent.mockResolvedValue(remote({ travelAfterMinutes: 30 }));
+      const icloud = await createEventForUser(
+        "u1",
+        "cal-1",
+        input({ travelAfterMinutes: 30 }),
+      );
+      expect(adapter.createEvent.mock.calls[0][1]).toMatchObject({
+        travelAfterMinutes: 30,
+      });
+      expect(store.events.find((e) => e.id === icloud.id)?.travelAfterMinutes).toBe(30);
+
+      adapter.createEvent.mockResolvedValue(remote({ providerEventId: "g-2" }));
+      const google = await createEventForUser(
+        "u1",
+        "cal-g",
+        input({ travelAfterMinutes: 30 }),
+      );
+      expect(adapter.createEvent.mock.calls[1][1]).not.toHaveProperty(
+        "travelAfterMinutes",
+      );
+      expect(store.events.find((e) => e.id === google.id)?.travelAfterMinutes).toBeNull();
+    });
+
+    it("keeps travel after on the replica through an edit that does not set it, and on a changed occurrence", async () => {
+      vi.mocked(isDemoInstance).mockReturnValue(true);
+      store.calendars.push(caldavCalendar());
+      store.events.push(
+        eventRow({ rrule: "FREQ=DAILY", travelMinutes: 25, travelExtra: [HOME], travelAfterMinutes: 15 }),
+      );
+
+      const { updateEventForUser } = await import("@/lib/calendar/write");
+      await updateEventForUser("u1", "evt-1", input({ travelMinutes: 30 }), "this");
+
+      const exception = store.events.find((e) => e.masterEventId === "evt-1");
+      expect(exception).toMatchObject({ travelMinutes: 30, travelAfterMinutes: 15 });
     });
 
     it("gives a changed occurrence the series' travel time on the replica", async () => {

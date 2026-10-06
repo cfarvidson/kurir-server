@@ -35,6 +35,8 @@ export type RemoteEvent = {
   travelMinutes?: number | null;
   /** The other `X-APPLE-TRAVEL-*` lines, as Apple writes them. */
   travelExtra?: string[];
+  /** Kurir's own travel time after the event (`X-KURIR-TRAVEL-AFTER`), in minutes. */
+  travelAfterMinutes?: number | null;
 };
 
 export type EventAttendeeInput = {
@@ -67,6 +69,8 @@ export type EventInput = {
    * and Microsoft have no such field and ignore it.
    */
   travelMinutes?: number | null;
+  /** Travel time after the event, in minutes; the same rules, CalDAV only. */
+  travelAfterMinutes?: number | null;
 };
 
 export type PullResult = {

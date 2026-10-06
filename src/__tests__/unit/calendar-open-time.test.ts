@@ -119,6 +119,39 @@ describe("travel time in the day grid", () => {
   });
 });
 
+describe("travel time after in the day grid", () => {
+  it("is busy in the open time", () => {
+    const availability = withFriday({ on: true, start: 540, end: 1020 });
+    const instances = [
+      event("dentist", [12, 0], [13, 0], { travelAfterMinutes: 45 }),
+    ];
+    expect(freetimeMinutes(instances, DAY, TZ, availability)).toEqual([
+      { startMin: 9 * 60, endMin: 12 * 60 },
+      { startMin: 13 * 60 + 45, endMin: 17 * 60 },
+    ]);
+  });
+
+  it("places the event at its end and says where its after block ends, clipped to the day", () => {
+    const placed = placeTimedEvents(
+      [
+        event("dentist", [10, 0], [11, 0], { travelAfterMinutes: 30 }),
+        event("lunch", [11, 0], [12, 0]),
+        event("late", [23, 0], [23, 50], { travelAfterMinutes: 30 }),
+      ],
+      DAY,
+      TZ,
+    );
+    const byId = Object.fromEntries(placed.map((p) => [p.eventId, p]));
+    expect(byId.dentist).toMatchObject({
+      endMin: 11 * 60,
+      travelAfterEndMin: 11 * 60 + 30,
+      cols: 2,
+    });
+    expect(byId.lunch).toMatchObject({ travelAfterEndMin: 12 * 60, cols: 2 });
+    expect(byId.late.travelAfterEndMin).toBe(24 * 60);
+  });
+});
+
 describe("loadBar", () => {
   it("splits the window into busy blocks, counted open spans and short gaps", () => {
     // 07-21 is 840 minutes. Busy 09:00-09:30, 10:30-11:00, 14-15 and

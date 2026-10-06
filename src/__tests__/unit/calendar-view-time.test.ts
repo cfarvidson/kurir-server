@@ -70,6 +70,21 @@ describe("packTimedEvents with travel time", () => {
   });
 });
 
+describe("packTimedEvents with travel time after", () => {
+  it("packs to where the travel after ends but keeps the event at its own end", () => {
+    const packed = packTimedEvents([
+      // Ends when b starts, but its 30 min travel after overlaps b.
+      { id: "a", startMin: 9 * 60, endMin: 10 * 60, busyEndMin: 10 * 60 + 30 },
+      { id: "b", startMin: 10 * 60, endMin: 11 * 60 },
+    ]);
+    const byId = Object.fromEntries(packed.map((p) => [p.id, p]));
+    expect(byId.a.cols).toBe(2);
+    expect(byId.b.cols).toBe(2);
+    expect(byId.a.endMin).toBe(10 * 60);
+    expect(byId.a.busyEndMin).toBe(10 * 60 + 30);
+  });
+});
+
 describe("formatDurationLabel", () => {
   it("formats sub-hour durations in minutes", () => {
     expect(formatDurationLabel(45)).toBe("45 min");

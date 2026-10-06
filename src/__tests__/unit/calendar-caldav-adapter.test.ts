@@ -768,6 +768,140 @@ END:VCALENDAR`,
       ]);
     });
 
+    describe("after the event", () => {
+      const afterLines = (ics: string) =>
+        ics
+          .replace(/\r?\n[ \t]/g, "")
+          .split(/\r?\n/)
+          .filter((line) => /^X-KURIR-TRAVEL-AFTER/i.test(line));
+
+      it("writes travel after as X-KURIR-TRAVEL-AFTER in hours and minutes, on a new event and on an edit", async () => {
+        stubPut(appleIcs());
+
+        const created = await adapter().createEvent(
+          { providerCalendarId: CAL_URL },
+          { ...eventInput, travelAfterMinutes: 60 },
+        );
+        await adapter().updateEvent(
+          { providerCalendarId: CAL_URL },
+          ref,
+          { ...eventInput, travelAfterMinutes: 90 },
+          "all",
+        );
+
+        const createdIcs = (
+          davMocks.createCalendarObject.mock.calls[0]?.[0] as { iCalString: string }
+        ).iCalString;
+        expect(afterLines(createdIcs)).toEqual([
+          "X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT1H",
+        ]);
+        expect(created.travelAfterMinutes).toBe(60);
+        expect(afterLines(putData())).toEqual([
+          "X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT1H30M",
+        ]);
+        // Apple's travel before is left as it was.
+        expect(travelLines(putData())).toHaveLength(3);
+      });
+
+      it("leaves it alone without travelAfterMinutes, removes it for None, and for an all-day event", async () => {
+        const withAfter = appleIcs("X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT30M");
+        for (const [input, expected] of [
+          [eventInput, ["X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT30M"]],
+          [{ ...eventInput, travelAfterMinutes: null }, []],
+          [
+            {
+              ...eventInput,
+              travelAfterMinutes: 30,
+              isAllDay: true,
+              startAt: new Date("2026-08-20T00:00:00.000Z"),
+              endAt: new Date("2026-08-21T00:00:00.000Z"),
+            },
+            [],
+          ],
+        ] as const) {
+          davMocks.updateCalendarObject.mockClear();
+          stubPut(withAfter);
+          await adapter().updateEvent({ providerCalendarId: CAL_URL }, ref, input, "all");
+          expect(afterLines(putData())).toEqual(expected);
+        }
+      });
+
+      it("gives a changed occurrence and a this-and-following series the travel after they had", async () => {
+        const series = appleIcs(
+          "RRULE:FREQ=DAILY;COUNT=5\r\nX-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT15M",
+        );
+        stubPut(series);
+        await adapter().updateEvent(
+          { providerCalendarId: CAL_URL },
+          { ...ref, recurrenceId: new Date("2026-08-21T14:00:00.000Z") },
+          {
+            ...eventInput,
+            startAt: new Date("2026-08-21T15:00:00.000Z"),
+            endAt: new Date("2026-08-21T16:00:00.000Z"),
+          },
+          "this",
+        );
+        // Master and the new exception each carry it.
+        expect(afterLines(putData())).toHaveLength(2);
+
+        stubPut(series);
+        await adapter().updateEvent(
+          { providerCalendarId: CAL_URL },
+          { ...ref, recurrenceId: new Date("2026-08-22T14:00:00.000Z") },
+          {
+            ...eventInput,
+            startAt: new Date("2026-08-22T14:00:00.000Z"),
+            endAt: new Date("2026-08-22T15:00:00.000Z"),
+            rrule: "FREQ=DAILY",
+          },
+          "thisAndFollowing",
+        );
+        const split = (
+          davMocks.createCalendarObject.mock.calls.at(-1)?.[0] as { iCalString: string }
+        ).iCalString;
+        expect(afterLines(split)).toEqual([
+          "X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT15M",
+        ]);
+      });
+
+      it("rewrites a remote travel-after line from its minutes, so nothing else on it reaches the write", async () => {
+        stubPut(
+          [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "BEGIN:VEVENT",
+            "UID:e1",
+            "SUMMARY:Dentist",
+            "DTSTART:20260820T140000Z",
+            "DTEND:20260820T150000Z",
+            "X-KURIR-TRAVEL-AFTER;X-K\rATTENDEE=1;VALUE=DURATION:PT20M",
+            "END:VEVENT",
+            "BEGIN:VEVENT",
+            "UID:e1",
+            "RECURRENCE-ID:20260821T140000Z",
+            "DTSTART:20260821T140000Z",
+            "DTEND:20260821T150000Z",
+            "X-KURIR-TRAVEL-AFTER;X-NOTE=\"a\rORGANIZER:mailto:x@example.com\":soon",
+            "END:VEVENT",
+            "END:VCALENDAR",
+          ].join("\r\n"),
+        );
+
+        await adapter().updateEvent(
+          { providerCalendarId: CAL_URL },
+          ref,
+          { ...eventInput, title: "Dentist, later" },
+          "all",
+        );
+
+        expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
+        expect(putData()).not.toMatch(/ATTENDEE|ORGANIZER/i);
+        expect(afterLines(putData())).toEqual([
+          "X-KURIR-TRAVEL-AFTER;VALUE=DURATION:PT20M",
+        ]);
+      });
+    });
+
     it("writes travel time on a new event as Apple reads it", async () => {
       davMocks.createCalendarObject.mockResolvedValue({
         status: 201,

@@ -87,6 +87,14 @@ export const eventInputSchema = z.object({
     .max(MAX_TRAVEL_MINUTES)
     .nullable()
     .optional(),
+  // Travel time after the event, in minutes; the same rules.
+  travelAfterMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_TRAVEL_MINUTES)
+    .nullable()
+    .optional(),
 });
 
 export const createEventBodySchema = eventInputSchema.extend({
@@ -209,6 +217,7 @@ export function serializeRangeInstance(row: VisibleInstance) {
     attendees: normalizeAttendees(row.attendeesJson),
     travelMinutes: row.travelMinutes,
     travelStart: row.travelStart,
+    travelAfterMinutes: row.travelAfterMinutes,
   };
 }
 
@@ -235,6 +244,7 @@ export function serializeSyncEvent(row: {
   attendeesJson: unknown;
   travelMinutes: number | null;
   travelExtra: string[];
+  travelAfterMinutes: number | null;
 }) {
   return {
     id: row.id,
@@ -260,6 +270,7 @@ export function serializeSyncEvent(row: {
     travelMinutes: row.isAllDay ? null : row.travelMinutes,
     travelStart:
       !row.isAllDay && row.travelMinutes ? travelStart(row.travelExtra) : null,
+    travelAfterMinutes: row.isAllDay ? null : row.travelAfterMinutes,
   };
 }
 

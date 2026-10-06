@@ -48,6 +48,8 @@ export type ScheduleInstance = {
   transparency: "busy" | "free";
   /** Time to get there, busy before `startAt`. */
   travelMinutes?: number | null;
+  /** Time to get away, busy after `endAt`. */
+  travelAfterMinutes?: number | null;
 };
 
 function pad2(value: number): string {
@@ -130,7 +132,13 @@ export async function loadScheduleInstances(
       endAt: true,
       isAllDay: true,
       isCancelled: true,
-      event: { select: { transparency: true, travelMinutes: true } },
+      event: {
+        select: {
+          transparency: true,
+          travelMinutes: true,
+          travelAfterMinutes: true,
+        },
+      },
     },
   });
   return rows.map((row) => ({
@@ -140,6 +148,7 @@ export async function loadScheduleInstances(
     isCancelled: row.isCancelled,
     transparency: row.event.transparency === "free" ? "free" : "busy",
     travelMinutes: row.isAllDay ? null : row.event.travelMinutes,
+    travelAfterMinutes: row.isAllDay ? null : row.event.travelAfterMinutes,
   }));
 }
 

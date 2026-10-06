@@ -648,6 +648,36 @@ export function TimeGrid({
                     );
                   })}
                   {placed.map((row) => {
+                    if (draggingId === row.eventId || !row.travelAfterMinutes) {
+                      return null;
+                    }
+                    const height =
+                      pxFromMinutes(row.travelAfterEndMin - row.endMin) - 1;
+                    if (height <= 2) return null;
+                    const ended =
+                      nowMin != null && row.travelAfterEndMin <= nowMin;
+                    return (
+                      <TravelBlock
+                        key={`travel-after:${row.eventId}:${row.startMin}`}
+                        color={row.color}
+                        minutes={row.travelAfterMinutes}
+                        showLabel={height >= 15}
+                        after
+                        className={cn(
+                          "absolute z-10",
+                          (isPast || ended) &&
+                            (isPast ? "opacity-45" : "opacity-50"),
+                        )}
+                        style={{
+                          top: pxFromMinutes(row.endMin) + 1,
+                          height,
+                          left: colLeft(row),
+                          width: colWidth(row),
+                        }}
+                      />
+                    );
+                  })}
+                  {placed.map((row) => {
                     if (draggingId === row.eventId) return null;
                     const height = Math.max(
                       pxFromMinutes(row.endMin - row.startMin) - 2,

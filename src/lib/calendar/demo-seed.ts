@@ -22,6 +22,7 @@ export type DemoSeedEvent = {
   location?: string | null;
   travelMinutes?: number | null;
   travelExtra?: string[];
+  travelAfterMinutes?: number | null;
 };
 
 export type DemoSeedCalendar = {
@@ -85,6 +86,7 @@ type DemoSeedDb = {
         location: string | null;
         travelMinutes: number | null;
         travelExtra: string[];
+        travelAfterMinutes: number | null;
         status: string;
         transparency: string;
       };
@@ -151,6 +153,7 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
       days?: number;
       location?: string;
       travel?: { minutes: number; from: string };
+      travelAfter?: number;
     } = {},
   ) {
     const range =
@@ -170,6 +173,7 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
       timezone: at === "all-day" ? null : DEMO_CALENDAR_TIMEZONE,
       location: options.location ?? null,
       travelMinutes: options.travel?.minutes ?? null,
+      travelAfterMinutes: options.travelAfter ?? null,
       travelExtra: options.travel
         ? [
             `X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-TITLE=${options.travel.from}:`,
@@ -186,6 +190,7 @@ export function demoCalendarSeed(now: Date): DemoCalendarSeed {
   });
   add("family", "dinner", "Dinner with the Lindqvists", today, [18, 30, 90], {
     travel: { minutes: 25, from: "Home" },
+    travelAfter: 15,
   });
   add("family", "school-closed", "School closed", today, "all-day");
 
@@ -374,6 +379,7 @@ export async function insertDemoCalendarSeed(
           location: event.location ?? null,
           travelMinutes: event.travelMinutes ?? null,
           travelExtra: event.travelExtra ?? [],
+          travelAfterMinutes: event.travelAfterMinutes ?? null,
           status: "confirmed",
           transparency: "busy",
         },

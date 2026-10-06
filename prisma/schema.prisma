@@ -1182,6 +1182,8 @@ model CalendarEvent {
   travelMinutes Int?
   // The other X-APPLE-TRAVEL-* content lines (where it starts and the like), as Apple writes them.
   travelExtra   String[] @default([])
+  // Kurir's own travel time after the event (X-KURIR-TRAVEL-AFTER), in minutes.
+  travelAfterMinutes Int?
 
   rrule  String?
   rdate  String?

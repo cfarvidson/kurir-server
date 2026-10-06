@@ -111,6 +111,8 @@ export type PlacedTimed = CalendarInstanceDTO & {
   endMin: number;
   /** Where the travel block before the event starts, clipped to the day; `startMin` without travel. */
   travelStartMin: number;
+  /** Where the travel block after the event ends, clipped to the day; `endMin` without travel after. */
+  travelAfterEndMin: number;
   col: number;
   cols: number;
 };
@@ -131,11 +133,24 @@ export function placeTimedEvents(
           timeZone,
         )
       : startMin;
+    const shownEndMin = Math.max(endMin, startMin + 15);
+    const afterMs = (inst.travelAfterMinutes ?? 0) * 60_000;
+    const travelAfterEndMin = afterMs
+      ? Math.max(
+          minutesFromDayStart(
+            new Date(new Date(inst.endAt).getTime() + afterMs),
+            day,
+            timeZone,
+          ),
+          shownEndMin,
+        )
+      : shownEndMin;
     return {
       inst,
       startMin,
       travelStartMin,
-      endMin: Math.max(endMin, startMin + 15),
+      endMin: shownEndMin,
+      travelAfterEndMin,
     };
   });
   const packed = new Map(
@@ -145,6 +160,7 @@ export function placeTimedEvents(
         startMin: row.startMin,
         busyStartMin: row.travelStartMin,
         endMin: row.endMin,
+        busyEndMin: row.travelAfterEndMin,
       })),
     ).map((row) => [row.id, row]),
   );
@@ -155,6 +171,7 @@ export function placeTimedEvents(
       startMin: laid.startMin,
       endMin: laid.endMin,
       travelStartMin: laid.busyStartMin,
+      travelAfterEndMin: laid.busyEndMin,
       col: laid.col,
       cols: laid.cols,
     };
@@ -201,6 +218,7 @@ export function freetimeMinutes(
         isCancelled: false,
         transparency: row.transparency,
         travelMinutes: row.travelMinutes,
+        travelAfterMinutes: row.travelAfterMinutes,
       })),
     dayStart,
     dayEnd,

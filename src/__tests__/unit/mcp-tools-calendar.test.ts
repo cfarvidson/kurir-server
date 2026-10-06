@@ -230,6 +230,7 @@ const instance = {
   attendeesJson: [{ email: "a@b.com", name: "A", status: "accepted" }],
   travelMinutes: null,
   travelStart: null,
+  travelAfterMinutes: null,
 };
 
 describe("MCP calendar tools", () => {

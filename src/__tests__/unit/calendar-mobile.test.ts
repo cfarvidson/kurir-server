@@ -94,6 +94,18 @@ describe("travel time over the mobile API", () => {
     expect(
       updateEventBodySchema.safeParse({ ...body, travelMinutes: -5 }).success,
     ).toBe(false);
+    expect(
+      updateEventBodySchema.parse({ ...body, travelAfterMinutes: 45 })
+        .travelAfterMinutes,
+    ).toBe(45);
+    expect(updateEventBodySchema.parse(body)).not.toHaveProperty(
+      "travelAfterMinutes",
+    );
+    for (const travelAfterMinutes of [-1, 1.5, 1441]) {
+      expect(
+        updateEventBodySchema.safeParse({ ...body, travelAfterMinutes }).success,
+      ).toBe(false);
+    }
   });
 
   it("returns travel time and where it starts on each instance", () => {
@@ -116,11 +128,13 @@ describe("travel time over the mobile API", () => {
       attendeesJson: null,
       travelMinutes: 25,
       travelStart: { title: "Home", address: null },
+      travelAfterMinutes: 15,
     } as VisibleInstance;
 
     expect(serializeRangeInstance(row)).toMatchObject({
       travelMinutes: 25,
       travelStart: { title: "Home", address: null },
+      travelAfterMinutes: 15,
     });
   });
 });

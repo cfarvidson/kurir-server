@@ -50,6 +50,7 @@ export function serializeInstance(row: VisibleInstance): CalendarInstanceDTO {
     isReadOnly: row.isReadOnly,
     travelMinutes: row.travelMinutes,
     travelStart: row.travelStart,
+    travelAfterMinutes: row.travelAfterMinutes,
   };
 }
 

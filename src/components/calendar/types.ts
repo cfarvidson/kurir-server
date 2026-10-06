@@ -21,6 +21,8 @@ export type CalendarInstanceDTO = {
   travelMinutes?: number | null;
   /** Where that travel starts (Apple Calendar's X-TITLE / X-ADDRESS). */
   travelStart?: TravelStart | null;
+  /** Time to get away after `endAt`, in minutes; busy like the event. */
+  travelAfterMinutes?: number | null;
 };
 
 export type CalendarListItem = {

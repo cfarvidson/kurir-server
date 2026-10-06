@@ -479,6 +479,7 @@ describe("applyPull", () => {
             providerEventId: "apple",
             travelMinutes: 25,
             travelExtra: ["X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:"],
+            travelAfterMinutes: 15,
           }),
           remote({ providerEventId: "google" }),
         ],
@@ -494,6 +495,9 @@ describe("applyPull", () => {
         "X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE=Home:",
       ]);
     }
+    expect(apple.create.travelAfterMinutes).toBe(15);
+    expect(apple.update.travelAfterMinutes).toBe(15);
+    expect(google.update.travelAfterMinutes).toBeNull();
     expect(google.update.travelMinutes).toBeNull();
     expect(google.update.travelExtra).toEqual([]);
   });

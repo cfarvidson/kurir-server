@@ -185,6 +185,7 @@ describe("/api/mobile/calendar", () => {
         attendeesJson: null,
         travelMinutes: null,
         travelStart: null,
+        travelAfterMinutes: null,
       },
     ]);
 
@@ -403,6 +404,7 @@ describe("/api/mobile/calendar", () => {
         sequence: 0,
         attendeesJson: null,
         travelMinutes: 25,
+        travelAfterMinutes: 15,
         travelExtra: [
           'X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="Storgatan 1\\n111 22 Stockholm";X-TITLE=Home:',
         ],
@@ -416,12 +418,14 @@ describe("/api/mobile/calendar", () => {
         ?.select as Record<string, boolean>;
       expect(select.travelMinutes).toBe(true);
       expect(select.travelExtra).toBe(true);
+      expect(select.travelAfterMinutes).toBe(true);
       expect(body.events[0]).toMatchObject({
         travelMinutes: 25,
         travelStart: {
           title: "Home",
           address: "Storgatan 1\n111 22 Stockholm",
         },
+        travelAfterMinutes: 15,
       });
     });
   });
