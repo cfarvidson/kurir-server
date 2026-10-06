@@ -66,6 +66,19 @@ describe("demoCalendarSeed", () => {
     });
   });
 
+  it("gives one timed event 15 min travel after", () => {
+    const seed = demoCalendarSeed(now);
+    const withAfter = seed.calendars
+      .flatMap((c) => c.events)
+      .filter((e) => e.travelAfterMinutes);
+    expect(withAfter).toHaveLength(1);
+    expect(withAfter[0]).toMatchObject({
+      title: "Dinner with the Lindqvists",
+      isAllDay: false,
+      travelAfterMinutes: 15,
+    });
+  });
+
   it("leaves a 3-hour local gap between 10:00 and 13:00 for freetime", () => {
     const seed = demoCalendarSeed(now);
     const day = civilFromZoned(now, DEMO_CALENDAR_TIMEZONE);
