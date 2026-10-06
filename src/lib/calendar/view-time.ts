@@ -352,13 +352,17 @@ export type PackedTimedBlock = TimedBlock & {
  */
 export function packTimedEvents(blocks: TimedBlock[]): PackedTimedBlock[] {
   const items = blocks
-    .map((b, i) => ({
-      ...b,
-      busyStartMin: Math.min(b.busyStartMin ?? b.startMin, b.startMin),
-      endMin: Math.max(b.endMin, b.startMin + 15),
-      busyEndMin: Math.max(b.busyEndMin ?? b.endMin, b.endMin, b.startMin + 15),
-      index: i,
-    }))
+    .map((b, i) => {
+      // Drawn at least 15 minutes tall, so it takes at least that much room.
+      const endMin = Math.max(b.endMin, b.startMin + 15);
+      return {
+        ...b,
+        busyStartMin: Math.min(b.busyStartMin ?? b.startMin, b.startMin),
+        endMin,
+        busyEndMin: Math.max(b.busyEndMin ?? endMin, endMin),
+        index: i,
+      };
+    })
     .sort(
       (a, b) =>
         a.busyStartMin - b.busyStartMin ||
