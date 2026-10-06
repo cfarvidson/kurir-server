@@ -54,6 +54,22 @@ describe("calendar view time", () => {
   });
 });
 
+describe("packTimedEvents with travel time", () => {
+  it("packs from where the travel starts but keeps the event at its own start", () => {
+    const packed = packTimedEvents([
+      { id: "a", startMin: 9 * 60, endMin: 10 * 60 },
+      // Starts when a ends, but its 30 min travel overlaps a.
+      { id: "b", startMin: 10 * 60, endMin: 11 * 60, busyStartMin: 9 * 60 + 30 },
+    ]);
+    const byId = Object.fromEntries(packed.map((p) => [p.id, p]));
+    expect(byId.a.cols).toBe(2);
+    expect(byId.b.cols).toBe(2);
+    expect(byId.b.col).toBe(1);
+    expect(byId.b.startMin).toBe(10 * 60);
+    expect(byId.b.busyStartMin).toBe(9 * 60 + 30);
+  });
+});
+
 describe("formatDurationLabel", () => {
   it("formats sub-hour durations in minutes", () => {
     expect(formatDurationLabel(45)).toBe("45 min");
