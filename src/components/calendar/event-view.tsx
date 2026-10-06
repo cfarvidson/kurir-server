@@ -329,7 +329,9 @@ export function DeleteEventDialog({
             {repeats ? "This event repeats" : "Delete this event?"}
           </DialogTitle>
           <DialogDescription>
-            {repeats ? "Choose which events to delete." : event?.title}
+            {repeats
+              ? "Choose which events to delete."
+              : event?.title}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
