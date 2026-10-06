@@ -326,7 +326,8 @@ function Ribbon({
     };
   });
   const labelRows = staggerRows(labels);
-  const rowCount = events.length ? Math.max(...labelRows) + 1 : 0;
+  const shownRows = labelRows.filter((row) => row != null);
+  const rowCount = shownRows.length ? Math.max(...shownRows) + 1 : 0;
 
   const hourPx = (60 / length) * width;
   const step = Math.max(1, Math.ceil(44 / Math.max(hourPx, 1)));
@@ -422,8 +423,11 @@ function Ribbon({
           ))}
           {events.map((row, i) => {
             const left = x(row.startMin);
+            const labelRow = labelRows[i];
             const labelTop =
-              RIBBON_TOP + RIBBON_HEIGHT + 10 + labelRows[i] * LABEL_ROW;
+              labelRow == null
+                ? null
+                : RIBBON_TOP + RIBBON_HEIGHT + 10 + labelRow * LABEL_ROW;
             const travelLeft = x(row.travelStartMin);
             const travelWidth = left - travelLeft - 1;
             const afterLeft = x(row.endMin);
@@ -481,30 +485,34 @@ function Ribbon({
                     backgroundColor: normalizeEventHex(row.color),
                   }}
                 />
-                <span
-                  aria-hidden
-                  className="absolute w-px bg-border"
-                  style={{
-                    left: left + 1,
-                    top: RIBBON_TOP + RIBBON_HEIGHT,
-                    height: labelTop - RIBBON_TOP - RIBBON_HEIGHT + 2,
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => onEventClick(row)}
-                  className="absolute max-w-[180px] truncate text-left text-xs text-foreground/85 hover:text-foreground"
-                  style={{
-                    left: labels[i].x,
-                    top: labelTop,
-                    maxWidth: Math.min(180, width - labels[i].x),
-                  }}
-                >
-                  <span className="mr-1.5 tabular-nums text-muted-foreground">
-                    {clock(row.startMin)}
-                  </span>
-                  {row.title}
-                </button>
+                {labelTop != null && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="absolute w-px bg-border"
+                      style={{
+                        left: left + 1,
+                        top: RIBBON_TOP + RIBBON_HEIGHT,
+                        height: labelTop - RIBBON_TOP - RIBBON_HEIGHT + 2,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onEventClick(row)}
+                      className="absolute max-w-[180px] truncate text-left text-xs text-foreground/85 hover:text-foreground"
+                      style={{
+                        left: labels[i].x,
+                        top: labelTop,
+                        maxWidth: Math.min(180, width - labels[i].x),
+                      }}
+                    >
+                      <span className="mr-1.5 tabular-nums text-muted-foreground">
+                        {clock(row.startMin)}
+                      </span>
+                      {row.title}
+                    </button>
+                  </>
+                )}
               </div>
             );
           })}
