@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { EventBlock } from "@/components/calendar/event-block";
+import { EventBlock, TravelBlock } from "@/components/calendar/event-block";
 import { FreetimeBlock } from "@/components/calendar/freetime-block";
 import { openSpans } from "@/components/calendar/agenda-model";
 import {
@@ -561,6 +561,10 @@ export function TimeGrid({
                 ? openSpans(instances, day, timezone, availability, nowMin)
                 : [];
               const inset = isToday ? 8 : 4;
+              const colLeft = (row: (typeof placed)[number]) =>
+                `calc(${(row.col / row.cols) * 100}% + ${row.col === 0 ? inset : 1}px)`;
+              const colWidth = (row: (typeof placed)[number]) =>
+                `calc(${(1 / row.cols) * 100}% - ${(row.col === 0 ? inset : 1) + (row.col === row.cols - 1 ? inset : 1)}px)`;
               return (
                 <div
                   key={formatDateParam(day)}
@@ -616,6 +620,34 @@ export function TimeGrid({
                     />
                   ))}
                   {placed.map((row) => {
+                    if (draggingId === row.eventId || !row.travelMinutes) {
+                      return null;
+                    }
+                    const height =
+                      pxFromMinutes(row.startMin - row.travelStartMin) - 1;
+                    if (height <= 2) return null;
+                    const ended = nowMin != null && row.endMin <= nowMin;
+                    return (
+                      <TravelBlock
+                        key={`travel:${row.eventId}:${row.startMin}`}
+                        color={row.color}
+                        minutes={row.travelMinutes}
+                        showLabel={height >= 15}
+                        className={cn(
+                          "absolute z-10",
+                          (isPast || ended) &&
+                            (isPast ? "opacity-45" : "opacity-50"),
+                        )}
+                        style={{
+                          top: pxFromMinutes(row.travelStartMin) + 1,
+                          height,
+                          left: colLeft(row),
+                          width: colWidth(row),
+                        }}
+                      />
+                    );
+                  })}
+                  {placed.map((row) => {
                     if (draggingId === row.eventId) return null;
                     const height = Math.max(
                       pxFromMinutes(row.endMin - row.startMin) - 2,
@@ -639,8 +671,8 @@ export function TimeGrid({
                         style={{
                           top: pxFromMinutes(row.startMin) + 1,
                           height,
-                          left: `calc(${(row.col / row.cols) * 100}% + ${row.col === 0 ? inset : 1}px)`,
-                          width: `calc(${(1 / row.cols) * 100}% - ${(row.col === 0 ? inset : 1) + (row.col === row.cols - 1 ? inset : 1)}px)`,
+                          left: colLeft(row),
+                          width: colWidth(row),
                         }}
                         onClick={() => {
                           if (suppressClick.current) return;

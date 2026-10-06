@@ -10,6 +10,7 @@ import {
   type OpenSpan,
 } from "@/components/calendar/agenda-model";
 import { staggerRows } from "@/components/calendar/day-model";
+import { TravelBlock } from "@/components/calendar/event-block";
 import {
   dayWindow,
   freetimeMinutes,
@@ -423,8 +424,27 @@ function Ribbon({
             const left = x(row.startMin);
             const labelTop =
               RIBBON_TOP + RIBBON_HEIGHT + 10 + labelRows[i] * LABEL_ROW;
+            const travelLeft = x(row.travelStartMin);
+            const travelWidth = left - travelLeft - 1;
             return (
               <div key={`${row.eventId}:${row.startMin}`}>
+                {row.travelMinutes && travelWidth > 2 ? (
+                  <TravelBlock
+                    color={row.color}
+                    minutes={row.travelMinutes}
+                    showLabel={travelWidth >= 52}
+                    className={cn(
+                      "absolute rounded-lg",
+                      row.transparency === "free" && "opacity-50",
+                    )}
+                    style={{
+                      top: RIBBON_TOP,
+                      height: RIBBON_HEIGHT,
+                      left: travelLeft + 1,
+                      width: travelWidth,
+                    }}
+                  />
+                ) : null}
                 <button
                   type="button"
                   aria-label={`${row.title}, ${clock(row.startMin)}`}

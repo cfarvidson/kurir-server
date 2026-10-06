@@ -1,4 +1,5 @@
 import { compareCivil, eventInclusiveRange } from "@/components/calendar/grid-model";
+import { travelPlace } from "@/components/calendar/travel-model";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import {
   formatDurationLabel,
@@ -105,6 +106,14 @@ export function eventRepeatLine(
     default:
       return null;
   }
+}
+
+/** The Travel fact: "30 min travel", "1.5 h travel from Home". Null without travel time. */
+export function eventTravelLine(event: CalendarInstanceDTO): string | null {
+  if (event.isAllDay || !event.travelMinutes) return null;
+  const line = `${formatDurationLabel(event.travelMinutes)} travel`;
+  const place = travelPlace(event.travelStart);
+  return place ? `${line} from ${place}` : line;
 }
 
 export type NoteSegment = { text: string; href?: string };

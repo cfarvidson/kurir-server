@@ -6,8 +6,54 @@ import type {
   PointerEvent,
   ReactNode,
 } from "react";
+import { Car } from "lucide-react";
 import { normalizeEventHex, readableTextTone } from "@/lib/calendar/color";
+import { formatDurationLabel } from "@/lib/calendar/view-time";
 import { cn } from "@/lib/utils";
+
+/**
+ * The travel time before a timed event, in the event's own column: the
+ * calendar colour washed at half the event's tint with a dashed edge, and a
+ * car with the length when there is room (see .cal-travel).
+ */
+export function TravelBlock({
+  color,
+  minutes,
+  showLabel,
+  className,
+  style,
+}: {
+  color: string;
+  minutes: number;
+  showLabel: boolean;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const label = `${formatDurationLabel(minutes)} travel`;
+  return (
+    <div
+      title={label}
+      aria-label={label}
+      className={cn(
+        "cal-travel pointer-events-none flex items-center gap-1 overflow-hidden rounded-[5px] px-1.5 text-[10.5px] font-medium leading-none tabular-nums",
+        className,
+      )}
+      style={
+        {
+          ...({ "--ev": normalizeEventHex(color) } as CSSProperties),
+          ...style,
+        } as CSSProperties
+      }
+    >
+      {showLabel && (
+        <>
+          <Car aria-hidden className="size-3 shrink-0" />
+          <span className="truncate">{formatDurationLabel(minutes)}</span>
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * An event block. Solid (the default) is a fill of the calendar colour with
