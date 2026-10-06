@@ -38,7 +38,12 @@ type InstanceRow = {
   isException: boolean;
   userId: string;
   calendarId: string;
-  event: { title: string; travelMinutes?: number | null; travelExtra?: string[] };
+  event: {
+    title: string;
+    travelMinutes?: number | null;
+    travelExtra?: string[];
+    travelAfterMinutes?: number | null;
+  };
   calendar: CalendarMeta;
 };
 
@@ -194,6 +199,7 @@ describe("listVisibleInstancesForUser", () => {
         event: {
           title: "Dentist",
           travelMinutes: 25,
+          travelAfterMinutes: 15,
           travelExtra: [
             'X-APPLE-TRAVEL-START;ROUTING=CAR;VALUE=URI;X-ADDRESS="Storgatan 1\\n111 22 Stockholm";X-TITLE=Home:',
           ],
@@ -211,8 +217,13 @@ describe("listVisibleInstancesForUser", () => {
     expect(rows[0]).toMatchObject({
       travelMinutes: 25,
       travelStart: { title: "Home", address: "Storgatan 1\n111 22 Stockholm" },
+      travelAfterMinutes: 15,
     });
-    expect(rows[1]).toMatchObject({ travelMinutes: null, travelStart: null });
+    expect(rows[1]).toMatchObject({
+      travelMinutes: null,
+      travelStart: null,
+      travelAfterMinutes: null,
+    });
   });
 
   it("expands masters outside the instance window instead of the instance table", async () => {
