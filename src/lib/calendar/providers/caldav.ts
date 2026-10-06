@@ -881,11 +881,17 @@ export function createCalDavAdapter(input: {
           etag,
           data: truncateIcs(existing.data, splitAt),
         });
+        // The new series starts from the travel of the occurrence edited.
+        const vcalendar = parseCalendar(existing.data);
+        const edited =
+          (event.recurrenceId &&
+            exceptionVevent(vcalendar, event.recurrenceId)) ||
+          masterVevent(vcalendar);
         return createOnCalendar(
           client,
           calendarUrl,
           eventInput,
-          readTravel(masterVevent(parseCalendar(existing.data))),
+          readTravel(edited),
         );
       }
       const ics = applySeriesUpdate(

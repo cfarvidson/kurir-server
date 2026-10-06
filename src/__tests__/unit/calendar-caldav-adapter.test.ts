@@ -690,6 +690,44 @@ END:VCALENDAR`,
       expect(travelLines(putData())).toHaveLength(3);
     });
 
+    it("starts this-and-following from the edited occurrence's own travel time", async () => {
+      stubPut(
+        appleIcs("RRULE:FREQ=DAILY;COUNT=5").replace(
+          "END:VCALENDAR",
+          [
+            "BEGIN:VEVENT",
+            "UID:e1",
+            "RECURRENCE-ID:20260822T140000Z",
+            "SUMMARY:Dentist, from work",
+            "DTSTART:20260822T140000Z",
+            "DTEND:20260822T150000Z",
+            "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT20M",
+            "END:VEVENT",
+            "END:VCALENDAR",
+          ].join("\r\n"),
+        ),
+      );
+
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        { ...ref, recurrenceId: new Date("2026-08-22T14:00:00.000Z") },
+        {
+          ...eventInput,
+          startAt: new Date("2026-08-22T14:00:00.000Z"),
+          endAt: new Date("2026-08-22T15:00:00.000Z"),
+          rrule: "FREQ=DAILY",
+        },
+        "thisAndFollowing",
+      );
+
+      const created = davMocks.createCalendarObject.mock.calls[0]?.[0] as {
+        iCalString: string;
+      };
+      expect(travelLines(created.iCalString)).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT20M",
+      ]);
+    });
+
     it("writes travel time on a new event as Apple reads it", async () => {
       davMocks.createCalendarObject.mockResolvedValue({
         status: 201,

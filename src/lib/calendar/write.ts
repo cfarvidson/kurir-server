@@ -19,7 +19,12 @@ import { createCalDavAdapter } from "@/lib/calendar/providers/caldav";
 import { createGoogleAdapter } from "@/lib/calendar/providers/google";
 import { createIcsAdapter } from "@/lib/calendar/providers/ics";
 import { createMicrosoftAdapter } from "@/lib/calendar/providers/microsoft";
-import { NO_TRAVEL, nextTravel, type Travel } from "@/lib/calendar/travel";
+import {
+  MAX_TRAVEL_MINUTES,
+  NO_TRAVEL,
+  nextTravel,
+  type Travel,
+} from "@/lib/calendar/travel";
 import {
   CalendarConflictError,
   type CalendarAdapter,
@@ -201,6 +206,33 @@ function travelOf(event: {
   travelExtra: string[];
 }): Travel {
   return { travelMinutes: event.travelMinutes, travelExtra: event.travelExtra };
+}
+
+/**
+ * The input as this calendar can keep it. Travel time must be whole minutes
+ * from 0 to a day, on every path (web, MCP, mobile). Only CalDAV stores it
+ * (Apple's X-APPLE-TRAVEL-* lines); for Google or Outlook it is dropped, or
+ * the replica would show it until the next pull wiped it.
+ */
+function inputFor<T extends EventInput>(
+  input: T,
+  provider: CalendarProvider,
+): T {
+  const minutes = input.travelMinutes;
+  if (
+    minutes != null &&
+    !(
+      Number.isInteger(minutes) &&
+      minutes >= 0 &&
+      minutes <= MAX_TRAVEL_MINUTES
+    )
+  ) {
+    throw new CalendarWriteError("Invalid travel time", 400);
+  }
+  if (minutes === undefined || provider === "CALDAV") return input;
+  const kept = { ...input };
+  delete kept.travelMinutes;
+  return kept;
 }
 
 /** The replica's fields from an edit over `current` travel (none for a new event). */
@@ -846,10 +878,11 @@ async function createReplicaRow(
 export async function createEventForUser(
   userId: string,
   calendarId: string,
-  input: EventInput,
+  rawInput: EventInput,
 ): Promise<{ id: string }> {
   const calendar = await loadCalendar(userId, calendarId);
   assertWritable(calendar);
+  const input = inputFor(rawInput, calendar.account.provider);
   const now = new Date();
   const snapshot: Snapshot = {
     calendarId: calendar.id,
@@ -898,13 +931,14 @@ export async function createEventForUser(
 export async function updateEventForUser(
   userId: string,
   eventId: string,
-  input: EventInput & { calendarId?: string },
+  rawInput: EventInput & { calendarId?: string },
   range: RecurrenceEdit,
   occurrence?: Date | null,
 ): Promise<void> {
   const loaded = await loadEvent(userId, eventId);
   const calendar = loaded.calendar as CalendarRow;
   assertWritable(calendar);
+  const input = inputFor(rawInput, calendar.account.provider);
   const event = loaded as unknown as EventRow & {
     instances?: InstanceSnap[];
     exceptions?: EventRow[];
@@ -977,8 +1011,9 @@ export async function updateEventForUser(
           ),
         },
       });
+      // The new series starts from the travel of the occurrence edited.
       const row = await createReplicaRow(tx, userId, dest, input, {
-        travel: travelOf(masterForSplit ?? event),
+        travel: travelOf(event),
       });
       snapshot.createdEventId = row.id;
       await rebuildInstances(tx, userId, dest.id, masterId, now);
