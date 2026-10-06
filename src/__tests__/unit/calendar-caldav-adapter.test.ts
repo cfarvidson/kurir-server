@@ -687,7 +687,47 @@ END:VCALENDAR`,
       const lines = putData().replace(/\r\n[ \t]/g, "").split("\r\n");
       expect(lines.filter((l) => /^(ATTENDEE|ORGANIZER)/i.test(l))).toEqual([]);
       expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
-      expect(travelLines(putData())).toHaveLength(3);
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
+        'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home ORGANIZER:mailto:cr@example.com":',
+      ]);
+    });
+
+    it("drops a travel line whose name, parameter name or VALUE type carries a CR", async () => {
+      stubPut(
+        [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "BEGIN:VEVENT",
+          "UID:e1",
+          "SUMMARY:Dentist",
+          "DTSTART:20260820T140000Z",
+          "DTEND:20260820T150000Z",
+          "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+          "X-APPLE-TRAVEL-X\rATTENDEE:mailto:name@example.com",
+          "X-APPLE-TRAVEL-A;X-K\rATTENDEE=1:v",
+          'X-APPLE-TRAVEL-B;VALUE="TEXT\rATTENDEE:mailto:type@example.com":v',
+          "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n"),
+      );
+
+      // A drag: the input does not touch travel time at all.
+      await adapter().updateEvent(
+        { providerCalendarId: CAL_URL },
+        ref,
+        { ...eventInput, title: "Dentist, later" },
+        "all",
+      );
+
+      expect(putData()).not.toMatch(/\r(?!\n)|(?<!\r)\n/);
+      expect(putData()).not.toMatch(/ATTENDEE/i);
+      expect(travelLines(putData())).toEqual([
+        "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT45M",
+        "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+      ]);
     });
 
     it("starts this-and-following from the edited occurrence's own travel time", async () => {

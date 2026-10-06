@@ -29,12 +29,31 @@ const DURATION = "x-apple-travel-duration";
 const START = "x-apple-travel-start";
 
 /**
+ * Characters some parser could take as the end of a line: the C0 controls
+ * (CR and LF among them), DEL, NEL and the Unicode line and paragraph
+ * separators.
+ */
+const LINE_BREAKING = /[\x00-\x1f\x7f\u0085\u2028\u2029]/;
+
+/** What a property name, parameter name or VALUE type may be (RFC 5545 iana-token / x-name). */
+const NAME = /^[A-Za-z0-9-]+$/;
+
+/**
  * A remote value made safe to write inside one content line. A CR, LF or
- * other control character would end the line, and whatever followed it -
- * say an ATTENDEE - would become a property of the event Kurir writes back.
+ * other line-breaking character would end the line, and whatever followed
+ * it - say an ATTENDEE - would become a property of the event Kurir writes
+ * back.
  */
 function oneLine(value: string): string {
-  return value.replace(/\r\n/g, " ").replace(/[\x00-\x1f\x7f]/g, " ");
+  return value
+    .replace(/\r\n/g, " ")
+    .replace(new RegExp(LINE_BREAKING.source, "g"), " ");
+}
+
+/** A name for the line, upper-cased; anything but letters, digits and `-` refuses the whole line. */
+function nameToken(name: string): string {
+  if (!NAME.test(name)) throw new Error("travel line: not an iCalendar name");
+  return name.toUpperCase();
 }
 
 /**
@@ -67,7 +86,8 @@ function propertyValue(prop: ICAL.Property): string {
 }
 
 /**
- * One property as an unfolded content line in Apple's form. ical.js would
+ * One property as an unfolded content line in Apple's form, or a throw when
+ * a name in it is not one iCalendar allows (the caller drops the line). ical.js would
  * write `X-ADDRESS=Storgatan 1^n111 22 Stockholm` (RFC 6868), which is not
  * what Apple wrote or reads back.
  */
@@ -78,14 +98,17 @@ function contentLine(prop: ICAL.Property): string {
     .filter(([key]) => key !== "value")
     .map(([key, raw]) => {
       const values = Array.isArray(raw) ? raw : [raw];
-      return `${key.toUpperCase()}=${values.map(paramValue).join(",")}`;
+      return `${nameToken(key)}=${values.map(paramValue).join(",")}`;
     });
   // ical.js keeps VALUE as the property's type. Apple writes it after ROUTING.
   if (prop.type !== "unknown") {
     const at = params.findIndex((p) => p.startsWith("ROUTING=")) + 1;
-    params.splice(at, 0, `VALUE=${prop.type.toUpperCase()}`);
+    params.splice(at, 0, `VALUE=${nameToken(prop.type)}`);
   }
-  return `${[prop.name.toUpperCase(), ...params].join(";")}:${propertyValue(prop)}`;
+  const line = `${[nameToken(prop.name), ...params].join(";")}:${propertyValue(prop)}`;
+  // Every part is built from checked text; this only guards the guards.
+  if (LINE_BREAKING.test(line)) throw new Error("travel line: line break");
+  return line;
 }
 
 /**
@@ -237,15 +260,18 @@ export function appleTravelLines(ics: string): string {
     }
   }
   return lines
-    .map((line) => {
-      if (!line.toLowerCase().startsWith(PREFIX)) return line;
+    .flatMap((line) => {
+      if (!line.toLowerCase().startsWith(PREFIX)) return [line];
       try {
         const unfolded = line.replace(/\r?\n[ \t]/g, "");
-        return ICAL.helpers
-          .foldline(contentLine(ICAL.Property.fromString(unfolded)))
-          .replace(/\r?\n/g, eol);
+        return [
+          ICAL.helpers
+            .foldline(contentLine(ICAL.Property.fromString(unfolded)))
+            .replace(/\r?\n/g, eol),
+        ];
       } catch {
-        return oneLine(line);
+        // A travel line that cannot be written safely is left out.
+        return [];
       }
     })
     .join(eol);

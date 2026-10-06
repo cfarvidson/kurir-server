@@ -134,11 +134,12 @@ describe("mapCalDavEvent travel time from an untrusted calendar", () => {
         "X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT30M",
         "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
         'X-APPLE-TRAVEL-START;VALUE=URI;X-TITLE="Home\rATTENDEE:mailto:cr@example.com";X-ADDRESS="Storgatan 1\\n111 22 Stockholm":',
+        "X-APPLE-TRAVEL-NOTE:a\u2028b\u2029c\u0085d",
       ]),
     });
 
     for (const line of event.travelExtra ?? []) {
-      expect(line).not.toMatch(/[\x00-\x1f\x7f]/);
+      expect(line).not.toMatch(/[\x00-\x1f\x7f\u0085\u2028\u2029]/);
     }
     expect(event.travelExtra).toContain(
       "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR;VALUE=TEXT:x\\nATTENDEE:mailto:evil@example.com",
