@@ -8,7 +8,13 @@ import type {
   CalendarViewMode,
 } from "@/components/calendar/types";
 import type { CalendarAvailability } from "@/lib/calendar/availability";
-import { joinUrl, nextUpEvent, nextUpWhen } from "@/lib/calendar/next-up";
+import { travelPlace } from "@/components/calendar/travel-model";
+import {
+  joinUrl,
+  nextUpEvent,
+  nextUpLeave,
+  nextUpWhen,
+} from "@/lib/calendar/next-up";
 import {
   formatDurationLabel,
   formatTimeLabel,
@@ -118,6 +124,11 @@ export type HeaderNextUp = {
   /** "14:00–14:30". */
   range: string;
   joinUrl: string | null;
+  /**
+   * "Leave 09:05 · 25 min travel from Home": when to leave and the travel
+   * it allows for. Null without travel time or once started.
+   */
+  leaveLine: string | null;
 };
 
 /**
@@ -139,5 +150,18 @@ export function headerNextUp(
     when: nextUpWhen(new Date(next.startAt), now),
     range: `${formatTimeLabel(start.hour, start.minute)}–${formatTimeLabel(end.hour, end.minute)}`,
     joinUrl: joinUrl(next),
+    leaveLine: leaveLine(next, timezone, now),
   };
+}
+
+function leaveLine(
+  next: CalendarInstanceDTO,
+  timezone: string,
+  now: Date,
+): string | null {
+  const leave = nextUpLeave(next, now, timezone);
+  if (!leave || !next.travelMinutes) return null;
+  const place = travelPlace(next.travelStart);
+  const travel = `${formatDurationLabel(next.travelMinutes)} travel${place ? ` from ${place}` : ""}`;
+  return `${leave} · ${travel}`;
 }

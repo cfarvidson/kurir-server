@@ -11,6 +11,7 @@ import {
   Command,
   Shield,
   ChevronRight,
+  Car,
 } from "lucide-react";
 import { KurirLogo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -102,9 +103,7 @@ function SidebarNavLink({
   const count = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
   const prefKey = item.badgeKey ? badgeKeyToPref[item.badgeKey] : undefined;
   const showBadge =
-    prefKey !== undefined &&
-    count > 0 &&
-    badgePreferences[prefKey] !== false;
+    prefKey !== undefined && count > 0 && badgePreferences[prefKey] !== false;
 
   return (
     <Link
@@ -283,7 +282,8 @@ export function Sidebar({
                 key={group.id}
                 className={cn(
                   index > 0 && "mt-3",
-                  group.id === "archive" && "border-t border-sidebar-border pt-3",
+                  group.id === "archive" &&
+                    "border-t border-sidebar-border pt-3",
                 )}
                 role={group.label ? "group" : undefined}
                 aria-labelledby={headingId}
@@ -343,7 +343,9 @@ function RailLink({
     <Link
       href={section.href}
       aria-current={active ? "page" : undefined}
-      title={shortcutKey ? `${section.name} (G then ${shortcutKey})` : section.name}
+      title={
+        shortcutKey ? `${section.name} (G then ${shortcutKey})` : section.name
+      }
       className={cn(
         "relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg border py-2 text-[10.5px] font-medium transition-colors",
         active
@@ -428,7 +430,7 @@ function NextUpCard({
     <div className="relative mb-3 flex items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50">
       <span
         aria-hidden
-        className="h-8 w-1 shrink-0 rounded-xs"
+        className={cn("w-1 shrink-0 rounded-xs", next.leave ? "h-11" : "h-8")}
         style={{ backgroundColor: normalizeEventHex(next.color) }}
       />
       <Link
@@ -448,6 +450,16 @@ function NextUpCard({
         <span className="truncate text-sm font-medium">
           <span className="tabular-nums">{next.time}</span> {next.title}
         </span>
+        {next.leave && (
+          <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+            <Car
+              aria-hidden
+              className="size-3 shrink-0"
+              style={{ color: normalizeEventHex(next.color) }}
+            />
+            {next.leave}
+          </span>
+        )}
       </Link>
       {next.joinUrl ? (
         <span className="relative ml-auto">
@@ -476,7 +488,10 @@ function TodayList({
       role="group"
       aria-labelledby="sidebar-nav-today"
     >
-      <p id="sidebar-nav-today" className="eyebrow px-4 pb-1 text-muted-foreground">
+      <p
+        id="sidebar-nav-today"
+        className="eyebrow px-4 pb-1 text-muted-foreground"
+      >
         Today
       </p>
       {rows.length === 0 ? (
