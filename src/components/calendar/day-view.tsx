@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import Link from "next/link";
+import { Car } from "lucide-react";
 import {
   agendaRows,
   openSpans,
@@ -11,6 +12,7 @@ import {
 } from "@/components/calendar/agenda-model";
 import { staggerRows } from "@/components/calendar/day-model";
 import { TravelBlock } from "@/components/calendar/event-block";
+import { eventTravelLines } from "@/components/calendar/event-view-model";
 import {
   dayWindow,
   freetimeMinutes,
@@ -629,6 +631,8 @@ function Scheduled({
         const detail = [row.instance.location, isNext ? next.when : null]
           .filter(Boolean)
           .join(" · ");
+        // Its own line: after the location it would be cut off.
+        const travel = eventTravelLines(row.instance).join(" · ");
         return (
           <div
             key={row.id}
@@ -650,6 +654,12 @@ function Scheduled({
               {detail && (
                 <div className="mt-[3px] truncate text-xs text-muted-foreground">
                   {detail}
+                </div>
+              )}
+              {travel && (
+                <div className="mt-[3px] flex items-baseline gap-1.5 text-xs text-muted-foreground">
+                  <Car aria-hidden className="size-3 shrink-0 self-center" />
+                  <span>{travel}</span>
                 </div>
               )}
             </div>
