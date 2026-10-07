@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.135",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.135",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.135",
-    "changelog": "Travel time before and after calendar events, shared with Apple Calendar",
+    "version": "2026.136",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.136",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.136",
+    "changelog": "Day view: travel time has rows of its own in Scheduled - when to leave above the event, the way back and when it ends below",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-10-07T06:40:36Z"
+    "releasedAt": "2026-10-07T08:51:36Z"
   }
 }

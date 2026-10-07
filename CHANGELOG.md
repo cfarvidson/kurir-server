@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.136] - 2026-10-07
+
+### Changed
+
+- The day view's Scheduled list shows travel time as rows of their own
+  instead of a line under the booking: when to leave and for how long right
+  above the event ("18:05 · 25 min · Travel from Home"), the way back and when
+  it ends right below it ("20:00 · 15 min · Travel after · until 20:15"). The
+  rows are quiet like the location line; only the car takes the calendar's
+  colour.
+
 ## [v2026.135] - 2026-10-07
 
 ### Added

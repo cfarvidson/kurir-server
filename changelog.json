@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.136",
+    "date": "2026-10-07",
+    "changes": [
+      "Travel time has rows of its own in the day view's Scheduled list: when to leave above the event, the way back and when it ends below"
+    ]
+  },
+  {
     "version": "2026.135",
     "date": "2026-10-07",
     "changes": [
