@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { HTMLAttributes, KeyboardEvent, MouseEvent } from "react";
 import Link from "next/link";
 import { Car } from "lucide-react";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/components/calendar/agenda-model";
 import { staggerRows } from "@/components/calendar/day-model";
 import { TravelBlock } from "@/components/calendar/event-block";
-import { eventTravelLines } from "@/components/calendar/event-view-model";
 import {
   dayWindow,
   freetimeMinutes,
@@ -21,6 +20,10 @@ import {
 } from "@/components/calendar/grid-model";
 import { headerNextUp, joinUrl } from "@/components/calendar/header-model";
 import { JoinLink } from "@/components/calendar/join-link";
+import {
+  scheduledRows,
+  type ScheduledRow,
+} from "@/components/calendar/travel-model";
 import type {
   CalendarInstanceDTO,
   SlotSelection,
@@ -621,7 +624,23 @@ function Scheduled({
           Nothing scheduled.
         </p>
       )}
-      {timed.map((row, i) => {
+      {scheduledRows(timed).map((entry, i, rows) => {
+        // An event and its travel read as one: the line falls between
+        // events, not inside one.
+        const divided =
+          i < rows.length - 1 && rows[i + 1].event.id !== entry.event.id;
+        if (entry.kind !== "event") {
+          return (
+            <TravelRow
+              key={entry.id}
+              entry={entry}
+              divided={divided}
+              ended={nowMin != null && entry.startMin + entry.minutes <= nowMin}
+              open={open(entry.event.instance)}
+            />
+          );
+        }
+        const row = entry.event;
         const ended = nowMin != null && row.endMin <= nowMin;
         const url = joinUrl(row.instance);
         const isNext =
@@ -631,15 +650,18 @@ function Scheduled({
         const detail = [row.instance.location, isNext ? next.when : null]
           .filter(Boolean)
           .join(" · ");
-        // Its own line: after the location it would be cut off.
-        const travel = eventTravelLines(row.instance).join(" · ");
+        const hasBefore = rows[i - 1]?.event.id === row.id;
+        const hasAfter = rows[i + 1]?.event.id === row.id;
         return (
           <div
             key={row.id}
             {...open(row.instance)}
             className={cn(
-              "flex cursor-pointer items-start gap-3.5 py-3.5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
-              i < timed.length - 1 && "border-b border-border",
+              "flex cursor-pointer items-start gap-3.5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+              // Closer to its travel rows, so they read as one.
+              hasBefore ? "pt-2" : "pt-3.5",
+              hasAfter ? "pb-2" : "pb-3.5",
+              divided && "border-b border-border",
               ended && "opacity-50",
             )}
           >
@@ -656,12 +678,6 @@ function Scheduled({
                   {detail}
                 </div>
               )}
-              {travel && (
-                <div className="mt-[3px] flex items-baseline gap-1.5 text-xs text-muted-foreground">
-                  <Car aria-hidden className="size-3 shrink-0 self-center" />
-                  <span>{travel}</span>
-                </div>
-              )}
             </div>
             {url && (
               <JoinLink href={url} onClick={(e) => e.stopPropagation()} />
@@ -670,5 +686,53 @@ function Scheduled({
         );
       })}
     </section>
+  );
+}
+
+/**
+ * Travel as a row of its own: when to leave and for how long, quiet like
+ * the location line. Only the car takes the calendar's colour, so the row
+ * reads as part of its event. Opens its event.
+ */
+function TravelRow({
+  entry,
+  divided,
+  ended,
+  open,
+}: {
+  entry: ScheduledRow<Extract<AgendaRow, { kind: "event" }>>;
+  divided: boolean;
+  ended: boolean;
+  open: HTMLAttributes<HTMLDivElement>;
+}) {
+  return (
+    <div
+      {...open}
+      className={cn(
+        "flex cursor-pointer items-baseline gap-3.5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+        entry.kind === "travelBefore" ? "pt-3.5" : "pb-3.5",
+        divided && "border-b border-border",
+        ended && "opacity-50",
+      )}
+    >
+      <div className="w-14 shrink-0 text-[13px] text-muted-foreground tabular-nums">
+        {clock(entry.startMin)}
+        <div className="text-[11px]">{formatDurationLabel(entry.minutes)}</div>
+      </div>
+      <div className="flex min-w-0 flex-1 items-baseline gap-1.5 text-xs text-muted-foreground">
+        <Car
+          aria-hidden
+          className="size-3.5 shrink-0 self-center"
+          style={{ color: normalizeEventHex(entry.event.instance.color) }}
+        />
+        <span className="truncate">
+          {entry.travelLabel}
+          {/* The end of the way back, a shade quieter. */}
+          {entry.until && (
+            <span className="text-muted-foreground/70"> · {entry.until}</span>
+          )}
+        </span>
+      </div>
+    </div>
   );
 }
