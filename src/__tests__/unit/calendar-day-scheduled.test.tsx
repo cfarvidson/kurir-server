@@ -96,6 +96,6 @@ describe("DayView Scheduled", () => {
   it("has no travel rows without travel time", () => {
     vi.useFakeTimers({ now: new Date("2026-10-06T08:00:00Z") });
     renderDay(climbing());
-    expect(screen.queryByText(/travel/)).toBeNull();
+    expect(screen.queryByText(/travel/i)).toBeNull();
   });
 });
