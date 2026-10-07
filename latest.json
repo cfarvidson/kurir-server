@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.133",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.133",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.133",
-    "changelog": "The settings backup also carries .ics feed subscriptions, so Kurir 2.0 restores every calendar",
+    "version": "2026.135",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.135",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.135",
+    "changelog": "Travel time before and after calendar events, shared with Apple Calendar",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-10-01T13:40:33Z"
+    "releasedAt": "2026-10-07T06:40:36Z"
   }
 }

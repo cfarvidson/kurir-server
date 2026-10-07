@@ -1,5 +1,16 @@
 [
   {
+    "version": "2026.135",
+    "date": "2026-10-07",
+    "changes": [
+      "Travel time before and after calendar events, shared with Apple Calendar, counted as busy and shown in the day view, event view and Scheduled list",
+      "Join in the sidebar's Next up card; Join is one framed link everywhere",
+      "One Commands and shortcuts button in the sidebar rail",
+      "Day view ribbon labels no longer overlap on a dense day",
+      "Sent rows ignore blank To addresses"
+    ]
+  },
+  {
     "version": "2026.133",
     "date": "2026-10-01",
     "changes": [

@@ -4,6 +4,35 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.135] - 2026-10-07
+
+### Added
+
+- Calendar events can have travel time before them and after them. Travel
+  time set in Apple Calendar shows in Kurir and the other way round
+  (`X-APPLE-TRAVEL-DURATION` and where the travel starts); travel after an
+  event is Kurir's own `X-KURIR-TRAVEL-AFTER`. Travel counts as busy, shows as
+  a lighter block before and after the event, as a Travel line in the event
+  view, and on its own line under the booking in the day view's Scheduled
+  list. 45 min is now one of the steps. Picking up travel time already set
+  on existing events re-reads every CalDAV and .ics calendar once after the
+  update.
+- The sidebar's Next up card has Join when the meeting has a link.
+
+### Changed
+
+- Join is one framed link in the app tint, the same in the calendar's Next
+  up card and on the day's rows.
+- The sidebar rail has one Commands and shortcuts button instead of two
+  unlabeled icons.
+
+### Fixed
+
+- On a dense day, ribbon labels in the day view that do not fit are hidden
+  instead of written over each other.
+- A sent mail whose To header holds only blank entries names its Cc, or
+  says Bcc only, instead of a bare "To:" on the row's first line.
+
 ## [v2026.133] - 2026-10-01
 
 ### Added
