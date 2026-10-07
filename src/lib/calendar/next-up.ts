@@ -16,6 +16,11 @@ export type NextUp = {
   color: string;
   /** The meeting link, for Join; null when the event has none. */
   joinUrl: string | null;
+  /**
+   * "Leave 09:05": the start less the travel time. Null without travel
+   * time, and once the event has started.
+   */
+  leave: string | null;
 };
 
 export type TodayRow = {
@@ -59,7 +64,25 @@ export function pickNextUp(
     when: nextUpWhen(start, now),
     color: next.color,
     joinUrl: joinUrl(next),
+    leave: nextUpLeave(next, now, timeZone),
   };
+}
+
+/** "Leave 09:05" for an event with travel time that has not started. */
+export function nextUpLeave(
+  instance: CalendarInstanceDTO,
+  now: Date,
+  timeZone: string,
+): string | null {
+  const start = new Date(instance.startAt);
+  if (instance.isAllDay || !instance.travelMinutes || now >= start) {
+    return null;
+  }
+  const leaveAt = zonedParts(
+    new Date(start.getTime() - instance.travelMinutes * 60_000),
+    timeZone,
+  );
+  return `Leave ${formatTimeLabel(leaveAt.hour, leaveAt.minute)}`;
 }
 
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/i;

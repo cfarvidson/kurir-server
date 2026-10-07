@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Car, ChevronLeft, ChevronRight } from "lucide-react";
+import { normalizeEventHex } from "@/lib/calendar/color";
 import type { HeaderNextUp } from "@/components/calendar/header-model";
 import { JoinLink } from "@/components/calendar/join-link";
 import type {
@@ -173,6 +174,16 @@ function NextUpCard({
         <span className="mt-px block truncate text-xs tabular-nums text-muted-foreground">
           {place ? `${next.range} · ${place}` : next.range}
         </span>
+        {next.leaveLine && (
+          <span className="mt-px flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+            <Car
+              aria-hidden
+              className="size-3.5 shrink-0"
+              style={{ color: normalizeEventHex(next.instance.color) }}
+            />
+            <span className="truncate">{next.leaveLine}</span>
+          </span>
+        )}
       </button>
       {next.joinUrl && <JoinLink href={next.joinUrl} />}
     </div>
