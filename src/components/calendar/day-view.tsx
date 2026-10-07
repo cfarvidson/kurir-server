@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type {
-  CSSProperties,
-  HTMLAttributes,
-  KeyboardEvent,
-  MouseEvent,
-} from "react";
+import type { HTMLAttributes, KeyboardEvent, MouseEvent } from "react";
 import Link from "next/link";
 import { Car } from "lucide-react";
 import {
@@ -695,8 +690,9 @@ function Scheduled({
 }
 
 /**
- * Travel as a row of its own: when to leave and for how long, in the
- * calendar's lighter wash with the grids' dashed edge. Opens its event.
+ * Travel as a row of its own: when to leave and for how long, quiet like
+ * the location line. Only the car takes the calendar's colour, so the row
+ * reads as part of its event. Opens its event.
  */
 function TravelRow({
   entry,
@@ -713,27 +709,22 @@ function TravelRow({
     <div
       {...open}
       className={cn(
-        "flex cursor-pointer items-center gap-3.5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
+        "flex cursor-pointer items-baseline gap-3.5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
         entry.kind === "travelBefore" ? "pt-3.5" : "pb-3.5",
         divided && "border-b border-border",
         ended && "opacity-50",
       )}
     >
-      <div className="w-14 shrink-0 text-[13px] font-semibold tabular-nums">
+      <div className="w-14 shrink-0 text-[13px] text-muted-foreground tabular-nums">
         {clock(entry.startMin)}
-        <div className="text-[11px] font-normal text-muted-foreground">
-          {formatDurationLabel(entry.minutes)}
-        </div>
+        <div className="text-[11px]">{formatDurationLabel(entry.minutes)}</div>
       </div>
-      <div
-        className="cal-travel flex min-w-0 flex-1 items-center gap-2 rounded-[6px] px-2.5 py-[7px] text-[13px] font-medium"
-        style={
-          {
-            "--ev": normalizeEventHex(entry.event.instance.color),
-          } as CSSProperties
-        }
-      >
-        <Car aria-hidden className="size-3.5 shrink-0" />
+      <div className="flex min-w-0 flex-1 items-baseline gap-1.5 text-xs text-muted-foreground">
+        <Car
+          aria-hidden
+          className="size-3.5 shrink-0 self-center"
+          style={{ color: normalizeEventHex(entry.event.instance.color) }}
+        />
         <span className="truncate">{entry.travelLabel}</span>
       </div>
     </div>
