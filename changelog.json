@@ -1,5 +1,12 @@
 [
   {
+    "version": "2026.137",
+    "date": "2026-10-07",
+    "changes": [
+      "Next up says when to leave when the next event has travel time"
+    ]
+  },
+  {
     "version": "2026.136",
     "date": "2026-10-07",
     "changes": [

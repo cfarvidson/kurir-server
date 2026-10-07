@@ -4,6 +4,15 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.137] - 2026-10-07
+
+### Added
+
+- The Next up cards say when to leave when the event has travel time: the
+  sidebar's card shows "Leave 12:05" under the event, the calendar's card
+  "Leave 12:05 · 25 min travel from Home" under the time. The line goes away
+  once the event starts.
+
 ## [v2026.136] - 2026-10-07
 
 ### Changed
