@@ -84,6 +84,9 @@ describe("DayView Scheduled", () => {
     expect(before?.textContent).toContain("25 min");
     expect(after?.textContent).toContain("20:00");
     expect(after?.textContent).toContain("15 min");
+    // The way back says when it ends.
+    expect(after?.textContent).toContain("until 20:15");
+    expect(before?.textContent).not.toContain("until");
     const event = screen.getByText("Climbing").closest("[role=button]");
     expect(event?.textContent).not.toMatch(/travel/i);
     // Before, then the event, then after.

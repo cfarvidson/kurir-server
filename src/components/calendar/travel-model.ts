@@ -3,7 +3,7 @@ import type {
   CalendarInstanceDTO,
 } from "@/components/calendar/types";
 import type { TravelStart } from "@/lib/calendar/travel";
-import { formatDurationLabel } from "@/lib/calendar/view-time";
+import { formatDurationLabel, formatTimeLabel } from "@/lib/calendar/view-time";
 
 /** The editor's Travel time and Travel after steps, as in the apps. */
 const TRAVEL_STEPS = [5, 15, 30, 45, 60, 90, 120];
@@ -64,6 +64,8 @@ export type ScheduledRow<E extends ScheduledEvent> = {
   minutes: number;
   /** "Travel from Home", "Travel", "Travel after"; null for the event. */
   travelLabel: string | null;
+  /** "until 20:15": when the way back ends. Only on travel after. */
+  until: string | null;
 };
 
 /**
@@ -90,6 +92,7 @@ export function scheduledRows<E extends ScheduledEvent>(
         startMin: event.startMin - before,
         minutes: before,
         travelLabel: place ? `Travel from ${place}` : "Travel",
+        until: null,
       });
     }
     rows.push({
@@ -99,6 +102,7 @@ export function scheduledRows<E extends ScheduledEvent>(
       startMin: event.startMin,
       minutes: event.endMin - event.startMin,
       travelLabel: null,
+      until: null,
     });
     if (after > 0) {
       rows.push({
@@ -108,6 +112,7 @@ export function scheduledRows<E extends ScheduledEvent>(
         startMin: event.endMin,
         minutes: after,
         travelLabel: "Travel after",
+        until: `until ${formatTimeLabel(Math.floor((event.endMin + after) / 60), (event.endMin + after) % 60)}`,
       });
     }
     return rows;

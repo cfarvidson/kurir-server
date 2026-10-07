@@ -725,7 +725,13 @@ function TravelRow({
           className="size-3.5 shrink-0 self-center"
           style={{ color: normalizeEventHex(entry.event.instance.color) }}
         />
-        <span className="truncate">{entry.travelLabel}</span>
+        <span className="truncate">
+          {entry.travelLabel}
+          {/* The end of the way back, a shade quieter. */}
+          {entry.until && (
+            <span className="text-muted-foreground/70"> · {entry.until}</span>
+          )}
+        </span>
       </div>
     </div>
   );
