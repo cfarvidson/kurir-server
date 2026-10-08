@@ -44,7 +44,9 @@ interface EmailBodyFrameProps {
  *
  * Safety: `sanitizeEmailHtml` strips script tags, event handler attributes,
  * style/iframe/object/embed/form tags, and CSS url() values. With those
- * gone, there is no JS execution path inside the shadow root.
+ * gone, there is no JS execution path inside the shadow root. The one
+ * `<style>` it emits holds only the email's width media queries, rebuilt
+ * from allowlisted rules.
  *
  * On mobile, wide emails (e.g. 600px newsletters on a 375px screen) are
  * scaled down via transform:scale() so they fit without horizontal scroll.

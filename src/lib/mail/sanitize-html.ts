@@ -325,50 +325,115 @@ export function sanitizeEmailHtmlWithMeta(
 }
 
 /**
- * The `@media` blocks of an email's CSS whose condition is a width, with
- * remote loads (`url()`, `image-set()`) neutralised. Newsletters stack their
- * columns on a phone through them; without them a narrow cell wraps one
- * character per line. Colour-scheme and print queries are dropped, as is
- * every rule outside a media query. Mirrored by the iOS client in
+ * The `@media` blocks of an email's CSS whose condition is only a width,
+ * rebuilt from the rules that pass {@link isSafeRule}. Newsletters stack
+ * their columns on a phone through them; without them a narrow cell wraps one
+ * character per line. Nothing is copied through unchecked: the output can
+ * neither end its `<style>` nor load anything. Mirrored by the iOS client in
  * `EmailDisplaySanitizer.swift`; keep the two in step.
  */
 function widthMediaQueries(css: string): string {
   const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const kept: string[] = [];
-  const at = /@media/gi;
-  let match: RegExpExecArray | null;
-  while ((match = at.exec(source))) {
-    const open = source.indexOf("{", at.lastIndex);
-    if (open === -1) break;
-    let depth = 0;
-    let close = -1;
-    for (let i = open; i < source.length; i++) {
-      if (source[i] === "{") depth++;
-      if (source[i] === "}" && --depth === 0) {
-        close = i;
+  const nextBrace = (from: number) => {
+    const match = /[{}]/.exec(source.slice(from));
+    return match ? from + match.index : -1;
+  };
+  let i = 0;
+  while (i + 6 <= source.length) {
+    const brace = source.indexOf("{", i);
+    if (source.slice(i, i + 6).toLowerCase() !== "@media" || brace === -1) {
+      i++;
+      continue;
+    }
+    const condition = source
+      .slice(i + 6, brace)
+      .trim()
+      .split(/\s+/)
+      .join(" ");
+    // The block's rules, one level deep; a nested block drops it.
+    const rules: string[] = [];
+    let nested = false;
+    let j = brace + 1;
+    for (
+      let next = nextBrace(j);
+      next !== -1 && source[next] === "{";
+      next = nextBrace(j)
+    ) {
+      const ruleClose = nextBrace(next + 1);
+      if (ruleClose === -1 || source[ruleClose] !== "}") {
+        nested = true;
         break;
       }
+      const selector = source.slice(j, next).trim();
+      const declarations = source.slice(next + 1, ruleClose).trim();
+      if (isSafeRule(selector, declarations)) {
+        rules.push(`${selector} { ${declarations} }`);
+      }
+      j = ruleClose + 1;
     }
-    if (close === -1) break;
-    const condition = source.slice(at.lastIndex, open).toLowerCase();
-    const block = source.slice(match.index, close + 1);
-    if (
-      condition.includes("width") &&
-      !condition.includes("prefers-color-scheme") &&
-      !condition.includes("print") &&
-      // CSS escapes could spell url(); drop rather than decode.
-      !block.includes("\\")
-    ) {
-      kept.push(
-        block
-          .replace(/url\s*\([^)]*\)/gi, "none")
-          .replace(/image-set\s*\([^)]*\)/gi, "none")
-          .replace(/image\s*\([^)]*\)/gi, "none"),
-      );
+    if (!nested && rules.length > 0 && isWidthCondition(condition)) {
+      kept.push(`@media ${condition} {\n${rules.join("\n")}\n}`);
     }
-    at.lastIndex = close + 1;
+    const end = nested ? -1 : source.indexOf("}", j);
+    if (end === -1) break;
+    i = end + 1;
   }
   return kept.join("\n");
+}
+
+/**
+ * `only screen and (max-width: 480px)`, `(min-width: 30em) and
+ * (max-width: 40em)`, comma lists of those. Nothing else: no colour-scheme,
+ * print or `;` that would end the rule early.
+ */
+const WIDTH_CONDITION =
+  /^(?:only )?(?:screen|all)?(?: ?and ?)?\( ?(?:max|min)-(?:device-)?width ?: ?[0-9]+(?:\.[0-9]+)?(?:px|em|rem) ?\)(?: ?and ?\( ?(?:max|min)-(?:device-)?width ?: ?[0-9]+(?:\.[0-9]+)?(?:px|em|rem) ?\))*$/i;
+
+function isWidthCondition(condition: string): boolean {
+  return condition
+    .split(",")
+    .every((part) => WIDTH_CONDITION.test(part.trim()));
+}
+
+/** Functions a kept rule may call; `url()`, `image-set()` and the like are not among them. */
+const ALLOWED_FUNCTIONS = new Set([
+  "rgb",
+  "rgba",
+  "hsl",
+  "hsla",
+  "calc",
+  "min",
+  "max",
+  "clamp",
+  "not",
+  "nth-child",
+  "nth-of-type",
+  "nth-last-child",
+  "nth-last-of-type",
+]);
+
+/**
+ * Selectors that reach the frame's own elements (`:host`, `.scaler`,
+ * `.content`), whose scaling and measuring depend on them.
+ */
+const WRAPPER_SELECTOR =
+  /(?:^|[\s,>+~(])(?:html|body)(?![\w-])|:root|:host|\*|\.(?:scaler|content)(?![\w-])/i;
+
+function isSafeRule(selector: string, declarations: string): boolean {
+  // No end tag, no CSS escape (it could spell url()), no strings, no
+  // at-rules; `;` only between declarations.
+  if (
+    !selector ||
+    /[<\\"'@;]/.test(selector) ||
+    /[<\\"'@]/.test(declarations) ||
+    WRAPPER_SELECTOR.test(selector)
+  ) {
+    return false;
+  }
+  return Array.from(
+    `${selector} ${declarations}`.matchAll(/([A-Za-z-]*)\s*\(/g),
+  ).every((call) => ALLOWED_FUNCTIONS.has(call[1].toLowerCase()));
 }
 
 /** Exported for tests. Removes CSS comments, then drops url()/image-set(). */
