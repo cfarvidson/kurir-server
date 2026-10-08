@@ -422,7 +422,7 @@ function scoped(selector: string): string | null {
     }
   }
   parts.push(current);
-  const trimmed = parts.map((part) => part.trim());
+  const trimmed = parts.map((part) => part.trim().split(/\s+/).join(" "));
   if (trimmed.some((part) => !part)) return null;
   return trimmed
     .map((part) => {
@@ -479,9 +479,25 @@ function isSafeRule(selector: string, declarations: string): boolean {
   ) {
     return false;
   }
-  return Array.from(
-    `${selector} ${declarations}`.matchAll(/([A-Za-z-]*)\s*\(/g),
-  ).every((call) => ALLOWED_FUNCTIONS.has(call[1].toLowerCase()));
+  return callsOnlyAllowedFunctions(`${selector} ${declarations}`);
+}
+
+/**
+ * The name before each `(`, read backwards over spaces then letters and `-`.
+ * Linear: a regex for `name\s*\(` rescanned a long run of letters or spaces
+ * from every position, and 80 KB froze the tab.
+ */
+function callsOnlyAllowedFunctions(text: string): boolean {
+  for (let k = text.indexOf("("); k !== -1; k = text.indexOf("(", k + 1)) {
+    let end = k;
+    while (end > 0 && /\s/.test(text[end - 1])) end--;
+    let start = end;
+    while (start > 0 && /[A-Za-z-]/.test(text[start - 1])) start--;
+    if (!ALLOWED_FUNCTIONS.has(text.slice(start, end).toLowerCase())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function hasBalancedParentheses(text: string): boolean {

@@ -1045,6 +1045,22 @@ describe("sanitizeEmailHtml", () => {
       }
     });
 
+    it("long runs in a kept rule stay fast", () => {
+      // Letters, a-a-a selectors and spaces with no "(" made the function
+      // check scan quadratically; 80 KB froze the tab for seconds.
+      for (const run of [
+        `.a { b${"a".repeat(100_000)} }`,
+        `${"a-".repeat(50_000)} { color: red; }`,
+        `.a { color:${" ".repeat(100_000)}red }`,
+      ]) {
+        const start = Date.now();
+        sanitizeEmailHtml(
+          `<style>@media (max-width: 600px) { ${run} }</style>`,
+        );
+        expect(Date.now() - start).toBeLessThan(5000);
+      }
+    });
+
     it("comment removal does not open a new comment", () => {
       const result = sanitizeEmailHtml(`
         <style>
@@ -1065,6 +1081,7 @@ describe("sanitizeEmailHtml", () => {
         a,, b { width: 1px; }
         , c { width: 2px; }
         .content ~ .scaler { width: 3px; }
+        .content  +  p { width: 6px; }
         d:not(.x { width: 4px; }
         e { width: calc(100% - 1px; }
         f /* { width: 5px; }
@@ -1075,6 +1092,7 @@ describe("sanitizeEmailHtml", () => {
       expect(styleElements(result).styles[0].textContent).toBe(
         "@media (max-width: 480px) {\n" +
           ".content .content ~ .scaler { width: 3px; }\n" +
+          ".content .content + p { width: 6px; }\n" +
           ".content .ok { width: 100%; }\n}",
       );
     });
