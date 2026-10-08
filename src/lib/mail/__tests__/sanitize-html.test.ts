@@ -906,4 +906,55 @@ describe("sanitizeEmailHtml", () => {
       expect(html).not.toContain("srcset");
     });
   });
+
+  describe("width media queries from <style> blocks", () => {
+    // Patreon's share card puts image, text and a 180px button side by side
+    // and stacks them only through this rule. Without it the text cell is
+    // squeezed to one character per line on a phone.
+    it("keeps width media queries that stack mobile layouts", () => {
+      const result = sanitizeEmailHtml(`
+        <style type="text/css">
+        a { color: #000000; }
+        @media only screen and (max-width:480px) {
+        .stack-container-mb > tbody > tr > td { display: block !important; width: 100% !important; }
+        }
+        </style>
+        <table class="stack-container-mb"><tbody><tr><td>Gillade du detta inlägg?</td></tr></tbody></table>
+      `);
+      expect(result).toContain("@media only screen and (max-width:480px)");
+      expect(result).toContain(
+        ".stack-container-mb > tbody > tr > td { display: block !important;",
+      );
+      expect(result).not.toContain("a { color: #000000; }");
+      expect(result).toContain("Gillade du detta inlägg?");
+    });
+
+    it("drops colour-scheme and print media queries", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (prefers-color-scheme: dark) { body { background: #000; } }
+        @media screen and (max-width: 600px) and (prefers-color-scheme: dark) { p { color: #fff; } }
+        @media print { p { display: none; } }
+        </style>
+        <p>Hi</p>
+      `);
+      expect(result).not.toContain("<style");
+      expect(result).not.toContain("#000");
+      expect(result).not.toContain("#fff");
+      expect(result).toContain("<p>Hi</p>");
+    });
+
+    it("kept media queries load nothing remote", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) {
+        .hero { background: url(https://tracker.example/p.gif); width: 100% !important; }
+        .x { background: image-set("https://tracker.example/a.png" 1x); }
+        }
+        </style>
+      `);
+      expect(result).not.toContain("tracker.example");
+      expect(result).toContain("width: 100% !important;");
+    });
+  });
 });

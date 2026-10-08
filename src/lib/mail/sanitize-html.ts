@@ -176,6 +176,8 @@ const ALLOWED_ATTR = [
  * - Forces target="_blank" + rel="noopener noreferrer" on all links.
  * - Allows only http/https/cid image sources (strips data: URIs and others).
  * - Optionally strips quoted-text elements (blockquote, .gmail_quote, etc.).
+ * - Keeps the width media queries of the email's <style> blocks (see
+ *   {@link widthMediaQueries}); every other <style> rule is dropped.
  *
  * Must only be called in a browser environment (DOMPurify requires a DOM).
  *
@@ -206,6 +208,17 @@ export function sanitizeEmailHtmlWithMeta(
       quoteCollapsible: false,
     };
   }
+
+  const responsive = /<style/i.test(html)
+    ? widthMediaQueries(
+        Array.from(
+          new DOMParser()
+            .parseFromString(html, "text/html")
+            .querySelectorAll("style"),
+          (style) => style.textContent ?? "",
+        ).join("\n"),
+      )
+    : "";
 
   const purify = DOMPurify(window);
 
@@ -296,12 +309,66 @@ export function sanitizeEmailHtmlWithMeta(
   const boundary = findQuoteBoundary(doc);
   if (boundary && options.collapseQuotes) truncateFrom(boundary, doc.body);
 
+  // 6. The email's own width media queries, so mobile layouts stack.
+  if (responsive) {
+    const style = doc.createElement("style");
+    style.textContent = responsive;
+    doc.body.prepend(style);
+  }
+
   return {
     html: doc.body.innerHTML,
     blockedRemoteImages,
     blockedTrackers,
     quoteCollapsible: boundary !== null,
   };
+}
+
+/**
+ * The `@media` blocks of an email's CSS whose condition is a width, with
+ * remote loads (`url()`, `image-set()`) neutralised. Newsletters stack their
+ * columns on a phone through them; without them a narrow cell wraps one
+ * character per line. Colour-scheme and print queries are dropped, as is
+ * every rule outside a media query. Mirrored by the iOS client in
+ * `EmailDisplaySanitizer.swift`; keep the two in step.
+ */
+function widthMediaQueries(css: string): string {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const kept: string[] = [];
+  const at = /@media/gi;
+  let match: RegExpExecArray | null;
+  while ((match = at.exec(source))) {
+    const open = source.indexOf("{", at.lastIndex);
+    if (open === -1) break;
+    let depth = 0;
+    let close = -1;
+    for (let i = open; i < source.length; i++) {
+      if (source[i] === "{") depth++;
+      if (source[i] === "}" && --depth === 0) {
+        close = i;
+        break;
+      }
+    }
+    if (close === -1) break;
+    const condition = source.slice(at.lastIndex, open).toLowerCase();
+    const block = source.slice(match.index, close + 1);
+    if (
+      condition.includes("width") &&
+      !condition.includes("prefers-color-scheme") &&
+      !condition.includes("print") &&
+      // CSS escapes could spell url(); drop rather than decode.
+      !block.includes("\\")
+    ) {
+      kept.push(
+        block
+          .replace(/url\s*\([^)]*\)/gi, "none")
+          .replace(/image-set\s*\([^)]*\)/gi, "none")
+          .replace(/image\s*\([^)]*\)/gi, "none"),
+      );
+    }
+    at.lastIndex = close + 1;
+  }
+  return kept.join("\n");
 }
 
 /** Exported for tests. Removes CSS comments, then drops url()/image-set(). */
