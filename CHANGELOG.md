@@ -4,6 +4,17 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.138] - 2026-10-08
+
+### Fixed
+
+- Newsletters keep their phone layout. The mail body used to drop every
+  `<style>` block, and with it the width media queries mobile newsletters use
+  to stack their columns, so a share card could wrap one character per line.
+  Width media queries now survive, rebuilt from allowlisted rules scoped to the
+  mail itself; everything else in `<style>` still goes and kept rules load
+  nothing.
+
 ## [v2026.137] - 2026-10-07
 
 ### Added

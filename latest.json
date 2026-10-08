@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.137",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.137",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.137",
-    "changelog": "Next up says when to leave when the next event has travel time",
+    "version": "2026.138",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.138",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.138",
+    "changelog": "Newsletters stack on a phone: the mail body keeps the mail's own width media queries",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-10-07T10:33:31Z"
+    "releasedAt": "2026-10-08T07:31:51Z"
   }
 }
