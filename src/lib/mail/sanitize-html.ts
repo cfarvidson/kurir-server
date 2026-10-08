@@ -333,19 +333,26 @@ export function sanitizeEmailHtmlWithMeta(
  * `EmailDisplaySanitizer.swift`; keep the two in step.
  */
 function widthMediaQueries(css: string): string {
-  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  // A space, so `//**/*` cannot close up into a new `/*`.
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, " ");
   const kept: string[] = [];
   const nextBrace = (from: number) => {
-    const match = /[{}]/.exec(source.slice(from));
-    return match ? from + match.index : -1;
+    for (let k = from; k < source.length; k++) {
+      if (source[k] === "{" || source[k] === "}") return k;
+    }
+    return -1;
   };
   let i = 0;
   while (i + 6 <= source.length) {
-    const brace = source.indexOf("{", i);
-    if (source.slice(i, i + 6).toLowerCase() !== "@media" || brace === -1) {
+    if (
+      source[i] !== "@" ||
+      source.slice(i, i + 6).toLowerCase() !== "@media"
+    ) {
       i++;
       continue;
     }
+    const brace = source.indexOf("{", i);
+    if (brace === -1) break;
     const condition = source
       .slice(i + 6, brace)
       .trim()
@@ -368,18 +375,54 @@ function widthMediaQueries(css: string): string {
       const selector = source.slice(j, next).trim();
       const declarations = source.slice(next + 1, ruleClose).trim();
       if (isSafeRule(selector, declarations)) {
-        rules.push(`${selector} { ${declarations} }`);
+        rules.push(`${scoped(selector)} { ${declarations} }`);
       }
       j = ruleClose + 1;
     }
     if (!nested && rules.length > 0 && isWidthCondition(condition)) {
       kept.push(`@media ${condition} {\n${rules.join("\n")}\n}`);
     }
-    const end = nested ? -1 : source.indexOf("}", j);
+    // Past the block's own closing brace, nested blocks included.
+    let depth = 0;
+    let end = -1;
+    for (let k = brace; k < source.length; k++) {
+      if (source[k] === "{") depth++;
+      if (source[k] === "}" && --depth === 0) {
+        end = k;
+        break;
+      }
+    }
     if (end === -1) break;
     i = end + 1;
   }
   return kept.join("\n");
+}
+
+/**
+ * Each selector of a list under the frame's `.content`, so a kept rule
+ * reaches the email's own elements and never `:host` or the scaler the
+ * measuring depends on. One already under `.content ` stays as it is: it
+ * reaches only the email too, and a second pass must change nothing.
+ */
+function scoped(selector: string): string {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const character of selector) {
+    if (character === "(") depth++;
+    if (character === ")") depth--;
+    if (character === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  parts.push(current);
+  return parts
+    .map((part) => part.trim())
+    .map((part) => (part.startsWith(".content ") ? part : `.content ${part}`))
+    .join(", ");
 }
 
 /**
@@ -413,21 +456,13 @@ const ALLOWED_FUNCTIONS = new Set([
   "nth-last-of-type",
 ]);
 
-/**
- * Selectors that reach the frame's own elements (`:host`, `.scaler`,
- * `.content`), whose scaling and measuring depend on them.
- */
-const WRAPPER_SELECTOR =
-  /(?:^|[\s,>+~(])(?:html|body)(?![\w-])|:root|:host|\*|\.(?:scaler|content)(?![\w-])/i;
-
 function isSafeRule(selector: string, declarations: string): boolean {
   // No end tag, no CSS escape (it could spell url()), no strings, no
   // at-rules; `;` only between declarations.
   if (
     !selector ||
     /[<\\"'@;]/.test(selector) ||
-    /[<\\"'@]/.test(declarations) ||
-    WRAPPER_SELECTOR.test(selector)
+    /[<\\"'@]/.test(declarations)
   ) {
     return false;
   }

@@ -923,7 +923,7 @@ describe("sanitizeEmailHtml", () => {
       `);
       expect(result).toContain("@media only screen and (max-width:480px)");
       expect(result).toContain(
-        ".stack-container-mb > tbody > tr > td { display: block !important;",
+        ".content .stack-container-mb > tbody > tr > td { display: block !important;",
       );
       expect(result).not.toContain("a { color: #000000; }");
       expect(result).toContain("Gillade du detta inlägg?");
@@ -974,7 +974,7 @@ describe("sanitizeEmailHtml", () => {
       expect(images).toBe(0);
       expect(styles).toHaveLength(1);
       expect(styles[0].textContent).toBe(
-        "@media (max-width: 480px) {\n.ok { width: 100% !important; }\n}",
+        "@media (max-width: 480px) {\n.content .ok { width: 100% !important; }\n}",
       );
     });
 
@@ -1000,24 +1000,52 @@ describe("sanitizeEmailHtml", () => {
       expect(result).not.toContain("@import");
     });
 
-    it("kept rules cannot restyle the reading surface", () => {
+    it("kept rules only reach the email itself", () => {
+      // Every kept selector is scoped under the frame's .content, so no rule
+      // restyles :host or the scaler the measuring depends on, however it is
+      // spelled; an email's own .content class still works.
       const result = sanitizeEmailHtml(`
         <style>
-        @media (max-width: 480px) {
-        body { margin: 40px !important; }
-        html, .x { background: #000 !important; }
-        :root { color: #fff; }
-        :host { display: none; }
-        * { font-size: 30px; }
-        .scaler { width: 50% !important; }
-        .content { padding: 0; }
-        .ok { width: 100% !important; }
+        @media (min-width: 0px) {
+        :host, .scaler { margin: 40px !important; }
+        :not(.zz) { background: #000; }
+        .content { width: 100% !important; }
         }
         </style>
       `);
       expect(styleElements(result).styles[0].textContent).toBe(
-        "@media (max-width: 480px) {\n.ok { width: 100% !important; }\n}",
+        "@media (min-width: 0px) {\n" +
+          ".content :host, .content .scaler { margin: 40px !important; }\n" +
+          ".content :not(.zz) { background: #000; }\n" +
+          ".content .content { width: 100% !important; }\n}",
       );
+    });
+
+    it("a nested block drops only its own media query", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 600px) { @supports (display: grid) { .x { width: 1px; } } .y { width: 2px; } }
+        @MEDIA (max-width: 500px) { .z { width: 100%; } }
+        </style>
+      `);
+      expect(result).not.toContain(".y");
+      expect(result).toContain(".content .z { width: 100%; }");
+    });
+
+    it("many @media without a brace stay fast", () => {
+      // A crafted email must not freeze the tab.
+      const start = Date.now();
+      sanitizeEmailHtml(`<style>${"@media ".repeat(150_000)}</style>`);
+      expect(Date.now() - start).toBeLessThan(1000);
+    });
+
+    it("comment removal does not open a new comment", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) { .a //**/* { width: 1px; } .ok { width: 100%; } }
+        </style>
+      `);
+      expect(result).toContain(".content .ok { width: 100%; }");
     });
 
     it("drops rules with escaped selectors", () => {
@@ -1031,7 +1059,7 @@ describe("sanitizeEmailHtml", () => {
         </style>
       `);
       expect(result).not.toContain("w-full");
-      expect(result).toContain(".ok { width: 100% !important; }");
+      expect(result).toContain(".content .ok { width: 100% !important; }");
     });
 
     it("keeps allowed functions and sanitizing twice changes nothing", () => {
@@ -1046,7 +1074,7 @@ describe("sanitizeEmailHtml", () => {
       `;
       const once = sanitizeEmailHtml(html);
       expect(once).toContain(
-        "td:not(.x):nth-child(2) { width: calc(100% - 16px); }",
+        ".content td:not(.x):nth-child(2) { width: calc(100% - 16px); }",
       );
       expect(once).toContain("rgba(0, 0, 0, 0.5)");
       expect(sanitizeEmailHtml(once)).toBe(once);
