@@ -175,6 +175,21 @@ export function answeredMessageIds(
 }
 
 /**
+ * Whether I replied to the latest message from someone else in the thread
+ * (kurir-ios#266): the `answeredMessageIds` rule applied to that one
+ * message. `latestFirst` is the thread newest first. A thread of only my
+ * own mail is not replied; when they write back, the mark goes.
+ */
+export function threadIsReplied(
+  latestFirst: ThreadCardMessage[],
+  isOwn: IsOwn,
+): boolean {
+  const incoming = latestFirst.find((m) => !isOwn(m.fromAddress));
+  if (!incoming) return false;
+  return answeredMessageIds(latestFirst, isOwn).has(incoming.id);
+}
+
+/**
  * The card the composer targets when the thread opens: a pinned reply draft,
  * else the latest message not from the user, else the latest message.
  */

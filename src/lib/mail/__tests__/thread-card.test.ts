@@ -4,6 +4,7 @@ import {
   cardLabel,
   defaultReplyTargetId,
   replyOptionsFor,
+  threadIsReplied,
   type ThreadCardMessage,
 } from "@/lib/mail/thread-card";
 
@@ -165,5 +166,45 @@ describe("defaultReplyTargetId", () => {
     expect(defaultReplyTargetId(thread, isOwn)).toBe("a1");
     expect(defaultReplyTargetId([thread[0], thread[2]], isOwn)).toBe("s1");
     expect(defaultReplyTargetId([], isOwn)).toBeNull();
+  });
+});
+
+// kurir-ios#266: a thread counts as replied when the latest message from
+// someone else has been answered; it is the ball in their court.
+describe("threadIsReplied", () => {
+  it("is replied when the latest incoming message is flagged answered", () => {
+    expect(threadIsReplied([msg({ id: "a", isAnswered: true })], isOwn)).toBe(true);
+    expect(threadIsReplied([msg({ id: "a" })], isOwn)).toBe(false);
+  });
+
+  it("is replied when my own message replies to the latest incoming one", () => {
+    expect(
+      threadIsReplied(
+        [
+          msg({ id: "r", fromAddress: ME, inReplyTo: "<a@x>" }),
+          msg({ id: "a", messageId: "<a@x>" }),
+        ],
+        isOwn,
+      ),
+    ).toBe(true);
+  });
+
+  it("clears when they write back after my reply", () => {
+    expect(
+      threadIsReplied(
+        [
+          msg({ id: "b", messageId: "<b@x>" }),
+          msg({ id: "r", fromAddress: ME, inReplyTo: "<a@x>" }),
+          msg({ id: "a", messageId: "<a@x>", isAnswered: true }),
+        ],
+        isOwn,
+      ),
+    ).toBe(false);
+  });
+
+  it("shows no mark on a thread of only my own mail", () => {
+    expect(
+      threadIsReplied([msg({ id: "r", fromAddress: ME, isAnswered: true })], isOwn),
+    ).toBe(false);
   });
 });

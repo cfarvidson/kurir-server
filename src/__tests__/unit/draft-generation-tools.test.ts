@@ -49,6 +49,7 @@ describe("search_mail", () => {
         isArchived: false,
         isSnoozed: false,
         isFollowUp: false,
+        isAnswered: false,
         isSent: false,
       },
     ]);

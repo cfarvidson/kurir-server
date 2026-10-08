@@ -181,6 +181,9 @@ async function MessageAndFileResults({
             messages={messages.map((message) => ({
               ...message,
               listLabel: listLabelForSearchHit(message),
+              // A hit is one message: replied when I answered it, as in
+              // the apps' search rows (kurir-ios#266).
+              isReplied: message.isAnswered && !message.isSent,
             }))}
             basePath={basePath}
             list={list}

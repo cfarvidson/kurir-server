@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getThreadCounts } from "@/lib/mail/threads";
+import { getRepliedRowIds, getThreadCounts } from "@/lib/mail/threads";
 import { AI_VERDICT_SELECT, summarizeAIVerdict } from "@/lib/mail/content-rules";
 
 const CATEGORY_FILTERS = {
@@ -170,11 +170,15 @@ export async function getMessages(
     select: MESSAGE_SELECT,
   });
 
-  const threadCounts = await getThreadCounts(userId, messages);
+  const [threadCounts, replied] = await Promise.all([
+    getThreadCounts(userId, messages),
+    getRepliedRowIds(userId, messages),
+  ]);
 
   const withCounts = messages.map(({ contentRuleMatches, ...m }) => ({
     ...m,
     threadCount: threadCounts.get(m.id) ?? 1,
+    isReplied: replied.has(m.id),
     aiVerdict: summarizeAIVerdict(contentRuleMatches),
   }));
 

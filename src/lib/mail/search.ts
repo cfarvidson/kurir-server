@@ -27,6 +27,7 @@ export const SEARCH_SELECT_COLUMNS = [
   "isArchived",
   "isSnoozed",
   "isFollowUp",
+  "isAnswered",
 ] as const;
 
 export interface MessageSearchResult {
@@ -49,6 +50,7 @@ export interface MessageSearchResult {
   isArchived: boolean;
   isSnoozed: boolean;
   isFollowUp: boolean;
+  isAnswered: boolean;
   isSent: boolean;
 }
 

@@ -72,6 +72,17 @@ const EMPTY_COPY: Record<MailListId, EmptyCopy> = {
   },
 };
 
+/**
+ * The replied mark (kurir-ios#266) shows in every list but Sent, where every
+ * row is my own mail.
+ */
+export function showsRepliedMark(
+  list: MailListId,
+  isReplied: boolean | undefined,
+): boolean {
+  return !!isReplied && list !== "sent";
+}
+
 export function threadCountLabel(count: number | undefined): string | null {
   if (count === undefined || count <= 1) return null;
   return `·${count}`;
