@@ -176,6 +176,8 @@ const ALLOWED_ATTR = [
  * - Forces target="_blank" + rel="noopener noreferrer" on all links.
  * - Allows only http/https/cid image sources (strips data: URIs and others).
  * - Optionally strips quoted-text elements (blockquote, .gmail_quote, etc.).
+ * - Keeps the width media queries of the email's <style> blocks (see
+ *   {@link widthMediaQueries}); every other <style> rule is dropped.
  *
  * Must only be called in a browser environment (DOMPurify requires a DOM).
  *
@@ -206,6 +208,17 @@ export function sanitizeEmailHtmlWithMeta(
       quoteCollapsible: false,
     };
   }
+
+  const responsive = /<style/i.test(html)
+    ? widthMediaQueries(
+        Array.from(
+          new DOMParser()
+            .parseFromString(html, "text/html")
+            .querySelectorAll("style"),
+          (style) => style.textContent ?? "",
+        ).join("\n"),
+      )
+    : "";
 
   const purify = DOMPurify(window);
 
@@ -296,12 +309,205 @@ export function sanitizeEmailHtmlWithMeta(
   const boundary = findQuoteBoundary(doc);
   if (boundary && options.collapseQuotes) truncateFrom(boundary, doc.body);
 
+  // 6. The email's own width media queries, so mobile layouts stack.
+  if (responsive) {
+    const style = doc.createElement("style");
+    style.textContent = responsive;
+    doc.body.prepend(style);
+  }
+
   return {
     html: doc.body.innerHTML,
     blockedRemoteImages,
     blockedTrackers,
     quoteCollapsible: boundary !== null,
   };
+}
+
+/**
+ * The `@media` blocks of an email's CSS whose condition is only a width,
+ * rebuilt from the rules that pass {@link isSafeRule}. Newsletters stack
+ * their columns on a phone through them; without them a narrow cell wraps one
+ * character per line. Nothing is copied through unchecked: the output can
+ * neither end its `<style>` nor load anything. Mirrored by the iOS client in
+ * `EmailDisplaySanitizer.swift`; keep the two in step.
+ */
+function widthMediaQueries(css: string): string {
+  // A space, so `//**/*` cannot close up into a new `/*`.
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, " ");
+  const kept: string[] = [];
+  const nextBrace = (from: number) => {
+    for (let k = from; k < source.length; k++) {
+      if (source[k] === "{" || source[k] === "}") return k;
+    }
+    return -1;
+  };
+  let i = 0;
+  while (i + 6 <= source.length) {
+    if (
+      source[i] !== "@" ||
+      source.slice(i, i + 6).toLowerCase() !== "@media"
+    ) {
+      i++;
+      continue;
+    }
+    const brace = source.indexOf("{", i);
+    if (brace === -1) break;
+    const condition = source
+      .slice(i + 6, brace)
+      .trim()
+      .split(/\s+/)
+      .join(" ");
+    // The block's rules, one level deep; a nested block drops it.
+    const rules: string[] = [];
+    let nested = false;
+    let j = brace + 1;
+    for (
+      let next = nextBrace(j);
+      next !== -1 && source[next] === "{";
+      next = nextBrace(j)
+    ) {
+      const ruleClose = nextBrace(next + 1);
+      if (ruleClose === -1 || source[ruleClose] !== "}") {
+        nested = true;
+        break;
+      }
+      const selector = source.slice(j, next).trim();
+      const declarations = source.slice(next + 1, ruleClose).trim();
+      const scopedSelector = isSafeRule(selector, declarations)
+        ? scoped(selector)
+        : null;
+      if (scopedSelector) rules.push(`${scopedSelector} { ${declarations} }`);
+      j = ruleClose + 1;
+    }
+    if (!nested && rules.length > 0 && isWidthCondition(condition)) {
+      kept.push(`@media ${condition} {\n${rules.join("\n")}\n}`);
+    }
+    // Past the block's own closing brace, nested blocks included.
+    let depth = 0;
+    let end = -1;
+    for (let k = brace; k < source.length; k++) {
+      if (source[k] === "{") depth++;
+      if (source[k] === "}" && --depth === 0) {
+        end = k;
+        break;
+      }
+    }
+    if (end === -1) break;
+    i = end + 1;
+  }
+  return kept.join("\n");
+}
+
+/**
+ * Each selector of a list under the frame's `.content`, so a kept rule
+ * reaches the email's own elements and never `:host` or the scaler the
+ * measuring depends on. One already under `.content ` (not followed by `~`
+ * or `+`) stays as it is: it reaches only the email too, and a second pass
+ * must change nothing. Null when a list member is empty, which would leave a
+ * bare `.content`: the frame's own element.
+ */
+function scoped(selector: string): string | null {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const character of selector) {
+    if (character === "(") depth++;
+    if (character === ")") depth--;
+    if (character === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  parts.push(current);
+  const trimmed = parts.map((part) => part.trim().split(/\s+/).join(" "));
+  if (trimmed.some((part) => !part)) return null;
+  return trimmed
+    .map((part) => {
+      const rest = part.charAt(".content ".length);
+      return part.startsWith(".content ") && rest !== "~" && rest !== "+"
+        ? part
+        : `.content ${part}`;
+    })
+    .join(", ");
+}
+
+/**
+ * `only screen and (max-width: 480px)`, `(min-width: 30em) and
+ * (max-width: 40em)`, comma lists of those. Nothing else: no colour-scheme,
+ * print or `;` that would end the rule early.
+ */
+const WIDTH_CONDITION =
+  /^(?:only )?(?:screen|all)?(?: ?and ?)?\( ?(?:max|min)-(?:device-)?width ?: ?[0-9]+(?:\.[0-9]+)?(?:px|em|rem) ?\)(?: ?and ?\( ?(?:max|min)-(?:device-)?width ?: ?[0-9]+(?:\.[0-9]+)?(?:px|em|rem) ?\))*$/i;
+
+function isWidthCondition(condition: string): boolean {
+  return condition
+    .split(",")
+    .every((part) => WIDTH_CONDITION.test(part.trim()));
+}
+
+/** Functions a kept rule may call; `url()`, `image-set()` and the like are not among them. */
+const ALLOWED_FUNCTIONS = new Set([
+  "rgb",
+  "rgba",
+  "hsl",
+  "hsla",
+  "calc",
+  "min",
+  "max",
+  "clamp",
+  "not",
+  "nth-child",
+  "nth-of-type",
+  "nth-last-child",
+  "nth-last-of-type",
+]);
+
+function isSafeRule(selector: string, declarations: string): boolean {
+  // No end tag, no CSS escape (it could spell url()), no strings, no
+  // at-rules; `;` only between declarations.
+  if (
+    !selector ||
+    /[<\\"'@;]/.test(selector) ||
+    /[<\\"'@]/.test(declarations) ||
+    // An unclosed `(` or `/*` would swallow the kept rules after it.
+    `${selector}${declarations}`.includes("/*") ||
+    !hasBalancedParentheses(selector) ||
+    !hasBalancedParentheses(declarations)
+  ) {
+    return false;
+  }
+  return callsOnlyAllowedFunctions(`${selector} ${declarations}`);
+}
+
+/**
+ * The name before each `(`, read backwards over spaces then letters and `-`.
+ * Linear: a regex for `name\s*\(` rescanned a long run of letters or spaces
+ * from every position, and 80 KB froze the tab.
+ */
+function callsOnlyAllowedFunctions(text: string): boolean {
+  for (let k = text.indexOf("("); k !== -1; k = text.indexOf("(", k + 1)) {
+    let end = k;
+    while (end > 0 && /\s/.test(text[end - 1])) end--;
+    let start = end;
+    while (start > 0 && /[A-Za-z-]/.test(text[start - 1])) start--;
+    if (!ALLOWED_FUNCTIONS.has(text.slice(start, end).toLowerCase())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasBalancedParentheses(text: string): boolean {
+  let depth = 0;
+  for (const character of text) {
+    if (character === "(") depth++;
+    if (character === ")") depth--;
+    if (depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 /** Exported for tests. Removes CSS comments, then drops url()/image-set(). */

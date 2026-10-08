@@ -906,4 +906,227 @@ describe("sanitizeEmailHtml", () => {
       expect(html).not.toContain("srcset");
     });
   });
+
+  describe("width media queries from <style> blocks", () => {
+    // Patreon's share card puts image, text and a 180px button side by side
+    // and stacks them only through this rule. Without it the text cell is
+    // squeezed to one character per line on a phone.
+    it("keeps width media queries that stack mobile layouts", () => {
+      const result = sanitizeEmailHtml(`
+        <style type="text/css">
+        a { color: #000000; }
+        @media only screen and (max-width:480px) {
+        .stack-container-mb > tbody > tr > td { display: block !important; width: 100% !important; }
+        }
+        </style>
+        <table class="stack-container-mb"><tbody><tr><td>Gillade du detta inlägg?</td></tr></tbody></table>
+      `);
+      expect(result).toContain("@media only screen and (max-width:480px)");
+      expect(result).toContain(
+        ".content .stack-container-mb > tbody > tr > td { display: block !important;",
+      );
+      expect(result).not.toContain("a { color: #000000; }");
+      expect(result).toContain("Gillade du detta inlägg?");
+    });
+
+    it("drops colour-scheme and print media queries", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (prefers-color-scheme: dark) { body { background: #000; } }
+        @media screen and (max-width: 600px) and (prefers-color-scheme: dark) { p { color: #fff; } }
+        @media print { p { display: none; } }
+        </style>
+        <p>Hi</p>
+      `);
+      expect(result).not.toContain("<style");
+      expect(result).not.toContain("#000");
+      expect(result).not.toContain("#fff");
+      expect(result).toContain("<p>Hi</p>");
+    });
+
+    // Parses the output the way EmailBodyFrame's shadow root does.
+    function styleElements(html: string) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      return {
+        styles: Array.from(doc.querySelectorAll("style")),
+        images: doc.querySelectorAll("img").length,
+      };
+    }
+
+    it.each([
+      ".a { background: url(https://tracker.example/1.gif); }",
+      ".a { background: url(https://tracker.example/2.gif }",
+      ".a { background: URL (https://tracker.example/3.gif); }",
+      '.a { background: image-set("https://tracker.example/4.png" 1x); }',
+      '.a { background: -webkit-image-set("https://tracker.example/5.png" 1x); }',
+      ".a { b\\61 ckground: u\\72l(https://tracker.example/6.gif); }",
+    ])("kept media queries load nothing remote: %s", (attack) => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) {
+        ${attack}
+        .ok { width: 100% !important; }
+        }
+        </style>
+      `);
+      expect(result).not.toContain("tracker.example");
+      const { styles, images } = styleElements(result);
+      expect(images).toBe(0);
+      expect(styles).toHaveLength(1);
+      expect(styles[0].textContent).toBe(
+        "@media (max-width: 480px) {\n.content .ok { width: 100% !important; }\n}",
+      );
+    });
+
+    it("an end tag decoded inside <svg><style> cannot leave the style", () => {
+      const result = sanitizeEmailHtml(
+        "<svg><style>@media (max-width:600px){ .a { color: red; } &lt;/style&gt;&lt;img src=x onerror=alert(1)&gt; .b { color: blue; } }</style></svg><p>hi</p>",
+      );
+      expect(result).not.toContain("onerror");
+      expect(styleElements(result).images).toBe(0);
+    });
+
+    it("drops a media query with an @import in its condition", () => {
+      // A ';' ends the @media rule for the CSS parser, which then honours
+      // the @import string that follows.
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px); @import "https://tracker.example/dark.css"; @media (max-width: 480px) {
+        .ok { width: 100% !important; }
+        }
+        </style>
+      `);
+      expect(result).not.toContain("tracker.example");
+      expect(result).not.toContain("@import");
+    });
+
+    it("kept rules only reach the email itself", () => {
+      // Every kept selector is scoped under the frame's .content, so no rule
+      // restyles :host or the scaler the measuring depends on, however it is
+      // spelled; an email's own .content class still works.
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (min-width: 0px) {
+        :host, .scaler { margin: 40px !important; }
+        :not(.zz) { background: #000; }
+        .content { width: 100% !important; }
+        }
+        </style>
+      `);
+      expect(styleElements(result).styles[0].textContent).toBe(
+        "@media (min-width: 0px) {\n" +
+          ".content :host, .content .scaler { margin: 40px !important; }\n" +
+          ".content :not(.zz) { background: #000; }\n" +
+          ".content .content { width: 100% !important; }\n}",
+      );
+    });
+
+    it("a nested block drops only its own media query", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 600px) { @supports (display: grid) { .x { width: 1px; } } .y { width: 2px; } }
+        @MEDIA (max-width: 500px) { .z { width: 100%; } }
+        </style>
+      `);
+      expect(result).not.toContain(".y");
+      expect(result).toContain(".content .z { width: 100%; }");
+    });
+
+    it("many @media stay fast, with or without braces", () => {
+      // A crafted email must not freeze the tab.
+      for (const css of [
+        "@media ".repeat(150_000),
+        "@media (max-width:1px){".repeat(50_000),
+        "@media (max-width:1px){a{}}".repeat(50_000),
+      ]) {
+        const start = Date.now();
+        sanitizeEmailHtml(`<style>${css}</style>`);
+        expect(Date.now() - start).toBeLessThan(5000);
+      }
+    });
+
+    it("long runs in a kept rule stay fast", () => {
+      // Letters, a-a-a selectors and spaces with no "(" made the function
+      // check scan quadratically; 80 KB froze the tab for seconds.
+      for (const run of [
+        `.a { b${"a".repeat(100_000)} }`,
+        `${"a-".repeat(50_000)} { color: red; }`,
+        `.a { color:${" ".repeat(100_000)}red }`,
+      ]) {
+        const start = Date.now();
+        sanitizeEmailHtml(
+          `<style>@media (max-width: 600px) { ${run} }</style>`,
+        );
+        expect(Date.now() - start).toBeLessThan(5000);
+      }
+    });
+
+    it("comment removal does not open a new comment", () => {
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) { .a //**/* { width: 1px; } .ok { width: 100%; } }
+        </style>
+      `);
+      expect(styleElements(result).styles[0].textContent).not.toContain("/*");
+      expect(result).toContain(".content .ok { width: 100%; }");
+    });
+
+    it("drops rules that could reach the frame or swallow later rules", () => {
+      // An empty list member would leave a bare `.content`, the frame's own
+      // element; a sibling combinator after `.content` is scoped again; an
+      // unclosed `(` or `/*` would swallow the kept rules after it.
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) {
+        a,, b { width: 1px; }
+        , c { width: 2px; }
+        .content ~ .scaler { width: 3px; }
+        .content  +  p { width: 6px; }
+        d:not(.x { width: 4px; }
+        e { width: calc(100% - 1px; }
+        f /* { width: 5px; }
+        .ok { width: 100%; }
+        }
+        </style>
+      `);
+      expect(styleElements(result).styles[0].textContent).toBe(
+        "@media (max-width: 480px) {\n" +
+          ".content .content ~ .scaler { width: 3px; }\n" +
+          ".content .content + p { width: 6px; }\n" +
+          ".content .ok { width: 100%; }\n}",
+      );
+    });
+
+    it("drops rules with escaped selectors", () => {
+      // CSS escapes could spell url(); such rules go rather than be decoded.
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) {
+        .sm\\:w-full { width: 100% !important; }
+        .ok { width: 100% !important; }
+        }
+        </style>
+      `);
+      expect(result).not.toContain("w-full");
+      expect(result).toContain(".content .ok { width: 100% !important; }");
+    });
+
+    it("keeps allowed functions and sanitizing twice changes nothing", () => {
+      const html = `
+        <style>
+        @media only screen and (max-width:480px), (min-width: 30em) and (max-width: 40em) {
+        .stack > td { display: block !important; color: rgba(0, 0, 0, 0.5); }
+        td:not(.x):nth-child(2) { width: calc(100% - 16px); }
+        }
+        </style>
+        <p>Hi</p>
+      `;
+      const once = sanitizeEmailHtml(html);
+      expect(once).toContain(
+        ".content td:not(.x):nth-child(2) { width: calc(100% - 16px); }",
+      );
+      expect(once).toContain("rgba(0, 0, 0, 0.5)");
+      expect(sanitizeEmailHtml(once)).toBe(once);
+    });
+  });
 });
