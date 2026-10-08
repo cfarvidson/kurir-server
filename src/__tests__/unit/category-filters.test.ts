@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/mail/threads", () => ({
   getThreadCounts: vi.fn().mockResolvedValue(new Map()),
+  getRepliedRowIds: vi.fn().mockResolvedValue(new Set()),
 }));
 
 // getMessages applies CATEGORY_FILTERS into the Prisma `where` clause. Asserting

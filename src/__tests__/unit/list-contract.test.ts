@@ -13,6 +13,7 @@ import {
   listLabelForSearchHit,
   uniqueBlockSenderIds,
   bulkReadMarksRead,
+  showsRepliedMark,
   swipeActions,
   isSearchQuery,
   SEARCH_MIN_LENGTH,
@@ -331,5 +332,17 @@ describe("isSearchQuery", () => {
     expect(isSearchQuery(" ")).toBe(false);
     expect(isSearchQuery("")).toBe(false);
     expect(isSearchQuery(undefined)).toBe(false);
+  });
+});
+
+// kurir-ios#266: the replied mark shows in every list but Sent, where every
+// row is my own mail.
+describe("showsRepliedMark", () => {
+  it("shows a replied thread's mark everywhere but Sent", () => {
+    expect(showsRepliedMark("imbox", true)).toBe(true);
+    expect(showsRepliedMark("feed", true)).toBe(true);
+    expect(showsRepliedMark("sent", true)).toBe(false);
+    expect(showsRepliedMark("imbox", false)).toBe(false);
+    expect(showsRepliedMark("imbox", undefined)).toBe(false);
   });
 });

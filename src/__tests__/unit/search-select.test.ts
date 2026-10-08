@@ -8,6 +8,8 @@ describe("SEARCH_SELECT_COLUMNS", () => {
     expect(SEARCH_SELECT_COLUMNS).toContain("ccAddresses");
     expect(SEARCH_SELECT_COLUMNS).toContain("isArchived");
     expect(SEARCH_SELECT_COLUMNS).toContain("isInImbox");
+    // kurir-ios#266: a hit I have answered shows the replied mark.
+    expect(SEARCH_SELECT_COLUMNS).toContain("isAnswered");
     expect(SEARCH_SELECT_COLUMNS).not.toContain("threadId");
     expect(SEARCH_SELECT_COLUMNS).not.toContain("isSent");
   });

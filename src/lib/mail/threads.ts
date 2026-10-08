@@ -2,8 +2,58 @@ import { db } from "@/lib/db";
 import { threadKeyOf } from "@/lib/mail/thread-key";
 import { getThreadRoute } from "@/lib/mail/route-helpers";
 import { nudgeIosClients } from "@/lib/mail/push-sender";
+import { threadIsReplied } from "@/lib/mail/thread-card";
+import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 
 export { threadKeyOf };
+
+/**
+ * Ids of the list rows whose thread I have replied to (kurir-ios#266): the
+ * latest message from someone else in the whole thread, not just the rows
+ * in this list, is answered. My reply sits in Sent, outside the list.
+ */
+export async function getRepliedRowIds(
+  userId: string,
+  rows: { id: string; threadId: string | null }[],
+): Promise<Set<string>> {
+  const threadIds = [
+    ...new Set(rows.map((r) => r.threadId).filter((id): id is string => !!id)),
+  ];
+  if (threadIds.length === 0) return new Set();
+  const [members, own] = await Promise.all([
+    db.message.findMany({
+      where: { userId, threadId: { in: threadIds }, isDeleted: false },
+      orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        threadId: true,
+        messageId: true,
+        inReplyTo: true,
+        fromAddress: true,
+        fromName: true,
+        subject: true,
+        isAnswered: true,
+        toAddresses: true,
+        ccAddresses: true,
+      },
+    }),
+    getOwnAddresses(userId),
+  ]);
+  const byThread = new Map<string, typeof members>();
+  for (const m of members) {
+    if (!m.threadId) continue;
+    const list = byThread.get(m.threadId) ?? [];
+    list.push(m);
+    byThread.set(m.threadId, list);
+  }
+  const isOwn = (address: string) => isOwnAddress(address, own);
+  const replied = new Set<string>();
+  for (const row of rows) {
+    const thread = row.threadId ? byThread.get(row.threadId) : undefined;
+    if (thread && threadIsReplied(thread, isOwn)) replied.add(row.id);
+  }
+  return replied;
+}
 
 /**
  * For a list of messages, compute how many messages are in each thread.

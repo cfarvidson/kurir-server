@@ -16,6 +16,7 @@ import {
   Loader2,
   Mail,
   Paperclip,
+  Reply,
   Pin,
   PinOff,
   Sparkles,
@@ -37,6 +38,7 @@ import { ListKeyboardHandler } from "@/components/mail/list-keyboard-handler";
 import { PersonPaneFocusSync } from "@/components/mail/person-pane-bindings";
 import {
   primaryLine,
+  showsRepliedMark,
   swipeActions,
   threadCountLabel,
   type MailListId,
@@ -59,6 +61,8 @@ export interface MessageItem {
   hasAttachments: boolean;
   threadId?: string | null;
   threadCount?: number;
+  /** I replied to the latest message from someone else (kurir-ios#266). */
+  isReplied?: boolean;
   snoozedUntil?: Date | null;
   followUpAt?: Date | null;
   isFollowUp?: boolean;
@@ -470,6 +474,14 @@ export function MessageRow({
           )}
           {message.hasAttachments && (
             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
+          {showsRepliedMark(list, message.isReplied) && (
+            <Reply
+              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+              aria-label="Replied"
+            >
+              <title>Replied</title>
+            </Reply>
           )}
           {isPinned && (
             <Pin
