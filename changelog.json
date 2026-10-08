@@ -1,5 +1,13 @@
 [
   {
+    "version": "2026.139",
+    "date": "2026-10-08",
+    "changes": [
+      "The mail list marks threads you have replied to with the Reply icon, until they write back",
+      "The event dialog shows the day and time first in Start and End, and changing the start keeps the event's length"
+    ]
+  },
+  {
     "version": "2026.138",
     "date": "2026-10-08",
     "changes": [

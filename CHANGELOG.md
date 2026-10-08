@@ -4,6 +4,25 @@ All notable changes to Kurir are documented here. Versioning follows CalVer (`YY
 
 ## [Unreleased]
 
+## [v2026.139] - 2026-10-08
+
+### Added
+
+- The mail list shows which threads you have replied to. A row gets the thread
+  view's Reply icon in its sender line when the latest message from someone
+  else has been answered, either flagged answered or replied to by one of your
+  messages. The mark goes when they write back, and a thread of only your own
+  mail shows none. Every list but Sent shows it, and so do search hits you
+  answered. Same rule and place as the apps.
+
+### Changed
+
+- The event dialog shows the day and time first in Start and End, not the
+  year. Each is one row: the day as "Thu 8 Oct" (the year only outside this
+  one), which opens the browser's date picker, then the time. Changing the
+  start keeps the event's length, as in the apps; a start cleared mid-edit
+  leaves the end alone. All-day shows only the day.
+
 ## [v2026.138] - 2026-10-08
 
 ### Fixed

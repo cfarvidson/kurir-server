@@ -6,11 +6,11 @@
   "minVersion": "0.0.0",
   "releasedAt": "2026-09-21T14:00:49Z",
   "beta": {
-    "version": "2026.138",
-    "image": "ghcr.io/cfarvidson/kurir-server:v2026.138",
-    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.138",
-    "changelog": "Newsletters stack on a phone: the mail body keeps the mail's own width media queries",
+    "version": "2026.139",
+    "image": "ghcr.io/cfarvidson/kurir-server:v2026.139",
+    "releaseUrl": "https://github.com/cfarvidson/kurir-server/releases/tag/v2026.139",
+    "changelog": "Mail list marks threads you have replied to; event dialog shows day and time first",
     "minVersion": "0.0.0",
-    "releasedAt": "2026-10-08T07:31:51Z"
+    "releasedAt": "2026-10-08T11:34:54Z"
   }
 }
