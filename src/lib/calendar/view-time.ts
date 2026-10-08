@@ -103,6 +103,16 @@ export function formatLongDate(date: CivilDate): string {
   return `${WEEKDAYS_LONG[weekdayIndex(date)]} ${date.day} ${MONTHS[date.month - 1]}`;
 }
 
+/**
+ * "Thu 8 Oct" - the day in the event dialog's Start and End rows, the part
+ * you change, first. The year only when it is not this one ("Fri 8 Jan
+ * 2027"), as in the apps' editors.
+ */
+export function formatEditorDay(date: CivilDate, today: CivilDate): string {
+  const label = `${WEEKDAYS_SHORT[weekdayIndex(date)]} ${date.day} ${MONTHS[date.month - 1].slice(0, 3)}`;
+  return date.year === today.year ? label : `${label} ${date.year}`;
+}
+
 export function startOfWeekMonday(date: CivilDate): CivilDate {
   const dow = weekdayIndex(date);
   const offset = dow === 0 ? -6 : 1 - dow;
