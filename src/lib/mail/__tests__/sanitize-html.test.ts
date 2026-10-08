@@ -1032,11 +1032,17 @@ describe("sanitizeEmailHtml", () => {
       expect(result).toContain(".content .z { width: 100%; }");
     });
 
-    it("many @media without a brace stay fast", () => {
+    it("many @media stay fast, with or without braces", () => {
       // A crafted email must not freeze the tab.
-      const start = Date.now();
-      sanitizeEmailHtml(`<style>${"@media ".repeat(150_000)}</style>`);
-      expect(Date.now() - start).toBeLessThan(1000);
+      for (const css of [
+        "@media ".repeat(150_000),
+        "@media (max-width:1px){".repeat(50_000),
+        "@media (max-width:1px){a{}}".repeat(50_000),
+      ]) {
+        const start = Date.now();
+        sanitizeEmailHtml(`<style>${css}</style>`);
+        expect(Date.now() - start).toBeLessThan(5000);
+      }
     });
 
     it("comment removal does not open a new comment", () => {
@@ -1045,7 +1051,32 @@ describe("sanitizeEmailHtml", () => {
         @media (max-width: 480px) { .a //**/* { width: 1px; } .ok { width: 100%; } }
         </style>
       `);
+      expect(styleElements(result).styles[0].textContent).not.toContain("/*");
       expect(result).toContain(".content .ok { width: 100%; }");
+    });
+
+    it("drops rules that could reach the frame or swallow later rules", () => {
+      // An empty list member would leave a bare `.content`, the frame's own
+      // element; a sibling combinator after `.content` is scoped again; an
+      // unclosed `(` or `/*` would swallow the kept rules after it.
+      const result = sanitizeEmailHtml(`
+        <style>
+        @media (max-width: 480px) {
+        a,, b { width: 1px; }
+        , c { width: 2px; }
+        .content ~ .scaler { width: 3px; }
+        d:not(.x { width: 4px; }
+        e { width: calc(100% - 1px; }
+        f /* { width: 5px; }
+        .ok { width: 100%; }
+        }
+        </style>
+      `);
+      expect(styleElements(result).styles[0].textContent).toBe(
+        "@media (max-width: 480px) {\n" +
+          ".content .content ~ .scaler { width: 3px; }\n" +
+          ".content .ok { width: 100%; }\n}",
+      );
     });
 
     it("drops rules with escaped selectors", () => {

@@ -374,9 +374,10 @@ function widthMediaQueries(css: string): string {
       }
       const selector = source.slice(j, next).trim();
       const declarations = source.slice(next + 1, ruleClose).trim();
-      if (isSafeRule(selector, declarations)) {
-        rules.push(`${scoped(selector)} { ${declarations} }`);
-      }
+      const scopedSelector = isSafeRule(selector, declarations)
+        ? scoped(selector)
+        : null;
+      if (scopedSelector) rules.push(`${scopedSelector} { ${declarations} }`);
       j = ruleClose + 1;
     }
     if (!nested && rules.length > 0 && isWidthCondition(condition)) {
@@ -401,10 +402,12 @@ function widthMediaQueries(css: string): string {
 /**
  * Each selector of a list under the frame's `.content`, so a kept rule
  * reaches the email's own elements and never `:host` or the scaler the
- * measuring depends on. One already under `.content ` stays as it is: it
- * reaches only the email too, and a second pass must change nothing.
+ * measuring depends on. One already under `.content ` (not followed by `~`
+ * or `+`) stays as it is: it reaches only the email too, and a second pass
+ * must change nothing. Null when a list member is empty, which would leave a
+ * bare `.content`: the frame's own element.
  */
-function scoped(selector: string): string {
+function scoped(selector: string): string | null {
   const parts: string[] = [];
   let current = "";
   let depth = 0;
@@ -419,9 +422,15 @@ function scoped(selector: string): string {
     }
   }
   parts.push(current);
-  return parts
-    .map((part) => part.trim())
-    .map((part) => (part.startsWith(".content ") ? part : `.content ${part}`))
+  const trimmed = parts.map((part) => part.trim());
+  if (trimmed.some((part) => !part)) return null;
+  return trimmed
+    .map((part) => {
+      const rest = part.charAt(".content ".length);
+      return part.startsWith(".content ") && rest !== "~" && rest !== "+"
+        ? part
+        : `.content ${part}`;
+    })
     .join(", ");
 }
 
@@ -462,13 +471,27 @@ function isSafeRule(selector: string, declarations: string): boolean {
   if (
     !selector ||
     /[<\\"'@;]/.test(selector) ||
-    /[<\\"'@]/.test(declarations)
+    /[<\\"'@]/.test(declarations) ||
+    // An unclosed `(` or `/*` would swallow the kept rules after it.
+    `${selector}${declarations}`.includes("/*") ||
+    !hasBalancedParentheses(selector) ||
+    !hasBalancedParentheses(declarations)
   ) {
     return false;
   }
   return Array.from(
     `${selector} ${declarations}`.matchAll(/([A-Za-z-]*)\s*\(/g),
   ).every((call) => ALLOWED_FUNCTIONS.has(call[1].toLowerCase()));
+}
+
+function hasBalancedParentheses(text: string): boolean {
+  let depth = 0;
+  for (const character of text) {
+    if (character === "(") depth++;
+    if (character === ")") depth--;
+    if (depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 /** Exported for tests. Removes CSS comments, then drops url()/image-set(). */
