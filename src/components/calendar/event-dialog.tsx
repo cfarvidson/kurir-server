@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
   deleteEventAction,
   updateEventAction,
 } from "@/actions/calendar";
+import { withStart } from "@/components/calendar/event-dialog-model";
 import {
   calendarHasTravelTime,
   travelOptions,
@@ -33,7 +34,9 @@ import {
   addDays,
   allDayRangeUtc,
   civilFromAllDayUtc,
+  civilFromZoned,
   formatDateParam,
+  formatEditorDay,
   parseDateParam,
   rruleFromPreset,
   rrulePreset,
@@ -229,6 +232,88 @@ function rruleFromDraft(draft: Draft): string | null {
   return rruleFromPreset(draft.repeat);
 }
 
+/**
+ * One of the Start and End rows: the day and the time as two equal targets,
+ * day first (kurir-ios#265). A native date input reads "2026-10-08" in a
+ * Swedish browser, year first; the day here reads "Thu 8 Oct" and opens
+ * the browser's own date picker, from a hidden date input under it.
+ */
+function DayTimeRow({
+  label,
+  id,
+  date,
+  time,
+  timezone,
+  showsTime,
+  disabled,
+  onDate,
+  onTime,
+}: {
+  label: string;
+  id: string;
+  date: string;
+  time: string;
+  timezone: string;
+  showsTime: boolean;
+  disabled: boolean;
+  onDate: (value: string) => void;
+  onTime: (value: string) => void;
+}) {
+  const picker = useRef<HTMLInputElement>(null);
+  const day = formatEditorDay(
+    parseDateParam(date, timezone),
+    civilFromZoned(new Date(), timezone),
+  );
+
+  function openPicker() {
+    const input = picker.current;
+    if (!input) return;
+    if (typeof input.showPicker === "function") input.showPicker();
+    else input.click();
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={`${id}-day`}>{label}</Label>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <button
+            type="button"
+            id={`${id}-day`}
+            className={fieldClass("items-center text-left tabular-nums")}
+            disabled={disabled}
+            aria-label={`${label} date, ${day}`}
+            onClick={openPicker}
+          >
+            {day}
+          </button>
+          <input
+            ref={picker}
+            type="date"
+            tabIndex={-1}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-0"
+            value={date}
+            disabled={disabled}
+            onChange={(e) => e.target.value && onDate(e.target.value)}
+          />
+        </div>
+        {showsTime && (
+          <Input
+            id={`${id}-time`}
+            type="time"
+            aria-label={`${label} time`}
+            className="flex-1 tabular-nums"
+            value={time}
+            disabled={disabled}
+            onChange={(e) => onTime(e.target.value)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function fieldClass(className?: string) {
   return cn(
     "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base md:text-sm",
@@ -345,6 +430,13 @@ export function EventDialog({
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  /** A new start keeps the event's length, as in the apps. */
+  function moveStart(next: { startDate?: string; startTime?: string }) {
+    setDraft((prev) =>
+      prev ? { ...prev, ...withStart(prev, next, timezone) } : prev,
+    );
   }
 
   async function runSave(range: RecurrenceEdit) {
@@ -524,44 +616,28 @@ export function EventDialog({
                 />
                 All-day
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="cal-start-date">Start</Label>
-                  <Input
-                    id="cal-start-date"
-                    type="date"
-                    value={draft.startDate}
-                    disabled={readOnly}
-                    onChange={(e) => update("startDate", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="cal-end-date">End</Label>
-                  <Input
-                    id="cal-end-date"
-                    type="date"
-                    value={draft.endDate}
-                    disabled={readOnly}
-                    onChange={(e) => update("endDate", e.target.value)}
-                  />
-                </div>
-                {!draft.allDay && (
-                  <>
-                    <Input
-                      type="time"
-                      value={draft.startTime}
-                      disabled={readOnly}
-                      onChange={(e) => update("startTime", e.target.value)}
-                    />
-                    <Input
-                      type="time"
-                      value={draft.endTime}
-                      disabled={readOnly}
-                      onChange={(e) => update("endTime", e.target.value)}
-                    />
-                  </>
-                )}
-              </div>
+              <DayTimeRow
+                label="Start"
+                id="cal-start"
+                date={draft.startDate}
+                time={draft.startTime}
+                timezone={timezone}
+                showsTime={!draft.allDay}
+                disabled={readOnly}
+                onDate={(value) => moveStart({ startDate: value })}
+                onTime={(value) => moveStart({ startTime: value })}
+              />
+              <DayTimeRow
+                label="End"
+                id="cal-end"
+                date={draft.endDate}
+                time={draft.endTime}
+                timezone={timezone}
+                showsTime={!draft.allDay}
+                disabled={readOnly}
+                onDate={(value) => update("endDate", value)}
+                onTime={(value) => update("endTime", value)}
+              />
               <div className="space-y-1.5">
                 <Label htmlFor="cal-location">Location</Label>
                 <Input

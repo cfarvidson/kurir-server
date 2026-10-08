@@ -11,6 +11,7 @@ import {
   formatDateParam,
   formatDurationLabel,
   formatFreetimeLabel,
+  formatEditorDay,
 } from "@/lib/calendar/view-time";
 
 describe("calendar view time", () => {
@@ -120,5 +121,18 @@ describe("formatFreetimeLabel", () => {
   it("appends free", () => {
     expect(formatFreetimeLabel(180)).toBe("3 h free");
     expect(formatFreetimeLabel(150)).toBe("2.5 h free");
+  });
+
+  // kurir-server#238 / kurir-ios#265: the event dialog's day leads with
+  // the day, and shows the year only when it is not this one.
+  it("formats the event dialog's day with the year only outside this year", () => {
+    const today = { year: 2026, month: 10, day: 8 };
+    expect(formatEditorDay(today, today)).toBe("Thu 8 Oct");
+    expect(formatEditorDay({ year: 2026, month: 12, day: 31 }, today)).toBe(
+      "Thu 31 Dec",
+    );
+    expect(formatEditorDay({ year: 2027, month: 1, day: 8 }, today)).toBe(
+      "Fri 8 Jan 2027",
+    );
   });
 });
