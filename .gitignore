@@ -7,10 +7,6 @@ node_modules
 out
 build
 
-# Astro (documentation site)
-site/dist
-site/.astro
-
 # Environment
 .env
 .env.local
@@ -34,7 +30,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# Screenshots in repo root (use docs/screenshots/ or site/public/ instead)
+# Screenshots in repo root (use docs/screenshots/ instead)
 /*.png
 
 # TypeScript
