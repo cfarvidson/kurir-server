@@ -1,14 +1,22 @@
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { draftCatalogHref } from "@/lib/mail/draft-presentation";
 import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
+import { draftGroupNames, parseDraftGroups } from "@/lib/mail/draft-groups";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { DraftsList, type DraftListItem } from "@/components/mail/drafts-list";
 
 async function getDrafts(userId: string): Promise<DraftListItem[]> {
-  const drafts = await presentDraftsForUser(userId);
+  const [drafts, groups] = await Promise.all([
+    presentDraftsForUser(userId),
+    db.contactGroup.findMany({
+      where: { userId },
+      select: { id: true, name: true },
+    }),
+  ]);
   return drafts.map((d) => ({
     type: d.type,
     contextMessageId: d.contextMessageId,
@@ -22,6 +30,7 @@ async function getDrafts(userId: string): Promise<DraftListItem[]> {
       folder: d.folder,
     }),
     displayFrom: d.displayFrom,
+    groupNames: draftGroupNames(parseDraftGroups(d.groups), groups),
   }));
 }
 

@@ -29,6 +29,8 @@ export interface DraftListItem {
   updatedAt: string; // ISO string
   href: string;
   displayFrom?: string | null;
+  /** Names of the contact groups attached to the draft. */
+  groupNames?: string[];
 }
 
 export function draftTypeLabel(type: DraftType | string): string {
@@ -37,20 +39,24 @@ export function draftTypeLabel(type: DraftType | string): string {
   return "New";
 }
 
-export function draftRecipientLine(to: string): string {
-  const trimmed = to.trim();
-  return trimmed ? `To: ${trimmed}` : "No recipient";
+export function draftRecipientLine(
+  to: string,
+  groupNames: string[] = [],
+): string {
+  const recipients = [to.trim(), ...groupNames].filter(Boolean).join(", ");
+  return recipients ? `To: ${recipients}` : "No recipient";
 }
 
 export function draftPrimaryLine(draft: {
   type: string;
   to: string;
   displayFrom?: string | null;
+  groupNames?: string[];
 }): string {
   if (draft.type === "REPLY" && draft.displayFrom?.trim()) {
     return draft.displayFrom.trim();
   }
-  return draftRecipientLine(draft.to);
+  return draftRecipientLine(draft.to, draft.groupNames);
 }
 
 export function draftSubjectLine(subject: string): string {

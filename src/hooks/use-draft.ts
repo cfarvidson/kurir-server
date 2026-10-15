@@ -9,6 +9,7 @@ import {
   deleteDraft as deleteDraftAction,
 } from "@/actions/drafts";
 import type { DraftAttachmentMeta } from "@/lib/mail/drafts";
+import { parseDraftGroups, type DraftGroup } from "@/lib/mail/draft-groups";
 
 export interface DraftData {
   to: string;
@@ -19,6 +20,7 @@ export interface DraftData {
   emailConnectionId?: string;
   attachmentIds: string[];
   attachments?: DraftAttachmentMeta[];
+  groups?: DraftGroup[];
 }
 
 export type DraftStatus = "idle" | "saving" | "saved" | "error";
@@ -73,6 +75,7 @@ export function useDraft(
           emailConnectionId: serverDraft.emailConnectionId ?? undefined,
           attachmentIds: serverDraft.attachmentIds,
           attachments: serverDraft.attachments,
+          groups: parseDraftGroups(serverDraft.groups),
         };
         // Backfill localStorage for next load
         try {
@@ -105,7 +108,8 @@ export function useDraft(
         !data.to.trim() &&
         !(data.cc ?? "").trim() &&
         !(data.bcc ?? "").trim() &&
-        data.attachmentIds.length === 0;
+        data.attachmentIds.length === 0 &&
+        !data.groups?.length;
 
       timerRef.current = setTimeout(async () => {
         if (isEmpty) {
@@ -142,6 +146,7 @@ export function useDraft(
             body: data.body,
             emailConnectionId: data.emailConnectionId,
             attachmentIds: data.attachmentIds,
+            groups: data.groups,
           });
           // Only update status if this is still the latest save
           if (saveSeqRef.current !== thisSeq) return;

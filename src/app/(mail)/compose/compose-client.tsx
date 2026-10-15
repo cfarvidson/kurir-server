@@ -47,6 +47,10 @@ import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
 import { DraftAssistant } from "@/components/mail/draft-assistant";
 import { resolveDraftContext } from "@/lib/mail/draft-context";
+import {
+  composeGroupsFromDraft,
+  draftGroupsFromCompose,
+} from "@/lib/mail/draft-groups";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -277,6 +281,12 @@ export function ComposeClientPage({
           })),
         );
       }
+      const restoredGroups = composeGroupsFromDraft(draft.groups ?? [], groups);
+      if (restoredGroups.length) {
+        setAddedGroups(restoredGroups);
+        if (restoredGroups.some((s) => s.target === "cc")) setShowCc(true);
+        if (restoredGroups.some((s) => s.target === "bcc")) setShowBcc(true);
+      }
       draftRestoredRef.current = true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -297,8 +307,19 @@ export function ComposeClientPage({
       body,
       emailConnectionId: fromConnectionId,
       attachmentIds,
+      groups: draftGroupsFromCompose(addedGroups),
     });
-  }, [to, cc, bcc, subject, body, fromConnectionId, attachments, saveDraft]);
+  }, [
+    to,
+    cc,
+    bcc,
+    subject,
+    body,
+    fromConnectionId,
+    attachments,
+    addedGroups,
+    saveDraft,
+  ]);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);

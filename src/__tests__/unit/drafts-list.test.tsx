@@ -57,6 +57,16 @@ describe("draft row helpers", () => {
     expect(draftSubjectLine(" Hi ")).toBe("Hi");
   });
 
+  it("appends a draft's group names to the recipient line", () => {
+    expect(draftRecipientLine("ada@x.y", ["Kultur föreningen"])).toBe(
+      "To: ada@x.y, Kultur föreningen",
+    );
+    expect(draftRecipientLine("", ["Board"])).toBe("To: Board");
+    expect(
+      draftPrimaryLine({ type: "NEW", to: "", groupNames: ["Board"] }),
+    ).toBe("To: Board");
+  });
+
   it("uses displayFrom as the primary line for a reply", () => {
     expect(
       draftPrimaryLine({
