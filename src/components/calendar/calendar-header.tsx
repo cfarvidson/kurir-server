@@ -168,7 +168,7 @@ function NextUpCard({
         <span className="block text-[10.5px] font-bold uppercase tracking-[0.1em] text-primary">
           Next up{next.when && ` · ${next.when}`}
         </span>
-        <span className="mt-0.5 block truncate text-sm font-semibold">
+        <span className="mt-0.5 line-clamp-2 text-sm font-semibold break-words">
           {next.instance.title}
         </span>
         <span className="mt-px block truncate text-xs tabular-nums text-muted-foreground">
