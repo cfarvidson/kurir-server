@@ -53,7 +53,10 @@ export function useDraft(
         const parsed = JSON.parse(raw);
         const { updatedAt: _, ...data } = parsed;
         if (typeof data.body === "string" && typeof data.to === "string") {
-          return hydrateAttachments(data as DraftData);
+          return hydrateAttachments({
+            ...(data as DraftData),
+            groups: parseDraftGroups(data.groups),
+          });
         }
         // Corrupt data — remove it
         localStorage.removeItem(key);
