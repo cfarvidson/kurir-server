@@ -13,6 +13,7 @@ import {
 import { sendMailForUser } from "@/lib/mail/send";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 import {
+  CONFIRM_MISMATCH,
   DEMO_SEND_DISABLED,
   err,
   firstZodMessage,
@@ -70,7 +71,7 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "send_mail",
     description:
-      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; its members go in To or Bcc per the group. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
+      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; its members go in To or Bcc per the group (in a reply, next to the original sender). If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
     inputSchema: sendInputSchemaJson(false),
     annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(sendMail),
@@ -149,26 +150,26 @@ async function sendMail(
   const resolved = await resolveOutgoing(ctx.userId, parsed.data);
   const limited = await denyIfSendLimited(ctx);
   if (limited) return limited;
-  return requireConfirmation(
+  const result = await requireConfirmation(
     ctx,
     "send_mail",
-    parsed.data,
+    confirmationArgs(parsed.data, resolved),
     formatSendSummary(resolved),
     async () => {
-      const latest = await resolveOutgoing(ctx.userId, parsed.data);
-      const sent = await sendMailForUser(ctx.userId, toSendInput(latest));
+      const sent = await sendMailForUser(ctx.userId, toSendInput(resolved));
       if (
         (parsed.data.mode === "reply" || parsed.data.mode === "reply_all") &&
-        latest.contextMessageId
+        resolved.contextMessageId
       ) {
         await db.message.update({
-          where: { id: latest.contextMessageId },
+          where: { id: resolved.contextMessageId },
           data: { isAnswered: true },
         });
       }
       return ok({ ok: true, messageId: sent.messageId });
     },
   );
+  return explainGroupMismatch(parsed.data, result);
 }
 
 async function scheduleMail(
@@ -182,30 +183,29 @@ async function scheduleMail(
   const resolved = await resolveOutgoing(ctx.userId, parsed.data);
   const limited = await denyIfSendLimited(ctx);
   if (limited) return limited;
-  return requireConfirmation(
+  const result = await requireConfirmation(
     ctx,
     "schedule_mail",
-    parsed.data,
+    confirmationArgs(parsed.data, resolved),
     formatSendSummary(resolved),
     async () => {
-      const latest = await resolveOutgoing(ctx.userId, parsed.data);
-      if (!latest.fromConnectionId) {
+      if (!resolved.fromConnectionId) {
         return err(
           "No email connection found. Please add an email account in settings.",
         );
       }
       const converted = convertMarkdownToEmailHtml(parsed.data.body);
       const created = await insertScheduledMessageForUser(ctx.userId, {
-        to: joinAddresses(latest.to) ?? "",
-        cc: joinAddresses(latest.cc),
-        bcc: joinAddresses(latest.bcc),
-        subject: latest.subject ?? "",
+        to: joinAddresses(resolved.to) ?? "",
+        cc: joinAddresses(resolved.cc),
+        bcc: joinAddresses(resolved.bcc),
+        subject: resolved.subject ?? "",
         textBody: parsed.data.body,
         htmlBody: converted.emailHtml,
         scheduledFor: parsed.data.scheduledFor,
-        emailConnectionId: latest.fromConnectionId,
-        inReplyToMessageId: latest.inReplyTo,
-        references: latest.references?.join(" "),
+        emailConnectionId: resolved.fromConnectionId,
+        inReplyToMessageId: resolved.inReplyTo,
+        references: resolved.references?.join(" "),
         attachmentIds: parsed.data.attachmentIds,
       });
       return ok({
@@ -214,6 +214,42 @@ async function scheduleMail(
       });
     },
   );
+  return explainGroupMismatch(parsed.data, result);
+}
+
+/**
+ * The user's yes holds only for the recipients shown. Group members can change
+ * between the question and the answer (update_contact_group and
+ * add_group_member need no confirmation), so with groups the confirmation is
+ * bound to the resolved To/Cc/Bcc as well as the arguments, and the mail goes
+ * to exactly the recipients that were confirmed.
+ */
+function confirmationArgs(data: SendMailArgs, resolved: ResolvedOutgoing) {
+  if (!data.groups?.length) return data;
+  return {
+    args: data,
+    recipients: {
+      to: resolved.to ?? [],
+      cc: resolved.cc ?? [],
+      bcc: resolved.bcc ?? [],
+    },
+  };
+}
+
+function explainGroupMismatch(
+  data: SendMailArgs,
+  result: ToolResult,
+): ToolResult {
+  if (
+    data.groups?.length &&
+    result.type === "error" &&
+    result.message === CONFIRM_MISMATCH
+  ) {
+    return err(
+      "confirmation does not match the arguments or the group members shown; ask again",
+    );
+  }
+  return result;
 }
 
 async function sendScheduledNow(
@@ -335,6 +371,9 @@ async function resolveOutgoing(
   let bcc = data.bcc;
   if (data.groups?.length) {
     ({ to, bcc } = await addGroupMembers(userId, data.groups, { to, cc, bcc }));
+    if (!to?.length && !cc?.length && !bcc?.length) {
+      throw new Error("The mail has no recipient: its groups have no members");
+    }
   }
 
   const connection = await loadFromConnection(userId, fromConnectionId);

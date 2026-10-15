@@ -186,6 +186,61 @@ function mockPendingConfirmation(toolName: string, args: unknown) {
   vi.mocked(db.mcpConfirmation.updateMany).mockResolvedValue({ count: 1 });
 }
 
+function mockGroups(extraMembers: GroupMember[] = []) {
+  vi.mocked(listGroupsForUser).mockResolvedValue([
+    {
+      id: "g1",
+      name: "Kultur föreningen",
+      defaultTarget: "TO",
+      members: [
+        { memberId: "m1", contactEmailId: "e1", email: "ada@example.org", name: "Ada" },
+        { memberId: "m2", contactEmailId: "e2", email: "Bob@example.org", name: "Bob" },
+        ...extraMembers,
+      ],
+    },
+    {
+      id: "g2",
+      name: "Board",
+      defaultTarget: "BCC",
+      members: [
+        { memberId: "m3", contactEmailId: "e3", email: "bob@example.org", name: "Bob" },
+        { memberId: "m4", contactEmailId: "e4", email: "cy@example.org", name: "Cy" },
+      ],
+    },
+    { id: "g3", name: "Empty", defaultTarget: "TO", members: [] },
+  ]);
+}
+
+type GroupMember = Awaited<
+  ReturnType<typeof listGroupsForUser>
+>[number]["members"][number];
+
+/** Accept the confirmation the previous ask stored, under the same args. */
+async function acceptStoredConfirmation(
+  toolName: string,
+  args: Record<string, unknown>,
+) {
+  const stored = vi.mocked(db.mcpConfirmation.create).mock.calls.at(-1)![0]
+    .data as { argsHash: string };
+  vi.mocked(db.mcpConfirmation.findUnique).mockResolvedValue({
+    userId: "u1",
+    tokenId: "t1",
+    toolName,
+    argsHash: stored.argsHash,
+    expiresAt: new Date(Date.now() + 60_000),
+    consumedAt: null,
+  } as never);
+  vi.mocked(db.mcpConfirmation.updateMany).mockResolvedValue({ count: 1 });
+  return call(
+    toolName,
+    args,
+    ctx({
+      requestState: "conf-1",
+      inputResponses: { confirm: { action: "accept" } },
+    }),
+  );
+}
+
 describe("MCP send tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -281,26 +336,7 @@ describe("MCP send tools", () => {
   });
 
   it("send_mail expands groups into To or Bcc per the group, deduped, with no to needed", async () => {
-    vi.mocked(listGroupsForUser).mockResolvedValue([
-      {
-        id: "g1",
-        name: "Kultur föreningen",
-        defaultTarget: "TO",
-        members: [
-          { memberId: "m1", contactEmailId: "e1", email: "ada@example.org", name: "Ada" },
-          { memberId: "m2", contactEmailId: "e2", email: "Bob@example.org", name: "Bob" },
-        ],
-      },
-      {
-        id: "g2",
-        name: "Board",
-        defaultTarget: "BCC",
-        members: [
-          { memberId: "m3", contactEmailId: "e3", email: "bob@example.org", name: "Bob" },
-          { memberId: "m4", contactEmailId: "e4", email: "cy@example.org", name: "Cy" },
-        ],
-      },
-    ]);
+    mockGroups();
     const args = {
       mode: "compose",
       bcc: ["ADA@example.org"],
@@ -316,19 +352,122 @@ describe("MCP send tools", () => {
       expect(first.message).toMatch(/Bcc: ADA@example.org, cy@example.org/);
     }
 
-    mockPendingConfirmation("send_mail", args);
-    const result = await call(
-      "send_mail",
-      args,
-      ctx({
-        requestState: "conf-1",
-        inputResponses: { confirm: { action: "accept" } },
-      }),
-    );
+    const result = await acceptStoredConfirmation("send_mail", args);
     expect(result.type).toBe("ok");
     expect(sendMailForUser).toHaveBeenCalledWith(
       "u1",
-      expect.objectContaining({ to: "Bob@example.org", bcc: "ADA@example.org, cy@example.org" }),
+      expect.objectContaining({
+        to: "Bob@example.org",
+        bcc: "ADA@example.org, cy@example.org",
+      }),
+    );
+  });
+
+  it("send_mail does not add a group member already typed in Cc", async () => {
+    mockGroups();
+    const first = await call("send_mail", {
+      mode: "compose",
+      cc: ["bob@EXAMPLE.org"],
+      body: "Hello",
+      groups: ["g1"],
+    });
+    expect(first.type).toBe("input_required");
+    if (first.type === "input_required") {
+      expect(first.message).toMatch(/To: ada@example.org\n/);
+      expect(first.message).toMatch(/Cc: bob@EXAMPLE.org\n/);
+    }
+  });
+
+  it("send_mail in a reply sends to the original sender and the group (intended)", async () => {
+    mockGroups();
+    vi.mocked(db.message.findFirst).mockResolvedValue({
+      id: "msg-1",
+      messageId: "<orig@x>",
+      references: [],
+      subject: "Plans",
+      fromAddress: "sender@example.org",
+      replyTo: null,
+      toAddresses: [],
+      ccAddresses: [],
+      emailConnectionId: "conn-1",
+    } as never);
+    const first = await call("send_mail", {
+      mode: "reply",
+      messageId: "msg-1",
+      body: "Hello",
+      groups: ["g1"],
+    });
+    expect(first.type).toBe("input_required");
+    if (first.type === "input_required") {
+      expect(first.message).toMatch(
+        /To: sender@example.org, ada@example.org, Bob@example.org\n/,
+      );
+    }
+  });
+
+  it("send_mail with an unknown group, or groups with no members, is refused before asking", async () => {
+    mockGroups();
+    const unknown = await call("send_mail", {
+      mode: "compose",
+      body: "Hello",
+      groups: ["Family"],
+    });
+    expect(unknown).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/"Family"/),
+    });
+
+    const empty = await call("send_mail", {
+      mode: "compose",
+      body: "Hello",
+      groups: ["Empty"],
+    });
+    expect(empty).toEqual({
+      type: "error",
+      message: "The mail has no recipient: its groups have no members",
+    });
+    expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
+  });
+
+  it("send_mail refuses an accept when a group changed after the user was asked", async () => {
+    mockGroups();
+    const args = { mode: "compose", body: "Hello", groups: ["g1"] };
+    await call("send_mail", args);
+
+    mockGroups([
+      { memberId: "m9", contactEmailId: "e9", email: "eve@example.org", name: "Eve" },
+    ]);
+    const result = await acceptStoredConfirmation("send_mail", args);
+
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/ask again/),
+    });
+    expect(sendMailForUser).not.toHaveBeenCalled();
+  });
+
+  it("schedule_mail with groups schedules the expanded recipients", async () => {
+    mockGroups();
+    vi.mocked(insertScheduledMessageForUser).mockResolvedValue({
+      id: "s1",
+      scheduledFor: new Date("2099-01-01T00:00:00.000Z"),
+    } as never);
+    const args = {
+      mode: "compose",
+      body: "Hello",
+      groups: ["Kultur föreningen", "Board"],
+      scheduledFor: "2099-01-01T00:00:00.000Z",
+    };
+    await call("schedule_mail", args);
+
+    const result = await acceptStoredConfirmation("schedule_mail", args);
+    expect(result.type).toBe("ok");
+    expect(insertScheduledMessageForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        to: "ada@example.org, Bob@example.org",
+        bcc: "cy@example.org",
+      }),
     );
   });
 
