@@ -182,6 +182,8 @@ export function GroupEditor({
               placeholder="Family"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              autoCorrect="off"
+              spellCheck={false}
               autoFocus
             />
           </div>
