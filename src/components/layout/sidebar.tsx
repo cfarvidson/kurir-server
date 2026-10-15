@@ -23,7 +23,12 @@ import { useTodayEvents } from "@/hooks/use-today-events";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { normalizeEventHex } from "@/lib/calendar/color";
 import { JoinLink } from "@/components/calendar/join-link";
-import { laterToday, pickNextUp, todayRows } from "@/lib/calendar/next-up";
+import {
+  capLater,
+  laterToday,
+  pickNextUp,
+  todayRows,
+} from "@/lib/calendar/next-up";
 import {
   type BadgeKey,
   type BadgePreferences,
@@ -412,10 +417,6 @@ function RailButton({
   );
 }
 
-/** At most this many of the rest of today under Next up; the others are a
- * "N more today" line that opens the calendar. */
-const LATER_TODAY_LIMIT = 4;
-
 /**
  * The Mail panel's view of today (kurir-ios#329): the next event with its
  * whole title, and the rest of today under it, in one card.
@@ -432,13 +433,21 @@ function NextUpCard({
   const next = pickNextUp(instances, now, timeZone);
   const later = laterToday(instances, now, timeZone);
   if (!next && later.length === 0) return null;
+  const { rows, more } = capLater(later);
+  // Rounded at the bottom too when nothing follows, so hover fills the card.
+  const corners = later.length > 0 ? "rounded-t-lg" : "rounded-lg";
   return (
     <div className="mb-3 rounded-lg border border-sidebar-border bg-card">
       {next ? (
         // The calendar link covers the whole block (its ::after); Join sits
         // above it on the time's line, so a click beside Join still opens
         // the calendar.
-        <div className="relative flex gap-3 rounded-t-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
+        <div
+          className={cn(
+            "relative flex gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50",
+            corners,
+          )}
+        >
           <span
             aria-hidden
             className="w-1 shrink-0 self-stretch rounded-xs"
@@ -446,7 +455,10 @@ function NextUpCard({
           />
           <Link
             href="/calendar"
-            className="flex min-w-0 flex-1 flex-col gap-0.5 after:absolute after:inset-0 after:rounded-t-lg"
+            className={cn(
+              "flex min-w-0 flex-1 flex-col gap-0.5 after:absolute after:inset-0",
+              later.length > 0 ? "after:rounded-t-lg" : "after:rounded-lg",
+            )}
           >
             <span className="flex items-center gap-2">
               <span className="eyebrow truncate text-muted-foreground">
@@ -494,7 +506,7 @@ function NextUpCard({
             next && "border-t border-sidebar-border",
           )}
         >
-          {later.slice(0, LATER_TODAY_LIMIT).map((row) => (
+          {rows.map((row) => (
             <Link
               key={row.key}
               href="/calendar"
@@ -511,12 +523,14 @@ function NextUpCard({
               <span className="truncate">{row.title}</span>
             </Link>
           ))}
-          {later.length > LATER_TODAY_LIMIT && (
+          {more > 0 && (
+            // Under the titles: the time column (w-12), the dot (w-2) and
+            // the two gaps (gap-2.5) make 76px.
             <Link
               href="/calendar"
-              className="block py-0.5 pl-[4.25rem] text-xs text-muted-foreground hover:text-foreground"
+              className="block py-0.5 pl-[4.75rem] text-xs text-muted-foreground hover:text-foreground"
             >
-              {later.length - LATER_TODAY_LIMIT} more today
+              {more} more today
             </Link>
           )}
         </div>
