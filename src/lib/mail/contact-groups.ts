@@ -190,6 +190,8 @@ export async function listGroupsForUser(userId: string) {
     orderBy: { name: "asc" },
     include: {
       members: {
+        // A fixed order: send confirmations bind the expanded recipients.
+        orderBy: [{ contactEmail: { email: "asc" } }, { id: "asc" }],
         include: {
           contactEmail: {
             select: {

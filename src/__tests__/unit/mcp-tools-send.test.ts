@@ -221,12 +221,13 @@ async function acceptStoredConfirmation(
   args: Record<string, unknown>,
 ) {
   const stored = vi.mocked(db.mcpConfirmation.create).mock.calls.at(-1)![0]
-    .data as { argsHash: string };
+    .data as { argsHash: string; argsJson: unknown };
   vi.mocked(db.mcpConfirmation.findUnique).mockResolvedValue({
     userId: "u1",
     tokenId: "t1",
     toolName,
     argsHash: stored.argsHash,
+    argsJson: stored.argsJson,
     expiresAt: new Date(Date.now() + 60_000),
     consumedAt: null,
   } as never);
@@ -380,7 +381,7 @@ describe("MCP send tools", () => {
 
   it("send_mail in a reply sends to the original sender and the group (intended)", async () => {
     mockGroups();
-    vi.mocked(db.message.findFirst).mockResolvedValue({
+    vi.mocked(db.message.findFirst).mockResolvedValueOnce({
       id: "msg-1",
       messageId: "<orig@x>",
       references: [],
@@ -439,11 +440,52 @@ describe("MCP send tools", () => {
     ]);
     const result = await acceptStoredConfirmation("send_mail", args);
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       type: "error",
-      message: expect.stringMatching(/ask again/),
+      message:
+        "The group members changed since the user was asked; ask again",
     });
     expect(sendMailForUser).not.toHaveBeenCalled();
+  });
+
+  it("send_mail with groups and changed arguments keeps the old mismatch wording", async () => {
+    mockGroups();
+    const args = { mode: "compose", body: "Hello", groups: ["g1"] };
+    await call("send_mail", args);
+
+    const result = await acceptStoredConfirmation("send_mail", {
+      ...args,
+      body: "Something else",
+    });
+
+    expect(result).toEqual({
+      type: "error",
+      message: "confirmation does not match arguments",
+    });
+    expect(sendMailForUser).not.toHaveBeenCalled();
+  });
+
+  it("schedule_mail refuses an accept when a group changed after the user was asked", async () => {
+    mockGroups();
+    const args = {
+      mode: "compose",
+      body: "Hello",
+      groups: ["g1"],
+      scheduledFor: "2099-01-01T00:00:00.000Z",
+    };
+    await call("schedule_mail", args);
+
+    mockGroups([
+      { memberId: "m9", contactEmailId: "e9", email: "eve@example.org", name: "Eve" },
+    ]);
+    const result = await acceptStoredConfirmation("schedule_mail", args);
+
+    expect(result).toEqual({
+      type: "error",
+      message:
+        "The group members changed since the user was asked; ask again",
+    });
+    expect(insertScheduledMessageForUser).not.toHaveBeenCalled();
   });
 
   it("schedule_mail with groups schedules the expanded recipients", async () => {

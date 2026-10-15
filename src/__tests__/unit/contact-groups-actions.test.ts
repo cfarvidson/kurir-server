@@ -326,5 +326,12 @@ describe("listGroups", () => {
     expect(db.contactGroup.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "user-1" } }),
     );
+    // Members in a fixed order, so a send confirmation bound to the
+    // expanded recipients never fails for an unchanged group.
+    expect(
+      vi.mocked(db.contactGroup.findMany).mock.calls[0][0]?.include?.members,
+    ).toMatchObject({
+      orderBy: [{ contactEmail: { email: "asc" } }, { id: "asc" }],
+    });
   });
 });

@@ -11,6 +11,7 @@ import {
   insertScheduledMessageForUser,
 } from "@/lib/mail/scheduled-messages";
 import { sendMailForUser } from "@/lib/mail/send";
+import { hashArgs } from "@/lib/mcp/canonical-json";
 import { getOwnAddresses, isOwnAddress } from "@/lib/mail/user-emails";
 import {
   CONFIRM_MISMATCH,
@@ -169,7 +170,7 @@ async function sendMail(
       return ok({ ok: true, messageId: sent.messageId });
     },
   );
-  return explainGroupMismatch(parsed.data, result);
+  return explainGroupMismatch(ctx, "send_mail", parsed.data, result);
 }
 
 async function scheduleMail(
@@ -214,7 +215,7 @@ async function scheduleMail(
       });
     },
   );
-  return explainGroupMismatch(parsed.data, result);
+  return explainGroupMismatch(ctx, "schedule_mail", parsed.data, result);
 }
 
 /**
@@ -236,20 +237,50 @@ function confirmationArgs(data: SendMailArgs, resolved: ResolvedOutgoing) {
   };
 }
 
-function explainGroupMismatch(
+/**
+ * Name a group change only when it is why the confirmation failed: the handle
+ * is this caller's live one for this tool and the arguments are the ones
+ * asked about, so only the bound recipients differ. Any other mismatch keeps
+ * the usual wording.
+ */
+async function explainGroupMismatch(
+  ctx: ToolContext,
+  toolName: string,
   data: SendMailArgs,
   result: ToolResult,
-): ToolResult {
+): Promise<ToolResult> {
   if (
-    data.groups?.length &&
-    result.type === "error" &&
-    result.message === CONFIRM_MISMATCH
+    !data.groups?.length ||
+    !ctx.requestState ||
+    result.type !== "error" ||
+    result.message !== CONFIRM_MISMATCH
   ) {
-    return err(
-      "confirmation does not match the arguments or the group members shown; ask again",
-    );
+    return result;
   }
-  return result;
+  const row = await db.mcpConfirmation.findUnique({
+    where: { id: ctx.requestState },
+    select: {
+      userId: true,
+      tokenId: true,
+      toolName: true,
+      argsJson: true,
+      expiresAt: true,
+      consumedAt: true,
+    },
+  });
+  const askedArgs = (row?.argsJson as { args?: unknown } | null)?.args;
+  const onlyRecipientsDiffer =
+    row &&
+    row.userId === ctx.userId &&
+    row.tokenId === ctx.tokenId &&
+    row.toolName === toolName &&
+    !row.consumedAt &&
+    row.expiresAt.getTime() >= Date.now() &&
+    askedArgs !== undefined &&
+    hashArgs(askedArgs) === hashArgs(data);
+  return onlyRecipientsDiffer
+    ? err("The group members changed since the user was asked; ask again")
+    : result;
 }
 
 async function sendScheduledNow(
