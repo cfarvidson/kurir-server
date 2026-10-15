@@ -697,6 +697,19 @@ describe("MCP read tools", () => {
     expect(calls[1][1]).toMatchObject({ groups: [] });
   });
 
+  it("save_draft refuses more than 50 groups before saving", async () => {
+    const result = await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      groups: Array.from({ length: 51 }, (_, i) => `g${i}`),
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: "A draft holds at most 50 contact groups",
+    });
+    expect(saveDraftForUser).not.toHaveBeenCalled();
+  });
+
   it("save_draft with an unknown group errors without saving", async () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([] as never);
     const result = await call("save_draft", {

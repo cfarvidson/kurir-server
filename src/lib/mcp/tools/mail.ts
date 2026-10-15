@@ -909,7 +909,12 @@ async function saveDraft(
 ): Promise<ToolResult> {
   // Agents name groups by id or name; the stored draft holds resolved groups.
   const parsed = saveDraftSchema
-    .extend({ groups: z.array(z.string().min(1)).optional() })
+    .extend({
+      groups: z
+        .array(z.string().min(1))
+        .max(50, "A draft holds at most 50 contact groups")
+        .optional(),
+    })
     .safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
   const { groups: groupRefs, ...input } = parsed.data;
