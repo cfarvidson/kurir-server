@@ -137,3 +137,32 @@ export function todayRows(
       };
     });
 }
+
+/**
+ * The rest of today under the Mail panel's Next up card: `todayRows` less
+ * the finished ones and the event already on the card, with several
+ * all-day events on one line so they leave room for the timed ones.
+ * Mirrors `SidebarToday.laterToday` in kurir-ios.
+ */
+export function laterToday(
+  instances: CalendarInstanceDTO[],
+  now: Date,
+  timeZone: string,
+): TodayRow[] {
+  const key = (i: CalendarInstanceDTO) => `${i.eventId}:${i.startAt}`;
+  const next = nextUpEvent(instances, now);
+  const allDay = new Set(instances.filter((i) => i.isAllDay).map(key));
+  const later = todayRows(instances, now, timeZone).filter(
+    (row) => !row.isPast && (!next || row.key !== key(next)),
+  );
+  const days = later.filter((row) => allDay.has(row.key));
+  if (days.length < 2) return later;
+  return [
+    {
+      ...days[0],
+      key: "all-day",
+      title: days.map((row) => row.title).join(", "),
+    },
+    ...later.filter((row) => !allDay.has(row.key)),
+  ];
+}

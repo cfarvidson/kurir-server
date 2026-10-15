@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { headerNextUp } from "@/components/calendar/header-model";
-import { pickNextUp, todayRows } from "@/lib/calendar/next-up";
+import { laterToday, pickNextUp, todayRows } from "@/lib/calendar/next-up";
 
 function event(
   title: string,
@@ -118,6 +118,46 @@ describe("todayRows", () => {
       ["All day", "Holiday", false],
       ["08:00", "Breakfast", true],
       ["13:00", "Lunch", false],
+    ]);
+  });
+});
+
+// Under Next up the Mail panel lists the rest of today: what has not ended,
+// all-day first, never the event already on the card (kurir-ios#329).
+describe("laterToday", () => {
+  it("is what is left of today after Next up", () => {
+    expect(
+      laterToday([lunch, breakfast, holiday, standup, yesterday], NOW, TZ).map(
+        (row) => [row.time, row.title, row.isPast],
+      ),
+    ).toEqual([
+      ["All day", "Holiday", false],
+      ["13:00", "Lunch", false],
+    ]);
+  });
+
+  it("keeps today's all-day events when nothing timed is left", () => {
+    const evening = new Date("2026-09-25T20:00:00Z");
+    expect(
+      laterToday([lunch, holiday], evening, TZ).map((row) => row.title),
+    ).toEqual(["Holiday"]);
+  });
+
+  it("gathers several all-day events on one line", () => {
+    const nameDay = event(
+      "Name day",
+      "2026-09-25T00:00:00Z",
+      "2026-09-26T00:00:00Z",
+      true,
+    );
+    expect(
+      laterToday([standup, lunch, holiday, nameDay], NOW, TZ).map((row) => [
+        row.time,
+        row.title,
+      ]),
+    ).toEqual([
+      ["All day", "Holiday, Name day"],
+      ["13:00", "Lunch"],
     ]);
   });
 });
