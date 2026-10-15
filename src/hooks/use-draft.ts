@@ -44,31 +44,39 @@ export function useDraft(
   const latestDataRef = useRef<DraftData | null>(null);
   const key = draftKey(userId, type, contextMessageId);
 
-  // Load draft: localStorage first, server fallback
+  // Load draft: the newer of the localStorage copy and the server copy. The
+  // local copy holds unsaved edits (crash recovery), but it lingers after the
+  // composer closes; when the draft changed elsewhere since (an agent or
+  // another device), the server copy wins, or autosave would write the stale
+  // copy back — `groups: []` included, which removes the draft's groups.
   const loadDraft = useCallback(async (): Promise<DraftData | null> => {
-    // Try localStorage first (synchronous)
+    let local: { data: DraftData; updatedAt: number } | null = null;
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
-        const { updatedAt: _, ...data } = parsed;
+        const { updatedAt, ...data } = parsed;
         if (typeof data.body === "string" && typeof data.to === "string") {
-          return hydrateAttachments({
-            ...(data as DraftData),
-            groups: parseDraftGroups(data.groups),
-          });
+          local = {
+            data: { ...(data as DraftData), groups: parseDraftGroups(data.groups) },
+            updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
+          };
+        } else {
+          // Corrupt data — remove it
+          localStorage.removeItem(key);
         }
-        // Corrupt data — remove it
-        localStorage.removeItem(key);
       }
     } catch {
       // localStorage unavailable or corrupt
     }
 
-    // Server fallback (async)
     try {
       const serverDraft = await getDraft(type, contextMessageId);
-      if (serverDraft) {
+      if (
+        serverDraft &&
+        (!local ||
+          new Date(serverDraft.updatedAt).getTime() > local.updatedAt)
+      ) {
         const data: DraftData = {
           to: serverDraft.to,
           cc: serverDraft.cc,
@@ -90,9 +98,10 @@ export function useDraft(
         return data;
       }
     } catch {
-      // Server error — no draft available
+      // Server error — fall back to the local copy
     }
 
+    if (local) return hydrateAttachments(local.data);
     return null;
   }, [key, type, contextMessageId]);
 
