@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * A group keeps its name exactly as typed (kurir-ios#332): "Kulturföreningen"
- * was saved as "Kultur föreningen". The name field turns autocorrect off like
- * the apps' `.autocorrectionDisabled()`, so the browser's autocorrect cannot
- * split a Swedish compound word, and what is typed is what gets saved.
+ * kurir-ios#332: "Kulturföreningen" was saved as "Kultur föreningen". The name
+ * field turns autocorrect off like the apps' `.autocorrectionDisabled()`, so
+ * WebKit's autocorrect cannot split a Swedish compound word. A second test
+ * checks that the editor sends the name to the save action unchanged.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
@@ -47,7 +47,10 @@ describe("GroupEditor name", () => {
     fireEvent.change(field, { target: { value: "Kulturföreningen" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(createGroup).toHaveBeenCalled());
-    expect(createGroup.mock.calls[0][0].name).toBe("Kulturföreningen");
+    await waitFor(() =>
+      expect(createGroup).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Kulturföreningen" }),
+      ),
+    );
   });
 });
