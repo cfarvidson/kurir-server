@@ -2,6 +2,9 @@ import { DraftType } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { isDemoInstance } from "@/lib/demo";
+import { listGroupsForUser } from "@/lib/mail/contact-groups";
+import { resolveGroupRefs } from "@/lib/mail/draft-groups";
+import { expandGroups } from "@/lib/mail/group-expansion";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import {
   deliverScheduledNowForUser,
@@ -32,6 +35,7 @@ const sendMailSchema = z
     to: addressList.optional(),
     cc: addressList.optional(),
     bcc: addressList.optional(),
+    groups: z.array(z.string().min(1)).optional(),
     subject: z.string().optional(),
     body: z.string(),
     attachmentIds: z.array(z.string()).optional(),
@@ -66,7 +70,7 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "send_mail",
     description:
-      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
+      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; its members go in To or Bcc per the group. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
     inputSchema: sendInputSchemaJson(false),
     annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(sendMail),
@@ -105,6 +109,12 @@ function sendInputSchemaJson(includeSchedule: boolean) {
       to: { type: "array", items: { type: "string" } },
       cc: { type: "array", items: { type: "string" } },
       bcc: { type: "array", items: { type: "string" } },
+      groups: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Contact group ids or names from list_contact_groups; members go in To or Bcc per the group",
+      },
       subject: { type: "string" },
       body: { type: "string" },
       attachmentIds: { type: "array", items: { type: "string" } },
@@ -322,6 +332,11 @@ async function resolveOutgoing(
     }
   }
 
+  let bcc = data.bcc;
+  if (data.groups?.length) {
+    ({ to, bcc } = await addGroupMembers(userId, data.groups, { to, cc, bcc }));
+  }
+
   const connection = await loadFromConnection(userId, fromConnectionId);
   if (!connection) {
     throw new Error(
@@ -335,7 +350,7 @@ async function resolveOutgoing(
     fromConnectionId: connection.id,
     to,
     cc,
-    bcc: data.bcc,
+    bcc,
     subject,
     body: data.body,
     scheduledFor: data.scheduledFor,
@@ -344,6 +359,38 @@ async function resolveOutgoing(
     contextMessageId,
     attachmentIds: data.attachmentIds,
     draft: data.draft,
+  };
+}
+
+/**
+ * Add each group's members to To or Bcc per the group's default target,
+ * skipping addresses already given in any field (case-insensitive), so a
+ * typed Bcc address never also lands in a visible To.
+ */
+async function addGroupMembers(
+  userId: string,
+  refs: string[],
+  given: { to?: string[]; cc?: string[]; bcc?: string[] },
+): Promise<{ to?: string[]; bcc?: string[] }> {
+  const resolved = resolveGroupRefs(await listGroupsForUser(userId), refs);
+  if (!resolved.ok) throw new Error(resolved.message);
+  const expanded = expandGroups(
+    resolved.groups.map((g) => ({
+      groupId: g.id,
+      target: g.defaultTarget === "BCC" ? "bcc" : "to",
+      members: g.members,
+    })),
+  );
+  const seen = new Set(
+    [...(given.to ?? []), ...(given.cc ?? []), ...(given.bcc ?? [])].map(
+      (addr) => addr.trim().toLowerCase(),
+    ),
+  );
+  const fresh = (list: string[]) =>
+    list.filter((addr) => !seen.has(addr.toLowerCase()));
+  return {
+    to: [...(given.to ?? []), ...fresh(expanded.to)],
+    bcc: [...(given.bcc ?? []), ...fresh(expanded.bcc)],
   };
 }
 

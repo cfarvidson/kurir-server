@@ -146,6 +146,7 @@ import { db } from "@/lib/db";
 import { getTool } from "@/lib/mcp/tools";
 import type { ToolContext } from "@/lib/mcp/types";
 import { rateLimitSend } from "@/lib/rate-limit";
+import { listGroupsForUser } from "@/lib/mail/contact-groups";
 
 const baseArgs = {
   mode: "compose",
@@ -276,6 +277,58 @@ describe("MCP send tools", () => {
       expect.objectContaining({
         draft: { type: "NEW", contextMessageId: "new-agent-draft-1" },
       }),
+    );
+  });
+
+  it("send_mail expands groups into To or Bcc per the group, deduped, with no to needed", async () => {
+    vi.mocked(listGroupsForUser).mockResolvedValue([
+      {
+        id: "g1",
+        name: "Kultur föreningen",
+        defaultTarget: "TO",
+        members: [
+          { memberId: "m1", contactEmailId: "e1", email: "ada@example.org", name: "Ada" },
+          { memberId: "m2", contactEmailId: "e2", email: "Bob@example.org", name: "Bob" },
+        ],
+      },
+      {
+        id: "g2",
+        name: "Board",
+        defaultTarget: "BCC",
+        members: [
+          { memberId: "m3", contactEmailId: "e3", email: "bob@example.org", name: "Bob" },
+          { memberId: "m4", contactEmailId: "e4", email: "cy@example.org", name: "Cy" },
+        ],
+      },
+    ]);
+    const args = {
+      mode: "compose",
+      bcc: ["ADA@example.org"],
+      subject: "Hi",
+      body: "Hello",
+      groups: ["g1", "board"],
+    };
+
+    const first = await call("send_mail", args);
+    expect(first.type).toBe("input_required");
+    if (first.type === "input_required") {
+      expect(first.message).toMatch(/To: Bob@example.org\n/);
+      expect(first.message).toMatch(/Bcc: ADA@example.org, cy@example.org/);
+    }
+
+    mockPendingConfirmation("send_mail", args);
+    const result = await call(
+      "send_mail",
+      args,
+      ctx({
+        requestState: "conf-1",
+        inputResponses: { confirm: { action: "accept" } },
+      }),
+    );
+    expect(result.type).toBe("ok");
+    expect(sendMailForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({ to: "Bob@example.org", bcc: "ADA@example.org, cy@example.org" }),
     );
   });
 

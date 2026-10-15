@@ -627,6 +627,62 @@ describe("MCP read tools", () => {
     });
   });
 
+  it("save_draft description tells the agent to pass a group, not its members", () => {
+    const tool = getTool("save_draft");
+    expect(tool?.description).toMatch(/groups/);
+    expect(tool?.description).toMatch(/instead of its members' addresses/);
+    expect(tool?.inputSchema.properties).toHaveProperty("groups");
+  });
+
+  it("save_draft keeps a group given by name in the group's own field", async () => {
+    vi.mocked(db.contactGroup.findMany).mockResolvedValue([
+      {
+        id: "52e8491c",
+        name: "Kultur föreningen",
+        defaultTarget: "BCC",
+        members: [],
+      },
+    ] as never);
+    vi.mocked(saveDraftForUser).mockResolvedValue({
+      id: "d1",
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      subject: "Möte",
+      to: "",
+      body: "hej",
+    } as never);
+
+    const result = await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      subject: "Möte",
+      body: "hej",
+      groups: ["kultur föreningen"],
+    });
+
+    expect(result.type).toBe("ok");
+    expect(saveDraftForUser).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        groups: [{ groupId: "52e8491c", target: "BCC", removedEmails: [] }],
+      }),
+    );
+  });
+
+  it("save_draft with an unknown group errors without saving", async () => {
+    vi.mocked(db.contactGroup.findMany).mockResolvedValue([] as never);
+    const result = await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      groups: ["Family"],
+    });
+    expect(result).toMatchObject({
+      type: "error",
+      message: expect.stringMatching(/"Family"/),
+    });
+    expect(saveDraftForUser).not.toHaveBeenCalled();
+  });
+
   it("search_mail re-fetches hits in FTS rank order", async () => {
     vi.mocked(searchMessages).mockResolvedValue([
       { id: "m2" },

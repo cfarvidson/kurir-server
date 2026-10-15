@@ -8,6 +8,8 @@ import {
   saveDraftSchema,
 } from "@/lib/mail/drafts";
 import { presentDraft } from "@/lib/mail/draft-presentation";
+import { listGroupsForUser } from "@/lib/mail/contact-groups";
+import { resolveGroupRefs, type DraftGroup } from "@/lib/mail/draft-groups";
 import {
   findReplyDraftForThread,
   loadDraftContextMessage,
@@ -263,7 +265,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "save_draft",
     description:
-      "Save a draft. It appears in the user's Drafts folder and on the thread. For a reply use type REPLY and contextMessageId = the message id from get_thread (the id field, not threadId). For new mail use type NEW and a client UUID. Do not write the email only in chat.",
+      "Save a draft. It appears in the user's Drafts folder and on the thread. For a reply use type REPLY and contextMessageId = the message id from get_thread (the id field, not threadId). For new mail use type NEW and a client UUID. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; the draft keeps the group, which goes in its own To or Bcc field. Do not write the email only in chat.",
     inputSchema: {
       type: "object",
       properties: {
@@ -276,6 +278,11 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
         body: { type: "string" },
         emailConnectionId: { type: "string" },
         attachmentIds: { type: "array", items: { type: "string" } },
+        groups: {
+          type: "array",
+          items: { type: "string" },
+          description: "Contact group ids or names from list_contact_groups",
+        },
       },
       required: ["type", "contextMessageId"],
     },
@@ -900,9 +907,26 @@ async function saveDraft(
   ctx: ToolContext,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const parsed = saveDraftSchema.safeParse(args);
+  // Agents name groups by id or name; the stored draft holds resolved groups.
+  const parsed = saveDraftSchema
+    .extend({ groups: z.array(z.string().min(1)).optional() })
+    .safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
-  const prepared = await prepareDraftSave(ctx.userId, parsed.data);
+  const { groups: groupRefs, ...input } = parsed.data;
+  let groups: DraftGroup[] | undefined;
+  if (groupRefs) {
+    const resolved = resolveGroupRefs(
+      await listGroupsForUser(ctx.userId),
+      groupRefs,
+    );
+    if (!resolved.ok) return err(resolved.message);
+    groups = resolved.groups.map((g) => ({
+      groupId: g.id,
+      target: g.defaultTarget,
+      removedEmails: [],
+    }));
+  }
+  const prepared = await prepareDraftSave(ctx.userId, { ...input, groups });
   if (!prepared.ok) return err(prepared.message);
   const draft = await saveDraftForUser(ctx.userId, prepared.input);
   return ok({
@@ -910,6 +934,7 @@ async function saveDraft(
     type: draft.type,
     contextMessageId: draft.contextMessageId,
     ...presentDraft(draft, prepared.message),
+    ...(groups ? { groups } : {}),
   });
 }
 
