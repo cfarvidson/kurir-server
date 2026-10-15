@@ -477,7 +477,7 @@ export function MessageRow({
           )}
           {showsRepliedMark(list, message.isReplied) && (
             <Reply
-              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+              className="h-3.5 w-3.5 shrink-0 text-primary"
               aria-label="Replied"
             >
               <title>Replied</title>
