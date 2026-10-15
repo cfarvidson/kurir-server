@@ -474,7 +474,7 @@ function NextUpCard({
             <span
               className={cn(
                 "flex flex-col text-xs tabular-nums",
-                next.joinUrl && "min-h-7 justify-end pr-16",
+                next.joinUrl && "min-h-8 justify-end pr-16",
               )}
             >
               <span>{next.time}</span>
