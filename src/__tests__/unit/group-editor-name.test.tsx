@@ -29,15 +29,21 @@ afterEach(() => {
   createGroup.mockClear();
 });
 
+function renderEditor() {
+  render(<GroupEditor open onOpenChange={vi.fn()} contactEmailOptions={[]} />);
+  return screen.getByLabelText("Name");
+}
+
 describe("GroupEditor name", () => {
-  it("saves a name with å/ä/ö as typed, with autocorrect off", async () => {
-    render(
-      <GroupEditor open onOpenChange={vi.fn()} contactEmailOptions={[]} />,
-    );
-    const field = screen.getByLabelText("Name");
+  it("turns autocorrect and spellcheck off", () => {
+    const field = renderEditor();
     expect(field.getAttribute("autocorrect")).toBe("off");
     expect(field.getAttribute("spellcheck")).toBe("false");
+  });
 
+  // A guard: nothing between the field and the save action rewrites the name.
+  it("saves a name with å/ä/ö as typed", async () => {
+    const field = renderEditor();
     fireEvent.change(field, { target: { value: "Kulturföreningen" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
