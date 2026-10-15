@@ -669,6 +669,34 @@ describe("MCP read tools", () => {
     );
   });
 
+  it("save_draft without groups keeps the draft's groups; groups: [] removes them", async () => {
+    vi.mocked(db.contactGroup.findMany).mockResolvedValue([] as never);
+    vi.mocked(saveDraftForUser).mockResolvedValue({
+      id: "d1",
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      subject: "",
+      to: "",
+      body: "hej",
+    } as never);
+
+    await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      body: "hej",
+    });
+    await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      body: "hej",
+      groups: [],
+    });
+
+    const calls = vi.mocked(saveDraftForUser).mock.calls;
+    expect(calls[0][1]).not.toHaveProperty("groups");
+    expect(calls[1][1]).toMatchObject({ groups: [] });
+  });
+
   it("save_draft with an unknown group errors without saving", async () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([] as never);
     const result = await call("save_draft", {

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { DraftType } from "@prisma/client";
 import {
-  draftGroupSchema,
+  draftGroupsSchema,
   parseDraftGroups,
   sameDraftGroups,
   type DraftGroup,
@@ -32,7 +32,9 @@ export const saveDraftSchema = z.object({
   body: z.string().optional(),
   emailConnectionId: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
-  groups: z.array(draftGroupSchema).optional(),
+  // Left out, the draft keeps its stored groups (older clients send none);
+  // [] removes them.
+  groups: draftGroupsSchema.optional(),
 });
 
 export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
@@ -94,7 +96,7 @@ type DraftContent = {
   body: string;
   emailConnectionId: string | null;
   attachmentIds: string[];
-  groups: DraftGroup[];
+  groups?: DraftGroup[];
 };
 
 function sameDraftContent(
@@ -110,7 +112,8 @@ function sameDraftContent(
     a.emailConnectionId === b.emailConnectionId &&
     a.attachmentIds.length === b.attachmentIds.length &&
     a.attachmentIds.every((id, i) => id === b.attachmentIds[i]) &&
-    sameDraftGroups(parseDraftGroups(a.groups), b.groups)
+    (b.groups === undefined ||
+      sameDraftGroups(parseDraftGroups(a.groups), b.groups))
   );
 }
 
@@ -150,7 +153,7 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
     body: input.body ?? "",
     emailConnectionId: input.emailConnectionId ?? null,
     attachmentIds: input.attachmentIds ?? [],
-    groups: input.groups ?? [],
+    ...(input.groups !== undefined ? { groups: input.groups } : {}),
   };
 
   // A save with unchanged content (a draft opened and closed without edits)

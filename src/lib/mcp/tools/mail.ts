@@ -265,7 +265,7 @@ export function registerMailTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "save_draft",
     description:
-      "Save a draft. It appears in the user's Drafts folder and on the thread. For a reply use type REPLY and contextMessageId = the message id from get_thread (the id field, not threadId). For new mail use type NEW and a client UUID. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; the draft keeps the group, which goes in its own To or Bcc field. Do not write the email only in chat.",
+      "Save a draft. It appears in the user's Drafts folder and on the thread. For a reply use type REPLY and contextMessageId = the message id from get_thread (the id field, not threadId). For new mail use type NEW and a client UUID. To write to a contact group, pass it in groups (its id or name from list_contact_groups) instead of its members' addresses; the draft keeps the group, which goes in its own To or Bcc field. Leave groups out to keep the draft's groups; pass [] to remove them. Do not write the email only in chat.",
     inputSchema: {
       type: "object",
       properties: {
@@ -926,7 +926,10 @@ async function saveDraft(
       removedEmails: [],
     }));
   }
-  const prepared = await prepareDraftSave(ctx.userId, { ...input, groups });
+  const prepared = await prepareDraftSave(ctx.userId, {
+    ...input,
+    ...(groups ? { groups } : {}),
+  });
   if (!prepared.ok) return err(prepared.message);
   const draft = await saveDraftForUser(ctx.userId, prepared.input);
   return ok({

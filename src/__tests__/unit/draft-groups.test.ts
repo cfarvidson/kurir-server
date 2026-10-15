@@ -3,6 +3,7 @@ import {
   composeGroupsFromDraft,
   draftGroupNames,
   draftGroupsFromCompose,
+  draftGroupsSchema,
   parseDraftGroups,
   resolveGroupRefs,
   sameDraftGroups,
@@ -63,6 +64,21 @@ describe("draft groups", () => {
       ]),
     ).toBe(false);
     expect(parseDraftGroups(undefined)).toEqual([]);
+  });
+
+  it("caps a draft at 50 groups of at most 500 unchecked members each", () => {
+    const group = (removed: number) => ({
+      groupId: "g1",
+      target: "TO",
+      removedEmails: Array.from({ length: removed }, (_, i) => `m${i}@x.y`),
+    });
+    expect(draftGroupsSchema.safeParse(Array(50).fill(group(500))).success).toBe(
+      true,
+    );
+    expect(draftGroupsSchema.safeParse(Array(51).fill(group(0))).success).toBe(
+      false,
+    );
+    expect(draftGroupsSchema.safeParse([group(501)]).success).toBe(false);
   });
 
   it("resolves a group by id first, then by trimmed case-insensitive name", () => {

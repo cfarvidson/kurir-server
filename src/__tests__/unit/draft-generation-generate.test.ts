@@ -158,6 +158,32 @@ describe("generateDraftForUser", () => {
     });
   });
 
+  it("keeps the draft's contact groups when it generates the body", async () => {
+    vi.mocked(db.draft.findUnique).mockResolvedValue({
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: "Kept subject",
+      body: "",
+      emailConnectionId: null,
+      attachmentIds: [],
+      groups: [{ groupId: "g1", target: "BCC", removedEmails: [] }],
+    } as never);
+
+    await generateDraftForUser(
+      "user-1",
+      { type: "REPLY", contextMessageId: "msg-1" },
+      stubAdapter("new body"),
+    );
+
+    const upsert = vi.mocked(db.draft.upsert).mock.calls[0][0] as {
+      update: Record<string, unknown>;
+    };
+    expect(upsert.update.body).toBe("new body");
+    // Left out of the write, so the stored groups stay as they are.
+    expect(upsert.update).not.toHaveProperty("groups");
+  });
+
   it("refuses to overwrite a non-empty body without replace and leaves the draft unchanged", async () => {
     vi.mocked(db.draft.findUnique).mockResolvedValue({
       to: "",

@@ -197,6 +197,91 @@ describe("/api/mobile/drafts", () => {
     expect(list.drafts[0].groups).toEqual(groups);
   });
 
+  it("(j) PUT without groups keeps the stored groups; groups: [] removes them", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.draft.upsert).mockResolvedValue({ id: "d1" } as never);
+    const stored = {
+      id: "d1",
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: "Hi",
+      body: "same",
+      emailConnectionId: null,
+      attachmentIds: [],
+      groups: [{ groupId: "g1", target: "TO", removedEmails: [] }],
+    };
+    vi.mocked(db.draft.findUnique).mockResolvedValue(stored as never);
+    const { PUT } = await import("@/app/api/mobile/drafts/route");
+    const save = (extra: object) =>
+      PUT(
+        makeRequest({
+          type: "NEW",
+          contextMessageId: "c1",
+          subject: "Hi",
+          body: "same",
+          ...extra,
+        }),
+      );
+
+    // An older client that knows no groups: same content, so no write.
+    await save({});
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+
+    await save({ body: "edited" });
+    expect(vi.mocked(db.draft.upsert).mock.calls[0][0].update).not.toHaveProperty(
+      "groups",
+    );
+
+    await save({ groups: [] });
+    expect(vi.mocked(db.draft.upsert).mock.calls[1][0].update.groups).toEqual(
+      [],
+    );
+  });
+
+  it("(k) PUT with the stored groups is a no-op; malformed stored groups read as none", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.draft.upsert).mockResolvedValue({ id: "d1" } as never);
+    const base = {
+      id: "d1",
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: "Hi",
+      body: "same",
+      emailConnectionId: null,
+      attachmentIds: [],
+    };
+    const { PUT } = await import("@/app/api/mobile/drafts/route");
+    const save = (groups: unknown) =>
+      PUT(
+        makeRequest({
+          type: "NEW",
+          contextMessageId: "c1",
+          subject: "Hi",
+          body: "same",
+          groups,
+        }),
+      );
+
+    vi.mocked(db.draft.findUnique).mockResolvedValueOnce({
+      ...base,
+      groups: [{ removedEmails: ["a@x.y"], target: "TO", groupId: "g1" }],
+    } as never);
+    await save([{ groupId: "g1", target: "TO", removedEmails: ["a@x.y"] }]);
+
+    vi.mocked(db.draft.findUnique).mockResolvedValueOnce({
+      ...base,
+      groups: "not a list",
+    } as never);
+    const res = await save([]);
+
+    expect(res.status).toBe(200);
+    expect(db.draft.upsert).not.toHaveBeenCalled();
+  });
+
   it("(c) GET lists the authed user's drafts (scoped by userId), newest first, ties by key", async () => {
     await mockAuthed("user-1");
     const { db } = await import("@/lib/db");

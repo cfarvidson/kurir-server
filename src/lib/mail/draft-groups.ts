@@ -15,14 +15,17 @@ import type { RecipientTarget } from "@/lib/mail/group-expansion";
 export const draftGroupSchema = z.object({
   groupId: z.string().min(1),
   target: z.enum(["TO", "CC", "BCC"]),
-  removedEmails: z.array(z.string()).default([]),
+  removedEmails: z.array(z.string()).max(500).default([]),
 });
+
+/** A draft's groups, capped so a stored row stays small. */
+export const draftGroupsSchema = z.array(draftGroupSchema).max(50);
 
 export type DraftGroup = z.infer<typeof draftGroupSchema>;
 
 /** The stored `Draft.groups` JSON; anything malformed reads as no groups. */
 export function parseDraftGroups(value: unknown): DraftGroup[] {
-  const parsed = z.array(draftGroupSchema).safeParse(value ?? []);
+  const parsed = draftGroupsSchema.safeParse(value ?? []);
   return parsed.success ? parsed.data : [];
 }
 
