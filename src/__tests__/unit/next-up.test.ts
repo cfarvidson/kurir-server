@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { headerNextUp } from "@/components/calendar/header-model";
-import { laterToday, pickNextUp, todayRows } from "@/lib/calendar/next-up";
+import {
+  capLater,
+  laterToday,
+  pickNextUp,
+  todayRows,
+} from "@/lib/calendar/next-up";
 
 function event(
   title: string,
@@ -159,5 +164,45 @@ describe("laterToday", () => {
       ["All day", "Holiday, Name day"],
       ["13:00", "Lunch"],
     ]);
+  });
+
+  it("goes by the local day, not the UTC one, just after midnight", () => {
+    // 00:30 in Stockholm on the 25th, still the 24th in UTC.
+    const night = new Date("2026-09-24T22:30:00Z");
+    const trip = event(
+      "Trip",
+      "2026-09-24T00:00:00Z",
+      "2026-09-27T00:00:00Z",
+      true,
+    );
+    expect(
+      laterToday([yesterday, holiday, trip], night, TZ).map((row) => row.title),
+    ).toEqual(["Trip, Holiday"]);
+  });
+
+  it("leaves out the meeting under way, which is on the card", () => {
+    const during = new Date("2026-09-25T07:35:00Z");
+    expect(
+      laterToday([lunch, standup], during, TZ).map((row) => row.title),
+    ).toEqual(["Lunch"]);
+  });
+});
+
+describe("capLater", () => {
+  const rows = Array.from({ length: 6 }, (_, i) => ({
+    key: `${i}`,
+    title: `Event ${i}`,
+    time: `1${i}:00`,
+    color: "#2f6fb5",
+    isPast: false,
+    isAllDay: false,
+  }));
+
+  it("shows four and counts the others for N more today", () => {
+    expect(capLater(rows.slice(0, 4))).toEqual({
+      rows: rows.slice(0, 4),
+      more: 0,
+    });
+    expect(capLater(rows)).toEqual({ rows: rows.slice(0, 4), more: 2 });
   });
 });

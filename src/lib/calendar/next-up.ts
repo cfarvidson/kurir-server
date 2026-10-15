@@ -30,7 +30,13 @@ export type TodayRow = {
   time: string;
   color: string;
   isPast: boolean;
+  isAllDay: boolean;
 };
+
+/** A row's key: the occurrence of the event, `<eventId>:<startAt>`. */
+function rowKey(instance: CalendarInstanceDTO): string {
+  return `${instance.eventId}:${instance.startAt}`;
+}
 
 /**
  * The event every Next up card shows (the sidebar's and the calendar
@@ -129,11 +135,12 @@ export function todayRows(
     .map((i) => {
       const wall = zonedParts(new Date(i.startAt), timeZone);
       return {
-        key: `${i.eventId}:${i.startAt}`,
+        key: rowKey(i),
         title: i.title,
         time: i.isAllDay ? "All day" : formatTimeLabel(wall.hour, wall.minute),
         color: i.color,
         isPast: !i.isAllDay && new Date(i.endAt) <= now,
+        isAllDay: i.isAllDay,
       };
     });
 }
@@ -149,13 +156,11 @@ export function laterToday(
   now: Date,
   timeZone: string,
 ): TodayRow[] {
-  const key = (i: CalendarInstanceDTO) => `${i.eventId}:${i.startAt}`;
   const next = nextUpEvent(instances, now);
-  const allDay = new Set(instances.filter((i) => i.isAllDay).map(key));
   const later = todayRows(instances, now, timeZone).filter(
-    (row) => !row.isPast && (!next || row.key !== key(next)),
+    (row) => !row.isPast && (!next || row.key !== rowKey(next)),
   );
-  const days = later.filter((row) => allDay.has(row.key));
+  const days = later.filter((row) => row.isAllDay);
   if (days.length < 2) return later;
   return [
     {
@@ -163,6 +168,22 @@ export function laterToday(
       key: "all-day",
       title: days.map((row) => row.title).join(", "),
     },
-    ...later.filter((row) => !allDay.has(row.key)),
+    ...later.filter((row) => !row.isAllDay),
   ];
+}
+
+/** How many of the rest of today the card lists; the others are a
+ * "N more today" line. */
+export const LATER_TODAY_LIMIT = 4;
+
+/** The rows the card lists and how many are left for "N more today".
+ * Mirrors `SidebarToday.capLater` in kurir-ios. */
+export function capLater(later: TodayRow[]): {
+  rows: TodayRow[];
+  more: number;
+} {
+  return {
+    rows: later.slice(0, LATER_TODAY_LIMIT),
+    more: Math.max(later.length - LATER_TODAY_LIMIT, 0),
+  };
 }
