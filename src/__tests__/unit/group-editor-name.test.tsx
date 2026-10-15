@@ -2,13 +2,15 @@
 /**
  * kurir-ios#332: "Kulturföreningen" was saved as "Kultur föreningen". The name
  * field turns autocorrect off like the apps' `.autocorrectionDisabled()`, so
- * WebKit's autocorrect cannot split a Swedish compound word. A second test
- * checks that the editor sends the name to the save action unchanged.
+ * WebKit's autocorrect cannot split a Swedish compound word. Two more tests
+ * check that the editor sends the name to the save actions unchanged, on
+ * create and on rename.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 const createGroup = vi.fn().mockResolvedValue({ id: "g1" });
+const renameGroup = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -16,21 +18,32 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/actions/contact-groups", () => ({
   createGroup: (...args: unknown[]) => createGroup(...args),
-  renameGroup: vi.fn(),
+  renameGroup: (...args: unknown[]) => renameGroup(...args),
   setGroupDefaultTarget: vi.fn(),
   addGroupMember: vi.fn(),
   removeGroupMember: vi.fn(),
 }));
 
-import { GroupEditor } from "@/components/contacts/group-editor";
+import {
+  GroupEditor,
+  type EditorGroup,
+} from "@/components/contacts/group-editor";
 
 afterEach(() => {
   cleanup();
   createGroup.mockClear();
+  renameGroup.mockClear();
 });
 
-function renderEditor() {
-  render(<GroupEditor open onOpenChange={vi.fn()} contactEmailOptions={[]} />);
+function renderEditor(group?: EditorGroup) {
+  render(
+    <GroupEditor
+      open
+      onOpenChange={vi.fn()}
+      group={group}
+      contactEmailOptions={[]}
+    />,
+  );
   return screen.getByLabelText("Name");
 }
 
@@ -51,6 +64,21 @@ describe("GroupEditor name", () => {
       expect(createGroup).toHaveBeenCalledWith(
         expect.objectContaining({ name: "Kulturföreningen" }),
       ),
+    );
+  });
+
+  it("renames a group to a name with å/ä/ö as typed", async () => {
+    const field = renderEditor({
+      id: "g1",
+      name: "Kultur föreningen",
+      defaultTarget: "TO",
+      members: [],
+    });
+    fireEvent.change(field, { target: { value: "Kulturföreningen" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(renameGroup).toHaveBeenCalledWith("g1", "Kulturföreningen"),
     );
   });
 });
