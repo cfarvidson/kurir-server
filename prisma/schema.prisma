@@ -954,6 +954,10 @@ model Draft {
   // Attachment references (not FKs — verified at send time)
   attachmentIds String[] @default([])
 
+  // Attached contact groups: [{ groupId, target: TO|CC|BCC, removedEmails }]
+  // (src/lib/mail/draft-groups.ts). Not FKs — a deleted group is dropped on open.
+  groups Json @default("[]")
+
   // Ownership
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

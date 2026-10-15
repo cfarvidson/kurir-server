@@ -2,6 +2,12 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { DraftType } from "@prisma/client";
+import {
+  draftGroupSchema,
+  parseDraftGroups,
+  sameDraftGroups,
+  type DraftGroup,
+} from "@/lib/mail/draft-groups";
 
 /**
  * Draft persistence cores, shared by the web server actions (`@/actions/drafts`)
@@ -26,6 +32,7 @@ export const saveDraftSchema = z.object({
   body: z.string().optional(),
   emailConnectionId: z.string().optional(),
   attachmentIds: z.array(z.string()).optional(),
+  groups: z.array(draftGroupSchema).optional(),
 });
 
 export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
@@ -87,9 +94,13 @@ type DraftContent = {
   body: string;
   emailConnectionId: string | null;
   attachmentIds: string[];
+  groups: DraftGroup[];
 };
 
-function sameDraftContent(a: DraftContent, b: DraftContent) {
+function sameDraftContent(
+  a: Omit<DraftContent, "groups"> & { groups: unknown },
+  b: DraftContent,
+) {
   return (
     a.to === b.to &&
     a.cc === b.cc &&
@@ -98,7 +109,8 @@ function sameDraftContent(a: DraftContent, b: DraftContent) {
     a.body === b.body &&
     a.emailConnectionId === b.emailConnectionId &&
     a.attachmentIds.length === b.attachmentIds.length &&
-    a.attachmentIds.every((id, i) => id === b.attachmentIds[i])
+    a.attachmentIds.every((id, i) => id === b.attachmentIds[i]) &&
+    sameDraftGroups(parseDraftGroups(a.groups), b.groups)
   );
 }
 
@@ -130,7 +142,7 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
       contextMessageId: input.contextMessageId,
     },
   };
-  const content = {
+  const content: DraftContent = {
     to: input.to ?? "",
     cc: input.cc ?? "",
     bcc: input.bcc ?? "",
@@ -138,6 +150,7 @@ export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
     body: input.body ?? "",
     emailConnectionId: input.emailConnectionId ?? null,
     attachmentIds: input.attachmentIds ?? [],
+    groups: input.groups ?? [],
   };
 
   // A save with unchanged content (a draft opened and closed without edits)

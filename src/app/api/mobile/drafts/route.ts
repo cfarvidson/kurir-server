@@ -10,6 +10,7 @@ import {
   loadAttachmentMeta,
 } from "@/lib/mail/drafts";
 import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
+import { parseDraftGroups } from "@/lib/mail/draft-groups";
 
 /**
  * Mobile CRUD for the Draft model, sharing the `(userId, type,
@@ -17,7 +18,8 @@ import { presentDraftsForUser } from "@/lib/mail/draft-presentation-db";
  * written on either surface appear on the other.
  *
  * GET    → { drafts: [...] }        list the user's drafts, newest first
- * PUT    → { draft }                upsert one draft (shared zod schema)
+ * PUT    → { draft }                upsert one draft (shared zod schema;
+ *                                    `groups` is optional for older clients)
  * DELETE → { success: true }        idempotent delete by key
  */
 
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
         const row = metaById.get(id);
         return row ? [row] : [];
       }),
+      groups: parseDraftGroups(d.groups),
       updatedAt: d.updatedAt,
       displaySubject: d.displaySubject,
       displayFrom: d.displayFrom,

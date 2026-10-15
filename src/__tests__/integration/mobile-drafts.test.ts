@@ -147,6 +147,56 @@ describe("/api/mobile/drafts", () => {
     expect(db.draft.upsert).not.toHaveBeenCalled();
   });
 
+  it("(i) PUT keeps attached groups, and a group change is an edit; GET returns them", async () => {
+    await mockAuthed();
+    const { db } = await import("@/lib/db");
+    vi.mocked(db.draft.upsert).mockResolvedValue({ id: "d1" } as never);
+    vi.mocked(db.draft.findUnique).mockResolvedValueOnce({
+      id: "d1",
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: "Hi",
+      body: "same",
+      emailConnectionId: null,
+      attachmentIds: [],
+      groups: [],
+    } as never);
+    const groups = [{ groupId: "g1", target: "BCC", removedEmails: ["a@x.y"] }];
+
+    const { PUT, GET } = await import("@/app/api/mobile/drafts/route");
+    const res = await PUT(
+      makeRequest({
+        type: "NEW",
+        contextMessageId: "c1",
+        subject: "Hi",
+        body: "same",
+        groups,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.draft.upsert).mock.calls[0][0].update.groups).toEqual(
+      groups,
+    );
+
+    vi.mocked(db.draft.findMany).mockResolvedValue([
+      {
+        type: "NEW",
+        contextMessageId: "c1",
+        to: "",
+        subject: "Hi",
+        body: "same",
+        emailConnectionId: null,
+        attachmentIds: [],
+        groups,
+        updatedAt: new Date("2026-10-15T00:00:00.000Z"),
+      },
+    ] as never);
+    const list = await (await GET({ headers: { get: () => null } } as any)).json();
+    expect(list.drafts[0].groups).toEqual(groups);
+  });
+
   it("(c) GET lists the authed user's drafts (scoped by userId), newest first, ties by key", async () => {
     await mockAuthed("user-1");
     const { db } = await import("@/lib/db");
