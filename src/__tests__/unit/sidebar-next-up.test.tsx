@@ -60,6 +60,38 @@ describe("Sidebar Next up card", () => {
     expect(card.contains(join)).toBe(false);
   });
 
+  it("shows the meeting's whole title, not cut to one line", () => {
+    today.instances = [
+      {
+        ...standup(null),
+        title: "Media Supply Tech sync with the partner team",
+      },
+    ];
+    render(<Sidebar />);
+
+    const title = screen.getByText(
+      "Media Supply Tech sync with the partner team",
+    );
+    expect(title.className).not.toMatch(/\btruncate\b/);
+  });
+
+  it("lists the rest of today under the card, each opening the calendar", () => {
+    today.instances = [
+      standup(null),
+      {
+        ...standup(null),
+        eventId: "review",
+        title: "Design review",
+        startAt: "2026-09-25T09:00:00Z",
+        endAt: "2026-09-25T10:00:00Z",
+      },
+    ];
+    render(<Sidebar />);
+
+    const row = screen.getByRole("link", { name: /11:00.*Design review/ });
+    expect(row.getAttribute("href")).toBe("/calendar");
+  });
+
   it("has no Join when the meeting has no link", () => {
     today.instances = [standup(null)];
     render(<Sidebar />);

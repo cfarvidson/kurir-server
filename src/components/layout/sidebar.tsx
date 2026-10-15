@@ -23,7 +23,7 @@ import { useTodayEvents } from "@/hooks/use-today-events";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
 import { normalizeEventHex } from "@/lib/calendar/color";
 import { JoinLink } from "@/components/calendar/join-link";
-import { pickNextUp, todayRows } from "@/lib/calendar/next-up";
+import { laterToday, pickNextUp, todayRows } from "@/lib/calendar/next-up";
 import {
   type BadgeKey,
   type BadgePreferences,
@@ -412,6 +412,14 @@ function RailButton({
   );
 }
 
+/** At most this many of the rest of today under Next up; the others are a
+ * "N more today" line that opens the calendar. */
+const LATER_TODAY_LIMIT = 4;
+
+/**
+ * The Mail panel's view of today (kurir-ios#329): the next event with its
+ * whole title, and the rest of today under it, in one card.
+ */
 function NextUpCard({
   instances,
   now,
@@ -422,51 +430,96 @@ function NextUpCard({
   timeZone: string;
 }) {
   const next = pickNextUp(instances, now, timeZone);
-  if (!next) return null;
-  // The calendar link covers the whole card (its ::after); Join sits above
-  // it, in the chevron's place, so a click beside Join still opens the
-  // calendar.
+  const later = laterToday(instances, now, timeZone);
+  if (!next && later.length === 0) return null;
   return (
-    <div className="relative mb-3 flex items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50">
-      <span
-        aria-hidden
-        className={cn("w-1 shrink-0 rounded-xs", next.leave ? "h-11" : "h-8")}
-        style={{ backgroundColor: normalizeEventHex(next.color) }}
-      />
-      <Link
-        href="/calendar"
-        className="flex min-w-0 flex-col gap-0.5 after:absolute after:inset-0 after:rounded-lg"
-      >
-        <span
+    <div className="mb-3 rounded-lg border border-sidebar-border bg-card">
+      {next ? (
+        // The calendar link covers the whole block (its ::after); Join sits
+        // above it on the time's line, so a click beside Join still opens
+        // the calendar.
+        <div className="relative flex gap-3 rounded-t-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
+          <span
+            aria-hidden
+            className="w-1 shrink-0 self-stretch rounded-xs"
+            style={{ backgroundColor: normalizeEventHex(next.color) }}
+          />
+          <Link
+            href="/calendar"
+            className="flex min-w-0 flex-1 flex-col gap-0.5 after:absolute after:inset-0 after:rounded-t-lg"
+          >
+            <span className="flex items-center gap-2">
+              <span className="eyebrow truncate text-muted-foreground">
+                Next up{next.when ? ` · ${next.when}` : ""}
+              </span>
+              {!next.joinUrl && (
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+            </span>
+            <span className="line-clamp-3 text-sm font-medium break-words">
+              {next.title}
+            </span>
+            <span
+              className={cn(
+                "flex flex-col text-xs tabular-nums",
+                next.joinUrl && "min-h-7 justify-end pr-16",
+              )}
+            >
+              <span>{next.time}</span>
+              {next.leave && (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Car
+                    aria-hidden
+                    className="size-3 shrink-0"
+                    style={{ color: normalizeEventHex(next.color) }}
+                  />
+                  {next.leave}
+                </span>
+              )}
+            </span>
+          </Link>
+          {next.joinUrl && (
+            <span className="absolute right-3 bottom-2.5">
+              <JoinLink href={next.joinUrl} />
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="eyebrow px-3 pt-2.5 text-muted-foreground">Today</p>
+      )}
+      {later.length > 0 && (
+        <div
           className={cn(
-            "eyebrow text-muted-foreground",
-            // Beside Join the sidebar has no room for "in 11 min" at full
-            // size; smaller on one line rather than wrapped.
-            next.joinUrl && "truncate text-[11px] tracking-normal",
+            "py-1.5 pr-3 pl-7",
+            next && "border-t border-sidebar-border",
           )}
         >
-          Next up{next.when ? ` · ${next.when}` : ""}
-        </span>
-        <span className="truncate text-sm font-medium">
-          <span className="tabular-nums">{next.time}</span> {next.title}
-        </span>
-        {next.leave && (
-          <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
-            <Car
-              aria-hidden
-              className="size-3 shrink-0"
-              style={{ color: normalizeEventHex(next.color) }}
-            />
-            {next.leave}
-          </span>
-        )}
-      </Link>
-      {next.joinUrl ? (
-        <span className="relative ml-auto">
-          <JoinLink href={next.joinUrl} />
-        </span>
-      ) : (
-        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+          {later.slice(0, LATER_TODAY_LIMIT).map((row) => (
+            <Link
+              key={row.key}
+              href="/calendar"
+              className="flex items-center gap-2.5 rounded-md py-0.5 text-sm transition-colors hover:bg-muted/50"
+            >
+              <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">
+                {row.time}
+              </span>
+              <span
+                aria-hidden
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: normalizeEventHex(row.color) }}
+              />
+              <span className="truncate">{row.title}</span>
+            </Link>
+          ))}
+          {later.length > LATER_TODAY_LIMIT && (
+            <Link
+              href="/calendar"
+              className="block py-0.5 pl-[4.25rem] text-xs text-muted-foreground hover:text-foreground"
+            >
+              {later.length - LATER_TODAY_LIMIT} more today
+            </Link>
+          )}
+        </div>
       )}
     </div>
   );
