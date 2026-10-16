@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, renderHook } from "@testing-library/react";
 
 vi.mock("@/actions/drafts", () => ({
   saveDraft: vi.fn(),
@@ -9,17 +9,23 @@ vi.mock("@/actions/drafts", () => ({
   deleteDraft: vi.fn(),
 }));
 
-import { getDraft } from "@/actions/drafts";
+import { getDraft, saveDraft } from "@/actions/drafts";
 import { useDraft } from "@/hooks/use-draft";
 
 const KEY = "kurir:draft:u1:new:c1";
-const group = { groupId: "g1", target: "TO", removedEmails: [] };
+const group = {
+  groupId: "g1",
+  target: "TO" as const,
+  removedEmails: [] as string[],
+};
+const content = { to: "", subject: "Hi", body: "hello", attachmentIds: [] };
 
 function localCopy(fields: object) {
-  localStorage.setItem(
-    KEY,
-    JSON.stringify({ to: "", subject: "Hi", body: "hello", attachmentIds: [], ...fields }),
-  );
+  localStorage.setItem(KEY, JSON.stringify({ ...content, ...fields }));
+}
+
+function readLocal() {
+  return JSON.parse(localStorage.getItem(KEY) ?? "null");
 }
 
 function serverCopy(fields: object) {
@@ -44,6 +50,7 @@ async function load() {
 describe("useDraft", () => {
   beforeEach(() => {
     vi.mocked(getDraft).mockReset();
+    vi.mocked(saveDraft).mockReset();
     // Node's own (disabled) localStorage global hides jsdom's.
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {
@@ -53,20 +60,56 @@ describe("useDraft", () => {
     });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
   it("reads malformed groups in the local copy as none, so restore cannot throw", async () => {
     localCopy({ groups: "not a list" });
     expect(await load()).toMatchObject({ body: "hello", groups: [] });
   });
 
-  it("takes a newer server copy over an older local one, so its groups are not lost", async () => {
-    localCopy({ updatedAt: 1_000 });
+  it("takes a server copy saved after the local copy's last save, whatever the browser clock says", async () => {
+    // The browser clock is far ahead; only server times are compared.
+    localCopy({ serverUpdatedAt: 1_000, updatedAt: 9e15 });
     serverCopy({ groups: [group], updatedAt: new Date(2_000) });
     expect(await load()).toMatchObject({ groups: [group] });
   });
 
-  it("keeps a local copy that is newer than the server's (unsaved edits)", async () => {
-    localCopy({ body: "typed offline", updatedAt: 3_000 });
+  it("keeps a local copy with edits not yet saved", async () => {
+    localCopy({ body: "typed offline", serverUpdatedAt: 1_000, unsaved: true });
     serverCopy({ groups: [group], updatedAt: new Date(2_000) });
     expect(await load()).toMatchObject({ body: "typed offline", groups: [] });
+  });
+
+  it("falls back to the local copy when the server read fails", async () => {
+    localCopy({ body: "local", serverUpdatedAt: 1_000 });
+    vi.mocked(getDraft).mockRejectedValue(new Error("offline"));
+    expect(await load()).toMatchObject({ body: "local" });
+  });
+
+  it("marks the local copy unsaved until the server answers, then records the server's time", async () => {
+    vi.useFakeTimers();
+    let answer!: (row: unknown) => void;
+    vi.mocked(saveDraft).mockReturnValue(
+      new Promise((resolve) => (answer = resolve)) as never,
+    );
+    const { result, unmount } = renderHook(() => useDraft("u1", "NEW", "c1"));
+
+    act(() => result.current.saveDraft({ ...content, groups: [group] }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    expect(readLocal()).toMatchObject({ unsaved: true });
+
+    await act(async () => answer({ updatedAt: new Date(5_000) }));
+    expect(readLocal()).toMatchObject({
+      groups: [group],
+      serverUpdatedAt: 5_000,
+      unsaved: false,
+    });
+
+    // Closing the composer after the save leaves the copy marked saved.
+    unmount();
+    expect(readLocal()).toMatchObject({ unsaved: false });
   });
 });

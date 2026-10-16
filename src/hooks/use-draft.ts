@@ -42,24 +42,33 @@ export function useDraft(
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSeqRef = useRef(0);
   const latestDataRef = useRef<DraftData | null>(null);
+  // The server's updatedAt for the last copy saved or loaded here.
+  const serverUpdatedAtRef = useRef(0);
   const key = draftKey(userId, type, contextMessageId);
 
-  // Load draft: the newer of the localStorage copy and the server copy. The
-  // local copy holds unsaved edits (crash recovery), but it lingers after the
-  // composer closes; when the draft changed elsewhere since (an agent or
-  // another device), the server copy wins, or autosave would write the stale
-  // copy back — `groups: []` included, which removes the draft's groups.
+  // Load draft: the local copy holds edits not yet saved (crash recovery),
+  // but it lingers after the composer closes. Unless it is unsaved, the
+  // server copy wins when the server saved it after the local copy's last
+  // save (an agent or another device changed it), or autosave would write the
+  // stale copy back, `groups: []` included. Only server times are compared,
+  // so the browser's clock never decides.
   const loadDraft = useCallback(async (): Promise<DraftData | null> => {
-    let local: { data: DraftData; updatedAt: number } | null = null;
+    let local: {
+      data: DraftData;
+      serverUpdatedAt: number;
+      unsaved: boolean;
+    } | null = null;
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
-        const { updatedAt, ...data } = parsed;
+        const { updatedAt: _, serverUpdatedAt, unsaved, ...data } = parsed;
         if (typeof data.body === "string" && typeof data.to === "string") {
           local = {
             data: { ...(data as DraftData), groups: parseDraftGroups(data.groups) },
-            updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
+            serverUpdatedAt:
+              typeof serverUpdatedAt === "number" ? serverUpdatedAt : 0,
+            unsaved: unsaved === true,
           };
         } else {
           // Corrupt data — remove it
@@ -72,11 +81,15 @@ export function useDraft(
 
     try {
       const serverDraft = await getDraft(type, contextMessageId);
+      const serverUpdatedAt = serverDraft
+        ? new Date(serverDraft.updatedAt).getTime()
+        : 0;
       if (
         serverDraft &&
         (!local ||
-          new Date(serverDraft.updatedAt).getTime() > local.updatedAt)
+          (!local.unsaved && serverUpdatedAt > local.serverUpdatedAt))
       ) {
+        serverUpdatedAtRef.current = serverUpdatedAt;
         const data: DraftData = {
           to: serverDraft.to,
           cc: serverDraft.cc,
@@ -89,19 +102,17 @@ export function useDraft(
           groups: parseDraftGroups(serverDraft.groups),
         };
         // Backfill localStorage for next load
-        try {
-          localStorage.setItem(
-            key,
-            JSON.stringify({ ...data, updatedAt: Date.now() }),
-          );
-        } catch {}
+        writeLocalCopy(key, data, serverUpdatedAt, false);
         return data;
       }
     } catch {
       // Server error — fall back to the local copy
     }
 
-    if (local) return hydrateAttachments(local.data);
+    if (local) {
+      serverUpdatedAtRef.current = local.serverUpdatedAt;
+      return hydrateAttachments(local.data);
+    }
     return null;
   }, [key, type, contextMessageId]);
 
@@ -124,6 +135,8 @@ export function useDraft(
         !data.groups?.length;
 
       timerRef.current = setTimeout(async () => {
+        // No longer pending: closing the composer now has nothing to flush.
+        timerRef.current = null;
         if (isEmpty) {
           try {
             localStorage.removeItem(key);
@@ -135,20 +148,16 @@ export function useDraft(
           return;
         }
 
-        // 1. localStorage (synchronous, instant)
-        try {
-          localStorage.setItem(
-            key,
-            JSON.stringify({ ...data, updatedAt: Date.now() }),
-          );
-        } catch {}
+        // 1. localStorage (synchronous, instant), unsaved until the server
+        // answers
+        writeLocalCopy(key, data, serverUpdatedAtRef.current, true);
 
         // 2. Server action (async) with sequence counter to discard stale saves
         setStatus("saving");
         const thisSeq = ++saveSeqRef.current;
 
         try {
-          await saveDraftAction({
+          const saved = await saveDraftAction({
             type,
             contextMessageId,
             to: data.to,
@@ -162,6 +171,8 @@ export function useDraft(
           });
           // Only update status if this is still the latest save
           if (saveSeqRef.current !== thisSeq) return;
+          serverUpdatedAtRef.current = new Date(saved.updatedAt).getTime();
+          writeLocalCopy(key, data, serverUpdatedAtRef.current, false);
           setStatus("saved");
           if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
           savedTimerRef.current = setTimeout(
@@ -206,15 +217,12 @@ export function useDraft(
       if (latestDataRef.current && timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
-        try {
-          localStorage.setItem(
-            key,
-            JSON.stringify({
-              ...latestDataRef.current,
-              updatedAt: Date.now(),
-            }),
-          );
-        } catch {}
+        writeLocalCopy(
+          key,
+          latestDataRef.current,
+          serverUpdatedAtRef.current,
+          true,
+        );
       }
     };
 
@@ -227,6 +235,24 @@ export function useDraft(
   }, [key]);
 
   return { loadDraft, saveDraft, removeDraft, cancelPendingSave, status };
+}
+
+/**
+ * The local copy records the server's updatedAt it is based on, and whether
+ * it holds edits the server has not confirmed yet.
+ */
+function writeLocalCopy(
+  key: string,
+  data: DraftData,
+  serverUpdatedAt: number,
+  unsaved: boolean,
+) {
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ ...data, serverUpdatedAt, unsaved }),
+    );
+  } catch {}
 }
 
 /** Check if a draft exists in localStorage (synchronous, for use in render) */
