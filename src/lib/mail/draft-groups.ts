@@ -47,25 +47,43 @@ export function sameDraftGroups(a: DraftGroup[], b: DraftGroup[]): boolean {
   );
 }
 
-export function draftGroupsFromCompose(added: AddedGroupState[]): DraftGroup[] {
-  return added.map((s) => ({
-    groupId: s.group.id,
-    target: s.target.toUpperCase() as DraftGroup["target"],
-    removedEmails: s.group.members
-      .filter((m) => s.removedMemberIds.has(m.memberId))
-      .map((m) => m.email),
-  }));
+/**
+ * The draft's groups from compose: the chips, then any group the user's list
+ * did not have when the draft opened, saved back as it was.
+ */
+export function draftGroupsFromCompose(
+  added: AddedGroupState[],
+  unavailable: DraftGroup[] = [],
+): DraftGroup[] {
+  return [
+    ...added.map((s) => ({
+      groupId: s.group.id,
+      target: s.target.toUpperCase() as DraftGroup["target"],
+      removedEmails: s.group.members
+        .filter((m) => s.removedMemberIds.has(m.memberId))
+        .map((m) => m.email),
+    })),
+    ...unavailable,
+  ];
 }
 
-/** Reopen a draft's groups as compose chips; a deleted group is dropped. */
+/**
+ * Reopen a draft's groups as compose chips. A group the user's list does not
+ * have (deleted, or not loaded) comes back apart in `unavailable`: compose
+ * shows it as "Unavailable group" and holds Send until it is removed.
+ */
 export function composeGroupsFromDraft(
   saved: DraftGroup[],
   groups: ComposeGroup[],
-): AddedGroupState[] {
+): { chips: AddedGroupState[]; unavailable: DraftGroup[] } {
   const byId = new Map(groups.map((g) => [g.id, g]));
-  return saved.flatMap((s) => {
+  const unavailable: DraftGroup[] = [];
+  const chips = saved.flatMap((s) => {
     const group = byId.get(s.groupId);
-    if (!group) return [];
+    if (!group) {
+      unavailable.push(s);
+      return [];
+    }
     const removed = new Set(s.removedEmails.map((e) => e.toLowerCase()));
     return [
       {
@@ -79,6 +97,7 @@ export function composeGroupsFromDraft(
       },
     ];
   });
+  return { chips, unavailable };
 }
 
 /** Names of a draft's groups that still exist, in draft order. */

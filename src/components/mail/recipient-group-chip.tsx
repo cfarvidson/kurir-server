@@ -28,6 +28,29 @@ export interface AddedGroupState {
   removedMemberIds: Set<string>;
 }
 
+/**
+ * A draft's group that the user's group list does not have (deleted, or not
+ * loaded). It has no name to show; it stays in the draft until removed.
+ */
+export function UnavailableGroupChip({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-transparent py-1 pl-2 pr-1 text-sm">
+      <span className="flex min-h-[28px] items-center gap-1.5 px-1 text-muted-foreground">
+        <Users className="h-3.5 w-3.5 shrink-0" />
+        <span>Unavailable group</span>
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="Remove unavailable group"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
 const TARGETS: { value: RecipientTarget; label: string }[] = [
   { value: "to", label: "To" },
   { value: "cc", label: "Cc" },

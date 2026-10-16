@@ -35,18 +35,30 @@ describe("draft groups", () => {
     ).toEqual([{ groupId: "g1", target: "CC", removedEmails: ["Bob@x.y"] }]);
   });
 
-  it("reopens a saved group in the same field with the same members unchecked, dropping a deleted group", () => {
-    const restored = composeGroupsFromDraft(
-      [
-        { groupId: "gone", target: "TO", removedEmails: [] },
-        { groupId: "g1", target: "BCC", removedEmails: ["bob@X.Y"] },
-      ],
+  it("reopens a saved group in the same field with the same members unchecked, keeping a missing group apart", () => {
+    const missing = { groupId: "gone", target: "BCC" as const, removedEmails: ["a@x.y"] };
+    const { chips, unavailable } = composeGroupsFromDraft(
+      [missing, { groupId: "g1", target: "BCC", removedEmails: ["bob@X.Y"] }],
       [kultur, board],
     );
-    expect(restored).toHaveLength(1);
-    expect(restored[0].group).toBe(kultur);
-    expect(restored[0].target).toBe("bcc");
-    expect([...restored[0].removedMemberIds]).toEqual(["m2"]);
+    expect(chips).toHaveLength(1);
+    expect(chips[0].group).toBe(kultur);
+    expect(chips[0].target).toBe("bcc");
+    expect([...chips[0].removedMemberIds]).toEqual(["m2"]);
+    expect(unavailable).toEqual([missing]);
+  });
+
+  it("saves a missing group back as it was, next to the chips", () => {
+    const missing = { groupId: "gone", target: "TO" as const, removedEmails: [] };
+    expect(
+      draftGroupsFromCompose(
+        [{ group: board, target: "bcc", removedMemberIds: new Set<string>() }],
+        [missing],
+      ),
+    ).toEqual([
+      { groupId: "g2", target: "BCC", removedEmails: [] },
+      missing,
+    ]);
   });
 
   it("compares groups by value, so key order from the database is not an edit", () => {

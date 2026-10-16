@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import {
   RecipientGroupChip,
+  UnavailableGroupChip,
   type ComposeGroup,
   type AddedGroupState,
 } from "@/components/mail/recipient-group-chip";
@@ -50,9 +51,12 @@ import { resolveDraftContext } from "@/lib/mail/draft-context";
 import {
   composeGroupsFromDraft,
   draftGroupsFromCompose,
+  type DraftGroup,
 } from "@/lib/mail/draft-groups";
 
 const UNDO_DELAY_MS = 5000;
+const UNAVAILABLE_GROUPS_ERROR =
+  "This draft has contact groups that are not available. Remove them, or wait for them to load.";
 
 interface ContactSuggestion {
   id: string;
@@ -170,6 +174,10 @@ export function ComposeClientPage({
   const [showCc, setShowCc] = useState(!!editScheduled?.cc);
   const [showBcc, setShowBcc] = useState(!!editScheduled?.bcc);
   const [addedGroups, setAddedGroups] = useState<AddedGroupState[]>([]);
+  // Draft groups the user's group list does not have; kept in the draft.
+  const [unavailableGroups, setUnavailableGroups] = useState<DraftGroup[]>(
+    [],
+  );
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [subject, setSubject] = useState(
     editScheduled?.subject ??
@@ -281,12 +289,18 @@ export function ComposeClientPage({
           })),
         );
       }
-      const restoredGroups = composeGroupsFromDraft(draft.groups ?? [], groups);
-      if (restoredGroups.length) {
-        setAddedGroups(restoredGroups);
-        if (restoredGroups.some((s) => s.target === "cc")) setShowCc(true);
-        if (restoredGroups.some((s) => s.target === "bcc")) setShowBcc(true);
-      }
+      const { chips: restoredGroups, unavailable } = composeGroupsFromDraft(
+        draft.groups ?? [],
+        groups,
+      );
+      if (restoredGroups.length) setAddedGroups(restoredGroups);
+      if (unavailable.length) setUnavailableGroups(unavailable);
+      const targets = [
+        ...restoredGroups.map((s) => s.target),
+        ...unavailable.map((g) => g.target.toLowerCase()),
+      ];
+      if (targets.includes("cc")) setShowCc(true);
+      if (targets.includes("bcc")) setShowBcc(true);
       draftRestoredRef.current = true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -307,7 +321,7 @@ export function ComposeClientPage({
       body,
       emailConnectionId: fromConnectionId,
       attachmentIds,
-      groups: draftGroupsFromCompose(addedGroups),
+      groups: draftGroupsFromCompose(addedGroups, unavailableGroups),
     });
   }, [
     to,
@@ -318,6 +332,7 @@ export function ComposeClientPage({
     fromConnectionId,
     attachments,
     addedGroups,
+    unavailableGroups,
     saveDraft,
   ]);
 
@@ -426,6 +441,17 @@ export function ComposeClientPage({
   const groupsForTarget = (target: RecipientTarget) =>
     addedGroups.filter((s) => s.target === target);
 
+  const unavailableForTarget = (target: RecipientTarget) =>
+    unavailableGroups.filter((g) => g.target.toLowerCase() === target);
+
+  const dismissUnavailableGroup = (groupId: string) => {
+    const rest = unavailableGroups.filter((g) => g.groupId !== groupId);
+    setUnavailableGroups(rest);
+    if (rest.length === 0) {
+      setError((e) => (e === UNAVAILABLE_GROUPS_ERROR ? null : e));
+    }
+  };
+
   // Merge typed recipients with expanded group addresses for each field.
   // Returns null (and sets an error) if any typed address is malformed or no
   // recipient is present across all fields.
@@ -488,6 +514,10 @@ export function ComposeClientPage({
   };
 
   const handleScheduleSend = async (scheduledFor: Date) => {
+    if (unavailableGroups.length > 0) {
+      setError(UNAVAILABLE_GROUPS_ERROR);
+      return;
+    }
     // Scheduled sends expand no groups (they resolve at send time in the
     // direct path), so scheduling with groups is not supported (deferred).
     if (addedGroups.length > 0) {
@@ -564,6 +594,10 @@ export function ComposeClientPage({
 
   const handleSend = async () => {
     if (sendingRef.current) return;
+    if (unavailableGroups.length > 0) {
+      setError(UNAVAILABLE_GROUPS_ERROR);
+      return;
+    }
     const built = buildRecipients();
     if (!built) return;
     if (isUploading) {
@@ -987,7 +1021,8 @@ export function ComposeClientPage({
                 </div>
               )}
             </div>
-            {groupsForTarget("to").length > 0 && (
+            {(groupsForTarget("to").length > 0 ||
+              unavailableForTarget("to").length > 0) && (
               <div className="flex flex-wrap gap-1.5">
                 {groupsForTarget("to").map((s) => (
                   <RecipientGroupChip
@@ -998,6 +1033,12 @@ export function ComposeClientPage({
                     }
                     onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
                     onDismiss={() => dismissGroup(s.group.id)}
+                  />
+                ))}
+                {unavailableForTarget("to").map((g) => (
+                  <UnavailableGroupChip
+                    key={g.groupId}
+                    onDismiss={() => dismissUnavailableGroup(g.groupId)}
                   />
                 ))}
               </div>
@@ -1018,7 +1059,8 @@ export function ComposeClientPage({
                 onChange={(e) => setCc(e.target.value)}
                 autoComplete="off"
               />
-              {groupsForTarget("cc").length > 0 && (
+              {(groupsForTarget("cc").length > 0 ||
+                unavailableForTarget("cc").length > 0) && (
                 <div className="flex flex-wrap gap-1.5">
                   {groupsForTarget("cc").map((s) => (
                     <RecipientGroupChip
@@ -1029,6 +1071,12 @@ export function ComposeClientPage({
                       }
                       onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
                       onDismiss={() => dismissGroup(s.group.id)}
+                    />
+                  ))}
+                  {unavailableForTarget("cc").map((g) => (
+                    <UnavailableGroupChip
+                      key={g.groupId}
+                      onDismiss={() => dismissUnavailableGroup(g.groupId)}
                     />
                   ))}
                 </div>
@@ -1050,7 +1098,8 @@ export function ComposeClientPage({
                 onChange={(e) => setBcc(e.target.value)}
                 autoComplete="off"
               />
-              {groupsForTarget("bcc").length > 0 && (
+              {(groupsForTarget("bcc").length > 0 ||
+                unavailableForTarget("bcc").length > 0) && (
                 <div className="flex flex-wrap gap-1.5">
                   {groupsForTarget("bcc").map((s) => (
                     <RecipientGroupChip
@@ -1061,6 +1110,12 @@ export function ComposeClientPage({
                       }
                       onMoveTarget={(t) => moveGroupTarget(s.group.id, t)}
                       onDismiss={() => dismissGroup(s.group.id)}
+                    />
+                  ))}
+                  {unavailableForTarget("bcc").map((g) => (
+                    <UnavailableGroupChip
+                      key={g.groupId}
+                      onDismiss={() => dismissUnavailableGroup(g.groupId)}
                     />
                   ))}
                 </div>
