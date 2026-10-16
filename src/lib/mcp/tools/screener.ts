@@ -28,11 +28,17 @@ import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
 const CATEGORIES = ["IMBOX", "FEED", "PAPER_TRAIL"] as const;
 const SCREEN_ACTIONS = ["approve", "skip", "unskip", "undo", "reject"] as const;
 
-const screenSenderSchema = z.object({
-  senderId: z.string().min(1),
-  action: z.enum(SCREEN_ACTIONS),
-  category: z.enum(CATEGORIES).optional(),
-});
+const screenSenderSchema = z
+  .object({
+    senderId: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
+    messageId: z.string().min(1).optional(),
+    action: z.enum(SCREEN_ACTIONS),
+    category: z.enum(CATEGORIES).optional(),
+  })
+  .refine((v) => Boolean(v.senderId || v.email || v.messageId), {
+    message: "senderId, email, or messageId is required",
+  });
 
 const updateSenderSchema = z.object({
   senderId: z.string().min(1),
@@ -68,15 +74,24 @@ export function registerScreenerTools(
   registerTool({
     name: "screen_sender",
     description:
-      "Approve, skip, unskip, undo, or reject a screener sender. Reject requires client elicitation.",
+      "Approve, skip, unskip, undo, or reject a screener sender. Pass senderId from a mail row, or an email address, or a message id. A senderId that is actually an email or a message id is accepted too. Reject requires client elicitation.",
     inputSchema: {
       type: "object",
       properties: {
-        senderId: { type: "string" },
+        senderId: {
+          type: "string",
+          description:
+            "Sender id. Also accepts the sender email or a message id.",
+        },
+        email: { type: "string", description: "Sender email address." },
+        messageId: {
+          type: "string",
+          description: "A message id from list_mail or search_mail.",
+        },
         action: { type: "string", enum: [...SCREEN_ACTIONS] },
         category: { type: "string", enum: [...CATEGORIES] },
       },
-      required: ["senderId", "action"],
+      required: ["action"],
     },
     annotations: { destructiveHint: true },
     handler: wrap(screenSender),
@@ -153,13 +168,64 @@ export function registerScreenerTools(
   });
 }
 
+async function resolveScreenSender(
+  userId: string,
+  input: { senderId?: string; email?: string; messageId?: string },
+): Promise<{ senderId: string } | { error: string }> {
+  const direct = input.senderId?.trim();
+  if (direct) {
+    const byId = await db.sender.findFirst({
+      where: { id: direct, userId },
+      select: { id: true },
+    });
+    if (byId) return { senderId: byId.id };
+  }
+
+  const messageKey =
+    input.messageId?.trim() ||
+    (direct && !direct.includes("@") ? direct : undefined);
+  if (messageKey) {
+    const message = await db.message.findFirst({
+      where: { id: messageKey, userId },
+      select: { senderId: true },
+    });
+    if (message?.senderId) return { senderId: message.senderId };
+    if (input.messageId && message && !message.senderId) {
+      return { error: "that message has no sender yet" };
+    }
+  }
+
+  const emailRaw =
+    input.email?.trim() || (direct?.includes("@") ? direct : undefined);
+  if (emailRaw) {
+    const email = emailRaw.toLowerCase();
+    const senders = await db.sender.findMany({
+      where: { userId, email },
+      select: { id: true },
+    });
+    if (senders.length === 1) return { senderId: senders[0].id };
+    if (senders.length > 1) {
+      return {
+        error: `Multiple senders match ${email}. Pass one senderId: ${senders
+          .map((sender) => sender.id)
+          .join(", ")}`,
+      };
+    }
+  }
+
+  return { error: "not found or not yours" };
+}
+
 async function screenSender(
   ctx: ToolContext,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const parsed = screenSenderSchema.safeParse(args);
   if (!parsed.success) return err(firstZodMessage(parsed.error));
-  const { senderId, action, category } = parsed.data;
+  const resolved = await resolveScreenSender(ctx.userId, parsed.data);
+  if ("error" in resolved) return err(resolved.error);
+  const senderId = resolved.senderId;
+  const { action, category } = parsed.data;
 
   if (action === "reject") {
     const sender = await db.sender.findFirst({

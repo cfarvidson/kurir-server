@@ -9,6 +9,7 @@ import {
 
 export const SEARCH_SELECT_COLUMNS = [
   "id",
+  "senderId",
   "subject",
   "snippet",
   "fromAddress",
@@ -32,6 +33,7 @@ export const SEARCH_SELECT_COLUMNS = [
 
 export interface MessageSearchResult {
   id: string;
+  senderId: string | null;
   subject: string | null;
   snippet: string | null;
   fromAddress: string;

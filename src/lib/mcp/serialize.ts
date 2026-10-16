@@ -20,6 +20,7 @@ export type MailRowInput = {
   isReplyLater?: boolean;
   isFlagged?: boolean;
   scheduledFor?: Date | string | null;
+  senderId?: string | null;
   textBody?: string | null;
   htmlBody?: string | null;
   attachments?: Array<{
@@ -49,6 +50,7 @@ export type CompactMailRow = {
   replyLater?: boolean;
   pinned?: boolean;
   scheduledFor?: string;
+  senderId?: string;
 };
 
 export type ThreadMessageRow = {
@@ -126,6 +128,7 @@ export function serializeMailRow(msg: MailRowInput): CompactMailRow {
   if (msg.isFlagged) row.pinned = true;
   const scheduledFor = toIso(msg.scheduledFor);
   if (scheduledFor) row.scheduledFor = scheduledFor;
+  if (msg.senderId) row.senderId = msg.senderId;
   return row;
 }
 

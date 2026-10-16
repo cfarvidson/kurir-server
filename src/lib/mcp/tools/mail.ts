@@ -558,12 +558,14 @@ async function listScreener(
     if (latest) {
       return serializeMailRow({
         ...latest,
+        senderId: sender.id,
         fromAddress: latest.fromAddress || sender.email,
         fromName: latest.fromName ?? sender.displayName,
       });
     }
     return serializeMailRow({
       id: sender.id,
+      senderId: sender.id,
       fromAddress: sender.email,
       fromName: sender.displayName,
       subject: null,
@@ -1163,6 +1165,7 @@ function parseAscIsoIdCursor(
 
 const compactSelect = {
   id: true,
+  senderId: true,
   threadId: true,
   fromAddress: true,
   fromName: true,
