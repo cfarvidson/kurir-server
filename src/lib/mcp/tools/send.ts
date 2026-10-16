@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { isDemoInstance } from "@/lib/demo";
 import { listGroupsForUser } from "@/lib/mail/contact-groups";
-import { resolveGroupRefs } from "@/lib/mail/draft-groups";
+import { MAX_DRAFT_GROUPS, resolveGroupRefs } from "@/lib/mail/draft-groups";
 import { expandGroups } from "@/lib/mail/group-expansion";
 import { convertMarkdownToEmailHtml } from "@/lib/mail/markdown-to-email";
 import {
@@ -37,7 +37,13 @@ const sendMailSchema = z
     to: addressList.optional(),
     cc: addressList.optional(),
     bcc: addressList.optional(),
-    groups: z.array(z.string().min(1)).optional(),
+    groups: z
+      .array(z.string().min(1))
+      .max(
+        MAX_DRAFT_GROUPS,
+        `A mail takes at most ${MAX_DRAFT_GROUPS} contact groups`,
+      )
+      .optional(),
     subject: z.string().optional(),
     body: z.string(),
     attachmentIds: z.array(z.string()).optional(),
@@ -238,7 +244,7 @@ function confirmationArgs(data: SendMailArgs, resolved: ResolvedOutgoing) {
 }
 
 /**
- * Name a group change only when it is why the confirmation failed: the handle
+ * Name a recipient change only when it is why the confirmation failed: the handle
  * is this caller's live one for this tool and the arguments are the ones
  * asked about, so only the bound recipients differ. Any other mismatch keeps
  * the usual wording.
@@ -279,7 +285,7 @@ async function explainGroupMismatch(
     askedArgs !== undefined &&
     hashArgs(askedArgs) === hashArgs(data);
   return onlyRecipientsDiffer
-    ? err("The group members changed since the user was asked; ask again")
+    ? err("The recipients changed since the user was asked; ask again")
     : result;
 }
 

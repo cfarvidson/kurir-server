@@ -9,7 +9,11 @@ import {
 } from "@/lib/mail/drafts";
 import { presentDraft } from "@/lib/mail/draft-presentation";
 import { listGroupsForUser } from "@/lib/mail/contact-groups";
-import { resolveGroupRefs, type DraftGroup } from "@/lib/mail/draft-groups";
+import {
+  MAX_DRAFT_GROUPS,
+  resolveGroupRefs,
+  type DraftGroup,
+} from "@/lib/mail/draft-groups";
 import {
   findReplyDraftForThread,
   loadDraftContextMessage,
@@ -912,7 +916,10 @@ async function saveDraft(
     .extend({
       groups: z
         .array(z.string().min(1))
-        .max(50, "A draft holds at most 50 contact groups")
+        .max(
+          MAX_DRAFT_GROUPS,
+          `A draft holds at most ${MAX_DRAFT_GROUPS} contact groups`,
+        )
         .optional(),
     })
     .safeParse(args);

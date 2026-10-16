@@ -18,8 +18,12 @@ export const draftGroupSchema = z.object({
   removedEmails: z.array(z.string()).max(500).default([]),
 });
 
-/** A draft's groups, capped so a stored row stays small. */
-export const draftGroupsSchema = z.array(draftGroupSchema).max(50);
+/** Most groups one draft or mail takes, so a stored row stays small. */
+export const MAX_DRAFT_GROUPS = 50;
+
+export const draftGroupsSchema = z
+  .array(draftGroupSchema)
+  .max(MAX_DRAFT_GROUPS);
 
 export type DraftGroup = z.infer<typeof draftGroupSchema>;
 

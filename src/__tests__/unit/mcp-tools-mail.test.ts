@@ -710,6 +710,37 @@ describe("MCP read tools", () => {
     expect(saveDraftForUser).not.toHaveBeenCalled();
   });
 
+  it("save_draft takes exactly 50 groups", async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `g${i}`);
+    vi.mocked(db.contactGroup.findMany).mockResolvedValue(
+      ids.map((id) => ({
+        id,
+        name: id,
+        defaultTarget: "TO",
+        members: [],
+      })) as never,
+    );
+    vi.mocked(saveDraftForUser).mockResolvedValue({
+      id: "d1",
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      subject: "",
+      to: "",
+      body: "",
+    } as never);
+
+    const result = await call("save_draft", {
+      type: "NEW",
+      contextMessageId: "uuid-1",
+      groups: ids,
+    });
+
+    expect(result.type).toBe("ok");
+    expect(vi.mocked(saveDraftForUser).mock.calls[0][1].groups).toHaveLength(
+      50,
+    );
+  });
+
   it("save_draft with an unknown group errors without saving", async () => {
     vi.mocked(db.contactGroup.findMany).mockResolvedValue([] as never);
     const result = await call("save_draft", {

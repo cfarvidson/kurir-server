@@ -219,18 +219,22 @@ type GroupMember = Awaited<
 async function acceptStoredConfirmation(
   toolName: string,
   args: Record<string, unknown>,
+  row: Record<string, unknown> | null = {},
 ) {
   const stored = vi.mocked(db.mcpConfirmation.create).mock.calls.at(-1)![0]
     .data as { argsHash: string; argsJson: unknown };
-  vi.mocked(db.mcpConfirmation.findUnique).mockResolvedValue({
-    userId: "u1",
-    tokenId: "t1",
-    toolName,
-    argsHash: stored.argsHash,
-    argsJson: stored.argsJson,
-    expiresAt: new Date(Date.now() + 60_000),
-    consumedAt: null,
-  } as never);
+  vi.mocked(db.mcpConfirmation.findUnique).mockResolvedValue(
+    row && ({
+      userId: "u1",
+      tokenId: "t1",
+      toolName,
+      argsHash: stored.argsHash,
+      argsJson: stored.argsJson,
+      expiresAt: new Date(Date.now() + 60_000),
+      consumedAt: null,
+      ...row,
+    } as never),
+  );
   vi.mocked(db.mcpConfirmation.updateMany).mockResolvedValue({ count: 1 });
   return call(
     toolName,
@@ -442,10 +446,49 @@ describe("MCP send tools", () => {
 
     expect(result).toEqual({
       type: "error",
-      message:
-        "The group members changed since the user was asked; ask again",
+      message: "The recipients changed since the user was asked; ask again",
     });
     expect(sendMailForUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["another token's handle", { tokenId: "t2" }],
+    ["another user's handle", { userId: "u2" }],
+    ["another tool's handle", { toolName: "schedule_mail" }],
+    ["a consumed handle", { consumedAt: new Date() }],
+    ["an expired handle", { expiresAt: new Date(Date.now() - 1_000) }],
+    ["a missing handle", null],
+  ])(
+    "send_mail with groups keeps the old mismatch wording for %s",
+    async (_label, row) => {
+      mockGroups();
+      const args = { mode: "compose", body: "Hello", groups: ["g1"] };
+      await call("send_mail", args);
+
+      mockGroups([
+        { memberId: "m9", contactEmailId: "e9", email: "eve@example.org", name: "Eve" },
+      ]);
+      const result = await acceptStoredConfirmation("send_mail", args, row);
+
+      expect(result).toEqual({
+        type: "error",
+        message: "confirmation does not match arguments",
+      });
+      expect(sendMailForUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("send_mail refuses more than 50 groups before asking", async () => {
+    const result = await call("send_mail", {
+      mode: "compose",
+      body: "Hello",
+      groups: Array.from({ length: 51 }, (_, i) => `g${i}`),
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: "A mail takes at most 50 contact groups",
+    });
+    expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
   });
 
   it("send_mail with groups and changed arguments keeps the old mismatch wording", async () => {
@@ -482,8 +525,7 @@ describe("MCP send tools", () => {
 
     expect(result).toEqual({
       type: "error",
-      message:
-        "The group members changed since the user was asked; ask again",
+      message: "The recipients changed since the user was asked; ask again",
     });
     expect(insertScheduledMessageForUser).not.toHaveBeenCalled();
   });
