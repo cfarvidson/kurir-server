@@ -23,7 +23,10 @@ export const MAX_DRAFT_GROUPS = 50;
 
 export const draftGroupsSchema = z
   .array(draftGroupSchema)
-  .max(MAX_DRAFT_GROUPS);
+  .max(
+    MAX_DRAFT_GROUPS,
+    `A draft holds at most ${MAX_DRAFT_GROUPS} contact groups`,
+  );
 
 export type DraftGroup = z.infer<typeof draftGroupSchema>;
 

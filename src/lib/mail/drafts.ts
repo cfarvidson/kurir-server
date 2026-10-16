@@ -125,6 +125,13 @@ function sameDraftContent(
  * on a real edit.
  */
 export async function saveDraftForUser(userId: string, input: SaveDraftInput) {
+  // The web server action passes its input straight through; groups over the
+  // cap would be stored and then read back as none.
+  if (input.groups !== undefined) {
+    const checked = draftGroupsSchema.safeParse(input.groups);
+    if (!checked.success) throw new Error(checked.error.issues[0].message);
+  }
+
   // Validate attachmentIds belong to this user (uploads or IMAP-synced).
   if (input.attachmentIds?.length) {
     const owned = await db.attachment.count({

@@ -491,6 +491,40 @@ describe("MCP send tools", () => {
     expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
   });
 
+  it("schedule_mail refuses more than 50 groups before asking", async () => {
+    const result = await call("schedule_mail", {
+      mode: "compose",
+      body: "Hello",
+      groups: Array.from({ length: 51 }, (_, i) => `g${i}`),
+      scheduledFor: "2099-01-01T00:00:00.000Z",
+    });
+    expect(result).toEqual({
+      type: "error",
+      message: "A mail takes at most 50 contact groups",
+    });
+    expect(db.mcpConfirmation.create).not.toHaveBeenCalled();
+  });
+
+  it("send_mail takes exactly 50 groups", async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `g${i}`);
+    vi.mocked(listGroupsForUser).mockResolvedValue(
+      ids.map((id) => ({
+        id,
+        name: id,
+        defaultTarget: "TO" as const,
+        members: [
+          { memberId: id, contactEmailId: id, email: `${id}@example.org`, name: id },
+        ],
+      })),
+    );
+    const result = await call("send_mail", {
+      mode: "compose",
+      body: "Hello",
+      groups: ids,
+    });
+    expect(result.type).toBe("input_required");
+  });
+
   it("send_mail with groups and changed arguments keeps the old mismatch wording", async () => {
     mockGroups();
     const args = { mode: "compose", body: "Hello", groups: ["g1"] };
