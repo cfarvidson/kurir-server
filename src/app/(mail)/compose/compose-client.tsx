@@ -56,7 +56,7 @@ import {
 
 const UNDO_DELAY_MS = 5000;
 const UNAVAILABLE_GROUPS_ERROR =
-  "This draft has contact groups that are not available. Remove them, or wait for them to load.";
+  "This draft has contact groups that are not available. Remove them to send.";
 
 interface ContactSuggestion {
   id: string;
