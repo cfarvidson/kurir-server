@@ -112,4 +112,58 @@ describe("useDraft", () => {
     unmount();
     expect(readLocal()).toMatchObject({ unsaved: false });
   });
+  it("a late save answer leaves newer edits in the local copy unsaved", async () => {
+    vi.useFakeTimers();
+    let answer!: (row: unknown) => void;
+    vi.mocked(saveDraft).mockReturnValue(
+      new Promise((resolve) => (answer = resolve)) as never,
+    );
+    const { result, unmount } = renderHook(() => useDraft("u1", "NEW", "c1"));
+
+    act(() => result.current.saveDraft({ ...content, body: "first" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    // Typed more, then closed before the next save: the flush keeps it.
+    act(() => result.current.saveDraft({ ...content, body: "second" }));
+    unmount();
+    await act(async () => answer({ updatedAt: new Date(5_000) }));
+
+    expect(readLocal()).toMatchObject({ body: "second", unsaved: true });
+    expect(readLocal().serverUpdatedAt).not.toBe(5_000);
+  });
+
+  it("a failed save leaves the local copy unsaved", async () => {
+    vi.useFakeTimers();
+    vi.mocked(saveDraft).mockRejectedValue(new Error("offline"));
+    const { result } = renderHook(() => useDraft("u1", "NEW", "c1"));
+
+    act(() => result.current.saveDraft(content));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+
+    expect(result.current.status).toBe("error");
+    expect(readLocal()).toMatchObject({ body: "hello", unsaved: true });
+  });
+
+  it("a superseded save's answer does not mark the newer copy saved", async () => {
+    vi.useFakeTimers();
+    const answers: Array<(row: unknown) => void> = [];
+    vi.mocked(saveDraft).mockImplementation(
+      () => new Promise((resolve) => answers.push(resolve)) as never,
+    );
+    const { result } = renderHook(() => useDraft("u1", "NEW", "c1"));
+
+    act(() => result.current.saveDraft({ ...content, body: "first" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    act(() => result.current.saveDraft({ ...content, body: "second" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+
+    await act(async () => answers[0]({ updatedAt: new Date(5_000) }));
+    expect(readLocal()).toMatchObject({ body: "second", unsaved: true });
+
+    await act(async () => answers[1]({ updatedAt: new Date(6_000) }));
+    expect(readLocal()).toMatchObject({
+      body: "second",
+      serverUpdatedAt: 6_000,
+      unsaved: false,
+    });
+  });
 });

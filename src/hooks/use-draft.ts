@@ -171,8 +171,12 @@ export function useDraft(
           });
           // Only update status if this is still the latest save
           if (saveSeqRef.current !== thisSeq) return;
-          serverUpdatedAtRef.current = new Date(saved.updatedAt).getTime();
-          writeLocalCopy(key, data, serverUpdatedAtRef.current, false);
+          // Newer edits may have reached the local copy meanwhile (the
+          // composer closed with a save pending); those stay unsaved.
+          if (localCopyHolds(key, data)) {
+            serverUpdatedAtRef.current = new Date(saved.updatedAt).getTime();
+            writeLocalCopy(key, data, serverUpdatedAtRef.current, false);
+          }
           setStatus("saved");
           if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
           savedTimerRef.current = setTimeout(
@@ -253,6 +257,18 @@ function writeLocalCopy(
       JSON.stringify({ ...data, serverUpdatedAt, unsaved }),
     );
   } catch {}
+}
+
+/** Whether the local copy still holds exactly `data`. */
+function localCopyHolds(key: string, data: DraftData): boolean {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const { serverUpdatedAt: _s, unsaved: _u, ...stored } = JSON.parse(raw);
+    return JSON.stringify(stored) === JSON.stringify(data);
+  } catch {
+    return false;
+  }
 }
 
 /** Check if a draft exists in localStorage (synchronous, for use in render) */
