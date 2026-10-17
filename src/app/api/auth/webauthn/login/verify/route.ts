@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge,
-      expectedOrigin: config.webauthn.origin,
+      expectedOrigin: config.webauthn.origins,
       expectedRPID: config.webauthn.rpId,
       credential: {
         id: passkey.credentialId,

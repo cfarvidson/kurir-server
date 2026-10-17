@@ -38,6 +38,9 @@ const envSchema = z.object({
   // --- WebAuthn overrides (derived from domain by default) ---
   WEBAUTHN_RP_NAME: z.string().default("Kurir"),
   WEBAUTHN_RP_ID: z.string().optional(),
+  // Comma-separated browser origins, for example https://mail.example.com.
+  // Used when a second hostname reaches this same instance.
+  KURIR_EXTRA_ORIGINS: z.string().optional(),
 
   // --- Admin ---
   KURIR_ADMIN_EMAIL: z.string().optional(),
@@ -51,11 +54,24 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>;
 
+function browserOrigin(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 function buildConfig(env: Env) {
   const domain = env.KURIR_DOMAIN;
   const isLocalhost = domain === "localhost" || domain.startsWith("localhost:");
   const protocol = isLocalhost ? "http" : "https";
   const baseUrl = env.NEXTAUTH_URL ?? `${protocol}://${domain}`;
+  const canonicalOrigin = browserOrigin(baseUrl) ?? baseUrl;
+  const extraOrigins = (env.KURIR_EXTRA_ORIGINS ?? "")
+    .split(",")
+    .map((item) => browserOrigin(item.trim()))
+    .filter((item): item is string => item != null && item !== canonicalOrigin);
 
   // AUTH_SECRET is the NextAuth v5 name; NEXTAUTH_SECRET is v4 compat
   const nextauthSecret = env.AUTH_SECRET ?? env.NEXTAUTH_SECRET;
@@ -75,6 +91,9 @@ function buildConfig(env: Env) {
       rpName: env.WEBAUTHN_RP_NAME,
       rpId: env.WEBAUTHN_RP_ID ?? domain,
       origin: baseUrl,
+      // Passkey ceremonies compare the browser origin. A path on baseUrl is
+      // not part of that, and a second hostname is opt-in via KURIR_EXTRA_ORIGINS.
+      origins: [canonicalOrigin, ...extraOrigins],
     },
 
     vapid: {

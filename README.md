@@ -143,6 +143,10 @@ bin/deploy setup    # First deploy
 bin/deploy          # Subsequent deploys
 ```
 
+### Second hostname
+
+`NEXTAUTH_URL` stays the canonical origin. Set `KURIR_EXTRA_ORIGINS` to other origins that reach the same instance, comma-separated, for example `https://mail.example.com`. The reverse proxy must send `X-Forwarded-Host`. Login redirects use that host only when it matches the canonical host or an extra origin. Passkey checks accept the canonical origin and those extra origins. `WEBAUTHN_RP_ID` has to be a registrable suffix of every hostname you use.
+
 ## Scripts
 
 ```bash

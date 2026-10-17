@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     verification = await verifyRegistrationResponse({
       response: registrationResponse,
       expectedChallenge,
-      expectedOrigin: config.webauthn.origin,
+      expectedOrigin: config.webauthn.origins,
       expectedRPID: config.webauthn.rpId,
       requireUserVerification: true,
     });

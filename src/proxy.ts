@@ -5,18 +5,54 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
+type ProxyRequest = Parameters<Parameters<typeof auth>[0]>[0];
+
+/**
+ * A forwarded host is trusted only when it is NEXTAUTH_URL or one of
+ * KURIR_EXTRA_ORIGINS. Anything else keeps the canonical URL.
+ */
+function forwardedOrigin(req: ProxyRequest, base: string): string | null {
+  const raw = (req.headers.get("x-forwarded-host") || "").split(",")[0].trim();
+  if (!raw) return null;
+  const withoutPort = raw.replace(/:\d+$/, "");
+  const candidates: { hosts: string[]; origin: string }[] = [];
+  const add = (value: string) => {
+    try {
+      const url = new URL(value);
+      candidates.push({
+        hosts: [url.host, url.hostname],
+        origin: url.origin,
+      });
+    } catch {
+      // Skip a malformed URL rather than trusting the forwarded host.
+    }
+  };
+  add(base);
+  for (const item of (process.env.KURIR_EXTRA_ORIGINS || "").split(",")) {
+    const trimmed = item.trim();
+    if (trimmed) add(trimmed);
+  }
+  for (const candidate of candidates) {
+    if (
+      candidate.hosts.includes(raw) ||
+      candidate.hosts.includes(withoutPort)
+    ) {
+      return candidate.origin;
+    }
+  }
+  return null;
+}
+
 /**
  * Build a redirect URL using the public-facing base URL.
  * Behind Tailscale Serve → kamal-proxy, the app sees HTTP but the browser is on HTTPS.
  * Using req.nextUrl directly would generate http:// redirects, dropping the user
  * out of the TLS tunnel. NEXTAUTH_URL reflects the real browser-facing origin.
  */
-function redirect(
-  req: Parameters<Parameters<typeof auth>[0]>[0],
-  path: string,
-) {
+function redirect(req: ProxyRequest, path: string) {
   const base = process.env.NEXTAUTH_URL || req.nextUrl.origin;
-  return NextResponse.redirect(new URL(path, base));
+  const origin = forwardedOrigin(req, base);
+  return NextResponse.redirect(new URL(path, origin ?? base));
 }
 
 export default auth(async (req) => {
