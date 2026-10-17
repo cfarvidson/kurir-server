@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { patternMatchesDomain } from "@/lib/mail/domain-rules";
+import { subjectScopeOptions } from "@/lib/mail/subject-rules";
 import {
   approveSenderForUser,
   changeDomainRuleCategoryForUser,
   changeSenderCategoryForUser,
   createDomainRuleForUser,
+  createSubjectRuleForUser,
   deleteDomainRuleForUser,
   listDomainRulesForUser,
   rejectSenderForUser,
@@ -83,6 +85,44 @@ export function registerScreenerTools(
   });
 
   registerTool({
+    name: "screen_subject",
+    description:
+      "File mail by sender and subject, the same as Screen subject in the app. The subject phrase matches with Re: and Fwd: ignored. Other mail from that sender keeps the sender's own decision. Pass senderId, or an email address, or a message id. scope is ADDRESS, DOMAIN, or SUBDOMAINS. Reject requires client elicitation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        senderId: {
+          type: "string",
+          description: "Sender id, or an email address or message id.",
+        },
+        email: { type: "string" },
+        messageId: { type: "string" },
+        pattern: {
+          type: "string",
+          description: "Subject phrase to match.",
+        },
+        scope: {
+          type: "string",
+          enum: ["ADDRESS", "DOMAIN", "SUBDOMAINS"],
+        },
+        scopeValue: {
+          type: "string",
+          description:
+            "Address or domain. Defaults to the sender address, or their domain when scope is DOMAIN.",
+        },
+        category: { type: "string", enum: [...CATEGORIES] },
+        reject: {
+          type: "boolean",
+          description: "Reject matching mail instead of filing it.",
+        },
+      },
+      required: ["pattern"],
+    },
+    annotations: { destructiveHint: true },
+    handler: wrap(screenSubject),
+  });
+
+  registerTool({
     name: "update_sender",
     description:
       "Change an approved sender's category, unthread flag, or image allowlist.",
@@ -151,6 +191,139 @@ export function registerScreenerTools(
     },
     handler: wrap(deleteDomainRule),
   });
+}
+
+const SUBJECT_SCOPES = ["ADDRESS", "DOMAIN", "SUBDOMAINS"] as const;
+
+const screenSubjectSchema = z
+  .object({
+    senderId: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
+    messageId: z.string().min(1).optional(),
+    pattern: z.string().min(1),
+    scope: z.enum(SUBJECT_SCOPES).optional(),
+    scopeValue: z.string().min(1).optional(),
+    category: z.enum(CATEGORIES).optional(),
+    reject: z.boolean().optional(),
+  })
+  .refine((v) => Boolean(v.senderId || v.email || v.messageId), {
+    message: "senderId, email, or messageId is required",
+  })
+  .refine((v) => Boolean(v.reject || v.category), {
+    message: "category or reject is required",
+  });
+
+async function screenSubject(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = screenSubjectSchema.safeParse(args);
+  if (!parsed.success) return err(firstZodMessage(parsed.error));
+  const resolved = await resolveSubjectSender(ctx.userId, parsed.data);
+  if ("error" in resolved) return err(resolved.error);
+  const sender = await db.sender.findFirst({
+    where: { id: resolved.senderId, userId: ctx.userId },
+    select: { email: true },
+  });
+  if (!sender) return err("not found or not yours");
+
+  const scope = parsed.data.scope ?? "ADDRESS";
+  const choices = subjectScopeOptions(sender.email).filter(
+    (option) => option.scope === scope,
+  );
+  const scopeValue =
+    parsed.data.scopeValue?.trim().toLowerCase() ||
+    (choices.length === 1 ? choices[0].scopeValue : undefined);
+  if (!scopeValue) {
+    return err(
+      `scopeValue is required. Choices: ${choices
+        .map((option) => option.scopeValue)
+        .join(", ")}`,
+    );
+  }
+
+  const status = parsed.data.reject ? "REJECTED" : "APPROVED";
+  const apply = async () => {
+    const rule = await createSubjectRuleForUser(ctx.userId, {
+      senderId: resolved.senderId,
+      scope,
+      scopeValue,
+      pattern: parsed.data.pattern,
+      status,
+      category: status === "APPROVED" ? parsed.data.category : null,
+    });
+    bumpSidebarCounts();
+    return ok({
+      id: rule.id,
+      scope: rule.scope,
+      scopeValue: rule.scopeValue,
+      pattern: rule.pattern,
+      status: rule.status,
+      category: rule.category,
+    });
+  };
+
+  if (status === "REJECTED") {
+    return requireConfirmation(
+      ctx,
+      "screen_subject",
+      {
+        senderId: resolved.senderId,
+        scope,
+        scopeValue,
+        pattern: parsed.data.pattern.trim(),
+        reject: true,
+      },
+      `Reject mail from ${scopeValue} whose subject matches "${parsed.data.pattern.trim()}"`,
+      apply,
+    );
+  }
+  return apply();
+}
+
+async function resolveSubjectSender(
+  userId: string,
+  input: { senderId?: string; email?: string; messageId?: string },
+): Promise<{ senderId: string } | { error: string }> {
+  const direct = input.senderId?.trim();
+  if (direct) {
+    const byId = await db.sender.findFirst({
+      where: { id: direct, userId },
+      select: { id: true },
+    });
+    if (byId) return { senderId: byId.id };
+  }
+
+  const messageKey =
+    input.messageId?.trim() ||
+    (direct && !direct.includes("@") ? direct : undefined);
+  if (messageKey) {
+    const message = await db.message.findFirst({
+      where: { id: messageKey, userId },
+      select: { senderId: true },
+    });
+    if (message?.senderId) return { senderId: message.senderId };
+  }
+
+  const emailRaw =
+    input.email?.trim() || (direct?.includes("@") ? direct : undefined);
+  if (emailRaw) {
+    const email = emailRaw.toLowerCase();
+    const senders = await db.sender.findMany({
+      where: { userId, email },
+      select: { id: true },
+    });
+    if (senders.length === 1) return { senderId: senders[0].id };
+    if (senders.length > 1) {
+      return {
+        error: `Multiple senders match ${email}. Pass one senderId: ${senders
+          .map((sender) => sender.id)
+          .join(", ")}`,
+      };
+    }
+  }
+
+  return { error: "not found or not yours" };
 }
 
 async function screenSender(
