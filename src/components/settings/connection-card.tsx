@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { apiPath } from "@/lib/api-path";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -459,7 +460,7 @@ export function ConnectionCard({
             </p>
           </div>
           <a
-            href={`/api/auth/oauth/${connection.oauthProvider}?mode=add`}
+            href={apiPath(`/api/auth/oauth/${connection.oauthProvider}?mode=add`)}
             className="shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
           >
             Reconnect

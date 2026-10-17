@@ -32,6 +32,7 @@ import {
 import { ContactThreadList } from "@/components/contacts/contact-thread-list";
 import { PageMasthead } from "@/components/layout/page-masthead";
 import { EmptyState } from "@/components/mail/empty-state";
+import { apiPath } from "@/lib/api-path";
 import {
   updateContactName,
   deleteContact,
@@ -282,8 +283,7 @@ export function ContactDetail({ contact, conversations }: ContactDetailProps) {
     const timeout = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(
-          `/api/contacts/search?q=${encodeURIComponent(linkQuery.trim())}`,
+        const res = await fetch(apiPath(`/api/contacts/search?q=${encodeURIComponent(linkQuery.trim())}`),
           { signal: controller.signal },
         );
         if (res.ok) {

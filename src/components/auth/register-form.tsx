@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Fingerprint, Mail, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { apiPath } from "@/lib/api-path";
 import { AuthShell } from "@/components/auth/auth-shell";
 
 type Step = "intro" | "name" | "passkey" | "done";
@@ -40,8 +41,8 @@ export default function RegisterForm({
     try {
       // 1. Get registration options from server
       const optionsUrl = inviteToken
-        ? `/api/auth/webauthn/register/options?invite=${encodeURIComponent(inviteToken)}`
-        : "/api/auth/webauthn/register/options";
+        ? apiPath(`/api/auth/webauthn/register/options?invite=${encodeURIComponent(inviteToken)}`)
+        : apiPath("/api/auth/webauthn/register/options");
       const optionsRes = await fetch(optionsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,8 +64,8 @@ export default function RegisterForm({
 
       // 3. Verify with server — send the credential directly as the body
       const verifyUrl = inviteToken
-        ? `/api/auth/webauthn/register/verify?invite=${encodeURIComponent(inviteToken)}`
-        : "/api/auth/webauthn/register/verify";
+        ? apiPath(`/api/auth/webauthn/register/verify?invite=${encodeURIComponent(inviteToken)}`)
+        : apiPath("/api/auth/webauthn/register/verify");
       const verifyRes = await fetch(verifyUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

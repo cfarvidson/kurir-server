@@ -51,6 +51,15 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>;
 
+/** WebAuthn compares the browser origin, which never includes a path. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
 function buildConfig(env: Env) {
   const domain = env.KURIR_DOMAIN;
   const isLocalhost = domain === "localhost" || domain.startsWith("localhost:");
@@ -74,7 +83,7 @@ function buildConfig(env: Env) {
     webauthn: {
       rpName: env.WEBAUTHN_RP_NAME,
       rpId: env.WEBAUTHN_RP_ID ?? domain,
-      origin: baseUrl,
+      origin: originOf(baseUrl),
     },
 
     vapid: {

@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { randomBytes, createHmac } from "crypto";
@@ -42,7 +43,7 @@ export async function GET(
 
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL(apiPath("/login"), request.url));
   }
 
   // Build state: nonce:provider:mode:userId, signed with HMAC

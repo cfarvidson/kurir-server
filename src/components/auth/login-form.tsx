@@ -8,6 +8,7 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+import { apiPath } from "@/lib/api-path";
 
 type LoginState = "idle" | "waiting" | "loading" | "error";
 
@@ -37,7 +38,7 @@ export default function LoginForm({
       if (!available || cancelled) return;
 
       try {
-        const optionsRes = await fetch("/api/auth/webauthn/login/options", {
+        const optionsRes = await fetch(apiPath("/api/auth/webauthn/login/options"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
@@ -85,7 +86,7 @@ export default function LoginForm({
     setError(null);
 
     try {
-      const res = await fetch("/api/auth/demo-login", {
+      const res = await fetch(apiPath("/api/auth/demo-login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: demoEmail, password: demoPassword }),
@@ -112,7 +113,7 @@ export default function LoginForm({
     setError(null);
 
     try {
-      const verifyRes = await fetch("/api/auth/webauthn/login/verify", {
+      const verifyRes = await fetch(apiPath("/api/auth/webauthn/login/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credential),
@@ -139,7 +140,7 @@ export default function LoginForm({
     setError(null);
 
     try {
-      const optionsRes = await fetch("/api/auth/webauthn/login/options", {
+      const optionsRes = await fetch(apiPath("/api/auth/webauthn/login/options"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

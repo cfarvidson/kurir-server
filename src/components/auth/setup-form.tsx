@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
+import { apiPath } from "@/lib/api-path";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
@@ -63,7 +64,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
   const handleOAuthConnect = () => {
     if (!selectedProvider?.oauthKey) return;
     const mode = isAddMode ? "add" : "setup";
-    window.location.href = `/api/auth/oauth/${selectedProvider.oauthKey}?mode=${mode}`;
+    window.location.href = apiPath(`/api/auth/oauth/${selectedProvider.oauthKey}?mode=${mode}`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,7 +101,7 @@ function AddConnectionForm({ oauthEnabled }: SetupFormProps) {
         body.aliases = aliases;
       }
 
-      const res = await fetch("/api/connections", {
+      const res = await fetch(apiPath("/api/connections"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

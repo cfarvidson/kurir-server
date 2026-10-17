@@ -1,9 +1,10 @@
+import { apiPath } from "@/lib/api-path";
 import { cn } from "@/lib/utils";
 
 export function KurirLogo({ className }: { className?: string }) {
   return (
     <img
-      src="/logo.png"
+      src={apiPath("/logo.png")}
       alt="Kurir"
       width={32}
       height={32}

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, RotateCcw } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface ImportButtonProps {
   mode?: "import" | "resync";
@@ -22,7 +23,7 @@ export function ImportButton({ mode = "import" }: ImportButtonProps) {
 
       // Resync needs to clear data first, so we await the initial request
       startTransition(async () => {
-        const res = await fetch("/api/mail/sync?batchSize=200&resync=1", {
+        const res = await fetch(apiPath("/api/mail/sync?batchSize=200&resync=1"), {
           method: "POST",
         });
         if (!res.ok) {

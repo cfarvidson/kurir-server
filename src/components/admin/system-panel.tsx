@@ -11,6 +11,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiPath } from "@/lib/api-path";
 
 interface HealthData {
   status: string;
@@ -42,7 +43,7 @@ export function SystemPanel() {
   const fetchHealth = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/health");
+      const res = await fetch(apiPath("/api/health"));
       if (!res.ok) throw new Error("Failed to fetch health");
       setHealth(await res.json());
       setError(null);

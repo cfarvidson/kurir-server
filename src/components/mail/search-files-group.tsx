@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 import { formatDate } from "@/lib/date";
 import { fileGroup, type FileGroup } from "@/lib/mail/file-types";
 import { formatSize } from "@/lib/mail/format-size";
@@ -77,7 +78,7 @@ export function SearchFilesGroup({ files }: { files: FileRow[] }) {
                 </button>
               ) : (
                 <a
-                  href={`/api/attachments/${file.id}`}
+                  href={apiPath(`/api/attachments/${file.id}`)}
                   download={file.filename}
                   className={rowClass}
                 >

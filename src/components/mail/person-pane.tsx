@@ -45,6 +45,7 @@ import {
   PersonProfileHeader,
   type PersonProfileHeaderData,
 } from "@/components/mail/person-profile-header";
+import { apiPath } from "@/lib/api-path";
 import {
   PersonStatsSection,
   type PersonStatsData,
@@ -471,7 +472,7 @@ export function PersonPane({ ownEmails }: { ownEmails: string[] }) {
         if (tz) params.set("tz", tz);
         const q = query.trim();
         if (q) params.set("q", q);
-        const res = await fetch(`/api/contacts/context?${params}`, {
+        const res = await fetch(apiPath(`/api/contacts/context?${params}`), {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

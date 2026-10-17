@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { apiPath } from "@/lib/api-path";
 
 /**
  * Approval step for the iOS web-session login flow. Rendered inside
@@ -30,7 +31,7 @@ export function MobileAuthApprove({
     setError(null);
 
     try {
-      const res = await fetch("/api/mobile/auth/code", {
+      const res = await fetch(apiPath("/api/mobile/auth/code"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ codeChallenge }),

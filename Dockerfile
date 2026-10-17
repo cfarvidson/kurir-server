@@ -28,9 +28,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm db:generate
+# Next inlines NEXT_PUBLIC_* at build time. The base path is the one public
+# value that has to be known then. Leave the build arg empty to serve at /.
+ARG NEXT_PUBLIC_BASE_PATH=
+ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
 # The VAPID public key is served to the client at runtime (see
-# src/app/api/push/vapid-public-key/route.ts), so no NEXT_PUBLIC_* build arg is
-# needed here — both VAPID keys are read from the runtime environment.
+# src/app/api/push/vapid-public-key/route.ts), so it is not a build arg —
+# both VAPID keys are read from the runtime environment.
 # Reuse Next.js's incremental compilation cache across builds. `COPY . .` busts
 # the layer cache on any source change, so without this every deploy is a cold
 # compile; the mount lets Next skip recompiling unchanged modules.

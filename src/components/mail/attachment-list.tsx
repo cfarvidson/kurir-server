@@ -7,6 +7,7 @@ import {
   canPreview,
   type ViewerAttachment,
 } from "@/components/mail/attachment-viewer";
+import { apiPath } from "@/lib/api-path";
 import { shareOrOpenAttachment } from "@/lib/mail/attachment-share";
 
 interface AttachmentItem {
@@ -66,7 +67,7 @@ export function AttachmentList({
       if ((err as Error)?.name !== "AbortError") {
         console.error("Attachment share failed", err);
         // Last-ditch fallback: navigate straight to the attachment.
-        window.location.href = `/api/attachments/${att.id}`;
+        window.location.href = apiPath(`/api/attachments/${att.id}`);
       }
     } finally {
       setBusyId(null);
@@ -112,7 +113,7 @@ export function AttachmentList({
           ) : (
             <a
               key={att.id}
-              href={`/api/attachments/${att.id}`}
+              href={apiPath(`/api/attachments/${att.id}`)}
               download={att.filename}
               onClick={(e) => handleShareClick(e, att)}
               className={chipClass}

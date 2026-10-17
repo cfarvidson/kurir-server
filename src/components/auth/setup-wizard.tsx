@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { apiPath } from "@/lib/api-path";
 import { EMAIL_PROVIDERS, detectProviderFromEmail } from "@/lib/mail/providers";
 import {
   getSettingsBackupState,
@@ -163,7 +164,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     setError(null);
 
     try {
-      const optionsRes = await fetch("/api/auth/webauthn/register/options", {
+      const optionsRes = await fetch(apiPath("/api/auth/webauthn/register/options"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: displayName.trim() }),
@@ -180,7 +181,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
       const { startRegistration } = await import("@simplewebauthn/browser");
       const credential = await startRegistration({ optionsJSON: options });
 
-      const verifyRes = await fetch("/api/auth/webauthn/register/verify", {
+      const verifyRes = await fetch(apiPath("/api/auth/webauthn/register/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -220,7 +221,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
 
   const handleOAuthConnect = () => {
     if (!selectedProvider?.oauthKey) return;
-    window.location.href = `/api/auth/oauth/${selectedProvider.oauthKey}?mode=setup`;
+    window.location.href = apiPath(`/api/auth/oauth/${selectedProvider.oauthKey}?mode=setup`);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -253,7 +254,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
         .map((a) => a.trim().toLowerCase())
         .filter((a) => a.includes("@"));
 
-      const res = await fetch("/api/connections", {
+      const res = await fetch(apiPath("/api/connections"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -293,7 +294,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
     setError(null);
 
     try {
-      const res = await fetch("/api/mail/sync?batchSize=200", {
+      const res = await fetch(apiPath("/api/mail/sync?batchSize=200"), {
         method: "POST",
       });
 
@@ -353,7 +354,7 @@ export default function SetupWizard({ oauthEnabled }: SetupWizardProps) {
       if (syncCancelledRef.current) return;
 
       try {
-        const res = await fetch("/api/mail/sync?batchSize=500", {
+        const res = await fetch(apiPath("/api/mail/sync?batchSize=500"), {
           method: "POST",
         });
         if (syncCancelledRef.current) return;

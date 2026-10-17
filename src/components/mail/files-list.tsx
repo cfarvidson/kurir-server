@@ -10,6 +10,7 @@ import {
   Loader2,
   type LucideIcon,
 } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 import { formatDate } from "@/lib/date";
 import { fileGroup, type FileGroup } from "@/lib/mail/file-types";
 import { fileOpenHref } from "@/lib/mail/route-helpers";
@@ -130,7 +131,7 @@ export function FilesList({
                 </button>
               ) : (
                 <a
-                  href={`/api/attachments/${file.id}`}
+                  href={apiPath(`/api/attachments/${file.id}`)}
                   download={file.filename}
                   className={rowClass}
                 >

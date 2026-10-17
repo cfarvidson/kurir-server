@@ -28,6 +28,7 @@ import {
   ToastShell,
   TOAST_UNSTYLED_RESET_CLASS,
 } from "@/components/ui/toast-config";
+import { apiPath } from "@/lib/api-path";
 import {
   Check,
   X,
@@ -206,7 +207,7 @@ export function ScreenerView({ senders: initialSenders }: ScreenerViewProps) {
     setPreviewLoading(true);
     setPreviewError(false);
     try {
-      const res = await fetch(`/api/mail/message/${messageId}/body`, {
+      const res = await fetch(apiPath(`/api/mail/message/${messageId}/body`), {
         signal: controller.signal,
       });
       if (!res.ok) throw new Error("Failed to fetch");

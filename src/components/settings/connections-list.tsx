@@ -10,6 +10,7 @@ import { ConnectionCard, type EmailConnection } from "./connection-card";
 import { Mail, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { apiPath } from "@/lib/api-path";
 
 interface ConnectionsListProps {
   connections: EmailConnection[];
@@ -45,7 +46,7 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
   const router = useRouter();
 
   const patchConnection = async (id: string, body: object) => {
-    await request(`/api/connections/${id}`, {
+    await request(apiPath(`/api/connections/${id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -58,13 +59,13 @@ export function ConnectionsList({ connections }: ConnectionsListProps) {
   };
 
   const handleDelete = async (id: string) => {
-    await request(`/api/connections/${id}`, { method: "DELETE" });
+    await request(apiPath(`/api/connections/${id}`), { method: "DELETE" });
     router.refresh();
   };
 
   const handleSync = async (id: string) => {
     // Sync can legitimately run for minutes on large mailboxes.
-    await request(`/api/mail/sync?connectionId=${encodeURIComponent(id)}`, {
+    await request(apiPath(`/api/mail/sync?connectionId=${encodeURIComponent(id)}`), {
       method: "POST",
       timeoutMs: 300_000,
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { prefixAppUrls } from "@/lib/api-path";
 import {
   sanitizeEmailHtmlWithMeta,
   type CidAttachment,
@@ -82,7 +83,8 @@ export function EmailBodyFrame({
     onTrackerCount?.(blockedTrackers);
     onQuoteCollapsible?.(quoteCollapsible);
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${sanitized}</div></div>`;
+    const bodyHtml = prefixAppUrls(sanitized);
+    shadow.innerHTML = `<style>${BASE_STYLES}</style><div class="scaler"><div class="content">${bodyHtml}</div></div>`;
 
     const scaler = shadow.querySelector(".scaler") as HTMLDivElement | null;
     const content = shadow.querySelector(".content") as HTMLDivElement | null;

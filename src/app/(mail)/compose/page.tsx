@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { auth, getUserEmailConnections } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -75,7 +76,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
       filename: a.filename,
       contentType: a.contentType,
       size: a.size,
-      url: `/api/attachments/${a.id}`,
+      url: apiPath(`/api/attachments/${a.id}`),
       status: "done" as const,
     }));
 
@@ -178,7 +179,7 @@ export default async function ComposePage({ searchParams }: ComposePageProps) {
           filename: a.filename,
           contentType: a.contentType,
           size: a.size,
-          url: `/api/attachments/${a.id}`,
+          url: apiPath(`/api/attachments/${a.id}`),
           status: "done" as const,
         })),
       };

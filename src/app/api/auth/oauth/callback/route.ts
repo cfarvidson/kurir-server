@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { auth } from "@/lib/auth";
@@ -29,13 +30,13 @@ export async function GET(request: NextRequest) {
   if (error) {
     const desc = request.nextUrl.searchParams.get("error_description") || error;
     return NextResponse.redirect(
-      new URL(`/setup?error=${encodeURIComponent(desc)}`, request.url),
+      new URL(apiPath(`/setup?error=${encodeURIComponent(desc)}`), request.url),
     );
   }
 
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL("/setup?error=Missing+authorization+code", request.url),
+      new URL(apiPath("/setup?error=Missing+authorization+code"), request.url),
     );
   }
 
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get("oauth_state")?.value;
   if (!cookieState || cookieState !== state) {
     return NextResponse.redirect(
-      new URL("/setup?error=Invalid+state+parameter", request.url),
+      new URL(apiPath("/setup?error=Invalid+state+parameter"), request.url),
     );
   }
 
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
   const parts = state.split(":");
   if (parts.length !== 5) {
     return NextResponse.redirect(
-      new URL("/setup?error=Invalid+state+format", request.url),
+      new URL(apiPath("/setup?error=Invalid+state+format"), request.url),
     );
   }
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   const secret = getConfig().encryptionKey;
   if (!secret) {
     return NextResponse.redirect(
-      new URL("/setup?error=Server+misconfiguration", request.url),
+      new URL(apiPath("/setup?error=Server+misconfiguration"), request.url),
     );
   }
   const expectedSig = createHmac("sha256", secret)
@@ -74,21 +75,21 @@ export async function GET(request: NextRequest) {
     !timingSafeEqual(sigBuf, expectedBuf)
   ) {
     return NextResponse.redirect(
-      new URL("/setup?error=Invalid+state+signature", request.url),
+      new URL(apiPath("/setup?error=Invalid+state+signature"), request.url),
     );
   }
 
   // Verify session matches the userId in the state (prevents connection hijacking)
   const session = await auth();
   if (!session?.user?.id || session.user.id !== userId) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL(apiPath("/login"), request.url));
   }
 
   const oauthProvider = provider as OAuthProviderType;
   const providerConfig = getProviderConfig(oauthProvider);
   if (!providerConfig) {
     return NextResponse.redirect(
-      new URL("/setup?error=OAuth+not+configured", request.url),
+      new URL(apiPath("/setup?error=OAuth+not+configured"), request.url),
     );
   }
 
@@ -111,8 +112,7 @@ export async function GET(request: NextRequest) {
 
     if (!imapOk) {
       return NextResponse.redirect(
-        new URL(
-          "/setup?error=IMAP+authentication+failed.+Please+ensure+IMAP+is+enabled+for+your+account.",
+        new URL(apiPath("/setup?error=IMAP+authentication+failed.+Please+ensure+IMAP+is+enabled+for+your+account."),
           request.url,
         ),
       );
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
 
     // Clear the state cookie
     const successUrl = mode === "add" ? "/settings" : "/imbox";
-    const response = NextResponse.redirect(new URL(successUrl, request.url));
+    const response = NextResponse.redirect(new URL(apiPath(successUrl), request.url));
     response.cookies.delete("oauth_state");
     return response;
   } catch (err) {
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
     const message =
       err instanceof Error ? err.message : "OAuth authentication failed";
     return NextResponse.redirect(
-      new URL(`/setup?error=${encodeURIComponent(message)}`, request.url),
+      new URL(apiPath(`/setup?error=${encodeURIComponent(message)}`), request.url),
     );
   }
 }

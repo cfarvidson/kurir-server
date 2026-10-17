@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { DraftRef } from "@/lib/mail/draft-context";
+import { apiPath } from "@/lib/api-path";
 import {
   compressToFit,
   needsCompression,
@@ -95,7 +96,7 @@ export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
           formData.append("draftContextMessageId", draftContextMessageId);
         }
 
-        const res = await fetch("/api/attachments/upload", {
+        const res = await fetch(apiPath("/api/attachments/upload"), {
           method: "POST",
           body: formData,
         });
@@ -143,7 +144,7 @@ export function useAttachments(draft?: DraftRef): UseAttachmentsReturn {
     // Delete from server if it was uploaded (not a temp/error entry)
     if (attachment?.status === "done" && !id.startsWith("temp-")) {
       try {
-        await fetch(`/api/attachments/${id}`, { method: "DELETE" });
+        await fetch(apiPath(`/api/attachments/${id}`), { method: "DELETE" });
       } catch {
         // Best effort — orphan cleanup will handle it
       }

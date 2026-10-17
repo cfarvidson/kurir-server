@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
+// Empty means the app is served at the host root. A value such as "/kurir"
+// is inlined into the client build, so set it before `next build`.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 const nextConfig: NextConfig = {
+  ...(basePath ? { basePath } : {}),
   output: "standalone",
   experimental: {
     // Enables the `"use cache"` directive (without the full cacheComponents

@@ -5,6 +5,7 @@ import { marked } from "marked";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AttachmentChips } from "@/components/mail/attachment-chips";
 import { Paperclip, Upload } from "lucide-react";
+import { prefixAppUrls } from "@/lib/api-path";
 import { cn } from "@/lib/utils";
 import type { UploadedAttachment } from "@/hooks/use-attachments";
 
@@ -275,7 +276,7 @@ export function MarkdownComposer({
           <div
             className={cn("prose px-0 py-1 text-sm")}
             style={{ minHeight: `${minHeight}px` }}
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
+            dangerouslySetInnerHTML={{ __html: prefixAppUrls(previewHtml) }}
           />
         </TabsContent>
       </Tabs>

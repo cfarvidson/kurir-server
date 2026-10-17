@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { NextRequest, NextResponse } from "next/server";
 import { DraftType } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -76,7 +77,7 @@ async function jsonChunkedUpload(request: NextRequest, userId: string) {
     filename: result.filename,
     contentType: result.contentType,
     size: result.size,
-    url: `/api/attachments/${result.id}`,
+    url: apiPath(`/api/attachments/${result.id}`),
     complete: true,
   });
 }
@@ -132,7 +133,7 @@ async function multipartUpload(request: NextRequest, userId: string) {
     filename: attachment.filename,
     contentType: attachment.contentType,
     size: attachment.size,
-    url: `/api/attachments/${attachment.id}`,
+    url: apiPath(`/api/attachments/${attachment.id}`),
   });
 }
 

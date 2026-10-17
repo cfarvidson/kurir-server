@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { CalendarInstanceDTO } from "@/components/calendar/types";
+import { apiPath } from "@/lib/api-path";
 import {
   addDays,
   civilFromZoned,
@@ -32,7 +33,7 @@ export function useTodayEvents(timeZone: string): {
         end: formatDateParam(addDays(today, 1)),
       });
       try {
-        const res = await fetch(`/api/calendar/instances?${params}`);
+        const res = await fetch(apiPath(`/api/calendar/instances?${params}`));
         if (!res.ok) return;
         const data = (await res.json()) as { instances: CalendarInstanceDTO[] };
         if (!cancelled) setInstances(data.instances);

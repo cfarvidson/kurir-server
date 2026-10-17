@@ -47,6 +47,7 @@ import { useDraft } from "@/hooks/use-draft";
 import { DraftStatusIndicator } from "@/components/mail/draft-status-indicator";
 import { DraftAssistant } from "@/components/mail/draft-assistant";
 import { resolveDraftContext } from "@/lib/mail/draft-context";
+import { apiPath } from "@/lib/api-path";
 
 const UNDO_DELAY_MS = 5000;
 
@@ -77,8 +78,7 @@ function useContactSearch(query: string) {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/contacts/search?q=${encodeURIComponent(query.trim())}`,
+        const res = await fetch(apiPath(`/api/contacts/search?q=${encodeURIComponent(query.trim())}`),
           { signal: controller.signal },
         );
         if (res.ok) {
@@ -635,7 +635,7 @@ export function ComposeClientPage({
 
       let response: Response;
       try {
-        response = await fetch("/api/mail/send", {
+        response = await fetch(apiPath("/api/mail/send"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

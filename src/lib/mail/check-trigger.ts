@@ -11,6 +11,7 @@
  * Pure and DOM-free except `requestImapCheck` (fetch) and `requestMailCheck`
  * (window event). Visibility and the refresh callback are injected.
  */
+import { apiPath } from "@/lib/api-path";
 
 export type CheckResult = "ok" | "rate_limited" | "error";
 
@@ -18,7 +19,7 @@ export const MAIL_CHECK_EVENT = "mail-check";
 
 export async function requestImapCheck(): Promise<CheckResult> {
   try {
-    const res = await fetch("/api/mail/check", { method: "POST" });
+    const res = await fetch(apiPath("/api/mail/check"), { method: "POST" });
     if (res.status === 429) return "rate_limited";
     if (!res.ok) return "error";
     return "ok";

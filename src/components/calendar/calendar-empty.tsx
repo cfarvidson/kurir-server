@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { CalDavDialog } from "@/components/calendar/caldav-dialog";
 import { IcsDialog } from "@/components/calendar/ics-dialog";
 import { KurirMascot } from "@/components/mascot";
+import { apiPath } from "@/lib/api-path";
 
-const GOOGLE_HREF = "/api/calendar/oauth/start?provider=google&redirect=/calendar";
+const GOOGLE_HREF = apiPath("/api/calendar/oauth/start?provider=google&redirect=/calendar");
 const OUTLOOK_HREF =
-  "/api/calendar/oauth/start?provider=microsoft&redirect=/calendar";
+  apiPath("/api/calendar/oauth/start?provider=microsoft&redirect=/calendar");
 
 export function CalendarEmpty() {
   const [caldavOpen, setCaldavOpen] = useState(false);

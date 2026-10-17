@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiPath } from "@/lib/api-path";
 
 export function base64UrlToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -16,7 +17,7 @@ export function base64UrlToUint8Array(base64String: string): BufferSource {
 const PUSH_NOT_CONFIGURED = "Push notifications are not configured on this server";
 
 async function fetchVapidPublicKey(): Promise<string> {
-  const res = await fetch("/api/push/vapid-public-key");
+  const res = await fetch(apiPath("/api/push/vapid-public-key"));
   if (!res.ok) {
     throw new Error(PUSH_NOT_CONFIGURED);
   }
@@ -54,7 +55,7 @@ export function usePushNotifications() {
       // honest "not configured" state instead of a dead Enable button. A
       // network blip leaves isConfigured null (unknown) rather than falsely
       // marking the server unconfigured for the whole session.
-      fetch("/api/push/vapid-public-key")
+      fetch(apiPath("/api/push/vapid-public-key"))
         .then((res) => setIsConfigured(res.ok))
         .catch(() => {});
     }
@@ -65,7 +66,7 @@ export function usePushNotifications() {
     // server), so it must be fetched rather than inlined at build time.
     const publicKey = await fetchVapidPublicKey();
 
-    const reg = await navigator.serviceWorker.register("/sw.js");
+    const reg = await navigator.serviceWorker.register(apiPath("/sw.js"));
     await navigator.serviceWorker.ready;
 
     const sub = await reg.pushManager.subscribe({
@@ -74,7 +75,7 @@ export function usePushNotifications() {
     });
 
     const json = sub.toJSON();
-    const res = await fetch("/api/push/subscribe", {
+    const res = await fetch(apiPath("/api/push/subscribe"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -97,7 +98,7 @@ export function usePushNotifications() {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      await fetch("/api/push/subscribe", {
+      await fetch(apiPath("/api/push/subscribe"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: sub.endpoint }),

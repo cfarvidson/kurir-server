@@ -25,6 +25,7 @@ import {
 } from "@/lib/updates/constants";
 import { cn } from "@/lib/utils";
 import { compareVersions } from "@/lib/updates/compare-versions";
+import { apiPath } from "@/lib/api-path";
 
 interface ChangelogEntry {
   version: string;
@@ -276,7 +277,7 @@ export function UpdatesSection({
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/updates");
+      const res = await fetch(apiPath("/api/admin/updates"));
       if (!res.ok) throw new Error("Failed to fetch update status");
       setStatus(await res.json());
       setError(null);
@@ -296,7 +297,7 @@ export function UpdatesSection({
   const handleCheck = async () => {
     setChecking(true);
     try {
-      const res = await fetch("/api/admin/updates/check", { method: "POST" });
+      const res = await fetch(apiPath("/api/admin/updates/check"), { method: "POST" });
       if (!res.ok) throw new Error("Check failed");
       await fetchStatus();
     } catch {
@@ -310,7 +311,7 @@ export function UpdatesSection({
     setUpdating(true);
     setConfirmUpdate(false);
     try {
-      const res = await fetch("/api/admin/updates/apply", { method: "POST" });
+      const res = await fetch(apiPath("/api/admin/updates/apply"), { method: "POST" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Update failed");
@@ -327,7 +328,7 @@ export function UpdatesSection({
 
   const handleRollback = async () => {
     try {
-      const res = await fetch("/api/admin/updates/rollback", {
+      const res = await fetch(apiPath("/api/admin/updates/rollback"), {
         method: "POST",
       });
       if (!res.ok) throw new Error("Rollback failed");
@@ -339,7 +340,7 @@ export function UpdatesSection({
 
   const handleModeChange = async (mode: string) => {
     try {
-      const res = await fetch("/api/admin/updates", {
+      const res = await fetch(apiPath("/api/admin/updates"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ updateMode: mode }),
@@ -353,7 +354,7 @@ export function UpdatesSection({
 
   const handleChannelChange = async (installBetas: boolean) => {
     try {
-      const res = await fetch("/api/admin/updates", {
+      const res = await fetch(apiPath("/api/admin/updates"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

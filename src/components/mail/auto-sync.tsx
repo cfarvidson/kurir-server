@@ -9,6 +9,7 @@ import {
   createRefreshScheduler,
   type RefreshScheduler,
 } from "@/lib/mail/refresh-scheduler";
+import { apiPath } from "@/lib/api-path";
 import {
   createCheckTrigger,
   requestImapCheck,
@@ -172,7 +173,7 @@ export function AutoSync() {
 
     const connect = () => {
       if (es) return;
-      es = new EventSource("/api/mail/events");
+      es = new EventSource(apiPath("/api/mail/events"));
       es.addEventListener("new-messages", schedule);
       es.addEventListener("flags-changed", schedule);
       es.addEventListener("message-deleted", schedule);
@@ -271,7 +272,7 @@ export function AutoSync() {
   const { data } = useQuery<SyncResponse>({
     queryKey: ["mail-sync"],
     queryFn: async () => {
-      const url = "/api/mail/sync?batchSize=200";
+      const url = apiPath("/api/mail/sync?batchSize=200");
       const res = await fetch(url, { method: "POST" });
       if (res.status === 429) {
         // Rate limited — back off and retry after the suggested delay

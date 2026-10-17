@@ -5,58 +5,94 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
+// Next may include basePath in pathname. new URL("/login", base) also drops
+// a path on NEXTAUTH_URL, so login and OAuth metadata would miss the mount.
+const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
+
+function appPath(pathname: string): string {
+  if (
+    basePath &&
+    (pathname === basePath || pathname.startsWith(`${basePath}/`))
+  ) {
+    const rest = pathname.slice(basePath.length);
+    return rest.startsWith("/") ? rest : "/";
+  }
+  return pathname;
+}
+
+function withBasePath(path: string): string {
+  if (!basePath) return path;
+  const q = path.indexOf("?");
+  const pathname = q === -1 ? path : path.slice(0, q);
+  const search = q === -1 ? "" : path.slice(q);
+  if (!pathname.startsWith("/") || pathname.startsWith("//")) return path;
+  if (pathname === basePath || pathname.startsWith(`${basePath}/`)) {
+    return path;
+  }
+  return `${basePath}${pathname}${search}`;
+}
+
 /**
  * Build a redirect URL using the public-facing base URL.
  * Behind Tailscale Serve → kamal-proxy, the app sees HTTP but the browser is on HTTPS.
  * Using req.nextUrl directly would generate http:// redirects, dropping the user
  * out of the TLS tunnel. NEXTAUTH_URL reflects the real browser-facing origin.
+ * Its origin is used so a path on that URL is not parsed away.
  */
 function redirect(
   req: Parameters<Parameters<typeof auth>[0]>[0],
   path: string,
 ) {
   const base = process.env.NEXTAUTH_URL || req.nextUrl.origin;
-  return NextResponse.redirect(new URL(path, base));
+  let origin: string;
+  try {
+    origin = new URL(base).origin;
+  } catch {
+    origin = req.nextUrl.origin;
+  }
+  return NextResponse.redirect(new URL(withBasePath(path), origin));
 }
 
 export default auth(async (req) => {
+  const pathname = appPath(req.nextUrl.pathname);
+
   // Pages cannot emit HTTP 429. Limit CIMD-driven authorize GETs here.
   const authorizeLimit = await rateLimitOAuthAuthorize(
-    req.nextUrl.pathname,
+    pathname,
     req.method,
     req.headers,
   );
   if (authorizeLimit) return authorizeLimit;
 
   const isLoggedIn = !!req.auth?.user;
-  const isOnLoginPage = req.nextUrl.pathname === "/login";
-  const isOnSetupPage = req.nextUrl.pathname === "/setup";
-  const isOnRegisterPage = req.nextUrl.pathname === "/register";
+  const isOnLoginPage = pathname === "/login";
+  const isOnSetupPage = pathname === "/setup";
+  const isOnRegisterPage = pathname === "/register";
   // Public legal pages — App Store reviewers and users must reach these
   // without an account.
   const isLegalPage = ["/privacy", "/terms", "/support"].includes(
-    req.nextUrl.pathname,
+    pathname,
   );
   // Local visual fixtures only — the pages themselves also 404 in production.
   const isDevPreview =
     process.env.NODE_ENV !== "production" &&
-    req.nextUrl.pathname.startsWith("/dev/");
-  const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
-  const isSetupApi = req.nextUrl.pathname === "/api/setup/check";
-  const isHealthCheck = req.nextUrl.pathname === "/api/up";
+    pathname.startsWith("/dev/");
+  const isAuthRoute = pathname.startsWith("/api/auth");
+  const isSetupApi = pathname === "/api/setup/check";
+  const isHealthCheck = pathname === "/api/up";
   const isUpdaterCallback =
-    req.nextUrl.pathname === "/api/admin/updates/status";
+    pathname === "/api/admin/updates/status";
 
   // Mobile API routes do their own bearer-token auth (no session cookie).
-  const isMobileApi = req.nextUrl.pathname.startsWith("/api/mobile");
+  const isMobileApi = pathname.startsWith("/api/mobile");
   // MCP Streamable HTTP + OAuth discovery/token are public (no session).
   // /oauth/authorize stays behind the existing login redirect.
   const isMcp =
-    req.nextUrl.pathname === "/mcp" || req.nextUrl.pathname.startsWith("/mcp/");
+    pathname === "/mcp" || pathname.startsWith("/mcp/");
   const isOAuthMeta =
-    req.nextUrl.pathname === "/.well-known/oauth-protected-resource" ||
-    req.nextUrl.pathname === "/.well-known/oauth-authorization-server";
-  const isOAuthToken = req.nextUrl.pathname === "/api/oauth/token";
+    pathname === "/.well-known/oauth-protected-resource" ||
+    pathname === "/.well-known/oauth-authorization-server";
+  const isOAuthToken = pathname === "/api/oauth/token";
   // Existing routes that support dual auth (session OR bearer) validate the
   // token in the handler. Only these exact paths may bypass the session
   // check here — a blanket bearer bypass would expose any handler that
@@ -66,11 +102,11 @@ export default auth(async (req) => {
   );
   const isBearerApiRequest =
     hasBearerToken &&
-    (/^\/api\/mail\/message\/[^/]+\/body$/.test(req.nextUrl.pathname) ||
-      /^\/api\/attachments\/[^/]+$/.test(req.nextUrl.pathname) ||
-      req.nextUrl.pathname === "/api/mail/send" ||
-      req.nextUrl.pathname === "/api/attachments/upload" ||
-      req.nextUrl.pathname === "/api/contacts/search");
+    (/^\/api\/mail\/message\/[^/]+\/body$/.test(pathname) ||
+      /^\/api\/attachments\/[^/]+$/.test(pathname) ||
+      pathname === "/api/mail/send" ||
+      pathname === "/api/attachments/upload" ||
+      pathname === "/api/contacts/search");
   // Allow auth, setup check, health check, and updater callback routes
   if (
     isAuthRoute ||
@@ -104,7 +140,7 @@ export default auth(async (req) => {
   }
 
   // Return 401 JSON for unauthenticated API requests (instead of redirect)
-  if (!isLoggedIn && req.nextUrl.pathname.startsWith("/api/")) {
+  if (!isLoggedIn && pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -118,7 +154,7 @@ export default auth(async (req) => {
     !isLegalPage &&
     !isDevPreview
   ) {
-    const next = req.nextUrl.pathname + req.nextUrl.search;
+    const next = pathname + req.nextUrl.search;
     return redirect(req, `/login?next=${encodeURIComponent(next)}`);
   }
 

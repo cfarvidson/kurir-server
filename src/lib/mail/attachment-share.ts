@@ -7,6 +7,8 @@
  * subtly different fallback behaviour).
  */
 
+import { apiPath } from "@/lib/api-path";
+
 /** Whether this browser can share files via the Web Share API. */
 export function canShareFiles(): boolean {
   return (
@@ -29,7 +31,7 @@ export async function shareOrOpenAttachment(
   contentType: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const apiUrl = `/api/attachments/${id}`;
+  const apiUrl = apiPath(`/api/attachments/${id}`);
   const res = await fetch(apiUrl, { signal });
   if (!res.ok) throw new Error(`Failed to load attachment (${res.status})`);
   const blob = await res.blob();

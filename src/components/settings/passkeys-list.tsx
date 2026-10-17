@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { PasskeyCard, type PasskeyInfo } from "./passkey-card";
 import { Button } from "@/components/ui/button";
 import { Fingerprint, Loader2, Plus } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface PasskeysListProps {
   passkeys: PasskeyInfo[];
@@ -27,8 +28,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
 
     try {
       // Get registration options for an already-authenticated user
-      const optionsRes = await fetch(
-        "/api/auth/webauthn/register/options?addPasskey=true",
+      const optionsRes = await fetch(apiPath("/api/auth/webauthn/register/options?addPasskey=true"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -46,8 +46,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
         optionsJSON: options.options,
       });
 
-      const verifyRes = await fetch(
-        "/api/auth/webauthn/register/verify?addPasskey=true",
+      const verifyRes = await fetch(apiPath("/api/auth/webauthn/register/verify?addPasskey=true"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -78,7 +77,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
 
   const handleDelete = async (id: string) => {
     startTransition(async () => {
-      await fetch(`/api/auth/webauthn/passkeys/${id}`, {
+      await fetch(apiPath(`/api/auth/webauthn/passkeys/${id}`), {
         method: "DELETE",
       });
       router.refresh();
@@ -86,7 +85,7 @@ export function PasskeysList({ passkeys }: PasskeysListProps) {
   };
 
   const handleRename = async (id: string, name: string) => {
-    await fetch(`/api/auth/webauthn/passkeys/${id}`, {
+    await fetch(apiPath(`/api/auth/webauthn/passkeys/${id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),

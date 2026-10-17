@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
     }
     return NextResponse.redirect(
-      new URL("/settings?tab=calendar&error=Unknown+provider", request.url),
+      new URL(apiPath("/settings?tab=calendar&error=Unknown+provider"), request.url),
     );
   }
 
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (mobile) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL(apiPath("/login"), request.url));
   }
 
   const redirect = safeCalendarOAuthRedirect(

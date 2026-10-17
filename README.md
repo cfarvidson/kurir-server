@@ -143,6 +143,12 @@ bin/deploy setup    # First deploy
 bin/deploy          # Subsequent deploys
 ```
 
+### Mounting under a subpath
+
+Leave `NEXT_PUBLIC_BASE_PATH` empty to serve Kurir at the host root. To serve it at `https://example.com/kurir`, set that variable to `/kurir` before `next build` (the Docker image takes it as a build arg) and set `NEXTAUTH_URL` to the same URL, path included. Passkey checks use the origin, so the path does not have to be a separate host. `next/link` follows the base path. Browser calls such as `fetch` are prefixed the same way.
+
+A reverse proxy in front of the app should forward `/kurir` to the container. Kurir does not need a second copy of `/api` at the host root.
+
 ## Scripts
 
 ```bash

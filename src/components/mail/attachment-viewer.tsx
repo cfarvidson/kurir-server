@@ -15,6 +15,7 @@ import {
   isSafeInlineImage,
   isViewableText,
 } from "@/lib/mail/attachment-types";
+import { apiPath } from "@/lib/api-path";
 import {
   canShareFiles,
   shareOrOpenAttachment,
@@ -77,7 +78,7 @@ export function AttachmentViewer({
 
   if (!attachment) return null;
 
-  const url = `/api/attachments/${attachment.id}`;
+  const url = apiPath(`/api/attachments/${attachment.id}`);
   const inlineUrl = `${url}?inline=1`;
   const ct = attachment.contentType || "";
 

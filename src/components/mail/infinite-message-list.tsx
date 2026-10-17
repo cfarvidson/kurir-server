@@ -107,7 +107,7 @@ export function InfiniteMessageList({
       queryFn: async ({ pageParam }) => {
         const params = new URLSearchParams({ category });
         if (pageParam) params.set("cursor", pageParam as string);
-        const res = await fetch(`/api/messages?${params}`);
+        const res = await fetch(apiPath(`/api/messages?${params}`));
         if (!res.ok) throw new Error("Failed to fetch messages");
         return res.json();
       },
@@ -487,6 +487,7 @@ export function InfiniteMessageList({
 }
 
 import { forwardRef } from "react";
+import { apiPath } from "@/lib/api-path";
 
 const ScrollSentinel = forwardRef<
   HTMLDivElement,

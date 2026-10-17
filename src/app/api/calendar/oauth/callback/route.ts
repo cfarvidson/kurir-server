@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createOauthCalendarAccount } from "@/lib/calendar/accounts";
@@ -13,7 +14,7 @@ const SETTINGS = "/settings?tab=calendar";
 function errorRedirect(request: NextRequest, message: string): NextResponse {
   return NextResponse.redirect(
     new URL(
-      `${SETTINGS}&error=${encodeURIComponent(message)}`,
+      apiPath(`${SETTINGS}&error=${encodeURIComponent(message)}`),
       request.url,
     ),
   );
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 
   const session = await auth();
   if (!session?.user?.id || session.user.id !== state.userId) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL(apiPath("/login"), request.url));
   }
 
   try {
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
     });
 
     const dest = safeCalendarOAuthRedirect(state.redirect);
-    const response = NextResponse.redirect(new URL(dest, request.url));
+    const response = NextResponse.redirect(new URL(apiPath(dest), request.url));
     response.cookies.delete("calendar_oauth_state");
     return response;
   } catch (err) {

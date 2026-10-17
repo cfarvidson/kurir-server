@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiPath } from "@/lib/api-path";
 import {
   isCheckInFlight,
   requestMailCheck,
@@ -94,7 +95,7 @@ const DEFAULT_RESPONSE: SyncStatusResponse = {
 };
 
 async function fetchSyncStatus(): Promise<SyncStatusResponse> {
-  const res = await fetch("/api/mail/sync-status");
+  const res = await fetch(apiPath("/api/mail/sync-status"));
   if (!res.ok) return DEFAULT_RESPONSE;
   return res.json();
 }

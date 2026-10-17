@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertCircle } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface LogEntry {
   type: "sync" | "error";
@@ -20,7 +21,7 @@ export function LogsSection() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/logs");
+      const res = await fetch(apiPath("/api/admin/logs"));
       if (!res.ok) throw new Error("Failed to fetch logs");
       const data = await res.json();
       setLogs(data.logs);

@@ -1,3 +1,5 @@
+import { apiPath } from "@/lib/api-path";
+
 export type CalendarProviderId = "GOOGLE" | "MICROSOFT" | "CALDAV" | "ICS";
 
 const SETTINGS_CALENDAR_TAB = "/settings?tab=calendar";
@@ -14,7 +16,7 @@ export function calendarReconnectHref(
 ): string | null {
   if (provider === "CALDAV" || provider === "ICS") return null;
   const slug = provider === "GOOGLE" ? "google" : "microsoft";
-  return `/api/calendar/oauth/start?provider=${slug}&redirect=${encodeURIComponent(SETTINGS_CALENDAR_TAB)}`;
+  return apiPath(`/api/calendar/oauth/start?provider=${slug}&redirect=${encodeURIComponent(SETTINGS_CALENDAR_TAB)}`);
 }
 
 export function calendarLastSyncLabel(

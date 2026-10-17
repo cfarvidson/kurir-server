@@ -1,3 +1,4 @@
+import { apiPath } from "@/lib/api-path";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -69,7 +70,7 @@ export async function loadAttachmentMeta(
         filename: row.filename,
         contentType: row.contentType,
         size: row.size,
-        url: `/api/attachments/${row.id}`,
+        url: apiPath(`/api/attachments/${row.id}`),
       },
     ];
   });
