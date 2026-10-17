@@ -41,7 +41,8 @@ with your Kurir passkey and approve access. The agent can read and search
 mail, triage, screen senders, list calendars and read calendar events, and change
 your own settings. Sending, creating or deleting events, replying to
 invitations and other destructive actions ask for a confirmation in Claude
-first. Revoke
+first. A client that cannot show that prompt retries the same call with
+`confirm: true`. A client that can show it still gets the prompt. Revoke
 access under Settings → Connected apps. See the [MCP docs](https://kurir.io/docs/mcp) for the full tool list.
 
 Clients identify themselves with a Client ID Metadata Document (Claude does

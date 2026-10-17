@@ -66,7 +66,7 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "send_mail",
     description:
-      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
+      "Send mail (compose, reply, reply-all, or forward). Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true. If this send came from save_draft, pass draft { type, contextMessageId } so the draft is deleted after a successful send.",
     inputSchema: sendInputSchemaJson(false),
     annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(sendMail),
@@ -75,7 +75,7 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "schedule_mail",
     description:
-      "Schedule mail for later. Same fields as send_mail plus scheduledFor. Requires client elicitation.",
+      "Schedule mail for later. Same fields as send_mail plus scheduledFor. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: sendInputSchemaJson(true),
     annotations: { destructiveHint: true, openWorldHint: true },
     handler: wrap(scheduleMail),
@@ -84,10 +84,17 @@ export function registerSendTools(registerTool: (def: ToolDef) => void): void {
   registerTool({
     name: "send_scheduled_now",
     description:
-      "Send a pending scheduled message immediately. Requires client elicitation.",
+      "Send a pending scheduled message immediately. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" } },
+      properties: {
+        id: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to send when the client cannot show a confirmation prompt.",
+        },
+      },
       required: ["id"],
     },
     annotations: { destructiveHint: true, openWorldHint: true },
@@ -117,6 +124,11 @@ function sendInputSchemaJson(includeSchedule: boolean) {
           contextMessageId: { type: "string" },
         },
         required: ["type", "contextMessageId"],
+      },
+      confirm: {
+        type: "boolean",
+        description:
+          "Set true to send when the client cannot show a confirmation prompt.",
       },
       ...(includeSchedule
         ? { scheduledFor: { type: "string", description: "ISO-8601 datetime" } }

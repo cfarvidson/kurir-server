@@ -6,7 +6,8 @@ import {
 } from "@/lib/mcp/confirmations";
 import type { ToolContext, ToolDef, ToolResult } from "@/lib/mcp/types";
 
-export const CANNOT_CONFIRM = "this client cannot confirm this action";
+export const CANNOT_CONFIRM =
+  "this client cannot show a confirmation prompt; retry the same call with confirm: true";
 export const CONFIRM_MISMATCH = "confirmation does not match arguments";
 export const CONFIRM_CANCELLED = "cancelled";
 export const DEMO_SEND_DISABLED = "Sending is disabled on this demo instance.";
@@ -19,6 +20,7 @@ export function wrap(
 ): ToolDef["handler"] {
   return async (ctx, args) => {
     try {
+      if (args.confirm === true) ctx.confirmed = true;
       return await handler(ctx, args);
     } catch (error) {
       const raw = error instanceof Error ? error.message : "Tool failed";
@@ -47,8 +49,10 @@ export function bumpSidebarCounts(): void {
 }
 
 /**
- * MRTR gate for dangerous tools. No elicitation -> error. First call
- * creates a confirmation and returns input_required. A retry with
+ * MRTR gate for dangerous tools. No elicitation -> error, unless the
+ * same call set confirm: true (clients that cannot show elicitation/create).
+ * A client that can elicit still gets the prompt, even if confirm is set.
+ * First call creates a confirmation and returns input_required. A retry with
  * requestState consumes the handle: accept runs `onAccept` once, cancel
  * and mismatch return errors and do not mutate.
  */
@@ -60,6 +64,7 @@ export async function requireConfirmation(
   onAccept: () => Promise<ToolResult>,
 ): Promise<ToolResult> {
   if (!ctx.hasElicitation) {
+    if (ctx.confirmed) return onAccept();
     return err(CANNOT_CONFIRM);
   }
   if (!ctx.requestState) {

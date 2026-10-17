@@ -14,6 +14,8 @@ export interface ToolContext {
   userId: string;
   tokenId: string;
   hasElicitation: boolean;
+  /** Set when the tool call passed confirm: true. Honored only if the client cannot elicit. */
+  confirmed?: boolean;
   inputResponses?: Record<string, { action?: string; content?: unknown }>;
   requestState?: string;
 }

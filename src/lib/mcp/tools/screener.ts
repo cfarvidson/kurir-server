@@ -68,13 +68,18 @@ export function registerScreenerTools(
   registerTool({
     name: "screen_sender",
     description:
-      "Approve, skip, unskip, undo, or reject a screener sender. Reject requires client elicitation.",
+      "Approve, skip, unskip, undo, or reject a screener sender. Reject requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
       properties: {
         senderId: { type: "string" },
         action: { type: "string", enum: [...SCREEN_ACTIONS] },
         category: { type: "string", enum: [...CATEGORIES] },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to reject when the client cannot show a confirmation prompt.",
+        },
       },
       required: ["senderId", "action"],
     },
@@ -110,7 +115,7 @@ export function registerScreenerTools(
   registerTool({
     name: "create_domain_rule",
     description:
-      "Create a domain screening rule. APPROVED runs immediately; REJECTED requires elicitation.",
+      "Create a domain screening rule. APPROVED runs immediately; REJECTED requires elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
       properties: {
@@ -119,6 +124,11 @@ export function registerScreenerTools(
         includeSubdomains: { type: "boolean" },
         status: { type: "string", enum: ["APPROVED", "REJECTED"] },
         category: { type: "string", enum: [...CATEGORIES] },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to reject a domain when the client cannot show a confirmation prompt.",
+        },
       },
       required: ["includeSubdomains", "status"],
     },

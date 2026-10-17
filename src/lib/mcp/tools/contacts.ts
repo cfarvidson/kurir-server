@@ -177,10 +177,18 @@ export function registerContactTools(
 
   registerTool({
     name: "delete_contact",
-    description: "Delete a contact. Requires client elicitation.",
+    description:
+      "Delete a contact. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { contactId: { type: "string" } },
+      properties: {
+        contactId: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to delete when the client cannot show a confirmation prompt.",
+        },
+      },
       required: ["contactId"],
     },
     annotations: { destructiveHint: true },
@@ -227,10 +235,18 @@ export function registerContactTools(
 
   registerTool({
     name: "delete_contact_group",
-    description: "Delete a contact group. Requires client elicitation.",
+    description:
+      "Delete a contact group. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { groupId: { type: "string" } },
+      properties: {
+        groupId: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to delete when the client cannot show a confirmation prompt.",
+        },
+      },
       required: ["groupId"],
     },
     annotations: { destructiveHint: true },

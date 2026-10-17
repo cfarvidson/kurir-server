@@ -169,10 +169,17 @@ export function registerSettingsTools(
   registerTool({
     name: "delete_connection",
     description:
-      "Delete an email connection. Refuses the last connection. Requires client elicitation.",
+      "Delete an email connection. Refuses the last connection. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { connectionId: { type: "string" } },
+      properties: {
+        connectionId: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to delete when the client cannot show a confirmation prompt.",
+        },
+      },
       required: ["connectionId"],
     },
     annotations: { destructiveHint: true },
@@ -182,10 +189,17 @@ export function registerSettingsTools(
   registerTool({
     name: "revoke_passkey",
     description:
-      "Revoke a passkey. Refuses the last passkey. Requires client elicitation.",
+      "Revoke a passkey. Refuses the last passkey. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { passkeyId: { type: "string" } },
+      properties: {
+        passkeyId: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to revoke when the client cannot show a confirmation prompt.",
+        },
+      },
       required: ["passkeyId"],
     },
     annotations: { destructiveHint: true },
@@ -195,10 +209,17 @@ export function registerSettingsTools(
   registerTool({
     name: "bulk_approve_old_senders",
     description:
-      "Approve PENDING senders whose newest mail is older than days (default 90) into Imbox. Requires client elicitation.",
+      "Approve PENDING senders whose newest mail is older than days (default 90) into Imbox. Requires client elicitation. Clients that cannot show the prompt retry the same call with confirm: true.",
     inputSchema: {
       type: "object",
-      properties: { days: { type: "integer", minimum: 1, maximum: 365 } },
+      properties: {
+        days: { type: "integer", minimum: 1, maximum: 365 },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to approve when the client cannot show a confirmation prompt.",
+        },
+      },
     },
     annotations: { destructiveHint: true },
     handler: wrap(bulkApproveOldSenders),

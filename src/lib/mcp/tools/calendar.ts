@@ -478,7 +478,7 @@ export function registerCalendarTools(
   registerTool({
     name: "create_event",
     description:
-      "Create a calendar event in a writable calendar (see list_calendars). Asks the user to confirm before writing. start/end are ISO-8601 datetimes read in the user's timezone unless they carry an offset; end is exclusive. For an all-day event (allDay: true) start and end are dates (YYYY-MM-DD) and end is the last day, inclusive. No attendees.",
+      "Create a calendar event in a writable calendar (see list_calendars). Asks the user to confirm before writing. Clients that cannot show the prompt retry the same call with confirm: true. start/end are ISO-8601 datetimes read in the user's timezone unless they carry an offset; end is exclusive. For an all-day event (allDay: true) start and end are dates (YYYY-MM-DD) and end is the last day, inclusive. No attendees.",
     inputSchema: {
       type: "object",
       properties: {
@@ -489,6 +489,11 @@ export function registerCalendarTools(
         allDay: { type: "boolean" },
         location: { type: "string" },
         notes: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to create the event when the client cannot show a confirmation prompt.",
+        },
       },
       required: ["calendarId", "title", "start", "end"],
     },
@@ -499,13 +504,18 @@ export function registerCalendarTools(
   registerTool({
     name: "delete_event",
     description:
-      "Delete a calendar event. Asks the user to confirm before writing. range defaults to all (the whole event or series); this / thisAndFollowing need occurrence, the startAt of the occurrence as returned by list_events.",
+      "Delete a calendar event. Asks the user to confirm before writing. Clients that cannot show the prompt retry the same call with confirm: true. range defaults to all (the whole event or series); this / thisAndFollowing need occurrence, the startAt of the occurrence as returned by list_events.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         range: { type: "string", enum: [...RANGES] },
         occurrence: { type: "string", description: "ISO-8601 datetime" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to delete when the client cannot show a confirmation prompt.",
+        },
       },
       required: ["id"],
     },
@@ -516,13 +526,18 @@ export function registerCalendarTools(
   registerTool({
     name: "respond_to_event",
     description:
-      "Reply to a calendar invitation that arrived by mail (accepted, tentative or declined). Asks the user to confirm before sending the reply to the organizer. messageId is the id of the mail carrying the invitation; optional calendarId picks which calendar to add it to.",
+      "Reply to a calendar invitation that arrived by mail (accepted, tentative or declined). Asks the user to confirm before sending the reply to the organizer. Clients that cannot show the prompt retry the same call with confirm: true. messageId is the id of the mail carrying the invitation; optional calendarId picks which calendar to add it to.",
     inputSchema: {
       type: "object",
       properties: {
         messageId: { type: "string" },
         status: { type: "string", enum: [...RSVP_STATUSES] },
         calendarId: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "Set true to reply when the client cannot show a confirmation prompt.",
+        },
       },
       required: ["messageId", "status"],
     },
