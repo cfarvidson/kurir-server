@@ -30,11 +30,11 @@ function headers(h: Record<string, string>) {
 describe("dispatchMcp", () => {
   beforeEach(() => vi.resetModules());
 
-  it("rejects the wrong protocol version", async () => {
+  it("rejects a protocol version that is not a date", async () => {
     const { dispatchMcp } = await import("@/lib/mcp/protocol");
     const res = await dispatchMcp({
       headers: headers({
-        "MCP-Protocol-Version": "2025-11-25",
+        "MCP-Protocol-Version": "not-a-date",
         "Mcp-Method": "server/discover",
       }),
       body: { jsonrpc: "2.0", id: 1, method: "server/discover" },
@@ -44,6 +44,74 @@ describe("dispatchMcp", () => {
     expect(res.json).toMatchObject({
       error: { message: expect.stringContaining("2026-07-28") },
     });
+  });
+
+  it("accepts an older dated handshake without Mcp-Method", async () => {
+    const { dispatchMcp } = await import("@/lib/mcp/protocol");
+    const res = await dispatchMcp({
+      headers: headers({ "MCP-Protocol-Version": "2025-11-25" }),
+      body: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-11-25" },
+      },
+      userId: "u1",
+      tokenId: "t1",
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      result: {
+        protocolVersion: "2025-11-25",
+        capabilities: { tools: {} },
+        serverInfo: { name: "kurir" },
+      },
+    });
+  });
+
+  it("answers initialized and ping on the older handshake", async () => {
+    const { dispatchMcp } = await import("@/lib/mcp/protocol");
+    const initialized = await dispatchMcp({
+      headers: headers({}),
+      body: { jsonrpc: "2.0", method: "notifications/initialized" },
+      userId: "u1",
+      tokenId: "t1",
+    });
+    expect(initialized.status).toBe(202);
+
+    const ping = await dispatchMcp({
+      headers: headers({}),
+      body: { jsonrpc: "2.0", id: 2, method: "ping" },
+      userId: "u1",
+      tokenId: "t1",
+    });
+    expect(ping.status).toBe(200);
+    expect(ping.json).toMatchObject({ result: { resultType: "complete" } });
+  });
+
+  it("lists tools on the older handshake without protocol headers", async () => {
+    const { dispatchMcp } = await import("@/lib/mcp/protocol");
+    const res = await dispatchMcp({
+      headers: headers({}),
+      body: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      userId: "u1",
+      tokenId: "t1",
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ result: { tools: [] } });
+  });
+
+  it("still requires Mcp-Method on the current protocol version", async () => {
+    const { dispatchMcp } = await import("@/lib/mcp/protocol");
+    const res = await dispatchMcp({
+      headers: headers({ "MCP-Protocol-Version": "2026-07-28" }),
+      body: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      userId: "u1",
+      tokenId: "t1",
+    });
+    expect((res.json as { error?: { code?: number } }).error?.code).toBe(
+      -32600,
+    );
   });
 
   it("rejects header/body method mismatch", async () => {

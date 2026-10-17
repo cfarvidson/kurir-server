@@ -23,7 +23,13 @@ export async function dispatchMcp(input: {
   const version =
     input.headers.get("MCP-Protocol-Version") ??
     input.headers.get("Mcp-Protocol-Version");
-  if (version !== MCP_PROTOCOL_VERSION) {
+  // 2026-07-28 clients send MCP-Protocol-Version and Mcp-Method.
+  // Older clients speak initialize / tools/list / tools/call without those
+  // headers, often with a dated protocol version such as 2025-06-18.
+  // A dated older version, or no version header, is that handshake.
+  // The current version stays strict.
+  const strict = version === MCP_PROTOCOL_VERSION;
+  if (version && !strict && !/^\d{4}-\d{2}-\d{2}$/.test(version)) {
     return rpcError(
       id,
       INVALID_REQUEST,
@@ -37,7 +43,10 @@ export async function dispatchMcp(input: {
   }
 
   const headerMethod = input.headers.get("Mcp-Method");
-  if (!headerMethod || headerMethod !== request.method) {
+  const methodMismatch = strict
+    ? !headerMethod || headerMethod !== request.method
+    : Boolean(headerMethod) && headerMethod !== request.method;
+  if (methodMismatch) {
     return rpcError(
       id,
       INVALID_REQUEST,
@@ -48,7 +57,8 @@ export async function dispatchMcp(input: {
   if (request.method === "tools/call") {
     const toolName = toolNameFromParams(request.params);
     const headerName = input.headers.get("Mcp-Name");
-    if (!headerName || !toolName || headerName !== toolName) {
+    const nameRequired = strict || Boolean(headerName);
+    if (nameRequired && (!headerName || !toolName || headerName !== toolName)) {
       return rpcError(
         id,
         INVALID_REQUEST,
@@ -58,7 +68,11 @@ export async function dispatchMcp(input: {
   }
 
   const meta = readMeta(request.params);
-  if (meta.protocolVersion && meta.protocolVersion !== MCP_PROTOCOL_VERSION) {
+  if (
+    strict &&
+    meta.protocolVersion &&
+    meta.protocolVersion !== MCP_PROTOCOL_VERSION
+  ) {
     return rpcError(
       id,
       INVALID_REQUEST,
@@ -81,6 +95,25 @@ export async function dispatchMcp(input: {
           },
         },
       });
+    case "initialize": {
+      const params = asRecord(request.params);
+      const requested =
+        version && version !== MCP_PROTOCOL_VERSION
+          ? version
+          : typeof params?.protocolVersion === "string"
+            ? params.protocolVersion
+            : "2025-06-18";
+      return rpcResult(request.id, {
+        protocolVersion: requested,
+        capabilities: { tools: {} },
+        serverInfo: { name: "kurir", version: pkg.version },
+      });
+    }
+    case "notifications/initialized":
+    case "initialized":
+      return { status: 202, json: {} };
+    case "ping":
+      return rpcResult(request.id, {});
     case "tools/list":
       return rpcResult(request.id, {
         tools: listTools().map(serializeTool),

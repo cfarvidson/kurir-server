@@ -36,7 +36,10 @@ A self-hosted email client inspired by [HEY](https://www.hey.com). Kurir connect
 
 ## Claude / MCP
 
-Point Claude at `https://<your-domain>/mcp` as a custom connector. Sign in
+Point Claude at `https://<your-domain>/mcp` as a custom connector. The current
+handshake sends `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method`. Older
+clients can `initialize`, then call `tools/list` and `tools/call` without
+those headers. Sign in
 with your Kurir passkey and approve access. The agent can read and search
 mail, triage, screen senders, list calendars and read calendar events, and change
 your own settings. Sending, creating or deleting events, replying to
